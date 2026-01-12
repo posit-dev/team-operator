@@ -1,5 +1,8 @@
 # Team Operator
 
+> **Warning**
+> This repository is under active development and is not yet ready for production use. Please [contact Posit](https://posit.co/schedule-a-call/) before using this operator.
+
 A Kubernetes operator that manages the deployment and lifecycle of Posit Team products (Workbench, Connect, Package Manager, and Chronicle) within Kubernetes clusters.
 
 ## Overview
