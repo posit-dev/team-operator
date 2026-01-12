@@ -73,12 +73,17 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # Checkout the latest commit (including the release commit created by semantic-release)
+          ref: main
 
       - name: Get latest tag
         id: get-tag
         run: |
           git fetch --tags
-          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          # Use git tag instead of git describe because the tag may be on a newer
+          # commit than the one that triggered the workflow (semantic-release creates
+          # a new commit for the release)
+          TAG=$(git tag --sort=-version:refname | head -1 || echo "")
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: Package Helm chart
