@@ -8,8 +8,8 @@ package v1beta1
 import (
 	"fmt"
 
-	"github.com/rstudio/goex/ptr"
 	"github.com/posit-dev/team-operator/api/product"
+	"github.com/rstudio/goex/ptr"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

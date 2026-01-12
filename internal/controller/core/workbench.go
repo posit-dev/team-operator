@@ -7,12 +7,12 @@ import (
 	"strconv"
 
 	"github.com/pkg/errors"
-	"github.com/rstudio/goex/ptr"
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/api/templates"
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/posit-dev/team-operator/internal/db"
+	"github.com/rstudio/goex/ptr"
 	"github.com/traefik/traefik/v3/pkg/config/dynamic"
 	"github.com/traefik/traefik/v3/pkg/provider/kubernetes/crd/traefikio/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
