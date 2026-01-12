@@ -1,0 +1,79 @@
+IMAGE_NAME := "flightdeck"
+BUILDX_PATH := ""
+VERSION := `git describe --always --dirty --tags`
+
+default: test
+
+run *args:
+  #!/usr/bin/env bash
+  # Check for --dev flag
+  for arg in {{ args }}; do
+    if [[ "$arg" == "--dev" ]]; then
+      export DEV_MODE=true
+      echo "Running in dev mode (DEV_MODE=true)"
+    fi
+  done
+
+  if [[ $(which air) ]]; then
+    # use air for hot-reloading
+    air
+  else
+    echo 'You need `air` installed!'
+    echo ''
+    echo ' --> `go install github.com/air-verse/air@latest` and add to PATH'
+    echo ''
+    echo 'For more info: https://github.com/air-verse/air'
+    echo ''
+    go run ./cmd/main.go
+  fi
+
+docker-build:
+  #!/usr/bin/env bash
+  set -xe
+
+  # Get Go version from go.mod. The 4 curly brackets on the left side look odd,
+  # but this is intentional and the escaping that works for the combination of
+  # just and bash parsing. The echo statement proves that it is extracting the
+  # version correctly.
+  GO_VERSION=$(go list -m -f "{{{{.GoVersion}}")
+  if [[ -z "$GO_VERSION" ]]; then
+    echo "Error: Could not extract Go version from go.mod"
+    exit 1
+  fi
+  echo Getting Go version from go.mod: ${GO_VERSION}
+
+  BUILDX_ARGS=()
+  if [[ "{{ BUILDX_PATH }}" ]]; then
+    BUILDX_ARGS=(
+      --cache-from='type=local,src=/tmp/.buildx-cache'
+      --cache-to='type=local,dest=/tmp/.buildx-cache'
+    )
+  fi
+  docker buildx build \
+    --builder="{{ BUILDX_PATH }}" \
+    --load \
+    "${BUILDX_ARGS[@]}" \
+    --build-arg VERSION="{{ VERSION }}" \
+    --build-arg GO_VERSION=${GO_VERSION} \
+    --build-context root=../ \
+    --platform=linux/amd64 \
+    -t "ghcr.io/posit-dev/{{ IMAGE_NAME }}:{{ VERSION }}" \
+    .
+
+docker-push:
+  #!/usr/bin/env bash
+  set -xe
+  docker push ghcr.io/posit-dev/{{ IMAGE_NAME }}:{{ VERSION }}
+
+echo-image:
+  @echo {{ IMAGE_NAME }}:{{ VERSION }}
+
+build:
+  go build \
+    -ldflags="-X 'github.com/posit-dev/team-operator/flightdeck/internal.VersionString={{ VERSION }}'" \
+    -a \
+    -o ./bin/flightdeck \
+    ./cmd
+
+test:
+  go test ./...

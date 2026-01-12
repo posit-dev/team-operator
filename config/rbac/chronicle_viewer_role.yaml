@@ -1,0 +1,27 @@
+# permissions for end users to view chronicles.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: chronicle-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: team-operator
+    app.kubernetes.io/part-of: team-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: chronicle-viewer-role
+rules:
+- apiGroups:
+  - core.posit.team
+  resources:
+  - chronicles
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - core.posit.team
+  resources:
+  - chronicles/status
+  verbs:
+  - get

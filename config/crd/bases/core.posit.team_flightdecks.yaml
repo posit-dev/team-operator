@@ -1,0 +1,126 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.0
+  name: flightdecks.core.posit.team
+spec:
+  group: core.posit.team
+  names:
+    kind: Flightdeck
+    listKind: FlightdeckList
+    plural: flightdecks
+    singular: flightdeck
+  scope: Namespaced
+  versions:
+  - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: Flightdeck is the Schema for the flightdecks API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: FlightdeckSpec defines the desired state of Flightdeck
+            properties:
+              awsAccountId:
+                description: AwsAccountId is the AWS account ID (used for EKS-to-IAM
+                  annotations)
+                type: string
+              clusterDate:
+                description: ClusterDate is the cluster date ID (used for EKS-to-IAM
+                  annotations)
+                type: string
+              domain:
+                description: Domain is the domain name for Flightdeck ingress
+                type: string
+              featureEnabler:
+                description: FeatureEnabler controls which features are enabled in
+                  Flightdeck
+                properties:
+                  showAcademy:
+                    default: false
+                    description: ShowAcademy enables the academy page
+                    type: boolean
+                  showConfig:
+                    default: false
+                    description: ShowConfig enables the configuration page
+                    type: boolean
+                type: object
+              image:
+                description: Image is the container image for Flightdeck
+                type: string
+              imagePullPolicy:
+                description: ImagePullPolicy controls when the kubelet pulls the image
+                type: string
+              imagePullSecrets:
+                description: ImagePullSecrets are references to secrets for pulling
+                  images
+                items:
+                  type: string
+                type: array
+              ingressAnnotations:
+                additionalProperties:
+                  type: string
+                description: IngressAnnotations are annotations to apply to the ingress
+                type: object
+              ingressClass:
+                description: IngressClass is the ingress class to use
+                type: string
+              logFormat:
+                default: text
+                description: LogFormat sets the log output format (text, json)
+                type: string
+              logLevel:
+                default: info
+                description: LogLevel sets the logging verbosity (debug, info, warn,
+                  error)
+                type: string
+              port:
+                default: 8080
+                description: Port is the port that the container will listen on
+                format: int32
+                type: integer
+              replicas:
+                default: 1
+                description: Replicas is the number of Flightdeck pods to run
+                type: integer
+              siteName:
+                description: SiteName is the name of the Site that owns this Flightdeck
+                  instance
+                type: string
+              workloadCompoundName:
+                description: WorkloadCompoundName is the workload name
+                type: string
+            type: object
+          status:
+            description: FlightdeckStatus defines the observed state of Flightdeck
+            properties:
+              ready:
+                description: Ready indicates whether the Flightdeck deployment is
+                  ready
+                type: boolean
+            required:
+            - ready
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

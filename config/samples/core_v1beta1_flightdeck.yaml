@@ -1,0 +1,24 @@
+apiVersion: core.posit.team/v1beta1
+kind: Flightdeck
+metadata:
+  name: example-flightdeck
+  namespace: posit-team
+  labels:
+    app.kubernetes.io/name: flightdeck
+    app.kubernetes.io/managed-by: team-operator
+spec:
+  siteName: example
+  image: ghcr.io/rstudio/flightdeck:latest
+  imagePullPolicy: IfNotPresent
+  port: 8080
+  replicas: 1
+  featureEnabler:
+    showConfig: true
+    showAcademy: true
+  domain: example.posit.team
+  ingressClass: nginx
+  ingressAnnotations: {}
+  imagePullSecrets: []
+  awsAccountId: "123456789012"
+  clusterDate: "20240101"
+  workloadCompoundName: example-workload

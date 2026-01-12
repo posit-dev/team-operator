@@ -1,0 +1,11 @@
+# NOTE: This file is injected by rstudio/ptd team-operator as a full override of the
+# /etc/pam.d/common-session file. See the man page for details!
+# https://manpages.ubuntu.com/manpages/jammy/en/man5/pam.conf.5.html
+
+session	[default=1]		pam_permit.so
+session	requisite			pam_deny.so
+session	required			pam_permit.so
+session	optional			pam_umask.so
+session	required			pam_unix.so
+session	optional			pam_sss.so
+session	required			pam_mkhomedir.so	skel=/etc/skel	umask=0077

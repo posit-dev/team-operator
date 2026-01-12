@@ -1,0 +1,159 @@
+{{- if .Values.crd.enable }}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+  annotations:
+    {{- if .Values.certmanager.enable }}
+    cert-manager.io/inject-ca-from: "{{ .Release.Namespace }}/serving-cert"
+    {{- end }}
+    {{- if .Values.crd.keep }}
+    "helm.sh/resource-policy": keep
+    {{- end }}
+    controller-gen.kubebuilder.io/version: v0.17.0
+  name: chronicles.core.posit.team
+spec:
+  {{- if .Values.webhook.enable }}
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          namespace: {{ .Release.Namespace }}
+          name: webhook-service
+          path: /convert
+      conversionReviewVersions:
+      - v1
+  {{- end }}
+  group: core.posit.team
+  names:
+    kind: Chronicle
+    listKind: ChronicleList
+    plural: chronicles
+    shortNames:
+    - pcr
+    - chr
+    singular: chronicle
+  scope: Namespaced
+  versions:
+  - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: Chronicle is the Schema for the chronicles API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ChronicleSpec defines the desired state of Chronicle
+            properties:
+              addEnv:
+                additionalProperties:
+                  type: string
+                description: AddEnv adds arbitrary environment variables to the container
+                  env
+                type: object
+              awsAccountId:
+                description: AwsAccountId is the account Id for this AWS Account.
+                  It is used to create EKS-to-IAM annotations
+                type: string
+              clusterDate:
+                description: ClusterDate is the date id (YYYYmmdd) for the cluster.
+                  It is used to create EKS-to-IAM annotations
+                type: string
+              config:
+                properties:
+                  Http:
+                    properties:
+                      Listen:
+                        type: string
+                    type: object
+                  LocalStorage:
+                    properties:
+                      Enabled:
+                        type: boolean
+                      Location:
+                        type: string
+                    type: object
+                  Logging:
+                    properties:
+                      ServiceLog:
+                        type: string
+                      ServiceLogFormat:
+                        type: string
+                      ServiceLogLevel:
+                        type: string
+                    type: object
+                  Metrics:
+                    properties:
+                      Enabled:
+                        type: boolean
+                      Listen:
+                        type: string
+                    type: object
+                  Profiling:
+                    properties:
+                      Enabled:
+                        type: boolean
+                      Listen:
+                        type: string
+                    type: object
+                  S3Storage:
+                    properties:
+                      Bucket:
+                        type: string
+                      Enabled:
+                        type: boolean
+                      Prefix:
+                        type: string
+                      Region:
+                        type: string
+                    type: object
+                type: object
+              image:
+                type: string
+              imagePullSecrets:
+                description: |-
+                  ImagePullSecrets is a set of image pull secrets to use for all image pulls. These names / secrets
+                  must already exist in the namespace in question.
+                items:
+                  type: string
+                type: array
+              nodeSelector:
+                additionalProperties:
+                  type: string
+                type: object
+              workloadCompoundName:
+                description: WorkloadCompoundName is the name for the workload
+                type: string
+            type: object
+          status:
+            description: ChronicleStatus defines the observed state of Chronicle
+            properties:
+              ready:
+                type: boolean
+            required:
+            - ready
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+{{- end -}}

@@ -1,0 +1,16 @@
+apiVersion: v2
+name: team-operator
+description: Kubernetes operator for managing Posit Team deployments
+type: application
+version: 0.1.1
+appVersion: "0.1.0"
+home: "https://github.com/posit-dev/team-operator"
+sources:
+  - "https://github.com/posit-dev/team-operator"
+maintainers:
+  - name: Posit Team
+keywords:
+  - posit
+  - rstudio
+  - kubernetes
+  - operator

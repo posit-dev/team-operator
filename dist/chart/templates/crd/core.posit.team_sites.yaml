@@ -1,0 +1,1462 @@
+{{- if .Values.crd.enable }}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+  annotations:
+    {{- if .Values.certmanager.enable }}
+    cert-manager.io/inject-ca-from: "{{ .Release.Namespace }}/serving-cert"
+    {{- end }}
+    {{- if .Values.crd.keep }}
+    "helm.sh/resource-policy": keep
+    {{- end }}
+    controller-gen.kubebuilder.io/version: v0.17.0
+  name: sites.core.posit.team
+spec:
+  {{- if .Values.webhook.enable }}
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          namespace: {{ .Release.Namespace }}
+          name: webhook-service
+          path: /convert
+      conversionReviewVersions:
+      - v1
+  {{- end }}
+  group: core.posit.team
+  names:
+    kind: Site
+    listKind: SiteList
+    plural: sites
+    singular: site
+  scope: Namespaced
+  versions:
+  - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: Site is the Schema for the sites API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: SiteSpec defines the desired state of Site
+            properties:
+              awsAccountId:
+                description: AwsAccountId is the account Id for this AWS Account.
+                  It is used to create EKS-to-IAM annotations
+                type: string
+              chronicle:
+                description: Chronicle contains Posit Chronicle configuration
+                properties:
+                  addEnv:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  agentImage:
+                    type: string
+                  image:
+                    type: string
+                  imagePullPolicy:
+                    description: PullPolicy describes a policy for if/when to pull
+                      a container image
+                    type: string
+                  nodeSelector:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  s3Bucket:
+                    type: string
+                type: object
+              clusterDate:
+                description: ClusterDate is the date id (YYYYmmdd) for the cluster.
+                  It is used to create EKS-to-IAM annotations
+                type: string
+              connect:
+                description: Connect contains Posit Connect configuration
+                properties:
+                  addEnv:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  auth:
+                    properties:
+                      administratorRoleMapping:
+                        items:
+                          type: string
+                        type: array
+                      clientId:
+                        type: string
+                      disableGroupsClaim:
+                        type: boolean
+                      emailClaim:
+                        type: string
+                      groups:
+                        type: boolean
+                      groupsClaim:
+                        type: string
+                      issuer:
+                        type: string
+                      publisherRoleMapping:
+                        items:
+                          type: string
+                        type: array
+                      samlEmailAttribute:
+                        type: string
+                      samlFirstNameAttribute:
+                        type: string
+                      samlIdPAttributeProfile:
+                        description: SAML-specific attribute mappings (mutually exclusive
+                          with SamlIdPAttributeProfile)
+                        type: string
+                      samlLastNameAttribute:
+                        type: string
+                      samlMetadataUrl:
+                        type: string
+                      samlUsernameAttribute:
+                        type: string
+                      scopes:
+                        items:
+                          type: string
+                        type: array
+                      type:
+                        type: string
+                      uniqueIdClaim:
+                        type: string
+                      usernameClaim:
+                        type: string
+                      viewerRoleMapping:
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  databaseSettings:
+                    properties:
+                      instrumentationSchema:
+                        type: string
+                      schema:
+                        type: string
+                    type: object
+                  databricks:
+                    properties:
+                      clientId:
+                        type: string
+                      name:
+                        type: string
+                      tenantId:
+                        type: string
+                      url:
+                        type: string
+                    type: object
+                  domainPrefix:
+                    default: connect
+                    type: string
+                  experimentalFeatures:
+                    properties:
+                      chronicleSidecarProductApiKeyEnabled:
+                        description: |-
+                          ChronicleSidecarProductApiKeyEnabled assumes the api key for this product has been added to a secret and
+                          injects the secret as an environment variable to the sidecar
+                        type: boolean
+                      dsnSecret:
+                        description: DsnSecret is a key for the default SiteSecretType
+                          to embed in sessions as a DSN (/etc/odbc.ini)
+                        type: string
+                      mailDisplayName:
+                        description: MailDisplayName Is the display name of the server
+                          in the email subject
+                        type: string
+                      mailSender:
+                        description: MailSender enables SMTP and sets the sender email
+                          address
+                        type: string
+                      mailTarget:
+                        description: MailTarget sets the target email address. Can
+                          be useful for avoiding junk mail
+                        type: string
+                      sessionEnvVars:
+                        description: SessionEnvVars is a map of environment variables
+                          to set in the session pods
+                        items:
+                          description: EnvVar represents an environment variable present
+                            in a Container.
+                          properties:
+                            name:
+                              description: |-
+                                Name of the environment variable.
+                                May consist of any printable ASCII characters except '='.
+                              type: string
+                            value:
+                              description: |-
+                                Variable references $(VAR_NAME) are expanded
+                                using the previously defined environment variables in the container and
+                                any service environment variables. If a variable cannot be resolved,
+                                the reference in the input string will be unchanged. Double $$ are reduced
+                                to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e.
+                                "$$(VAR_NAME)" will produce the string literal "$(VAR_NAME)".
+                                Escaped references will never be expanded, regardless of whether the variable
+                                exists or not.
+                                Defaults to "".
+                              type: string
+                            valueFrom:
+                              description: Source for the environment variable's value.
+                                Cannot be used if value is not empty.
+                              properties:
+                                configMapKeyRef:
+                                  description: Selects a key of a ConfigMap.
+                                  properties:
+                                    key:
+                                      description: The key to select.
+                                      type: string
+                                    name:
+                                      default: ""
+                                      description: |-
+                                        Name of the referent.
+                                        This field is effectively required, but due to backwards compatibility is
+                                        allowed to be empty. Instances of this type with an empty value here are
+                                        almost certainly wrong.
+                                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      type: string
+                                    optional:
+                                      description: Specify whether the ConfigMap or
+                                        its key must be defined
+                                      type: boolean
+                                  required:
+                                  - key
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                fieldRef:
+                                  description: |-
+                                    Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
+                                    spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.
+                                  properties:
+                                    apiVersion:
+                                      description: Version of the schema the FieldPath
+                                        is written in terms of, defaults to "v1".
+                                      type: string
+                                    fieldPath:
+                                      description: Path of the field to select in
+                                        the specified API version.
+                                      type: string
+                                  required:
+                                  - fieldPath
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                fileKeyRef:
+                                  description: |-
+                                    FileKeyRef selects a key of the env file.
+                                    Requires the EnvFiles feature gate to be enabled.
+                                  properties:
+                                    key:
+                                      description: |-
+                                        The key within the env file. An invalid key will prevent the pod from starting.
+                                        The keys defined within a source may consist of any printable ASCII characters except '='.
+                                        During Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.
+                                      type: string
+                                    optional:
+                                      default: false
+                                      description: |-
+                                        Specify whether the file or its key must be defined. If the file or key
+                                        does not exist, then the env var is not published.
+                                        If optional is set to true and the specified key does not exist,
+                                        the environment variable will not be set in the Pod's containers.
+
+                                        If optional is set to false and the specified key does not exist,
+                                        an error will be returned during Pod creation.
+                                      type: boolean
+                                    path:
+                                      description: |-
+                                        The path within the volume from which to select the file.
+                                        Must be relative and may not contain the '..' path or start with '..'.
+                                      type: string
+                                    volumeName:
+                                      description: The name of the volume mount containing
+                                        the env file.
+                                      type: string
+                                  required:
+                                  - key
+                                  - path
+                                  - volumeName
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                resourceFieldRef:
+                                  description: |-
+                                    Selects a resource of the container: only resources limits and requests
+                                    (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.
+                                  properties:
+                                    containerName:
+                                      description: 'Container name: required for volumes,
+                                        optional for env vars'
+                                      type: string
+                                    divisor:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      description: Specifies the output format of
+                                        the exposed resources, defaults to "1"
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                    resource:
+                                      description: 'Required: resource to select'
+                                      type: string
+                                  required:
+                                  - resource
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                secretKeyRef:
+                                  description: Selects a key of a secret in the pod's
+                                    namespace
+                                  properties:
+                                    key:
+                                      description: The key of the secret to select
+                                        from.  Must be a valid secret key.
+                                      type: string
+                                    name:
+                                      default: ""
+                                      description: |-
+                                        Name of the referent.
+                                        This field is effectively required, but due to backwards compatibility is
+                                        allowed to be empty. Instances of this type with an empty value here are
+                                        almost certainly wrong.
+                                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      type: string
+                                    optional:
+                                      description: Specify whether the Secret or its
+                                        key must be defined
+                                      type: boolean
+                                  required:
+                                  - key
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                              type: object
+                          required:
+                          - name
+                          type: object
+                        type: array
+                      sessionImagePullPolicy:
+                        description: SessionImagePullPolicy is the image pull policy
+                          for session pods
+                        type: string
+                      sessionServiceAccountName:
+                        description: |-
+                          SessionServiceAccountName is the name of the service account to use as default for ALL session pods.
+                          This can be overwritten in the UI
+                        type: string
+                    type: object
+                  gpuSettings:
+                    description: GPUSettings allows configuring GPU resource requests
+                      and limits
+                    properties:
+                      amdGPULimit:
+                        type: integer
+                      maxAMDGPULimit:
+                        type: integer
+                      maxNvidiaGPULimit:
+                        type: integer
+                      nvidiaGPULimit:
+                        type: integer
+                    type: object
+                  image:
+                    type: string
+                  imagePullPolicy:
+                    description: PullPolicy describes a policy for if/when to pull
+                      a container image
+                    type: string
+                  license:
+                    properties:
+                      existingSecretKey:
+                        type: string
+                      existingSecretName:
+                        type: string
+                      key:
+                        type: string
+                      type:
+                        type: string
+                    type: object
+                  loggedInWarning:
+                    type: string
+                  nodeSelector:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  publicWarning:
+                    type: string
+                  replicas:
+                    type: integer
+                  scheduleConcurrency:
+                    default: 2
+                    minimum: 0
+                    type: integer
+                  sessionImage:
+                    type: string
+                  volume:
+                    description: VolumeSpec is a specification for a PersistentVolumeClaim
+                      to be created (and/or mounted)
+                    properties:
+                      accessModes:
+                        description: AccessModes is the access mode for the created
+                          PVC. Only used if Create is true
+                        items:
+                          type: string
+                        type: array
+                      create:
+                        description: Create determines whether the PVC should be created
+                          or not
+                        type: boolean
+                      mountPath:
+                        description: MountPath is not always used. It is only used
+                          for volumes that are configurable... (i.e. additionalVolumes)
+                        type: string
+                      pvcName:
+                        description: PvcName is used only if Create is false. The
+                          idea is that the PVC has already been created. Only used
+                          if Create is false
+                        type: string
+                      readOnly:
+                        description: ReadOnly defaults to false and determines whether
+                          the volume is mounted ReadOnly
+                        type: boolean
+                      size:
+                        description: Size is the size of the PVC that is being created.
+                          Only used if Create is true
+                        type: string
+                      storageClassName:
+                        description: StorageClassName identifies the StorageClassName
+                          created by the PV. Only used if Create is true
+                        type: string
+                      volumeName:
+                        description: VolumeName is the name of the PV that will be
+                          referenced by the created PVC. Only used if Create is true
+                        type: string
+                    type: object
+                type: object
+              debug:
+                type: boolean
+              disablePrePullImages:
+                type: boolean
+              domain:
+                description: Domain is the core domain name associated with the Posit
+                  Team Site
+                type: string
+              dropDatabaseOnTearDown:
+                type: boolean
+              efsEnabled:
+                description: |-
+                  EFSEnabled indicates whether EFS is enabled for this site
+                  When true, network policies will allow workbench sessions to access EFS mount targets
+                type: boolean
+              enableFqdnHealthChecks:
+                default: true
+                description: |-
+                  EnableFQDNHealthChecks controls whether Grafana Alloy generates FQDN-based health check targets
+                  for this site's products. When false, only internal cluster health checks are generated.
+                  Defaults to true.
+                type: boolean
+              extraSiteServiceAccounts:
+                description: ExtraSiteServiceAccounts will be prefixed by "<siteName>-"
+                  and created as service accounts in Kubernetes
+                items:
+                  properties:
+                    annotations:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    nameSuffix:
+                      type: string
+                  type: object
+                type: array
+              flightdeck:
+                description: Flightdeck contains Flightdeck configuration
+                properties:
+                  featureEnabler:
+                    description: FeatureEnabler controls which features are enabled
+                      in Flightdeck
+                    properties:
+                      showAcademy:
+                        default: false
+                        description: ShowAcademy enables the academy page
+                        type: boolean
+                      showConfig:
+                        default: false
+                        description: ShowConfig enables the configuration page
+                        type: boolean
+                    type: object
+                  image:
+                    description: Image is the container image for Flightdeck
+                    type: string
+                  imagePullPolicy:
+                    description: ImagePullPolicy controls when the kubelet pulls the
+                      image
+                    type: string
+                  logFormat:
+                    default: text
+                    description: LogFormat sets the log output format (text, json)
+                    type: string
+                  logLevel:
+                    default: info
+                    description: LogLevel sets the logging verbosity (debug, info,
+                      warn, error)
+                    type: string
+                  replicas:
+                    description: Replicas is the number of Flightdeck pods to run
+                    type: integer
+                type: object
+              imagePullSecrets:
+                description: |-
+                  ImagePullSecrets is a set of image pull secrets to use for all image pulls. These names / secrets
+                  must already exist in the namespace in question.
+                items:
+                  type: string
+                type: array
+              ingressAnnotations:
+                additionalProperties:
+                  type: string
+                description: IngressAnnotations is a set of annotations to be applied
+                  to all ingress routes
+                type: object
+              ingressClass:
+                description: IngressClass is the ingress class to be used when creating
+                  ingress routes
+                type: string
+              keycloak:
+                description: Keycloak contains the Keycloak configuration details
+                properties:
+                  enabled:
+                    type: boolean
+                  image:
+                    type: string
+                  imagePullPolicy:
+                    description: PullPolicy describes a policy for if/when to pull
+                      a container image
+                    type: string
+                  nodeSelector:
+                    additionalProperties:
+                      type: string
+                    type: object
+                type: object
+              logFormat:
+                type: string
+              mainDatabaseCredentialSecret:
+                description: MainDatabaseCredentialSecret configures the secret used
+                  for storing the main database credentials
+                properties:
+                  type:
+                    type: string
+                  vaultName:
+                    type: string
+                type: object
+              networkTrust:
+                default: 100
+                maximum: 100
+                minimum: 0
+                type: integer
+              packageManager:
+                description: PackageManager contains Posit Package Manager configuration
+                properties:
+                  addEnv:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  azureFiles:
+                    description: AzureFiles configures Azure Files integration for
+                      persistent storage
+                    properties:
+                      shareSizeGiB:
+                        description: ShareSizeGiB is the size of the Azure File Share
+                          to create
+                        type: integer
+                      storageClassName:
+                        description: StorageClassName is the name of the Kubernetes
+                          StorageClass that uses the Azure Files CSI driver
+                        type: string
+                    type: object
+                  domainPrefix:
+                    default: packagemanager
+                    type: string
+                  gitSSHKeys:
+                    description: |-
+                      GitSSHKeys defines SSH key configurations for Git authentication in Package Manager
+                      These SSH keys will be made available to Package Manager for Git Builders
+                    items:
+                      description: SSHKeyConfig defines SSH key configuration for
+                        Git authentication
+                      properties:
+                        host:
+                          description: |-
+                            Host is the Git host domain this key applies to
+                            Example: "github.com"
+                          type: string
+                        name:
+                          description: Name is a unique identifier for this SSH key
+                            configuration
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                        passphraseSecretRef:
+                          description: PassphraseSecretRef optionally references a
+                            secret containing the passphrase for an encrypted SSH
+                            key
+                          properties:
+                            key:
+                              description: |-
+                                Key is the specific key within the secret (primarily for Kubernetes secrets)
+                                For AWS/Azure: usually not needed as the entire secret is used
+                                For Kubernetes: the key within the Secret data
+                              type: string
+                            name:
+                              description: |-
+                                Name is the secret name
+                                For AWS: secret name in AWS Secrets Manager (e.g., "ptd/cluster/packagemanager/ssh/github")
+                                For Kubernetes: secret name in the same namespace
+                                For Azure: key vault secret name
+                              minLength: 1
+                              type: string
+                            source:
+                              description: Source specifies the secret management
+                                system
+                              enum:
+                              - aws-secrets-manager
+                              - kubernetes
+                              - azure-key-vault
+                              type: string
+                          required:
+                          - name
+                          - source
+                          type: object
+                        secretRef:
+                          description: SecretRef references the secret containing
+                            the SSH private key
+                          properties:
+                            key:
+                              description: |-
+                                Key is the specific key within the secret (primarily for Kubernetes secrets)
+                                For AWS/Azure: usually not needed as the entire secret is used
+                                For Kubernetes: the key within the Secret data
+                              type: string
+                            name:
+                              description: |-
+                                Name is the secret name
+                                For AWS: secret name in AWS Secrets Manager (e.g., "ptd/cluster/packagemanager/ssh/github")
+                                For Kubernetes: secret name in the same namespace
+                                For Azure: key vault secret name
+                              minLength: 1
+                              type: string
+                            source:
+                              description: Source specifies the secret management
+                                system
+                              enum:
+                              - aws-secrets-manager
+                              - kubernetes
+                              - azure-key-vault
+                              type: string
+                          required:
+                          - name
+                          - source
+                          type: object
+                      required:
+                      - host
+                      - name
+                      - secretRef
+                      type: object
+                    type: array
+                  image:
+                    type: string
+                  imagePullPolicy:
+                    description: PullPolicy describes a policy for if/when to pull
+                      a container image
+                    type: string
+                  license:
+                    properties:
+                      existingSecretKey:
+                        type: string
+                      existingSecretName:
+                        type: string
+                      key:
+                        type: string
+                      type:
+                        type: string
+                    type: object
+                  nodeSelector:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  replicas:
+                    type: integer
+                  s3Bucket:
+                    type: string
+                  volume:
+                    description: VolumeSpec is a specification for a PersistentVolumeClaim
+                      to be created (and/or mounted)
+                    properties:
+                      accessModes:
+                        description: AccessModes is the access mode for the created
+                          PVC. Only used if Create is true
+                        items:
+                          type: string
+                        type: array
+                      create:
+                        description: Create determines whether the PVC should be created
+                          or not
+                        type: boolean
+                      mountPath:
+                        description: MountPath is not always used. It is only used
+                          for volumes that are configurable... (i.e. additionalVolumes)
+                        type: string
+                      pvcName:
+                        description: PvcName is used only if Create is false. The
+                          idea is that the PVC has already been created. Only used
+                          if Create is false
+                        type: string
+                      readOnly:
+                        description: ReadOnly defaults to false and determines whether
+                          the volume is mounted ReadOnly
+                        type: boolean
+                      size:
+                        description: Size is the size of the PVC that is being created.
+                          Only used if Create is true
+                        type: string
+                      storageClassName:
+                        description: StorageClassName identifies the StorageClassName
+                          created by the PV. Only used if Create is true
+                        type: string
+                      volumeName:
+                        description: VolumeName is the name of the PV that will be
+                          referenced by the created PVC. Only used if Create is true
+                        type: string
+                    type: object
+                type: object
+              packageManagerUrl:
+                description: |-
+                  PackageManagerUrl specifies the Package Manager URL for Workbench to use
+                  If empty, Workbench will use the local Package Manager URL by default
+                type: string
+              secret:
+                description: Secret configures the secret management for this Site
+                properties:
+                  type:
+                    type: string
+                  vaultName:
+                    type: string
+                type: object
+              secretType:
+                description: |-
+                  SecretType is the type of secret that we should use to store values (i.e. database passwords)
+                  *NOTE*: this field is deprecated and will be removed in the future
+                type: string
+              sharedDirectory:
+                description: |-
+                  SharedDirectory is the name of a directory mounted into Workbench and Connect at /mnt/<sharedDirectory>. It should
+                  NOT contain any slashes.
+                type: string
+              volumeSource:
+                description: |-
+                  VolumeSource is a definition of where volumes should be created from. Usually a site targets a single
+                  shared resource (i.e. FSx instance) to provision all of its shared data
+                properties:
+                  dnsName:
+                    type: string
+                  type:
+                    type: string
+                  volumeId:
+                    type: string
+                type: object
+              volumeSubdirJobOff:
+                description: VolumeSubdirJobOff turns off the VolumeSubdir provisioning
+                  kubernetes job
+                type: boolean
+              vpcCIDR:
+                description: VPCCIDR is the CIDR block for the VPC, used for EFS network
+                  policies
+                type: string
+              workbench:
+                description: Workbench contains Posit Workbench configuration
+                properties:
+                  addEnv:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  additionalVolumes:
+                    description: AdditionalVolumes represents additional VolumeSpec's
+                      that can be defined for Workbench
+                    items:
+                      description: VolumeSpec is a specification for a PersistentVolumeClaim
+                        to be created (and/or mounted)
+                      properties:
+                        accessModes:
+                          description: AccessModes is the access mode for the created
+                            PVC. Only used if Create is true
+                          items:
+                            type: string
+                          type: array
+                        create:
+                          description: Create determines whether the PVC should be
+                            created or not
+                          type: boolean
+                        mountPath:
+                          description: MountPath is not always used. It is only used
+                            for volumes that are configurable... (i.e. additionalVolumes)
+                          type: string
+                        pvcName:
+                          description: PvcName is used only if Create is false. The
+                            idea is that the PVC has already been created. Only used
+                            if Create is false
+                          type: string
+                        readOnly:
+                          description: ReadOnly defaults to false and determines whether
+                            the volume is mounted ReadOnly
+                          type: boolean
+                        size:
+                          description: Size is the size of the PVC that is being created.
+                            Only used if Create is true
+                          type: string
+                        storageClassName:
+                          description: StorageClassName identifies the StorageClassName
+                            created by the PV. Only used if Create is true
+                          type: string
+                        volumeName:
+                          description: VolumeName is the name of the PV that will
+                            be referenced by the created PVC. Only used if Create
+                            is true
+                          type: string
+                      type: object
+                    type: array
+                  adminGroups:
+                    description: |-
+                      AdminGroups specifies a list of groups that will have admin access to the Workbench administrative dashboard
+                      These groups will be joined into a comma-delimited string for the admin-group configuration
+                      If not specified, defaults to ["workbench-admin"]
+                    items:
+                      type: string
+                    type: array
+                  adminSuperuserGroups:
+                    description: |-
+                      AdminSuperuserGroups specifies a list of groups that will have superuser access to the Workbench administrative dashboard
+                      These groups will be joined into a comma-delimited string for the admin-superuser-group configuration
+                      If not specified, no superuser groups will be configured
+                    items:
+                      type: string
+                    type: array
+                  apiSettings:
+                    properties:
+                      workbenchApiAdminEnabled:
+                        type: integer
+                      workbenchApiEnabled:
+                        type: integer
+                      workbenchApiSuperAdminEnabled:
+                        type: integer
+                    type: object
+                  auth:
+                    properties:
+                      administratorRoleMapping:
+                        items:
+                          type: string
+                        type: array
+                      clientId:
+                        type: string
+                      disableGroupsClaim:
+                        type: boolean
+                      emailClaim:
+                        type: string
+                      groups:
+                        type: boolean
+                      groupsClaim:
+                        type: string
+                      issuer:
+                        type: string
+                      publisherRoleMapping:
+                        items:
+                          type: string
+                        type: array
+                      samlEmailAttribute:
+                        type: string
+                      samlFirstNameAttribute:
+                        type: string
+                      samlIdPAttributeProfile:
+                        description: SAML-specific attribute mappings (mutually exclusive
+                          with SamlIdPAttributeProfile)
+                        type: string
+                      samlLastNameAttribute:
+                        type: string
+                      samlMetadataUrl:
+                        type: string
+                      samlUsernameAttribute:
+                        type: string
+                      scopes:
+                        items:
+                          type: string
+                        type: array
+                      type:
+                        type: string
+                      uniqueIdClaim:
+                        type: string
+                      usernameClaim:
+                        type: string
+                      viewerRoleMapping:
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  authLoginPageHtml:
+                    description: Workbench Auth/Login Landing Page Customization HTML
+                    type: string
+                  createUsersAutomatically:
+                    type: boolean
+                  databricks:
+                    additionalProperties:
+                      properties:
+                        clientId:
+                          type: string
+                        name:
+                          type: string
+                        tenantId:
+                          type: string
+                        url:
+                          type: string
+                      type: object
+                    type: object
+                  defaultSessionImage:
+                    type: string
+                  domainPrefix:
+                    default: workbench
+                    type: string
+                  experimentalFeatures:
+                    description: ExperimentalFeatures allows enabling miscellaneous
+                      experimental features for workbench
+                    properties:
+                      chronicleSidecarProductApiKeyEnabled:
+                        description: |-
+                          ChronicleSidecarProductApiKeyEnabled assumes the api key for this product has been added to a secret and
+                          injects the secret as an environment variable to the sidecar
+                        type: boolean
+                      cpuRequestRatio:
+                        default: "0.6"
+                        description: |-
+                          CpuRequestRatio defines the ratio of CPU requests to limits for session pods
+                          Value must be a decimal number between 0 and 1 (e.g., "0.6" means requests are 60% of limits)
+                          Defaults to "0.6" if not specified
+                        pattern: ^(0(\.[0-9]+)?|1(\.0+)?)$
+                        type: string
+                      databricksForceEnabled:
+                        description: |-
+                          DatabricksForceEnabled enforces that the Databricks pane should be enabled, even if there are no sets of
+                          managed credentials in use
+                        type: boolean
+                      dsnSecret:
+                        description: DsnSecret is a key for the default SiteSecretType
+                          to embed in sessions as a DSN (/etc/odbc.ini)
+                        type: string
+                      enableManagedCredentialJobs:
+                        type: boolean
+                      firstProjectTemplatePath:
+                        type: string
+                      forceAdminUiEnabled:
+                        description: |-
+                          ForceAdminUiEnabled forces the configuration manager UI to be enabled even when Workbench has it disabled
+                          by default when running on Kubernetes
+                        type: boolean
+                      launcherEnvPath:
+                        description: LauncherEnvPath allows customization of the PATH
+                          environment variable for launcher sessions
+                        type: string
+                      launcherSessionsProxyTimeoutSecs:
+                        type: integer
+                      memoryRequestRatio:
+                        default: "0.8"
+                        description: |-
+                          MemoryRequestRatio defines the ratio of memory requests to limits for session pods
+                          Value must be a decimal number between 0 and 1 (e.g., "0.8" means requests are 80% of limits)
+                          Defaults to "0.8" if not specified
+                        pattern: ^(0(\.[0-9]+)?|1(\.0+)?)$
+                        type: string
+                      nonRoot:
+                        description: NonRoot enables "maximally rootless" operation
+                          (as much as workbench can allow at present)
+                        type: boolean
+                      privilegedSessions:
+                        description: |-
+                          PrivilegedSessions toggles whether Workbench sessions should be started in "privileged" mode. This is useful
+                          if trying to run "docker in docker" for example. Eventually we will work to make "docker in docker" an
+                          unprivileged operation as well!
+                        type: boolean
+                      resourceProfiles:
+                        additionalProperties:
+                          properties:
+                            amd-gpus:
+                              type: string
+                            cpus:
+                              type: string
+                            cpus-request:
+                              type: string
+                            mem-mb:
+                              type: string
+                            mem-mb-request:
+                              type: string
+                            name:
+                              type: string
+                            nvidia-gpus:
+                              type: string
+                            placement-constraints:
+                              type: string
+                          type: object
+                        description: ResourceProfiles for use by Workbench. If not
+                          provided, a default will be used
+                        type: object
+                      sessionEnvVars:
+                        description: SessionEnvVars is a map of environment variables
+                          to set in the session pods
+                        items:
+                          description: EnvVar represents an environment variable present
+                            in a Container.
+                          properties:
+                            name:
+                              description: |-
+                                Name of the environment variable.
+                                May consist of any printable ASCII characters except '='.
+                              type: string
+                            value:
+                              description: |-
+                                Variable references $(VAR_NAME) are expanded
+                                using the previously defined environment variables in the container and
+                                any service environment variables. If a variable cannot be resolved,
+                                the reference in the input string will be unchanged. Double $$ are reduced
+                                to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e.
+                                "$$(VAR_NAME)" will produce the string literal "$(VAR_NAME)".
+                                Escaped references will never be expanded, regardless of whether the variable
+                                exists or not.
+                                Defaults to "".
+                              type: string
+                            valueFrom:
+                              description: Source for the environment variable's value.
+                                Cannot be used if value is not empty.
+                              properties:
+                                configMapKeyRef:
+                                  description: Selects a key of a ConfigMap.
+                                  properties:
+                                    key:
+                                      description: The key to select.
+                                      type: string
+                                    name:
+                                      default: ""
+                                      description: |-
+                                        Name of the referent.
+                                        This field is effectively required, but due to backwards compatibility is
+                                        allowed to be empty. Instances of this type with an empty value here are
+                                        almost certainly wrong.
+                                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      type: string
+                                    optional:
+                                      description: Specify whether the ConfigMap or
+                                        its key must be defined
+                                      type: boolean
+                                  required:
+                                  - key
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                fieldRef:
+                                  description: |-
+                                    Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
+                                    spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.
+                                  properties:
+                                    apiVersion:
+                                      description: Version of the schema the FieldPath
+                                        is written in terms of, defaults to "v1".
+                                      type: string
+                                    fieldPath:
+                                      description: Path of the field to select in
+                                        the specified API version.
+                                      type: string
+                                  required:
+                                  - fieldPath
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                fileKeyRef:
+                                  description: |-
+                                    FileKeyRef selects a key of the env file.
+                                    Requires the EnvFiles feature gate to be enabled.
+                                  properties:
+                                    key:
+                                      description: |-
+                                        The key within the env file. An invalid key will prevent the pod from starting.
+                                        The keys defined within a source may consist of any printable ASCII characters except '='.
+                                        During Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.
+                                      type: string
+                                    optional:
+                                      default: false
+                                      description: |-
+                                        Specify whether the file or its key must be defined. If the file or key
+                                        does not exist, then the env var is not published.
+                                        If optional is set to true and the specified key does not exist,
+                                        the environment variable will not be set in the Pod's containers.
+
+                                        If optional is set to false and the specified key does not exist,
+                                        an error will be returned during Pod creation.
+                                      type: boolean
+                                    path:
+                                      description: |-
+                                        The path within the volume from which to select the file.
+                                        Must be relative and may not contain the '..' path or start with '..'.
+                                      type: string
+                                    volumeName:
+                                      description: The name of the volume mount containing
+                                        the env file.
+                                      type: string
+                                  required:
+                                  - key
+                                  - path
+                                  - volumeName
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                resourceFieldRef:
+                                  description: |-
+                                    Selects a resource of the container: only resources limits and requests
+                                    (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.
+                                  properties:
+                                    containerName:
+                                      description: 'Container name: required for volumes,
+                                        optional for env vars'
+                                      type: string
+                                    divisor:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      description: Specifies the output format of
+                                        the exposed resources, defaults to "1"
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                    resource:
+                                      description: 'Required: resource to select'
+                                      type: string
+                                  required:
+                                  - resource
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                secretKeyRef:
+                                  description: Selects a key of a secret in the pod's
+                                    namespace
+                                  properties:
+                                    key:
+                                      description: The key of the secret to select
+                                        from.  Must be a valid secret key.
+                                      type: string
+                                    name:
+                                      default: ""
+                                      description: |-
+                                        Name of the referent.
+                                        This field is effectively required, but due to backwards compatibility is
+                                        allowed to be empty. Instances of this type with an empty value here are
+                                        almost certainly wrong.
+                                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      type: string
+                                    optional:
+                                      description: Specify whether the Secret or its
+                                        key must be defined
+                                      type: boolean
+                                  required:
+                                  - key
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                              type: object
+                          required:
+                          - name
+                          type: object
+                        type: array
+                      sessionImagePullPolicy:
+                        description: SessionImagePullPolicy is the image pull policy
+                          for session pods
+                        type: string
+                      sessionSaveActionDefault:
+                        description: SessionSaveActionDefault determines whether .Rdata
+                          files should be saved automatically. Default is "no"
+                        type: string
+                      sessionServiceAccountName:
+                        description: SessionServiceAccountName is the name of the
+                          service account to use for ALL session pods
+                        type: string
+                      vsCodeExtensionsDir:
+                        description: VsCodeExtensionsDir is a path to a shared path
+                          where extensions (if any) will be sourced from
+                        type: string
+                      vsCodePath:
+                        type: string
+                      wwwThreadPoolSize:
+                        description: WwwThreadPoolSize is an advanced configuration
+                          for the scalability of the Workbench web server. Defaults
+                          to 16
+                        type: integer
+                    type: object
+                  extraSessionImages:
+                    items:
+                      type: string
+                    type: array
+                  image:
+                    type: string
+                  imagePullPolicy:
+                    description: PullPolicy describes a policy for if/when to pull
+                      a container image
+                    type: string
+                  jupyterConfig:
+                    description: JupyterConfig contains Jupyter configuration for
+                      Workbench
+                    properties:
+                      default-session-cluster:
+                        description: DefaultSessionCluster specifies the default Job
+                          Launcher cluster for Jupyter sessions
+                        type: string
+                      default-session-container-image:
+                        description: DefaultSessionContainerImage specifies the default
+                          container image for Jupyter sessions
+                        type: string
+                      jupyter-exe:
+                        default: ""
+                        description: JupyterExe specifies the path to the Jupyter
+                          executable
+                        type: string
+                      lab-version:
+                        default: auto
+                        description: LabVersion specifies the JupyterLab version to
+                          use
+                        type: string
+                      labs-enabled:
+                        default: 1
+                        description: LabsEnabled enables JupyterLab sessions
+                        maximum: 1
+                        minimum: 0
+                        type: integer
+                      notebook-version:
+                        default: auto
+                        description: NotebookVersion specifies the Jupyter Notebook
+                          version to use
+                        type: string
+                      notebooks-enabled:
+                        default: 0
+                        description: NotebooksEnabled enables Jupyter Notebook Classic
+                          sessions
+                        maximum: 1
+                        minimum: 0
+                        type: integer
+                      session-cull-minutes:
+                        default: 120
+                        description: SessionCullMinutes specifies idle time in minutes
+                          before kernels/terminals are culled
+                        minimum: 0
+                        type: integer
+                      session-shutdown-minutes:
+                        default: 5
+                        description: SessionShutdownMinutes specifies idle time in
+                          minutes before session shutdown
+                        minimum: 0
+                        type: integer
+                    type: object
+                  license:
+                    properties:
+                      existingSecretKey:
+                        type: string
+                      existingSecretName:
+                        type: string
+                      key:
+                        type: string
+                      type:
+                        type: string
+                    type: object
+                  nodeSelector:
+                    additionalProperties:
+                      type: string
+                    description: NodeSelector that is applied universally to server
+                      and sessions
+                    type: object
+                  positronConfig:
+                    properties:
+                      allowFileDownloads:
+                        type: integer
+                      allowFileUploads:
+                        type: integer
+                      args:
+                        type: string
+                      defaultSessionContainerImage:
+                        type: string
+                      enabled:
+                        type: integer
+                      exe:
+                        type: string
+                      extensions:
+                        items:
+                          type: string
+                        type: array
+                      positronSessionPath:
+                        type: string
+                      sessionContainerImages:
+                        items:
+                          type: string
+                        type: array
+                      sessionNoProfile:
+                        type: integer
+                      sessionTimeoutKillHours:
+                        type: integer
+                      userDataDir:
+                        type: string
+                      userSettings:
+                        additionalProperties:
+                          x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                    type: object
+                  replicas:
+                    type: integer
+                  sessionInitContainerImageName:
+                    description: SessionInitContainerImageName specifies the init
+                      container image name for Workbench sessions
+                    type: string
+                  sessionInitContainerImageTag:
+                    description: SessionInitContainerImageTag specifies the init container
+                      image tag for Workbench sessions
+                    type: string
+                  snowflake:
+                    properties:
+                      accountId:
+                        type: string
+                      clientId:
+                        type: string
+                    type: object
+                  tolerations:
+                    description: Tolerations that are applied universally to server
+                      and sessions
+                    items:
+                      description: |-
+                        The pod this Toleration is attached to tolerates any taint that matches
+                        the triple <key,value,effect> using the matching operator <operator>.
+                      properties:
+                        effect:
+                          description: |-
+                            Effect indicates the taint effect to match. Empty means match all taint effects.
+                            When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+                          type: string
+                        key:
+                          description: |-
+                            Key is the taint key that the toleration applies to. Empty means match all taint keys.
+                            If the key is empty, operator must be Exists; this combination means to match all values and all keys.
+                          type: string
+                        operator:
+                          description: |-
+                            Operator represents a key's relationship to the value.
+                            Valid operators are Exists and Equal. Defaults to Equal.
+                            Exists is equivalent to wildcard for value, so that a pod can
+                            tolerate all taints of a particular category.
+                          type: string
+                        tolerationSeconds:
+                          description: |-
+                            TolerationSeconds represents the period of time the toleration (which must be
+                            of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default,
+                            it is not set, which means tolerate the taint forever (do not evict). Zero and
+                            negative values will be treated as 0 (evict immediately) by the system.
+                          format: int64
+                          type: integer
+                        value:
+                          description: |-
+                            Value is the taint value the toleration matches to.
+                            If the operator is Exists, the value should be empty, otherwise just a regular string.
+                          type: string
+                      type: object
+                    type: array
+                  volume:
+                    description: VolumeSpec is a specification for a PersistentVolumeClaim
+                      to be created (and/or mounted)
+                    properties:
+                      accessModes:
+                        description: AccessModes is the access mode for the created
+                          PVC. Only used if Create is true
+                        items:
+                          type: string
+                        type: array
+                      create:
+                        description: Create determines whether the PVC should be created
+                          or not
+                        type: boolean
+                      mountPath:
+                        description: MountPath is not always used. It is only used
+                          for volumes that are configurable... (i.e. additionalVolumes)
+                        type: string
+                      pvcName:
+                        description: PvcName is used only if Create is false. The
+                          idea is that the PVC has already been created. Only used
+                          if Create is false
+                        type: string
+                      readOnly:
+                        description: ReadOnly defaults to false and determines whether
+                          the volume is mounted ReadOnly
+                        type: boolean
+                      size:
+                        description: Size is the size of the PVC that is being created.
+                          Only used if Create is true
+                        type: string
+                      storageClassName:
+                        description: StorageClassName identifies the StorageClassName
+                          created by the PV. Only used if Create is true
+                        type: string
+                      volumeName:
+                        description: VolumeName is the name of the PV that will be
+                          referenced by the created PVC. Only used if Create is true
+                        type: string
+                    type: object
+                  vsCodeConfig:
+                    properties:
+                      args:
+                        type: string
+                      enabled:
+                        type: integer
+                      exe:
+                        type: string
+                      sessionTimeoutKillHours:
+                        default: 1
+                        type: integer
+                    type: object
+                  vsCodeExtensions:
+                    items:
+                      type: string
+                    type: array
+                  vsCodeUserSettings:
+                    additionalProperties:
+                      x-kubernetes-preserve-unknown-fields: true
+                    type: object
+                type: object
+              workloadCompoundName:
+                description: WorkloadCompoundName is the name for the workload
+                type: string
+              workloadSecret:
+                description: WorkloadSecret configures the managed persistent secret
+                  for the entire workload account
+                properties:
+                  type:
+                    type: string
+                  vaultName:
+                    type: string
+                type: object
+            required:
+            - domain
+            type: object
+          status:
+            description: SiteStatus defines the observed state of Site
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+{{- end -}}

@@ -1,0 +1,11 @@
+apiVersion: core.posit.team/v1beta1
+kind: PackageManager
+metadata:
+  labels:
+    app.kubernetes.io/name: packagemanager
+    app.kubernetes.io/instance: packagemanager-sample
+    app.kubernetes.io/part-of: team-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: team-operator
+  name: packagemanager-sample
+spec: {}

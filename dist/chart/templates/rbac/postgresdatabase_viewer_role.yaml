@@ -1,0 +1,24 @@
+{{- if .Values.rbac.enable }}
+# permissions for end users to view postgresdatabases.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+  name: postgresdatabase-viewer-role
+rules:
+- apiGroups:
+  - core.posit.team
+  resources:
+  - postgresdatabases
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - core.posit.team
+  resources:
+  - postgresdatabases/status
+  verbs:
+  - get
+{{- end -}}

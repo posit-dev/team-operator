@@ -1,0 +1,11 @@
+apiVersion: core.posit.team/v1beta1
+kind: Connect
+metadata:
+  labels:
+    app.kubernetes.io/name: connect
+    app.kubernetes.io/instance: connect-sample
+    app.kubernetes.io/part-of: team-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: team-operator
+  name: connect-sample
+spec: {}

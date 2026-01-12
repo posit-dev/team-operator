@@ -1,0 +1,27 @@
+# permissions for end users to view sites.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: site-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: team-operator
+    app.kubernetes.io/part-of: team-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: site-viewer-role
+rules:
+- apiGroups:
+  - core.posit.team
+  resources:
+  - sites
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - core.posit.team
+  resources:
+  - sites/status
+  verbs:
+  - get

@@ -1,0 +1,68 @@
+apiVersion: core.posit.team/v1beta1
+kind: Site
+metadata:
+  name: sitesample01
+spec:
+  awsAccountId: "123456789012"
+  clusterDate: "20240101"
+  domain: example.mycompany.com
+  secretType: "aws"
+  secret:
+    type: "aws"
+    vaultName: "20240101-default-sitesample01"
+  mainDatabaseCredentialSecret:
+    type: "aws"
+    vaultName: "rds!db-example-database-id"
+  packageManager:
+    imageVersion: "jammy-2024.08.0"
+    license:
+      type: FILE
+      existingSecretName: license
+      existingSecretKey: ppm.lic
+    volume:
+      create: false
+      size: 3Gi
+    s3Bucket: "example-package-manager-bucket"
+  connect:
+    imageVersion: "ubuntu22-2024.10.0"
+    volume:
+      create: false
+      size: 3Gi
+    license:
+      type: FILE
+      existingSecretName: license
+      existingSecretKey: pc.lic
+    auth:
+      type: "oidc"
+      clientId: "example-connect-client-id"
+      issuer: "https://idp.example.com"
+  chronicle:
+    imageVersion: "2024.11.0"
+    s3Bucket: "example-chronicle-bucket"
+  workbench:
+    databricks:
+      example-workspace:
+        name: "Example Workspace"
+        url: "https://example-workspace.cloud.databricks.com"
+        clientId: "example-databricks-client-id"
+    imageVersion: "jammy-2024.12.0"
+    volume:
+      create: false
+      size: 3Gi
+    license:
+      type: FILE
+      existingSecretName: license
+      existingSecretKey: pw.lic
+    auth:
+      type: "oidc"
+      clientId: "example-workbench-client-id"
+      issuer: "https://idp.example.com"
+  volumeSource:
+    type: fsx-zfs
+    volumeId: fsvol-example123456789
+    dnsName: fs-example123456789.fsx.us-east-1.amazonaws.com
+  imageRepository: "123456789012.dkr.ecr.us-east-1.amazonaws.com"
+  siteImageVersion: "v1-latest"
+  ingressAnnotations:
+    traefik.ingress.kubernetes.io/router.middlewares: kube-system-traefik-forward-auth@kubernetescrd
+  dropDatabaseOnTearDown: false

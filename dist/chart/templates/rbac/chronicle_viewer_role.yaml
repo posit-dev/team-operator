@@ -1,0 +1,24 @@
+{{- if .Values.rbac.enable }}
+# permissions for end users to view chronicles.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+  name: chronicle-viewer-role
+rules:
+- apiGroups:
+  - core.posit.team
+  resources:
+  - chronicles
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - core.posit.team
+  resources:
+  - chronicles/status
+  verbs:
+  - get
+{{- end -}}

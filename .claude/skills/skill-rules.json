@@ -1,0 +1,19 @@
+{
+  "team-operator-config": {
+    "type": "domain",
+    "enforcement": "suggest",
+    "priority": "medium",
+    "promptTriggers": {
+      "keywords": [
+        "config option",
+        "add config",
+        "new config",
+        "site spec",
+        "product config"
+      ],
+      "intentPatterns": [
+        "(add|create|new).*(config|option|setting).*(connect|workbench|package.?manager|chronicle|keycloak)"
+      ]
+    }
+  }
+}

@@ -1,0 +1,48 @@
+apiVersion: core.posit.team/v1beta1
+kind: Site
+metadata:
+  name: test
+  namespace: posit-team
+spec:
+  awsAccountId: "123456789012"
+  clusterDate: "20240101"
+  domain: test.localhost
+  secret:
+    type: "kubernetes"
+    vaultName: "test"
+  workloadSecret:
+    type: "kubernetes"
+    vaultName: "test"
+  mainDatabaseCredentialSecret:
+    type: "kubernetes"
+    vaultName: "test-db-creds"
+  packageManager:
+    image: ghcr.io/posit-dev/test-service:latest
+    imagePullPolicy: "IfNotPresent"
+    license:
+      type: FILE
+      existingSecretName: license
+      existingSecretKey: ppm.lic
+  imagePullSecrets:
+    - "regcred"
+  keycloak:
+    enabled: true
+  connect:
+    image: ghcr.io/posit-dev/test-service:latest
+    imagePullPolicy: "IfNotPresent"
+    license:
+      type: FILE
+      existingSecretName: license
+      existingSecretKey: pc.lic
+  chronicle:
+    image: ghcr.io/posit-dev/test-service:latest
+    s3Bucket: "example-chronicle-test-bucket"
+  workbench:
+    image: "ghcr.io/posit-dev/test-service:latest"
+    license:
+      type: FILE
+      existingSecretName: license
+      existingSecretKey: pw.lic
+  siteHome:
+    image: ghcr.io/posit-dev/flightdeck:latest
+  dropDatabaseOnTearDown: true

@@ -1,0 +1,71 @@
+apiVersion: core.posit.team/v1beta1
+kind: Site
+metadata:
+  name: example-minimal
+spec:
+  # AWS Account Configuration
+  awsAccountId: "123456789012"
+  clusterDate: "20240101"
+
+  # Domain Configuration
+  domain: example.mycompany.com
+  domainType: dash
+
+  # Secrets Configuration
+  # Use Kubernetes secrets for simplicity
+  secretType: ""
+  secret:
+    type: "kubernetes"
+    vaultName: "site-secrets"
+
+  # Database Credentials (optional, remove if not using external database)
+  mainDatabaseCredentialSecret:
+    type: "aws"
+    vaultName: "rds!db-example-database-id"
+
+  # Package Manager Configuration
+  packageManager:
+    imageVersion: "jammy-2024.08.0"
+    license:
+      type: FILE
+      existingSecretName: license
+      existingSecretKey: ppm.lic
+    volume:
+      create: false
+      size: 3Gi
+
+  # Connect Configuration
+  connect:
+    imageVersion: "ubuntu22-2024.10.0"
+    volume:
+      create: false
+      size: 3Gi
+    license:
+      type: FILE
+      existingSecretName: license
+      existingSecretKey: pc.lic
+    auth:
+      type: "none"
+
+  # Workbench Configuration
+  workbench:
+    imageVersion: "jammy-2024.12.0"
+    volume:
+      create: false
+      size: 3Gi
+    license:
+      type: FILE
+      existingSecretName: license
+      existingSecretKey: pw.lic
+    auth:
+      type: "none"
+
+  # Shared Volume Configuration
+  volumeSource:
+    type: fsx-zfs
+    volumeId: fsvol-example123456789
+    dnsName: fs-example123456789.fsx.us-east-1.amazonaws.com
+
+  # Container Image Configuration
+  imageRepository: "123456789012.dkr.ecr.us-east-1.amazonaws.com"
+  siteImageVersion: "v1-latest"

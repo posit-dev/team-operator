@@ -1,0 +1,28 @@
+{{- if .Values.rbac.enable }}
+# permissions for end users to edit packagemanagers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+  name: packagemanager-editor-role
+rules:
+- apiGroups:
+  - core.posit.team
+  resources:
+  - packagemanagers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.posit.team
+  resources:
+  - packagemanagers/status
+  verbs:
+  - get
+{{- end -}}

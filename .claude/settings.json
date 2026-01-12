@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(just test)",
+      "Bash(just build)",
+      "Bash(make *)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|MultiEdit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "just format"
+          }
+        ]
+      }
+    ]
+  }
+}

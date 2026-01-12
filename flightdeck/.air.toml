@@ -1,0 +1,6 @@
+root = "."
+
+[build]
+args_bin = []
+bin = "./tmp/flightdeck"
+cmd = "go build -o ./tmp/flightdeck ./cmd/main.go"

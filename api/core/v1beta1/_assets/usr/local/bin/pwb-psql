@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+
+main() {
+  : "${DATABASE_CONF:=/mnt/secure-config/rstudio/database.conf}"
+
+  local pguser pgpass pghost pgdatabase
+
+  pguser="$(awk -F= '/^username/ { print $NF }' "${DATABASE_CONF}")"
+  pghost="$(awk -F= '/^host/ { print $NF }' "${DATABASE_CONF}")"
+  pgpass="$(printenv WORKBENCH_POSTGRES_PASSWORD)"
+  pgdatabase="$(awk -F= '/^database/ { print $NF }' "${DATABASE_CONF}")"
+
+  apt update -y
+  apt install -y postgresql-client
+  exec psql -d "postgres://${pguser}:${pgpass}@${pghost}:5432/${pgdatabase}"
+}
+
+main "${@}"

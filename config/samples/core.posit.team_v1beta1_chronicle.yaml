@@ -1,0 +1,11 @@
+apiVersion: core.posit.team/v1beta1
+kind: Chronicle
+metadata:
+  labels:
+    app.kubernetes.io/name: chronicle
+    app.kubernetes.io/instance: chronicle-sample
+    app.kubernetes.io/part-of: team-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: team-operator
+  name: chronicle-sample
+spec: {}

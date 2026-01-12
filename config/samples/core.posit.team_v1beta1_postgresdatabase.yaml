@@ -1,0 +1,18 @@
+apiVersion: core.posit.team/v1beta1
+kind: PostgresDatabase
+metadata:
+  labels:
+    app.kubernetes.io/name: postgresdatabase
+    app.kubernetes.io/instance: postgresdatabase-sample
+    app.kubernetes.io/part-of: team-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: team-operator
+  name: postgresdatabase-sample
+spec:
+  url: postgres://hello:clippy@localhost:5475/chippy
+  extensions: []
+  schemas:
+    - test123
+    - test456
+  teardown:
+    drop: true

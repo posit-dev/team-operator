@@ -1,0 +1,11 @@
+apiVersion: core.posit.team/v1beta1
+kind: Site
+metadata:
+  labels:
+    app.kubernetes.io/name: site
+    app.kubernetes.io/instance: site-sample
+    app.kubernetes.io/part-of: team-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: team-operator
+  name: site-sample
+spec: {}
