@@ -1,4 +1,4 @@
-# PTD Code Review Guidelines
+# Team Operator Code Review Guidelines
 
 ## Core Principles
 
@@ -25,35 +25,32 @@ These changes require extra review attention:
 
 ## Review Checklist by Area
 
-### Team Operator (`team-operator/`)
-
-#### API Changes (`api/`)
+### API Changes (`api/`)
 - [ ] Kubebuilder annotations are correct
 - [ ] New fields have sensible defaults
 - [ ] Validation rules are present
 - [ ] Breaking changes have migration strategy
 
-#### Controller Changes (`internal/controller/`)
+### Controller Changes (`internal/controller/`)
 - [ ] Reconciliation is idempotent
 - [ ] Error handling reports status correctly
 - [ ] Config flows from Site -> Product correctly
 - [ ] Both unit and integration tests exist
 
-### PTD CLI (`cmd/`)
-- [ ] Commands support `--verbose` flag
-- [ ] Cloud operations use Target interface
-- [ ] Auto-completion works for new arguments
-- [ ] Error messages are actionable
+### Helm Chart (`dist/chart/`)
+- [ ] Values have sensible defaults
+- [ ] Templates render correctly
+- [ ] RBAC permissions are minimal
+- [ ] CRDs are up to date
 
-### Python/Pulumi (`python-pulumi/`)
-- [ ] Configuration uses dataclasses
-- [ ] Pulumi resources have proper typing
-- [ ] Cloud provider abstraction is maintained
-- [ ] No hardcoded credentials or regions
+### Flightdeck (`flightdeck/`)
+- [ ] Go templates render correctly
+- [ ] Static assets are properly served
+- [ ] Configuration options are documented
 
 ## What NOT to Comment On
 
-- Style issues handled by formatters (run `just format`)
+- Style issues handled by formatters (run `make fmt`)
 - Personal preferences without clear benefit
 - Theoretical concerns without concrete impact
 
