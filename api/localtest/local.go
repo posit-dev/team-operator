@@ -2,8 +2,6 @@ package localtest
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/go-logr/logr"
@@ -21,16 +19,10 @@ type LocalTestEnv struct {
 }
 
 func (lte *LocalTestEnv) makeEnv() error {
-	topDir, ok := os.LookupEnv("TOP")
-	if !ok {
-		fmt.Printf("TOP environment variable not set, guessing...\n")
-		topDir = filepath.Join(RootDir, "../")
-	}
-
 	lte.env = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join(RootDir, "config", "crd", "bases"),
-			filepath.Join(topDir, "keycloak", "kustomization", "crds"),
+			filepath.Join(RootDir, "hack", "keycloak", "crds"),
 			filepath.Join(RootDir, "hack", "traefik", "crds"),
 		},
 		ErrorIfCRDPathMissing: true,
