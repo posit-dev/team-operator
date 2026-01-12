@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/posit-dev/team-operator/compare/v1.0.0...v1.0.1) (2026-01-12)
+
+
+### Bug Fixes
+
+* **ci:** fix Helm chart packaging tag detection ([e0319cd](https://github.com/posit-dev/team-operator/commit/e0319cd9838eba64a23a262534b8d3e975e73d28))
+
 # 1.0.0 (2026-01-12)
 
 
