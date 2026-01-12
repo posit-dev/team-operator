@@ -1,0 +1,50 @@
+# Cleanup Adhoc GHCR Images
+#
+# This workflow automatically deletes adhoc GHCR images when a PR is closed.
+# Adhoc images are temporary testing images pushed during PR development.
+#
+# Tag format: adhoc-{sanitized-branch-name}-{version}
+
+name: Cleanup adhoc GHCR images
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  packages: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    name: cleanup-adhoc-images
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [team-operator, flightdeck]
+    steps:
+      - name: Compute tag prefix from branch name
+        id: tag-prefix
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-')
+          TAG_PREFIX="adhoc-${SANITIZED_BRANCH}-"
+          echo "prefix=$TAG_PREFIX" >> $GITHUB_OUTPUT
+          echo "Cleaning up tags with prefix: $TAG_PREFIX"
+
+      - name: Delete adhoc package versions
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: ${{ matrix.package }}
+          package-type: container
+          delete-only-pre-release-versions: false
+          min-versions-to-keep: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Summary
+        run: |
+          echo "### Adhoc Image Cleanup: ${{ matrix.package }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag prefix:** \`${{ steps.tag-prefix.outputs.prefix }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package:** \`ghcr.io/posit-dev/${{ matrix.package }}\`" >> $GITHUB_STEP_SUMMARY

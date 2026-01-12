@@ -1,0 +1,204 @@
+# Flightdeck Build and Push Workflow
+#
+# Image destinations:
+# - GHCR (ghcr.io/posit-dev/flightdeck): PR builds only (adhoc testing)
+# - Docker Hub (posit/flightdeck): Main branch only (releases)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'flightdeck/**'
+      - '.github/workflows/flightdeck.yml'
+  pull_request:
+    paths:
+      - 'flightdeck/**'
+      - '.github/workflows/flightdeck.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+  packages: write
+
+env:
+  DOCKER_HUB_ORG: posit
+  GHCR_REGISTRY: ghcr.io/posit-dev
+
+name: build/push flightdeck
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: build
+    outputs:
+      image-tag: ${{ steps.echo-image.outputs.image }}
+      adhoc-tag: ${{ steps.adhoc-tag.outputs.tag }}
+      version: ${{ steps.metadata.outputs.version }}
+
+    steps:
+      - name: Check Out Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/cache@v4
+        with:
+          path: .local/bin
+          key: ${{ runner.os }}-local-bins-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-local-bins-
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Run tests
+        working-directory: flightdeck/
+        run: just test
+
+      - name: Check for diff
+        run: |
+          git diff --exit-code
+          git diff --cached --exit-code
+
+      - name: Get build metadata
+        id: metadata
+        run: |
+          VERSION=$(git describe --always --dirty --tags)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build image
+        working-directory: flightdeck/
+        run: just BUILDX_PATH=${{ steps.buildx.outputs.name }} docker-build
+
+      - name: Show image size
+        run: docker image ls
+
+      - name: Save image name
+        id: echo-image
+        run: |
+          echo "image=${{ env.GHCR_REGISTRY }}/flightdeck:${{ steps.metadata.outputs.version }}" >> "${GITHUB_OUTPUT}"
+
+      - name: Compute adhoc tag for PRs
+        id: adhoc-tag
+        if: github.event_name == 'pull_request'
+        env:
+          DOCKER_TAG_MAX_LENGTH: 128
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          VERSION="${{ steps.metadata.outputs.version }}"
+          SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-')
+          TAG="adhoc-${SANITIZED_BRANCH}-${VERSION}"
+
+          if [ ${#TAG} -gt $DOCKER_TAG_MAX_LENGTH ]; then
+            OVERFLOW=$((${#TAG} - DOCKER_TAG_MAX_LENGTH))
+            MAX_BRANCH_LEN=$((${#SANITIZED_BRANCH} - OVERFLOW))
+            SANITIZED_BRANCH="${SANITIZED_BRANCH:0:$MAX_BRANCH_LEN}"
+            TAG="adhoc-${SANITIZED_BRANCH}-${VERSION}"
+          fi
+
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Run Snyk to check Docker image for vulnerabilities
+        continue-on-error: true
+        uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: monitor
+          image: ${{ steps.echo-image.outputs.image }}
+          args: --exclude-app-vulns --file=flightdeck/Dockerfile
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push to GHCR (for PRs - adhoc testing)
+        if: github.event_name == 'pull_request'
+        working-directory: flightdeck/
+        run: |
+          ADHOC_TAG="${{ steps.adhoc-tag.outputs.tag }}"
+          docker tag "${{ env.GHCR_REGISTRY }}/flightdeck:${{ steps.metadata.outputs.version }}" "${{ env.GHCR_REGISTRY }}/flightdeck:${ADHOC_TAG}"
+          docker push "${{ env.GHCR_REGISTRY }}/flightdeck:${ADHOC_TAG}"
+
+      - name: Display adhoc image tag
+        if: github.event_name == 'pull_request'
+        run: |
+          ADHOC_TAG="${{ steps.adhoc-tag.outputs.tag }}"
+          IMAGE="${{ env.GHCR_REGISTRY }}/flightdeck:${ADHOC_TAG}"
+          echo "### Adhoc Flightdeck Image" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Image pushed to GHCR: \`${IMAGE}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "This image will be automatically deleted when the PR is closed." >> $GITHUB_STEP_SUMMARY
+
+  push-dockerhub:
+    if: github.ref == 'refs/heads/main'
+    needs: [build]
+    runs-on: ubuntu-latest
+    name: push-dockerhub
+    steps:
+      - name: Check Out Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: extractions/setup-just@v2
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull from GHCR
+        working-directory: flightdeck/
+        run: docker pull "${{ env.GHCR_REGISTRY }}/flightdeck:${{ needs.build.outputs.version }}"
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Push to Docker Hub
+        run: |
+          docker tag \
+            "${{ env.GHCR_REGISTRY }}/flightdeck:${{ needs.build.outputs.version }}" \
+            "docker.io/${{ env.DOCKER_HUB_ORG }}/flightdeck:latest"
+          docker tag \
+            "${{ env.GHCR_REGISTRY }}/flightdeck:${{ needs.build.outputs.version }}" \
+            "docker.io/${{ env.DOCKER_HUB_ORG }}/flightdeck:${{ needs.build.outputs.version }}"
+          docker push "docker.io/${{ env.DOCKER_HUB_ORG }}/flightdeck:latest"
+          docker push "docker.io/${{ env.DOCKER_HUB_ORG }}/flightdeck:${{ needs.build.outputs.version }}"
+
+      - name: Display Docker Hub image tags
+        run: |
+          echo "### Docker Hub Images Pushed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- \`docker.io/${{ env.DOCKER_HUB_ORG }}/flightdeck:${{ needs.build.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`docker.io/${{ env.DOCKER_HUB_ORG }}/flightdeck:latest\`" >> $GITHUB_STEP_SUMMARY

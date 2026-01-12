@@ -1,0 +1,107 @@
+# Semantic Release Workflow
+#
+# Automatically creates releases based on conventional commits
+# - feat: minor version bump
+# - fix: patch version bump  
+# - feat!: or BREAKING CHANGE: major version bump
+
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install semantic-release
+        run: npm install -g semantic-release @semantic-release/git @semantic-release/changelog @semantic-release/exec
+
+      - name: Create semantic-release config
+        run: |
+          cat > .releaserc.json << 'RELEASERC'
+          {
+            "branches": ["main"],
+            "plugins": [
+              "@semantic-release/commit-analyzer",
+              "@semantic-release/release-notes-generator",
+              ["@semantic-release/changelog", {
+                "changelogFile": "CHANGELOG.md"
+              }],
+              ["@semantic-release/exec", {
+                "prepareCmd": "sed -i 's/version: .*/version: ${nextRelease.version}/' dist/chart/Chart.yaml && sed -i 's/appVersion: .*/appVersion: \"${nextRelease.version}\"/' dist/chart/Chart.yaml"
+              }],
+              ["@semantic-release/git", {
+                "assets": ["CHANGELOG.md", "dist/chart/Chart.yaml"],
+                "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+              }],
+              "@semantic-release/github"
+            ]
+          }
+          RELEASERC
+
+      - name: Run semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release
+
+  package-helm:
+    needs: release
+    runs-on: ubuntu-latest
+    if: ${{ needs.release.result == 'success' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get latest tag
+        id: get-tag
+        run: |
+          git fetch --tags
+          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Package Helm chart
+        if: steps.get-tag.outputs.tag != ''
+        run: |
+          helm package dist/chart --version ${{ steps.get-tag.outputs.tag }}
+
+      - name: Login to GHCR
+        if: steps.get-tag.outputs.tag != ''
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push Helm chart to OCI
+        if: steps.get-tag.outputs.tag != ''
+        run: |
+          helm push team-operator-${{ steps.get-tag.outputs.tag }}.tgz oci://ghcr.io/posit-dev/charts
+
+      - name: Upload Helm chart to release
+        if: steps.get-tag.outputs.tag != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ steps.get-tag.outputs.tag }} team-operator-${{ steps.get-tag.outputs.tag }}.tgz --clobber

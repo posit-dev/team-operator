@@ -1,0 +1,233 @@
+# Team Operator Build and Push Workflow
+#
+# Image destinations:
+# - GHCR (ghcr.io/posit-dev/team-operator): PR builds only (adhoc testing)
+# - Docker Hub (posit/team-operator): Main branch only (releases)
+#
+# Adhoc images are automatically cleaned up when the PR is closed
+# (see cleanup-adhoc-images.yml)
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+  pull_request:
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+  packages: write
+
+env:
+  DOCKER_HUB_ORG: posit
+  GHCR_REGISTRY: ghcr.io/posit-dev
+
+name: build/push team-operator
+
+jobs:
+  build:
+    runs-on: ubuntu-latest-8x
+    name: build
+    outputs:
+      image-tag: ${{ steps.image-tag.outputs.full-image }}
+      image-name: ${{ steps.image-tag.outputs.image }}
+      adhoc-tag: ${{ steps.adhoc-tag.outputs.tag }}
+      version: ${{ steps.metadata.outputs.version }}
+
+    steps:
+      - name: Check Out Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: extractions/setup-just@v2
+
+      - uses: actions/cache@v4
+        with:
+          path: .local/bin
+          key: ${{ runner.os }}-local-bins-${{ hashFiles('**/*.go', 'go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-local-bins-
+
+      - name: Set up Snyk
+        uses: snyk/actions/setup@0.4.0
+
+      - uses: actions/setup-go@v5
+        id: setup-go
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Operator SDK bins
+        uses: actions/cache@v4
+        with:
+          path: bin/
+          key: ${{ runner.os }}-operator-sdk-bins-${{ hashFiles('Makefile') }}
+          restore-keys: |
+            ${{ runner.os }}-operator-sdk-bins-
+
+      - name: Smoke test the Justfile
+        run: just -l
+
+      - name: Smoke test the Makefile
+        run: make help
+
+      - name: Build
+        run: make build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run unit tests
+        run: make go-test cov
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Test kustomization
+        run: make test-kustomize
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Helm lint
+        run: make helm-lint
+
+      - name: Helm template
+        run: make helm-template > /dev/null
+
+      - name: Assert no diff
+        run: |
+          git diff --exit-code
+          git diff --cached --exit-code
+
+      - name: Get build metadata
+        id: metadata
+        run: |
+          GO_VERSION=$(go list -m -f '{{.GoVersion}}')
+          VERSION=$(git describe --always --dirty --tags)
+          echo "go-version=$GO_VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Compute image tag
+        id: image-tag
+        run: |
+          IMAGE="team-operator:${{ steps.metadata.outputs.version }}"
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+          echo "full-image=${{ env.GHCR_REGISTRY }}/team-operator:${{ steps.metadata.outputs.version }}" >> $GITHUB_OUTPUT
+
+      - name: Compute adhoc tag for PRs
+        id: adhoc-tag
+        if: github.event_name == 'pull_request'
+        env:
+          DOCKER_TAG_MAX_LENGTH: 128
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          VERSION="${{ steps.metadata.outputs.version }}"
+          SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-')
+          TAG="adhoc-${SANITIZED_BRANCH}-${VERSION}"
+
+          if [ ${#TAG} -gt $DOCKER_TAG_MAX_LENGTH ]; then
+            OVERFLOW=$((${#TAG} - DOCKER_TAG_MAX_LENGTH))
+            MAX_BRANCH_LEN=$((${#SANITIZED_BRANCH} - OVERFLOW))
+            SANITIZED_BRANCH="${SANITIZED_BRANCH:0:$MAX_BRANCH_LEN}"
+            TAG="adhoc-${SANITIZED_BRANCH}-${VERSION}"
+          fi
+
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Build and load Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: ${{ steps.image-tag.outputs.full-image }}
+          build-args: |
+            VERSION=${{ steps.metadata.outputs.version }}
+            GO_VERSION=${{ steps.metadata.outputs.go-version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Show image size
+        run: docker image ls
+
+      - name: Snyk scan container vulnerabilities
+        run: snyk container monitor "${{ steps.image-tag.outputs.full-image }}" --exclude-app-vulns --file=Dockerfile --platform=linux/amd64
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push to GHCR (for PRs - adhoc testing)
+        if: github.event_name == 'pull_request'
+        run: |
+          ADHOC_TAG="${{ steps.adhoc-tag.outputs.tag }}"
+          docker tag "${{ steps.image-tag.outputs.full-image }}" "${{ env.GHCR_REGISTRY }}/team-operator:${ADHOC_TAG}"
+          docker push "${{ env.GHCR_REGISTRY }}/team-operator:${ADHOC_TAG}"
+
+      - name: Display adhoc image tag
+        if: github.event_name == 'pull_request'
+        run: |
+          ADHOC_TAG="${{ steps.adhoc-tag.outputs.tag }}"
+          IMAGE="${{ env.GHCR_REGISTRY }}/team-operator:${ADHOC_TAG}"
+          echo "### Adhoc Team Operator Image" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Image pushed to GHCR: \`${IMAGE}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "This image will be automatically deleted when the PR is closed." >> $GITHUB_STEP_SUMMARY
+
+  push-dockerhub:
+    if: github.ref == 'refs/heads/main'
+    needs: [build]
+    runs-on: ubuntu-latest
+    name: push-dockerhub
+    steps:
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull from GHCR
+        run: docker pull "${{ needs.build.outputs.image-tag }}"
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Push to Docker Hub
+        run: |
+          docker tag \
+            "${{ needs.build.outputs.image-tag }}" \
+            "docker.io/${{ env.DOCKER_HUB_ORG }}/team-operator:latest"
+          docker tag \
+            "${{ needs.build.outputs.image-tag }}" \
+            "docker.io/${{ env.DOCKER_HUB_ORG }}/team-operator:${{ needs.build.outputs.version }}"
+          docker push "docker.io/${{ env.DOCKER_HUB_ORG }}/team-operator:latest"
+          docker push "docker.io/${{ env.DOCKER_HUB_ORG }}/team-operator:${{ needs.build.outputs.version }}"
+
+      - name: Display Docker Hub image tags
+        run: |
+          echo "### Docker Hub Images Pushed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- \`docker.io/${{ env.DOCKER_HUB_ORG }}/team-operator:${{ needs.build.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`docker.io/${{ env.DOCKER_HUB_ORG }}/team-operator:latest\`" >> $GITHUB_STEP_SUMMARY
