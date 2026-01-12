@@ -5,7 +5,7 @@ on:
     types: [opened]
 
 env:
-  PTD_AWS_ACCOUNT: ${{ vars.PTD_AWS_ACCOUNT }}
+  PTD_AWS_ACCOUNT: ${{ secrets.PTD_AWS_ACCOUNT }}
 
 jobs:
   auto-review:
