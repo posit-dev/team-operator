@@ -1,3 +1,11 @@
+## [1.0.3](https://github.com/posit-dev/team-operator/compare/v1.0.2...v1.0.3) (2026-01-13)
+
+
+### Bug Fixes
+
+* **ci:** filter cleanup to only delete adhoc images matching branch ([cd2404b](https://github.com/posit-dev/team-operator/commit/cd2404b9856077a8c25e33cd174cf22bb8d34223))
+* **ci:** use correct Docker Hub repository names (ptd- prefix) ([49c4b27](https://github.com/posit-dev/team-operator/commit/49c4b2712e2d1b16d49bb95d36ce97ed71c73512))
+
 ## [1.0.2](https://github.com/posit-dev/team-operator/compare/v1.0.1...v1.0.2) (2026-01-13)
 
 
