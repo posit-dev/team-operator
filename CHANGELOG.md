@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/posit-dev/team-operator/compare/v1.0.4...v1.1.0) (2026-01-13)
+
+
+### Features
+
+* **chart:** add tolerations and nodeSelector support for controller manager ([1f7deac](https://github.com/posit-dev/team-operator/commit/1f7deacd8232ebad9177a8659da1130537c05d78))
+
 ## [1.0.4](https://github.com/posit-dev/team-operator/compare/v1.0.3...v1.0.4) (2026-01-13)
 
 
