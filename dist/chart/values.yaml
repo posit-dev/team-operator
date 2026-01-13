@@ -49,6 +49,22 @@ controllerManager:
   serviceAccount:
     # Annotations to add to the service account (e.g., for EKS IAM roles)
     annotations: {}
+  # Tolerations for the controller manager pod
+  # Example: To run on GPU or specialized nodes:
+  # tolerations:
+  #   - key: "nvidia.com/gpu"
+  #     operator: "Exists"
+  #     effect: "NoSchedule"
+  #   - key: "workload-type"
+  #     operator: "Equal"
+  #     value: "session"
+  #     effect: "NoSchedule"
+  tolerations: []
+  # Node selector for the controller manager pod
+  # Example:
+  # nodeSelector:
+  #   kubernetes.io/os: linux
+  nodeSelector: {}
 
 # [RBAC]: To enable RBAC (Permissions) configurations
 rbac:
