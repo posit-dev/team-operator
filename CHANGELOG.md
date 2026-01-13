@@ -1,3 +1,14 @@
+## [1.0.4](https://github.com/posit-dev/team-operator/compare/v1.0.3...v1.0.4) (2026-01-13)
+
+
+### Bug Fixes
+
+* **chart:** remove kustomize-adopt hook that fails on tainted clusters ([424ee67](https://github.com/posit-dev/team-operator/commit/424ee6740583783306272fbb63af3fb27dc176a7))
+* **ci:** add ignore-error to Docker cache for resilience ([0453603](https://github.com/posit-dev/team-operator/commit/04536030791de01a02c6556f1c9fe3abdfaaeea3))
+* **ci:** grant actions write permission for GHA cache ([f9e3d3d](https://github.com/posit-dev/team-operator/commit/f9e3d3d088ab7a429c38148b8f6e9b79bb8a6f5c))
+* **ci:** improve cleanup timing and reduce unnecessary releases ([b8c4515](https://github.com/posit-dev/team-operator/commit/b8c4515583549fa2a2044add0c960894ce70bd2f))
+* **ci:** push to GHCR on main branch before Docker Hub ([bb31e50](https://github.com/posit-dev/team-operator/commit/bb31e507ef1ac5aa042b152c727797661d0ae375))
+
 ## [1.0.3](https://github.com/posit-dev/team-operator/compare/v1.0.2...v1.0.3) (2026-01-13)
 
 
