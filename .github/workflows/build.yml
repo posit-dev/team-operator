@@ -218,16 +218,16 @@ jobs:
         run: |
           docker tag \
             "${{ needs.build.outputs.image-tag }}" \
-            "docker.io/${{ env.DOCKER_HUB_ORG }}/team-operator:latest"
+            "docker.io/${{ env.DOCKER_HUB_ORG }}/ptd-team-operator:latest"
           docker tag \
             "${{ needs.build.outputs.image-tag }}" \
-            "docker.io/${{ env.DOCKER_HUB_ORG }}/team-operator:${{ needs.build.outputs.version }}"
-          docker push "docker.io/${{ env.DOCKER_HUB_ORG }}/team-operator:latest"
-          docker push "docker.io/${{ env.DOCKER_HUB_ORG }}/team-operator:${{ needs.build.outputs.version }}"
+            "docker.io/${{ env.DOCKER_HUB_ORG }}/ptd-team-operator:${{ needs.build.outputs.version }}"
+          docker push "docker.io/${{ env.DOCKER_HUB_ORG }}/ptd-team-operator:latest"
+          docker push "docker.io/${{ env.DOCKER_HUB_ORG }}/ptd-team-operator:${{ needs.build.outputs.version }}"
 
       - name: Display Docker Hub image tags
         run: |
           echo "### Docker Hub Images Pushed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- \`docker.io/${{ env.DOCKER_HUB_ORG }}/team-operator:${{ needs.build.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`docker.io/${{ env.DOCKER_HUB_ORG }}/team-operator:latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`docker.io/${{ env.DOCKER_HUB_ORG }}/ptd-team-operator:${{ needs.build.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`docker.io/${{ env.DOCKER_HUB_ORG }}/ptd-team-operator:latest\`" >> $GITHUB_STEP_SUMMARY
