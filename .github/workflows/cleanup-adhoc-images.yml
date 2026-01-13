@@ -1,7 +1,8 @@
 # Cleanup Adhoc GHCR Images
 #
-# This workflow automatically deletes adhoc GHCR images when a PR is closed.
-# Adhoc images are temporary testing images pushed during PR development.
+# This workflow automatically deletes adhoc GHCR images:
+# - For non-merged PRs: immediately when the PR is closed
+# - For merged PRs: after the main branch build succeeds (ensuring a stable image exists)
 #
 # Tag format: adhoc-{sanitized-branch-name}-{version}
 
@@ -10,9 +11,14 @@ name: Cleanup adhoc GHCR images
 on:
   pull_request:
     types: [closed]
+  workflow_run:
+    workflows: ["build/push team-operator"]
+    types: [completed]
+    branches: [main]
 
 permissions:
   packages: write
+  pull-requests: read
 
 env:
   GHCR_ORG: posit-dev
@@ -21,21 +27,61 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     name: cleanup-adhoc-images
+    # Run if:
+    # 1. PR closed without merging (cleanup immediately)
+    # 2. Build workflow completed successfully on main (cleanup merged PR's images)
+    if: |
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == false) ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     strategy:
       fail-fast: false
       matrix:
         package: [team-operator, flightdeck]
     steps:
+      - name: Get branch name for cleanup
+        id: branch-name
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # PR was closed without merging - use the PR's head branch
+            BRANCH_NAME="${{ github.head_ref }}"
+            echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+            echo "Branch from closed PR: $BRANCH_NAME"
+          else
+            # workflow_run event - find the PR associated with the build's commit SHA
+            # This prevents race conditions when multiple PRs merge in quick succession
+            COMMIT_SHA="${{ github.event.workflow_run.head_sha }}"
+            echo "Looking for PR associated with commit: $COMMIT_SHA"
+
+            # Use the commits API to find PRs associated with this specific commit
+            BRANCH_NAME=$(gh api \
+              "/repos/${{ github.repository }}/commits/${COMMIT_SHA}/pulls" \
+              --jq '.[0].head.ref' \
+              2>/dev/null || echo "")
+
+            if [ -z "$BRANCH_NAME" ] || [ "$BRANCH_NAME" = "null" ]; then
+              # Fallback: might be a direct push to main (not a PR merge)
+              echo "No PR found for commit $COMMIT_SHA (may be a direct push to main)"
+              echo "branch=" >> $GITHUB_OUTPUT
+            else
+              echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+              echo "Branch from PR associated with commit $COMMIT_SHA: $BRANCH_NAME"
+            fi
+          fi
+
       - name: Compute tag prefix from branch name
         id: tag-prefix
+        if: steps.branch-name.outputs.branch != ''
         run: |
-          BRANCH_NAME="${{ github.head_ref }}"
+          BRANCH_NAME="${{ steps.branch-name.outputs.branch }}"
           SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-')
           TAG_PREFIX="adhoc-${SANITIZED_BRANCH}-"
           echo "prefix=$TAG_PREFIX" >> $GITHUB_OUTPUT
           echo "Cleaning up tags with prefix: $TAG_PREFIX"
 
       - name: Delete adhoc package versions
+        if: steps.branch-name.outputs.branch != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PACKAGE: ${{ matrix.package }}
@@ -75,8 +121,10 @@ jobs:
           echo "Deleted $DELETED adhoc version(s)"
 
       - name: Summary
+        if: steps.branch-name.outputs.branch != ''
         run: |
           echo "### Adhoc Image Cleanup: ${{ matrix.package }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** \`${{ steps.branch-name.outputs.branch }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Tag prefix:** \`${{ steps.tag-prefix.outputs.prefix }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Package:** \`ghcr.io/${{ env.GHCR_ORG }}/${{ matrix.package }}\`" >> $GITHUB_STEP_SUMMARY
