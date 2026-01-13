@@ -20,7 +20,7 @@ on:
       - 'docs/**'
 
 permissions:
-  actions: read
+  actions: write
   contents: read
   id-token: write
   packages: write
