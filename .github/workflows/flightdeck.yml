@@ -192,16 +192,16 @@ jobs:
         run: |
           docker tag \
             "${{ env.GHCR_REGISTRY }}/flightdeck:${{ needs.build.outputs.version }}" \
-            "docker.io/${{ env.DOCKER_HUB_ORG }}/flightdeck:latest"
+            "docker.io/${{ env.DOCKER_HUB_ORG }}/ptd-flightdeck:latest"
           docker tag \
             "${{ env.GHCR_REGISTRY }}/flightdeck:${{ needs.build.outputs.version }}" \
-            "docker.io/${{ env.DOCKER_HUB_ORG }}/flightdeck:${{ needs.build.outputs.version }}"
-          docker push "docker.io/${{ env.DOCKER_HUB_ORG }}/flightdeck:latest"
-          docker push "docker.io/${{ env.DOCKER_HUB_ORG }}/flightdeck:${{ needs.build.outputs.version }}"
+            "docker.io/${{ env.DOCKER_HUB_ORG }}/ptd-flightdeck:${{ needs.build.outputs.version }}"
+          docker push "docker.io/${{ env.DOCKER_HUB_ORG }}/ptd-flightdeck:latest"
+          docker push "docker.io/${{ env.DOCKER_HUB_ORG }}/ptd-flightdeck:${{ needs.build.outputs.version }}"
 
       - name: Display Docker Hub image tags
         run: |
           echo "### Docker Hub Images Pushed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- \`docker.io/${{ env.DOCKER_HUB_ORG }}/flightdeck:${{ needs.build.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`docker.io/${{ env.DOCKER_HUB_ORG }}/flightdeck:latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`docker.io/${{ env.DOCKER_HUB_ORG }}/ptd-flightdeck:${{ needs.build.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`docker.io/${{ env.DOCKER_HUB_ORG }}/ptd-flightdeck:latest\`" >> $GITHUB_STEP_SUMMARY
