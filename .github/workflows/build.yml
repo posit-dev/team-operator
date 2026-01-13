@@ -156,8 +156,8 @@ jobs:
           build-args: |
             VERSION=${{ steps.metadata.outputs.version }}
             GO_VERSION=${{ steps.metadata.outputs.go-version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,ignore-error=true
+          cache-to: type=gha,mode=max,ignore-error=true
 
       - name: Show image size
         run: docker image ls
