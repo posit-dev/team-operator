@@ -136,9 +136,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Push to GHCR (main branch)
+        if: github.ref == 'refs/heads/main'
+        run: docker push "${{ env.GHCR_REGISTRY }}/flightdeck:${{ steps.metadata.outputs.version }}"
+
       - name: Push to GHCR (for PRs - adhoc testing)
         if: github.event_name == 'pull_request'
-        working-directory: flightdeck/
         run: |
           ADHOC_TAG="${{ steps.adhoc-tag.outputs.tag }}"
           docker tag "${{ env.GHCR_REGISTRY }}/flightdeck:${{ steps.metadata.outputs.version }}" "${{ env.GHCR_REGISTRY }}/flightdeck:${ADHOC_TAG}"

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/rstudio/goex/ptr"
 	"github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
+	"github.com/rstudio/goex/ptr"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

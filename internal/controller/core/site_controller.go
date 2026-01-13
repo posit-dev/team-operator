@@ -10,10 +10,10 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/rstudio/goex/ptr"
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
+	"github.com/rstudio/goex/ptr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"

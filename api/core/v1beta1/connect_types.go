@@ -9,8 +9,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/rstudio/goex/ptr"
 	"github.com/posit-dev/team-operator/api/product"
+	"github.com/rstudio/goex/ptr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"

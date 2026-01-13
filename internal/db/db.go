@@ -7,10 +7,10 @@ import (
 	"regexp"
 
 	"github.com/pkg/errors"
-	"github.com/rstudio/goex/crypto/randex"
 	"github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
+	"github.com/rstudio/goex/crypto/randex"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"

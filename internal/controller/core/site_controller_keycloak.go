@@ -5,12 +5,12 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/rstudio/goex/ptr"
 	"github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/keycloak/v2alpha1"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/posit-dev/team-operator/internal/db"
+	"github.com/rstudio/goex/ptr"
 	v14 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"

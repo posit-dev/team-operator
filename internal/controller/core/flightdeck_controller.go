@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	"github.com/rstudio/goex/ptr"
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/internal"
+	"github.com/rstudio/goex/ptr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
