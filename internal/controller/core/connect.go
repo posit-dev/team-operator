@@ -129,8 +129,11 @@ func (r *ConnectReconciler) forwardMiddleware(c *positcov1beta1.Connect) string 
 }
 
 func (r *ConnectReconciler) deployTraefikMiddlewares(ctx context.Context, req ctrl.Request, c *positcov1beta1.Connect) error {
+	l := r.GetLogger(ctx).WithValues(
+		"function", "deployTraefikMiddlewares",
+	)
 
-	if err := internal.DeployTraefikForwardMiddleware(ctx, req, r, r.forwardMiddleware(c), c); err != nil {
+	if err := internal.DeployTraefikForwardMiddleware(ctx, req, r.Client, r.Scheme, l, r.forwardMiddleware(c), c, c); err != nil {
 		return err
 	}
 
@@ -149,12 +152,6 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 	)
 	ctx = logr.NewContext(ctx, l)
 
-	// this object key is used by configmap, deployment, and service
-	key := client.ObjectKey{
-		Name:      c.ComponentName(),
-		Namespace: req.Namespace,
-	}
-
 	// modifications to config based on parameter settings
 	configCopy := c.Spec.Config.DeepCopy()
 
@@ -167,8 +164,6 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 	// SECRETS
 	if c.GetSecretType() == product.SiteSecretAws {
 		// deploy SecretProviderClass for app secrets
-		spcNameKey := client.ObjectKey{Name: c.SecretProviderClassName(), Namespace: req.Namespace}
-
 		allSecrets := map[string]string{
 			"secret.key":      "pub-secret-key",
 			"pub-db-password": "pub-db-password",
@@ -219,9 +214,17 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 		); err != nil {
 			return ctrl.Result{}, err
 		} else {
-			existingSpc := &secretsstorev1.SecretProviderClass{}
-
-			if err := internal.BasicCreateOrUpdate(ctx, r, l, spcNameKey, existingSpc, targetSpc); err != nil {
+			spc := &secretsstorev1.SecretProviderClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      c.SecretProviderClassName(),
+					Namespace: req.Namespace,
+				},
+			}
+			if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, spc, c, func() error {
+				spc.Labels = targetSpc.Labels
+				spc.Spec = targetSpc.Spec
+				return nil
+			}); err != nil {
 				l.Error(err, "error provisioning SecretProviderClass for secrets")
 				return ctrl.Result{}, err
 			}
@@ -399,23 +402,8 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 		l.Error(err, "error generating gcfg values")
 		return ctrl.Result{}, err
 	} else {
-		targetConfigmap := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:            c.ComponentName(),
-				Namespace:       req.Namespace,
-				Labels:          c.KubernetesLabels(),
-				OwnerReferences: c.OwnerReferencesForChildren(),
-			},
-			Data: map[string]string{
-				"rstudio-connect.gcfg": rawConfig,
-			},
-		}
-
-		if tmpCmSha, err := product.ComputeSha256(targetConfigmap.Data); err != nil {
-			l.Error(err, "Error computing sha256 for configmap")
-			return ctrl.Result{}, err
-		} else {
-			cmSha = tmpCmSha
+		cmData := map[string]string{
+			"rstudio-connect.gcfg": rawConfig,
 		}
 
 		// add runtime configuration when using off-host execution
@@ -423,15 +411,30 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 			if runtimeYaml, err := c.DefaultRuntimeYAML(); err != nil {
 				return ctrl.Result{}, err
 			} else {
-				targetConfigmap.Data["runtime.yaml"] = runtimeYaml
+				cmData["runtime.yaml"] = runtimeYaml
 			}
 
-			targetConfigmap.Data["launcher.kubernetes.profiles.conf"] = ""
+			cmData["launcher.kubernetes.profiles.conf"] = ""
 		}
 
-		existingConfigmap := &corev1.ConfigMap{}
+		if tmpCmSha, err := product.ComputeSha256(cmData); err != nil {
+			l.Error(err, "Error computing sha256 for configmap")
+			return ctrl.Result{}, err
+		} else {
+			cmSha = tmpCmSha
+		}
 
-		if err := internal.BasicCreateOrUpdate(ctx, r, l, key, existingConfigmap, targetConfigmap); err != nil {
+		configmap := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      c.ComponentName(),
+				Namespace: req.Namespace,
+			},
+		}
+		if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, configmap, c, func() error {
+			configmap.Labels = c.KubernetesLabels()
+			configmap.Data = cmData
+			return nil
+		}); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -440,35 +443,30 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 
 	templateCmSha := ""
 	if c.Spec.OffHostExecution {
-		templateKey := client.ObjectKey{
-			Name:      c.TemplateConfigMapName(),
-			Namespace: req.Namespace,
+		templateData := map[string]string{
+			"job.tpl":                            templates.DumpJobTpl(),
+			"service.tpl":                        templates.DumpServiceTpl(),
+			"rstudio-library-templates-data.tpl": c.SessionConfigTemplateData(ctx),
 		}
 
-		targetTemplatesConfigmap := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:            c.TemplateConfigMapName(),
-				Namespace:       req.Namespace,
-				Labels:          c.KubernetesLabels(),
-				OwnerReferences: c.OwnerReferencesForChildren(),
-			},
-			Data: map[string]string{
-				"job.tpl":                            templates.DumpJobTpl(),
-				"service.tpl":                        templates.DumpServiceTpl(),
-				"rstudio-library-templates-data.tpl": c.SessionConfigTemplateData(ctx),
-			},
-		}
-
-		if tmpTemplateCmSha, err := product.ComputeSha256(targetTemplatesConfigmap.Data); err != nil {
+		if tmpTemplateCmSha, err := product.ComputeSha256(templateData); err != nil {
 			l.Error(err, "Error computing sha256 for template configmap")
 			return ctrl.Result{}, err
 		} else {
 			templateCmSha = tmpTemplateCmSha
 		}
 
-		existingTemplatesConfigmap := &corev1.ConfigMap{}
-
-		if err := internal.BasicCreateOrUpdate(ctx, r, l, templateKey, existingTemplatesConfigmap, targetTemplatesConfigmap); err != nil {
+		templatesConfigmap := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      c.TemplateConfigMapName(),
+				Namespace: req.Namespace,
+			},
+		}
+		if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, templatesConfigmap, c, func() error {
+			templatesConfigmap.Labels = c.KubernetesLabels()
+			templatesConfigmap.Data = templateData
+			return nil
+		}); err != nil {
 			return ctrl.Result{}, err
 		}
 
@@ -477,8 +475,17 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 			return ctrl.Result{}, err
 		} else if siteSpc != nil {
 			// no error... and not nil SecretProviderClass
-			siteSpcKey := client.ObjectKey{Namespace: req.Namespace, Name: siteSpc.Name}
-			if err := internal.BasicCreateOrUpdate(ctx, r, l, siteSpcKey, &secretsstorev1.SecretProviderClass{}, siteSpc); err != nil {
+			siteSessionSpc := &secretsstorev1.SecretProviderClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      siteSpc.Name,
+					Namespace: req.Namespace,
+				},
+			}
+			if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, siteSessionSpc, c, func() error {
+				siteSessionSpc.Labels = siteSpc.Labels
+				siteSessionSpc.Spec = siteSpc.Spec
+				return nil
+			}); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
@@ -488,7 +495,7 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 
 	// TODO: there may be a time that you want to just generate a service account, even if Connect is on-host execution...
 	if c.Spec.OffHostExecution {
-		if err := internal.GenerateRbac(ctx, r, req, c); err != nil {
+		if err := internal.GenerateRbac(ctx, r.Client, r.Scheme, req, c); err != nil {
 			l.Error(err, "Error generating service account and rbac")
 			return ctrl.Result{}, err
 		}
@@ -497,20 +504,17 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 	// SESSION SERVICE ACCOUNT
 	saAnnotations := internal.AddIamAnnotation(fmt.Sprintf("%s-ses", c.ShortName()), req.Namespace, c.SiteName(), map[string]string{}, c)
 	saName := c.SessionServiceAccountName()
-	saKey := client.ObjectKey{Name: saName, Namespace: req.Namespace}
-	targetServiceAccount := &corev1.ServiceAccount{
+	sessionServiceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            saName,
-			Namespace:       req.Namespace,
-			Labels:          c.KubernetesLabels(),
-			Annotations:     saAnnotations,
-			OwnerReferences: c.OwnerReferencesForChildren(),
+			Name:      saName,
+			Namespace: req.Namespace,
 		},
 	}
-
-	existingServiceAccount := &corev1.ServiceAccount{}
-
-	if err := internal.BasicCreateOrUpdate(ctx, r, l, saKey, existingServiceAccount, targetServiceAccount); err != nil {
+	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, sessionServiceAccount, c, func() error {
+		sessionServiceAccount.Labels = c.KubernetesLabels()
+		sessionServiceAccount.Annotations = saAnnotations
+		return nil
+	}); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -525,7 +529,8 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 			// TODO: handle volume size changes...?
 			// TODO: beware... some updates are invalid and will cause crash-loop forever
 			//   everything is immutable in a PVC except for the storage request
-			if err := internal.PvcCreateOrUpdate(ctx, r, l, key, &corev1.PersistentVolumeClaim{}, pvc); err != nil {
+			pvcKey := client.ObjectKey{Name: c.ComponentName(), Namespace: req.Namespace}
+			if err := internal.PvcCreateOrUpdate(ctx, r, l, pvcKey, &corev1.PersistentVolumeClaim{}, pvc); err != nil {
 				return ctrl.Result{}, err
 			} else {
 				l.Info("successfully created or updated PVC", "pvc", pvc.Name)
@@ -579,14 +584,18 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 		}
 	}
 
-	targetDeployment := &v1.Deployment{
+	deployment := &v1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            c.ComponentName(),
-			Namespace:       req.Namespace,
-			Labels:          c.KubernetesLabels(),
-			OwnerReferences: c.OwnerReferencesForChildren(),
+			Name:      c.ComponentName(),
+			Namespace: req.Namespace,
 		},
-		Spec: v1.DeploymentSpec{
+	}
+	// TODO: deployment will _definitely_ need custom CreateOrUpdate work at some point
+	//   i.e. to handle version upgrades, etc. We could add an Updater() callback, or a
+	//   CustomComparator... or just decide to inline the logic
+	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, deployment, c, func() error {
+		deployment.Labels = c.KubernetesLabels()
+		deployment.Spec = v1.DeploymentSpec{
 			Replicas: ptr.To(int32(product.PassDefaultReplicas(c.Spec.Replicas, 1))),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: c.SelectorLabels(),
@@ -692,34 +701,28 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 					),
 				},
 			},
-		},
-	}
-
-	if c.Spec.Sleep {
-		targetDeployment.Spec.Template.Spec.Containers[0].Command = []string{"sleep"}
-		targetDeployment.Spec.Template.Spec.Containers[0].Args = []string{"infinity"}
-	}
-
-	existingDeployment := &v1.Deployment{}
-
-	// TODO: deployment will _definitely_ need custom CreateOrUpdate work at some point
-	//   i.e. to handle version upgrades, etc. We could add an Updater() callback, or a
-	//   CustomComparator... or just decide to inline the logic
-	if err := internal.BasicCreateOrUpdate(ctx, r, l, key, existingDeployment, targetDeployment); err != nil {
+		}
+		if c.Spec.Sleep {
+			deployment.Spec.Template.Spec.Containers[0].Command = []string{"sleep"}
+			deployment.Spec.Template.Spec.Containers[0].Args = []string{"infinity"}
+		}
+		return nil
+	}); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// SERVICE
 
-	targetService := &corev1.Service{
+	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            c.ComponentName(),
-			Namespace:       req.Namespace,
-			Labels:          c.KubernetesLabels(),
-			OwnerReferences: c.OwnerReferencesForChildren(),
-			Annotations:     internal.TraefikStickyServiceAnnotations(c),
+			Name:      c.ComponentName(),
+			Namespace: req.Namespace,
 		},
-		Spec: corev1.ServiceSpec{
+	}
+	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, service, c, func() error {
+		service.Labels = c.KubernetesLabels()
+		service.Annotations = internal.TraefikStickyServiceAnnotations(c)
+		service.Spec = corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{
 					Name:     "http",
@@ -743,12 +746,9 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 			Selector:                 c.KubernetesLabels(),
 			Type:                     "ClusterIP",
 			PublishNotReadyAddresses: false,
-		},
-	}
-
-	existingService := &corev1.Service{}
-
-	if err := internal.BasicCreateOrUpdate(ctx, r, l, key, existingService, targetService); err != nil {
+		}
+		return nil
+	}); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -774,15 +774,16 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 		annotations[k] = v
 	}
 
-	targetIngress := &networkingv1.Ingress{
+	ingress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            c.ComponentName(),
-			Namespace:       req.Namespace,
-			Labels:          c.KubernetesLabels(),
-			OwnerReferences: c.OwnerReferencesForChildren(),
-			Annotations:     annotations,
+			Name:      c.ComponentName(),
+			Namespace: req.Namespace,
 		},
-		Spec: networkingv1.IngressSpec{
+	}
+	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, ingress, c, func() error {
+		ingress.Labels = c.KubernetesLabels()
+		ingress.Annotations = annotations
+		ingress.Spec = networkingv1.IngressSpec{
 			// IngressClass set below
 			// TODO: TLS configuration, perhaps
 			TLS: nil,
@@ -810,21 +811,19 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 					},
 				},
 			},
-		},
-	}
-
-	// only define the ingressClassName if it is specified on the site
-	if c.Spec.IngressClass != "" {
-		targetIngress.Spec.IngressClassName = &c.Spec.IngressClass
-	}
-
-	if err := internal.BasicCreateOrUpdate(ctx, r, l, key, &networkingv1.Ingress{}, targetIngress); err != nil {
+		}
+		// only define the ingressClassName if it is specified on the site
+		if c.Spec.IngressClass != "" {
+			ingress.Spec.IngressClassName = &c.Spec.IngressClass
+		}
+		return nil
+	}); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// POD DISRUPTION BUDGET
 	if err := CreateOrUpdateDisruptionBudget(
-		ctx, req, r, c, ptr.To(product.DetermineMinAvailableReplicas(c.Spec.Replicas)), nil,
+		ctx, req, r.Client, r.Scheme, c, c, ptr.To(product.DetermineMinAvailableReplicas(c.Spec.Replicas)), nil,
 	); err != nil {
 		return ctrl.Result{}, err
 	}
