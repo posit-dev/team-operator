@@ -174,7 +174,7 @@ func (r *WorkbenchReconciler) deployTraefikMiddlewares(ctx context.Context, req 
 		"function", "deployTraefikMiddlewares",
 	)
 
-	if err := internal.DeployTraefikForwardMiddleware(ctx, req, r.Client, r.Scheme, l, r.ForwardMiddleware(w), w, w); err != nil {
+	if err := internal.DeployTraefikForwardMiddleware(ctx, req, r.Client, r.Scheme, l, r.ForwardMiddleware(w), w); err != nil {
 		return err
 	}
 

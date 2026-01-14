@@ -16,6 +16,13 @@ import (
 
 const TraefikMiddlewaresKey = "traefik.ingress.kubernetes.io/router.middlewares"
 
+// TraefikOwner combines KubernetesOwnerProvider (for labels) with client.Object (for owner references).
+// This allows passing a single object that satisfies both requirements.
+type TraefikOwner interface {
+	product.KubernetesOwnerProvider
+	client.Object
+}
+
 func BuildTraefikMiddlewareAnnotation(ns string, middlewareNames ...string) string {
 	output := ""
 	for i, middlewareName := range middlewareNames {
@@ -27,7 +34,7 @@ func BuildTraefikMiddlewareAnnotation(ns string, middlewareNames ...string) stri
 	return output
 }
 
-func DeployTraefikForwardMiddleware(ctx context.Context, req ctrl.Request, c client.Client, scheme *runtime.Scheme, l logr.Logger, name string, p product.KubernetesOwnerProvider, owner client.Object) error {
+func DeployTraefikForwardMiddleware(ctx context.Context, req ctrl.Request, c client.Client, scheme *runtime.Scheme, l logr.Logger, name string, owner TraefikOwner) error {
 	l = l.WithValues(
 		"function", "DeployTraefikForwardMiddleware",
 	)
@@ -40,7 +47,7 @@ func DeployTraefikForwardMiddleware(ctx context.Context, req ctrl.Request, c cli
 	}
 	l.Info("CREATING Forward traefik middleware...")
 	_, err := CreateOrUpdateResource(ctx, c, scheme, l, middleware, owner, func() error {
-		middleware.Labels = p.KubernetesLabels()
+		middleware.Labels = owner.KubernetesLabels()
 		middleware.Spec = v1alpha1.MiddlewareSpec{
 			Headers: &dynamic.Headers{
 				CustomRequestHeaders: map[string]string{
@@ -60,7 +67,7 @@ func DeployTraefikForwardMiddleware(ctx context.Context, req ctrl.Request, c cli
 	return nil
 }
 
-func DeployTraefikForwardMiddlewareWithHost(ctx context.Context, req ctrl.Request, c client.Client, scheme *runtime.Scheme, l logr.Logger, name string, p product.KubernetesOwnerProvider, owner client.Object, host string) error {
+func DeployTraefikForwardMiddlewareWithHost(ctx context.Context, req ctrl.Request, c client.Client, scheme *runtime.Scheme, l logr.Logger, name string, owner TraefikOwner, host string) error {
 	l = l.WithValues(
 		"function", "DeployTraefikForwardMiddlewareWithHost",
 	)
@@ -73,7 +80,7 @@ func DeployTraefikForwardMiddlewareWithHost(ctx context.Context, req ctrl.Reques
 	}
 	l.Info("CREATING Forward traefik middleware...")
 	_, err := CreateOrUpdateResource(ctx, c, scheme, l, middleware, owner, func() error {
-		middleware.Labels = p.KubernetesLabels()
+		middleware.Labels = owner.KubernetesLabels()
 		middleware.Spec = v1alpha1.MiddlewareSpec{
 			Headers: &dynamic.Headers{
 				CustomRequestHeaders: map[string]string{

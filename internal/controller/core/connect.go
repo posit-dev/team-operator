@@ -133,7 +133,7 @@ func (r *ConnectReconciler) deployTraefikMiddlewares(ctx context.Context, req ct
 		"function", "deployTraefikMiddlewares",
 	)
 
-	if err := internal.DeployTraefikForwardMiddleware(ctx, req, r.Client, r.Scheme, l, r.forwardMiddleware(c), c, c); err != nil {
+	if err := internal.DeployTraefikForwardMiddleware(ctx, req, r.Client, r.Scheme, l, r.forwardMiddleware(c), c); err != nil {
 		return err
 	}
 

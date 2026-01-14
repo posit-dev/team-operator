@@ -294,7 +294,16 @@ func CreateOrUpdateResource(
 		}
 
 		// Apply the user's mutations
-		return mutateFn()
+		if err := mutateFn(); err != nil {
+			return err
+		}
+
+		// Validate that mutateFn set the managed-by label (required for all managed objects)
+		if obj.GetLabels()[v1beta1.ManagedByLabelKey] != v1beta1.ManagedByLabelValue {
+			return errors.NewBadRequest("mutateFn must set managed-by label via KubernetesLabels()")
+		}
+
+		return nil
 	})
 
 	if err != nil {

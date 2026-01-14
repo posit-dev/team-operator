@@ -122,7 +122,6 @@ func (r *SiteReconciler) reconcileKeycloak(ctx context.Context, req controllerru
 			ctx, req, r.Client, r.Scheme, l,
 			localKeycloak.MiddlewareForwardName(),
 			site,
-			site,
 			keycloakDomain,
 		); err != nil {
 			l.Error(err, "error deploying keycloak middlewares")
