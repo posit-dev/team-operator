@@ -412,7 +412,18 @@ func (r *SiteReconciler) reconcileWorkbench(
 		targetWorkbench.Spec.Volume.StorageClassName = storageClassName
 	}
 
-	if err := internal.BasicCreateOrUpdate(ctx, r, l, req.NamespacedName, &v1beta1.Workbench{}, targetWorkbench); err != nil {
+	workbench := &v1beta1.Workbench{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      req.Name,
+			Namespace: req.Namespace,
+		},
+	}
+
+	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, workbench, site, func() error {
+		workbench.Labels = targetWorkbench.Labels
+		workbench.Spec = targetWorkbench.Spec
+		return nil
+	}); err != nil {
 		l.Error(err, "error creating workbench instance")
 		return err
 	}

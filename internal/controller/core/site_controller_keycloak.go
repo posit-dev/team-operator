@@ -50,23 +50,22 @@ func (r *SiteReconciler) reconcileKeycloak(ctx context.Context, req controllerru
 		// ensure service account...
 		annotations := internal.AddIamAnnotation("keycloak", req.Namespace, "", map[string]string{}, localKeycloak)
 
-		targetServiceAccount := &v1.ServiceAccount{
+		serviceAccount := &v1.ServiceAccount{
 			ObjectMeta: v12.ObjectMeta{
-				Name:            localKeycloak.ComponentName(),
-				Namespace:       req.Namespace,
-				Labels:          site.KubernetesLabels(),
-				Annotations:     annotations,
-				OwnerReferences: site.OwnerReferencesForChildren(),
+				Name:      localKeycloak.ComponentName(),
+				Namespace: req.Namespace,
 			},
-			// TODO: we should specify secrets here for "minimal access"
-			Secrets:                      nil,
-			ImagePullSecrets:             nil,
-			AutomountServiceAccountToken: ptr.To(true),
 		}
 
-		existingServiceAccount := &v1.ServiceAccount{}
-
-		if err := internal.BasicCreateOrUpdate(ctx, r, l, keycloakKey, existingServiceAccount, targetServiceAccount); err != nil {
+		if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, serviceAccount, site, func() error {
+			serviceAccount.Labels = site.KubernetesLabels()
+			serviceAccount.Annotations = annotations
+			// TODO: we should specify secrets here for "minimal access"
+			serviceAccount.Secrets = nil
+			serviceAccount.ImagePullSecrets = nil
+			serviceAccount.AutomountServiceAccountToken = ptr.To(true)
+			return nil
+		}); err != nil {
 			return err
 		}
 
@@ -77,9 +76,18 @@ func (r *SiteReconciler) reconcileKeycloak(ctx context.Context, req controllerru
 				l.Error(err, "Error preparing keycloak secret provider class")
 				return err
 			} else {
-				existingKeycloakSpc := &v13.SecretProviderClass{}
+				keycloakSpc := &v13.SecretProviderClass{
+					ObjectMeta: v12.ObjectMeta{
+						Name:      targetKeycloakSpc.Name,
+						Namespace: req.Namespace,
+					},
+				}
 
-				if err := internal.BasicCreateOrUpdate(ctx, r, l, client.ObjectKey{Name: targetKeycloakSpc.Name, Namespace: req.Namespace}, existingKeycloakSpc, targetKeycloakSpc); err != nil {
+				if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, keycloakSpc, site, func() error {
+					keycloakSpc.Labels = targetKeycloakSpc.Labels
+					keycloakSpc.Spec = targetKeycloakSpc.Spec
+					return nil
+				}); err != nil {
 					l.Error(err, "error creating or updating keycloak secret provider class")
 					return err
 				}
@@ -91,9 +99,18 @@ func (r *SiteReconciler) reconcileKeycloak(ctx context.Context, req controllerru
 				l.Error(err, "Error preparing keycloak secret provider class consumer deployment")
 				return err
 			} else {
-				existingKeycloakSpcConsumer := &v14.Deployment{}
+				keycloakSpcConsumer := &v14.Deployment{
+					ObjectMeta: v12.ObjectMeta{
+						Name:      targetKeycloakSpcConsumer.Name,
+						Namespace: req.Namespace,
+					},
+				}
 
-				if err := internal.BasicCreateOrUpdate(ctx, r, l, client.ObjectKey{Name: targetKeycloakSpcConsumer.Name, Namespace: req.Namespace}, existingKeycloakSpcConsumer, targetKeycloakSpcConsumer); err != nil {
+				if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, keycloakSpcConsumer, site, func() error {
+					keycloakSpcConsumer.Labels = targetKeycloakSpcConsumer.Labels
+					keycloakSpcConsumer.Spec = targetKeycloakSpcConsumer.Spec
+					return nil
+				}); err != nil {
 					l.Error(err, "error creating or updating keycloak secret provider class consumer deployment")
 					return err
 				}
@@ -102,7 +119,7 @@ func (r *SiteReconciler) reconcileKeycloak(ctx context.Context, req controllerru
 
 		// deploy keycloak middleware
 		if err := internal.DeployTraefikForwardMiddlewareWithHost(
-			ctx, req, r,
+			ctx, req, r.Client, r.Scheme, l,
 			localKeycloak.MiddlewareForwardName(),
 			site,
 			keycloakDomain,
@@ -221,18 +238,19 @@ func (r *SiteReconciler) reconcileKeycloak(ctx context.Context, req controllerru
 			keycloakSpec.Image = site.Spec.Keycloak.Image
 		}
 
-		targetKeycloak := &v2alpha1.Keycloak{
+		keycloak := &v2alpha1.Keycloak{
 			ObjectMeta: v12.ObjectMeta{
-				Name:            localKeycloak.ComponentName(),
-				Namespace:       req.Namespace,
-				OwnerReferences: site.OwnerReferencesForChildren(),
-				Labels:          site.KubernetesLabels(),
+				Name:      localKeycloak.ComponentName(),
+				Namespace: req.Namespace,
 			},
-			Spec: keycloakSpec,
 		}
 		// then deploy it...
 
-		if err := internal.BasicCreateOrUpdate(ctx, r, l, keycloakKey, existingKeycloak, targetKeycloak); err != nil {
+		if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, keycloak, site, func() error {
+			keycloak.Labels = site.KubernetesLabels()
+			keycloak.Spec = keycloakSpec
+			return nil
+		}); err != nil {
 			l.Error(err, "error converging keycloak")
 			return err
 		}

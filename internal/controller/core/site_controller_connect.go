@@ -9,7 +9,6 @@ import (
 	"github.com/posit-dev/team-operator/internal"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	controllerruntime "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (r *SiteReconciler) reconcileConnect(
@@ -232,10 +231,18 @@ func (r *SiteReconciler) reconcileConnect(
 		targetConnect.Spec.Volume.StorageClassName = storageClassName
 	}
 
-	existingConnect := v1beta1.Connect{}
+	connect := &v1beta1.Connect{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      req.Name,
+			Namespace: req.Namespace,
+		},
+	}
 
-	connectKey := client.ObjectKey{Name: req.Name, Namespace: req.Namespace}
-	if err := internal.BasicCreateOrUpdate(ctx, r, l, connectKey, &existingConnect, &targetConnect); err != nil {
+	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, connect, site, func() error {
+		connect.Labels = targetConnect.Labels
+		connect.Spec = targetConnect.Spec
+		return nil
+	}); err != nil {
 		l.Error(err, "error creating connect instance")
 		return err
 	}

@@ -341,25 +341,22 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 
 	for _, s := range site.Spec.ExtraSiteServiceAccounts {
 		serviceAccountName := fmt.Sprintf("%s-%s", site.Name, s.NameSuffix)
-		serviceAccountKey := client.ObjectKey{
-			Name:      serviceAccountName,
-			Namespace: req.Namespace,
-		}
-		targetSa := &corev1.ServiceAccount{
+		sa := &corev1.ServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:            serviceAccountName,
-				Namespace:       req.Namespace,
-				Labels:          site.KubernetesLabels(),
-				Annotations:     s.Annotations,
-				OwnerReferences: site.OwnerReferencesForChildren(),
+				Name:      serviceAccountName,
+				Namespace: req.Namespace,
 			},
-			Secrets:                      nil,
-			ImagePullSecrets:             nil,
-			AutomountServiceAccountToken: ptr.To(true),
 		}
-		existingSa := &corev1.ServiceAccount{}
 
-		if err := internal.BasicCreateOrUpdate(ctx, r, l, serviceAccountKey, existingSa, targetSa); err != nil {
+		annotations := s.Annotations
+		if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, sa, site, func() error {
+			sa.Labels = site.KubernetesLabels()
+			sa.Annotations = annotations
+			sa.Secrets = nil
+			sa.ImagePullSecrets = nil
+			sa.AutomountServiceAccountToken = ptr.To(true)
+			return nil
+		}); err != nil {
 			l.Error(err, "error creating or updating extra service account", "serviceAccount", serviceAccountName)
 			return ctrl.Result{}, err
 		}

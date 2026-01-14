@@ -80,16 +80,20 @@ func (r *SiteReconciler) reconcileFlightdeck(
 		logFormat = "text"
 	}
 
-	targetFlightdeck := &v1beta1.Flightdeck{
+	flightdeck := &v1beta1.Flightdeck{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      req.Name,
 			Namespace: req.Namespace,
-			Labels: map[string]string{
-				v1beta1.ManagedByLabelKey: LabelManagedByValue,
-			},
-			OwnerReferences: site.OwnerReferencesForChildren(),
 		},
-		Spec: v1beta1.FlightdeckSpec{
+	}
+
+	l.V(1).Info("creating or updating Flightdeck CRD")
+
+	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, flightdeck, site, func() error {
+		flightdeck.Labels = map[string]string{
+			v1beta1.ManagedByLabelKey: LabelManagedByValue,
+		}
+		flightdeck.Spec = v1beta1.FlightdeckSpec{
 			SiteName:             site.Name,
 			Image:                flightdeckImage,
 			ImagePullPolicy:      imagePullPolicy,
@@ -105,13 +109,9 @@ func (r *SiteReconciler) reconcileFlightdeck(
 			WorkloadCompoundName: site.Spec.WorkloadCompoundName,
 			LogLevel:             logLevel,
 			LogFormat:            logFormat,
-		},
-	}
-
-	l.V(1).Info("creating or updating Flightdeck CRD")
-
-	existingFlightdeck := &v1beta1.Flightdeck{}
-	if err := internal.BasicCreateOrUpdate(ctx, r, l, req.NamespacedName, existingFlightdeck, targetFlightdeck); err != nil {
+		}
+		return nil
+	}); err != nil {
 		l.Error(err, "failed to create or update Flightdeck")
 		return err
 	}

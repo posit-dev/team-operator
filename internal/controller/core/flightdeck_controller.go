@@ -87,7 +87,6 @@ func (r *FlightdeckReconciler) reconcileFlightdeckResources(
 	l logr.Logger,
 ) (ctrl.Result, error) {
 	componentName := fd.ComponentName()
-	componentKey := client.ObjectKey{Namespace: req.Namespace, Name: componentName}
 
 	l.V(1).Info("reconciling flightdeck resources", "component", componentName)
 
@@ -102,75 +101,70 @@ func (r *FlightdeckReconciler) reconcileFlightdeckResources(
 	l.V(2).Info("prepared image pull secrets", "count", len(pullSecrets))
 
 	// SERVICE ACCOUNT
-	targetServiceAccount := &corev1.ServiceAccount{
+	serviceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            fd.ComponentName(),
-			Namespace:       req.Namespace,
-			Labels:          fd.KubernetesLabels(),
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(fd, fd.GroupVersionKind())},
+			Name:      fd.ComponentName(),
+			Namespace: req.Namespace,
 		},
-		ImagePullSecrets: pullSecrets,
 	}
-
-	existingServiceAccount := &corev1.ServiceAccount{}
-	if err := internal.BasicCreateOrUpdate(ctx, r, l, componentKey, existingServiceAccount, targetServiceAccount); err != nil {
+	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, serviceAccount, fd, func() error {
+		serviceAccount.Labels = fd.KubernetesLabels()
+		serviceAccount.ImagePullSecrets = pullSecrets
+		return nil
+	}); err != nil {
 		l.Error(err, "failed to reconcile service account", "serviceAccount", componentName)
 		return ctrl.Result{}, err
 	}
 	l.V(1).Info("reconciled service account", "serviceAccount", componentName)
 
 	// ROLE
-	targetRole := &rbacv1.Role{
+	roleName := componentName + "-role"
+	role := &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            fd.ComponentName() + "-role",
-			Namespace:       req.Namespace,
-			Labels:          fd.KubernetesLabels(),
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(fd, fd.GroupVersionKind())},
+			Name:      roleName,
+			Namespace: req.Namespace,
 		},
-		Rules: []rbacv1.PolicyRule{
+	}
+	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, role, fd, func() error {
+		role.Labels = fd.KubernetesLabels()
+		role.Rules = []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{"core.posit.team"},
 				Resources: []string{"sites"},
 				Verbs:     []string{"get", "list", "watch"},
 			},
-		},
-	}
-
-	roleName := componentName + "-role"
-	roleKey := client.ObjectKey{Namespace: req.Namespace, Name: roleName}
-	existingRole := &rbacv1.Role{}
-	if err := internal.BasicCreateOrUpdate(ctx, r, l, roleKey, existingRole, targetRole); err != nil {
+		}
+		return nil
+	}); err != nil {
 		l.Error(err, "failed to reconcile role", "role", roleName)
 		return ctrl.Result{}, err
 	}
 	l.V(1).Info("reconciled role", "role", roleName)
 
 	// ROLE BINDING
-	targetRoleBinding := &rbacv1.RoleBinding{
+	roleBindingName := componentName + "-rolebinding"
+	roleBinding := &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            fd.ComponentName() + "-rolebinding",
-			Namespace:       req.Namespace,
-			Labels:          fd.KubernetesLabels(),
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(fd, fd.GroupVersionKind())},
+			Name:      roleBindingName,
+			Namespace: req.Namespace,
 		},
-		Subjects: []rbacv1.Subject{
+	}
+	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, roleBinding, fd, func() error {
+		roleBinding.Labels = fd.KubernetesLabels()
+		roleBinding.Subjects = []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
 				Name:      fd.ComponentName(),
 				Namespace: req.Namespace,
 			},
-		},
-		RoleRef: rbacv1.RoleRef{
+		}
+		roleBinding.RoleRef = rbacv1.RoleRef{
 			Kind:     "Role",
-			Name:     targetRole.Name,
+			Name:     roleName,
 			APIGroup: "rbac.authorization.k8s.io",
-		},
-	}
-
-	roleBindingName := componentName + "-rolebinding"
-	roleBindingKey := client.ObjectKey{Namespace: req.Namespace, Name: roleBindingName}
-	existingRoleBinding := &rbacv1.RoleBinding{}
-	if err := internal.BasicCreateOrUpdate(ctx, r, l, roleBindingKey, existingRoleBinding, targetRoleBinding); err != nil {
+		}
+		return nil
+	}); err != nil {
 		l.Error(err, "failed to reconcile role binding", "roleBinding", roleBindingName)
 		return ctrl.Result{}, err
 	}
@@ -243,14 +237,15 @@ func (r *FlightdeckReconciler) reconcileFlightdeckResources(
 	}
 
 	// DEPLOYMENT
-	targetDeployment := &appsv1.Deployment{
+	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            fd.ComponentName(),
-			Namespace:       req.Namespace,
-			Labels:          fd.KubernetesLabels(),
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(fd, fd.GroupVersionKind())},
+			Name:      fd.ComponentName(),
+			Namespace: req.Namespace,
 		},
-		Spec: appsv1.DeploymentSpec{
+	}
+	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, deployment, fd, func() error {
+		deployment.Labels = fd.KubernetesLabels()
+		deployment.Spec = appsv1.DeploymentSpec{
 			Replicas: ptr.To(replicas),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: fd.SelectorLabels(),
@@ -327,11 +322,9 @@ func (r *FlightdeckReconciler) reconcileFlightdeckResources(
 					},
 				},
 			},
-		},
-	}
-
-	existingDeployment := &appsv1.Deployment{}
-	if err := internal.BasicCreateOrUpdate(ctx, r, l, componentKey, existingDeployment, targetDeployment); err != nil {
+		}
+		return nil
+	}); err != nil {
 		l.Error(err, "failed to reconcile deployment", "deployment", componentName)
 		return ctrl.Result{}, err
 	}
@@ -342,14 +335,15 @@ func (r *FlightdeckReconciler) reconcileFlightdeckResources(
 	)
 
 	// SERVICE
-	targetService := &corev1.Service{
+	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            fd.ComponentName(),
-			Namespace:       req.Namespace,
-			Labels:          fd.KubernetesLabels(),
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(fd, fd.GroupVersionKind())},
+			Name:      fd.ComponentName(),
+			Namespace: req.Namespace,
 		},
-		Spec: corev1.ServiceSpec{
+	}
+	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, service, fd, func() error {
+		service.Labels = fd.KubernetesLabels()
+		service.Spec = corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "http",
@@ -360,31 +354,30 @@ func (r *FlightdeckReconciler) reconcileFlightdeckResources(
 			},
 			Selector: fd.SelectorLabels(),
 			Type:     corev1.ServiceTypeClusterIP,
-		},
-	}
-
-	existingService := &corev1.Service{}
-	if err := internal.BasicCreateOrUpdate(ctx, r, l, componentKey, existingService, targetService); err != nil {
+		}
+		return nil
+	}); err != nil {
 		l.Error(err, "failed to reconcile service", "service", componentName)
 		return ctrl.Result{}, err
 	}
 	l.V(1).Info("reconciled service", "service", componentName)
 
 	// INGRESS
-	annotations := map[string]string{}
-	for k, v := range fd.Spec.IngressAnnotations {
-		annotations[k] = v
-	}
-
-	targetIngress := &networkingv1.Ingress{
+	ingress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            fd.ComponentName(),
-			Namespace:       req.Namespace,
-			Labels:          fd.KubernetesLabels(),
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(fd, fd.GroupVersionKind())},
-			Annotations:     annotations,
+			Name:      fd.ComponentName(),
+			Namespace: req.Namespace,
 		},
-		Spec: networkingv1.IngressSpec{
+	}
+	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, ingress, fd, func() error {
+		// Build annotations
+		annotations := map[string]string{}
+		for k, v := range fd.Spec.IngressAnnotations {
+			annotations[k] = v
+		}
+		ingress.Labels = fd.KubernetesLabels()
+		ingress.Annotations = annotations
+		ingress.Spec = networkingv1.IngressSpec{
 			TLS: nil,
 			Rules: []networkingv1.IngressRule{
 				{
@@ -409,16 +402,13 @@ func (r *FlightdeckReconciler) reconcileFlightdeckResources(
 					},
 				},
 			},
-		},
-	}
-
-	// Only define the ingressClassName if it is specified
-	if fd.Spec.IngressClass != "" {
-		targetIngress.Spec.IngressClassName = &fd.Spec.IngressClass
-	}
-
-	existingIngress := &networkingv1.Ingress{}
-	if err := internal.BasicCreateOrUpdate(ctx, r, l, componentKey, existingIngress, targetIngress); err != nil {
+		}
+		// Only define the ingressClassName if it is specified
+		if fd.Spec.IngressClass != "" {
+			ingress.Spec.IngressClassName = &fd.Spec.IngressClass
+		}
+		return nil
+	}); err != nil {
 		l.Error(err, "failed to reconcile ingress", "ingress", componentName)
 		return ctrl.Result{}, err
 	}

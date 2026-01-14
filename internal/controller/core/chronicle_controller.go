@@ -127,12 +127,6 @@ func (r *ChronicleReconciler) ensureDeployedService(ctx context.Context, req ctr
 		"product", "chronicle",
 	)
 
-	// this key is used by the configmap, statefulset, and service
-	key := client.ObjectKey{
-		Name:      c.ComponentName(),
-		Namespace: req.Namespace,
-	}
-
 	// set a storage volume if using local storage... (just a local emptydir...)
 	// TODO: more persistent local storage option?
 	var storageVolume []corev1.Volume
@@ -157,20 +151,19 @@ func (r *ChronicleReconciler) ensureDeployedService(ctx context.Context, req ctr
 		l.Error(err, "error generating gcfg values")
 		return ctrl.Result{}, err
 	} else {
-		targetConfigmap := &corev1.ConfigMap{
+		configmap := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:            c.ComponentName(),
-				Namespace:       req.Namespace,
-				Labels:          c.KubernetesLabels(),
-				OwnerReferences: c.OwnerReferencesForChildren(),
-			},
-			Data: map[string]string{
-				"posit-chronicle.gcfg": rawConfig,
+				Name:      c.ComponentName(),
+				Namespace: req.Namespace,
 			},
 		}
-		existingConfigmap := &corev1.ConfigMap{}
-
-		if err := internal.BasicCreateOrUpdate(ctx, r, l, key, existingConfigmap, targetConfigmap); err != nil {
+		if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, configmap, c, func() error {
+			configmap.Labels = c.KubernetesLabels()
+			configmap.Data = map[string]string{
+				"posit-chronicle.gcfg": rawConfig,
+			}
+			return nil
+		}); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -179,39 +172,35 @@ func (r *ChronicleReconciler) ensureDeployedService(ctx context.Context, req ctr
 
 	annotations := internal.AddIamAnnotation("", req.Namespace, c.SiteName(), map[string]string{}, c)
 
-	targetServiceAccount := &corev1.ServiceAccount{
+	serviceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            c.ComponentName(),
-			Namespace:       req.Namespace,
-			Labels:          c.KubernetesLabels(),
-			Annotations:     annotations,
-			OwnerReferences: c.OwnerReferencesForChildren(),
+			Name:      c.ComponentName(),
+			Namespace: req.Namespace,
 		},
 	}
-
-	existingServiceAccount := &corev1.ServiceAccount{}
-
-	if err := internal.BasicCreateOrUpdate(ctx, r, l, key, existingServiceAccount, targetServiceAccount); err != nil {
+	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, serviceAccount, c, func() error {
+		serviceAccount.Labels = c.KubernetesLabels()
+		serviceAccount.Annotations = annotations
+		return nil
+	}); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	readOnlyName := fmt.Sprintf("%s-read-only", c.ComponentName())
-	readOnlyKey := client.ObjectKey{Name: readOnlyName, Namespace: req.Namespace}
 	readOnlyAnnotations := internal.AddIamAnnotation(
 		fmt.Sprintf("%s-ro", c.ShortName()), req.Namespace, c.SiteName(), map[string]string{}, c,
 	)
 	readOnlyServiceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            readOnlyName,
-			Namespace:       req.Namespace,
-			Labels:          c.KubernetesLabels(),
-			Annotations:     readOnlyAnnotations,
-			OwnerReferences: c.OwnerReferencesForChildren(),
-		}}
-
-	existingReadOnlyServiceAccount := &corev1.ServiceAccount{}
-
-	if err := internal.BasicCreateOrUpdate(ctx, r, l, readOnlyKey, existingReadOnlyServiceAccount, readOnlyServiceAccount); err != nil {
+			Name:      readOnlyName,
+			Namespace: req.Namespace,
+		},
+	}
+	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, readOnlyServiceAccount, c, func() error {
+		readOnlyServiceAccount.Labels = c.KubernetesLabels()
+		readOnlyServiceAccount.Annotations = readOnlyAnnotations
+		return nil
+	}); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -224,14 +213,15 @@ func (r *ChronicleReconciler) ensureDeployedService(ctx context.Context, req ctr
 		pullSecrets = append(pullSecrets, corev1.LocalObjectReference{Name: s})
 	}
 
-	targetStatefulset := &v1.StatefulSet{
+	statefulset := &v1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            c.ComponentName(),
-			Namespace:       req.Namespace,
-			Labels:          c.KubernetesLabels(),
-			OwnerReferences: c.OwnerReferencesForChildren(),
+			Name:      c.ComponentName(),
+			Namespace: req.Namespace,
 		},
-		Spec: v1.StatefulSetSpec{
+	}
+	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, statefulset, c, func() error {
+		statefulset.Labels = c.KubernetesLabels()
+		statefulset.Spec = v1.StatefulSetSpec{
 			Replicas: ptr.To(int32(1)),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: c.SelectorLabels(),
@@ -297,25 +287,23 @@ func (r *ChronicleReconciler) ensureDeployedService(ctx context.Context, req ctr
 			},
 			PodManagementPolicy: "",
 			UpdateStrategy:      v1.StatefulSetUpdateStrategy{},
-		},
-	}
-
-	existingStatefulset := &v1.StatefulSet{}
-
-	if err := internal.BasicCreateOrUpdate(ctx, r, l, key, existingStatefulset, targetStatefulset); err != nil {
+		}
+		return nil
+	}); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// SERVICE
 
-	targetService := &corev1.Service{
+	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            c.ComponentName(),
-			Namespace:       req.Namespace,
-			Labels:          c.KubernetesLabels(),
-			OwnerReferences: c.OwnerReferencesForChildren(),
+			Name:      c.ComponentName(),
+			Namespace: req.Namespace,
 		},
-		Spec: corev1.ServiceSpec{
+	}
+	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, service, c, func() error {
+		service.Labels = c.KubernetesLabels()
+		service.Spec = corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{
 					Name:     "http",
@@ -330,12 +318,9 @@ func (r *ChronicleReconciler) ensureDeployedService(ctx context.Context, req ctr
 			Selector:                 c.KubernetesLabels(),
 			Type:                     "ClusterIP",
 			PublishNotReadyAddresses: false,
-		},
-	}
-
-	existingService := &corev1.Service{}
-
-	if err := internal.BasicCreateOrUpdate(ctx, r, l, key, existingService, targetService); err != nil {
+		}
+		return nil
+	}); err != nil {
 		return ctrl.Result{}, err
 	}
 

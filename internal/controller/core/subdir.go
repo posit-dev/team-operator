@@ -75,21 +75,20 @@ func (r *SiteReconciler) provisionSubDirectoryCreator(ctx context.Context, req c
 		l.Error(err, "Error creating site persistent volume claim")
 		return err
 	}
-	targetProvisionerConfigMap := &v1.ConfigMap{
+	provisionerConfigMap := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            provisionerName,
-			Namespace:       req.Namespace,
-			Labels:          site.KubernetesLabels(),
-			OwnerReferences: site.OwnerReferencesForChildren(),
-		},
-		Data: map[string]string{
-			"subdir-provisioner.sh": subdirProvisionerScript,
+			Name:      provisionerName,
+			Namespace: req.Namespace,
 		},
 	}
 
-	existingProvisionerConfigMap := &v1.ConfigMap{}
-
-	if err := internal.BasicCreateOrUpdate(ctx, r, l, provisionerKey, existingProvisionerConfigMap, targetProvisionerConfigMap); err != nil {
+	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, provisionerConfigMap, site, func() error {
+		provisionerConfigMap.Labels = site.KubernetesLabels()
+		provisionerConfigMap.Data = map[string]string{
+			"subdir-provisioner.sh": subdirProvisionerScript,
+		}
+		return nil
+	}); err != nil {
 		l.Error(err, "Error creating subdir provisioner configmap")
 		return err
 	}
@@ -106,15 +105,17 @@ func (r *SiteReconciler) provisionSubDirectoryCreator(ctx context.Context, req c
 			args = append(args, fmt.Sprintf("/mnt/%s/shared", site.Name))
 		}
 		provisionerNameTemp := provisionerName + "-" + RandStringBytes(6)
-		provisionerTempKey := client.ObjectKey{Name: provisionerNameTemp, Namespace: req.Namespace}
-		targetProvisionerJob := &batchv1.Job{
+
+		provisionerJob := &batchv1.Job{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:            provisionerNameTemp,
-				Namespace:       req.Namespace,
-				Labels:          site.KubernetesLabels(),
-				OwnerReferences: site.OwnerReferencesForChildren(),
+				Name:      provisionerNameTemp,
+				Namespace: req.Namespace,
 			},
-			Spec: batchv1.JobSpec{
+		}
+
+		if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, provisionerJob, site, func() error {
+			provisionerJob.Labels = site.KubernetesLabels()
+			provisionerJob.Spec = batchv1.JobSpec{
 				// 2 hours to live
 				TTLSecondsAfterFinished: ptr.To(int32(2 * 60 * 60)),
 				Template: v1.PodTemplateSpec{
@@ -177,11 +178,9 @@ func (r *SiteReconciler) provisionSubDirectoryCreator(ctx context.Context, req c
 						},
 					},
 				},
-			},
-		}
-
-		existingProvisionerJob := &batchv1.Job{}
-		if err := internal.BasicCreateOrUpdate(ctx, r, l, provisionerTempKey, existingProvisionerJob, targetProvisionerJob); err != nil {
+			}
+			return nil
+		}); err != nil {
 			l.Error(err, "Error creating provisioner job")
 			return err
 		}

@@ -8,7 +8,6 @@ import (
 	"github.com/posit-dev/team-operator/internal"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	controllerruntime "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (r *SiteReconciler) reconcilePackageManager(
@@ -35,16 +34,18 @@ func (r *SiteReconciler) reconcilePackageManager(
 		// TODO: packageManagerAccessLogFormat does not support JSON yet...
 	}
 
-	targetPackageManager := v1beta1.PackageManager{
+	pm := &v1beta1.PackageManager{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      req.Name,
 			Namespace: req.Namespace,
-			Labels: map[string]string{
-				v1beta1.ManagedByLabelKey: v1beta1.ManagedByLabelValue,
-			},
-			OwnerReferences: site.OwnerReferencesForChildren(),
 		},
-		Spec: v1beta1.PackageManagerSpec{
+	}
+
+	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, pm, site, func() error {
+		pm.Labels = map[string]string{
+			v1beta1.ManagedByLabelKey: v1beta1.ManagedByLabelValue,
+		}
+		pm.Spec = v1beta1.PackageManagerSpec{
 			AwsAccountId:         site.Spec.AwsAccountId,
 			ClusterDate:          site.Spec.ClusterDate,
 			WorkloadCompoundName: site.Spec.WorkloadCompoundName,
@@ -97,27 +98,22 @@ func (r *SiteReconciler) reconcilePackageManager(
 			Replicas:                     product.PassDefaultReplicas(site.Spec.PackageManager.Replicas, 1),
 			GitSSHKeys:                   site.Spec.PackageManager.GitSSHKeys,
 			AzureFiles:                   site.Spec.PackageManager.AzureFiles,
-		},
-		Status: v1beta1.PackageManagerStatus{},
-	}
-
-	if site.Spec.PackageManager.S3Bucket != "" {
-		if targetPackageManager.Spec.Config.Storage == nil {
-			targetPackageManager.Spec.Config.Storage = &v1beta1.PackageManagerStorageConfig{}
 		}
-		targetPackageManager.Spec.Config.Storage.Default = "S3"
 
-		if targetPackageManager.Spec.Config.S3Storage == nil {
-			targetPackageManager.Spec.Config.S3Storage = &v1beta1.PackageManagerS3StorageConfig{}
+		if site.Spec.PackageManager.S3Bucket != "" {
+			if pm.Spec.Config.Storage == nil {
+				pm.Spec.Config.Storage = &v1beta1.PackageManagerStorageConfig{}
+			}
+			pm.Spec.Config.Storage.Default = "S3"
+
+			if pm.Spec.Config.S3Storage == nil {
+				pm.Spec.Config.S3Storage = &v1beta1.PackageManagerS3StorageConfig{}
+			}
+			pm.Spec.Config.S3Storage.Bucket = site.Spec.PackageManager.S3Bucket
+			pm.Spec.Config.S3Storage.Prefix = site.Name + "/ppm-v0"
 		}
-		targetPackageManager.Spec.Config.S3Storage.Bucket = site.Spec.PackageManager.S3Bucket
-		targetPackageManager.Spec.Config.S3Storage.Prefix = site.Name + "/ppm-v0"
-	}
-
-	existingPackageManager := v1beta1.PackageManager{}
-
-	pmKey := client.ObjectKey{Name: req.Name, Namespace: req.Namespace}
-	if err := internal.BasicCreateOrUpdate(ctx, r, l, pmKey, &existingPackageManager, &targetPackageManager); err != nil {
+		return nil
+	}); err != nil {
 		l.Error(err, "error creating package manager instance")
 		return err
 	}
