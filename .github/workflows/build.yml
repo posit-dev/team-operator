@@ -12,12 +12,16 @@ on:
     branches:
       - main
     paths-ignore:
-      - '*.md'
+      - '**/*.md'
       - 'docs/**'
+      - '.claude/**'
+      - 'LICENSE'
   pull_request:
     paths-ignore:
-      - '*.md'
+      - '**/*.md'
       - 'docs/**'
+      - '.claude/**'
+      - 'LICENSE'
 
 permissions:
   actions: write
