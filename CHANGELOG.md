@@ -1,3 +1,16 @@
+# [1.2.0](https://github.com/posit-dev/team-operator/compare/v1.1.0...v1.2.0) (2026-01-14)
+
+
+### Bug Fixes
+
+* add post-mutation label validation and simplify traefik signatures ([f5513a9](https://github.com/posit-dev/team-operator/commit/f5513a9314e5bd5cc1ca51ff26ee66fbf674dbf8))
+* migrate FlightdeckReconciler to CreateOrUpdateResource ([585b970](https://github.com/posit-dev/team-operator/commit/585b970875018b28af8d9edc46c7f4973e2e69bc)), closes [#6](https://github.com/posit-dev/team-operator/issues/6)
+
+
+### Features
+
+* add CreateOrUpdateResource helper using controllerutil.CreateOrUpdate ([7f1ed12](https://github.com/posit-dev/team-operator/commit/7f1ed12bc7aa38bf36e544b575306bcb03797fa4))
+
 # [1.1.0](https://github.com/posit-dev/team-operator/compare/v1.0.4...v1.1.0) (2026-01-13)
 
 
