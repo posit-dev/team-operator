@@ -185,10 +185,14 @@ func BasicCreateNoUpdate(
 	return nil
 }
 
-// BasicCreateOrUpdate is useful when there is no custom logic to handle during the update process
+// BasicCreateOrUpdate is useful when there is no custom logic to handle during the update process.
 // It creates the object if it does not exist, updates universally if it does, and returns an
 // error if it encounters anything it does not expect.
-// We expect that it will be replaced or extended as we become more familiar with the service and its needs.
+//
+// Deprecated: Use CreateOrUpdateResource instead. BasicCreateOrUpdate unconditionally updates
+// objects even when nothing has changed, which can cause reconciliation loops when used with
+// controller-runtime's Owns() watches. CreateOrUpdateResource uses controllerutil.CreateOrUpdate
+// which only updates when the object has actually changed.
 func BasicCreateOrUpdate(ctx context.Context, r product.SomeReconciler, l logr.Logger, key client.ObjectKey, existingObj client.Object, targetObj client.Object) error {
 	kind := reflect.TypeOf(existingObj).String()
 	name := key.String()
