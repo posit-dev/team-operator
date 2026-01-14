@@ -116,23 +116,21 @@ func (r *SiteReconciler) cleanupNetworkPolicies(ctx context.Context, req ctrl.Re
 }
 
 func (r *SiteReconciler) reconcileChronicleNetworkPolicy(ctx context.Context, namespace string, l logr.Logger, site *v1beta1.Site) error {
-	key := client.ObjectKey{
-		Name:      site.Name + "-chronicle",
-		Namespace: namespace,
-	}
+	policyName := site.Name + "-chronicle"
 
-	targetPolicy := &networkingv1.NetworkPolicy{
+	policy := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            key.Name,
-			Namespace:       key.Namespace,
-			Labels:          site.KubernetesLabels(),
-			OwnerReferences: site.OwnerReferencesForChildren(),
+			Name:      policyName,
+			Namespace: namespace,
 		},
-		Spec: networkingv1.NetworkPolicySpec{
+	}
+	_, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, policy, site, func() error {
+		policy.Labels = site.KubernetesLabels()
+		policy.Spec = networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					v1beta1.SiteLabelKey:               site.Name,
-					v1beta1.KubernetesInstanceLabelKey: key.Name,
+					v1beta1.KubernetesInstanceLabelKey: policyName,
 				},
 			},
 			PolicyTypes: []networkingv1.PolicyType{
@@ -166,30 +164,28 @@ func (r *SiteReconciler) reconcileChronicleNetworkPolicy(ctx context.Context, na
 					},
 				},
 			},
-		},
-	}
-
-	return internal.BasicCreateOrUpdate(ctx, r, l, key, &networkingv1.NetworkPolicy{}, targetPolicy)
+		}
+		return nil
+	})
+	return err
 }
 
 func (r *SiteReconciler) reconcileConnectNetworkPolicy(ctx context.Context, namespace string, l logr.Logger, site *v1beta1.Site) error {
-	key := client.ObjectKey{
-		Name:      site.Name + "-connect",
-		Namespace: namespace,
-	}
+	policyName := site.Name + "-connect"
 
-	targetPolicy := &networkingv1.NetworkPolicy{
+	policy := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            key.Name,
-			Namespace:       key.Namespace,
-			Labels:          site.KubernetesLabels(),
-			OwnerReferences: site.OwnerReferencesForChildren(),
+			Name:      policyName,
+			Namespace: namespace,
 		},
-		Spec: networkingv1.NetworkPolicySpec{
+	}
+	_, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, policy, site, func() error {
+		policy.Labels = site.KubernetesLabels()
+		policy.Spec = networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					v1beta1.SiteLabelKey:               site.Name,
-					v1beta1.KubernetesInstanceLabelKey: key.Name,
+					v1beta1.KubernetesInstanceLabelKey: policyName,
 				},
 			},
 			PolicyTypes: []networkingv1.PolicyType{
@@ -270,26 +266,24 @@ func (r *SiteReconciler) reconcileConnectNetworkPolicy(ctx context.Context, name
 					},
 				},
 			},
-		},
-	}
-
-	return internal.BasicCreateOrUpdate(ctx, r, l, key, &networkingv1.NetworkPolicy{}, targetPolicy)
+		}
+		return nil
+	})
+	return err
 }
 
 func (r *SiteReconciler) reconcileConnectSessionNetworkPolicy(ctx context.Context, namespace string, l logr.Logger, site *v1beta1.Site) error {
-	key := client.ObjectKey{
-		Name:      site.Name + "-connect-session",
-		Namespace: namespace,
-	}
+	policyName := site.Name + "-connect-session"
 
-	targetPolicy := &networkingv1.NetworkPolicy{
+	policy := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            key.Name,
-			Namespace:       key.Namespace,
-			Labels:          site.KubernetesLabels(),
-			OwnerReferences: site.OwnerReferencesForChildren(),
+			Name:      policyName,
+			Namespace: namespace,
 		},
-		Spec: networkingv1.NetworkPolicySpec{
+	}
+	_, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, policy, site, func() error {
+		policy.Labels = site.KubernetesLabels()
+		policy.Spec = networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					v1beta1.SiteLabelKey:      site.Name,
@@ -344,30 +338,28 @@ func (r *SiteReconciler) reconcileConnectSessionNetworkPolicy(ctx context.Contex
 					},
 				},
 			},
-		},
-	}
-
-	return internal.BasicCreateOrUpdate(ctx, r, l, key, &networkingv1.NetworkPolicy{}, targetPolicy)
+		}
+		return nil
+	})
+	return err
 }
 
 func (r *SiteReconciler) reconcileHomeNetworkPolicy(ctx context.Context, namespace string, l logr.Logger, site *v1beta1.Site) error {
-	key := client.ObjectKey{
-		Name:      site.Name + "-home",
-		Namespace: namespace,
-	}
+	policyName := site.Name + "-home"
 
-	targetPolicy := &networkingv1.NetworkPolicy{
+	policy := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            key.Name,
-			Namespace:       key.Namespace,
-			Labels:          site.KubernetesLabels(),
-			OwnerReferences: site.OwnerReferencesForChildren(),
+			Name:      policyName,
+			Namespace: namespace,
 		},
-		Spec: networkingv1.NetworkPolicySpec{
+	}
+	_, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, policy, site, func() error {
+		policy.Labels = site.KubernetesLabels()
+		policy.Spec = networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					v1beta1.SiteLabelKey:               site.Name,
-					v1beta1.KubernetesInstanceLabelKey: key.Name,
+					v1beta1.KubernetesInstanceLabelKey: policyName,
 				},
 			},
 			PolicyTypes: []networkingv1.PolicyType{
@@ -400,26 +392,24 @@ func (r *SiteReconciler) reconcileHomeNetworkPolicy(ctx context.Context, namespa
 					},
 				},
 			},
-		},
-	}
-
-	return internal.BasicCreateOrUpdate(ctx, r, l, key, &networkingv1.NetworkPolicy{}, targetPolicy)
+		}
+		return nil
+	})
+	return err
 }
 
 func (r *SiteReconciler) reconcileKeycloakNetworkPolicy(ctx context.Context, namespace string, l logr.Logger, site *v1beta1.Site) error {
-	key := client.ObjectKey{
-		Name:      site.Name + "-keycloak",
-		Namespace: namespace,
-	}
+	policyName := site.Name + "-keycloak"
 
-	targetPolicy := &networkingv1.NetworkPolicy{
+	policy := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            key.Name,
-			Namespace:       key.Namespace,
-			Labels:          site.KubernetesLabels(),
-			OwnerReferences: site.OwnerReferencesForChildren(),
+			Name:      policyName,
+			Namespace: namespace,
 		},
-		Spec: networkingv1.NetworkPolicySpec{
+	}
+	_, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, policy, site, func() error {
+		policy.Labels = site.KubernetesLabels()
+		policy.Spec = networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app":                              "keycloak",
@@ -469,30 +459,28 @@ func (r *SiteReconciler) reconcileKeycloakNetworkPolicy(ctx context.Context, nam
 					},
 				},
 			},
-		},
-	}
-
-	return internal.BasicCreateOrUpdate(ctx, r, l, key, &networkingv1.NetworkPolicy{}, targetPolicy)
+		}
+		return nil
+	})
+	return err
 }
 
 func (r *SiteReconciler) reconcilePackageManagerNetworkPolicy(ctx context.Context, namespace string, l logr.Logger, site *v1beta1.Site) error {
-	key := client.ObjectKey{
-		Name:      site.Name + "-packagemanager",
-		Namespace: namespace,
-	}
+	policyName := site.Name + "-packagemanager"
 
-	targetPolicy := &networkingv1.NetworkPolicy{
+	policy := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            key.Name,
-			Namespace:       key.Namespace,
-			Labels:          site.KubernetesLabels(),
-			OwnerReferences: site.OwnerReferencesForChildren(),
+			Name:      policyName,
+			Namespace: namespace,
 		},
-		Spec: networkingv1.NetworkPolicySpec{
+	}
+	_, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, policy, site, func() error {
+		policy.Labels = site.KubernetesLabels()
+		policy.Spec = networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					v1beta1.SiteLabelKey:               site.Name,
-					v1beta1.KubernetesInstanceLabelKey: key.Name,
+					v1beta1.KubernetesInstanceLabelKey: policyName,
 				},
 			},
 			PolicyTypes: []networkingv1.PolicyType{
@@ -558,26 +546,24 @@ func (r *SiteReconciler) reconcilePackageManagerNetworkPolicy(ctx context.Contex
 					},
 				},
 			},
-		},
-	}
-
-	return internal.BasicCreateOrUpdate(ctx, r, l, key, &networkingv1.NetworkPolicy{}, targetPolicy)
+		}
+		return nil
+	})
+	return err
 }
 
 func (r *SiteReconciler) reconcileWorkbenchNetworkPolicy(ctx context.Context, namespace string, l logr.Logger, site *v1beta1.Site) error {
-	key := client.ObjectKey{
-		Name:      site.Name + "-workbench",
-		Namespace: namespace,
-	}
+	policyName := site.Name + "-workbench"
 
-	targetPolicy := &networkingv1.NetworkPolicy{
+	policy := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            key.Name,
-			Namespace:       key.Namespace,
-			Labels:          site.KubernetesLabels(),
-			OwnerReferences: site.OwnerReferencesForChildren(),
+			Name:      policyName,
+			Namespace: namespace,
 		},
-		Spec: networkingv1.NetworkPolicySpec{
+	}
+	_, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, policy, site, func() error {
+		policy.Labels = site.KubernetesLabels()
+		policy.Spec = networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					v1beta1.SiteLabelKey:      site.Name,
@@ -636,66 +622,64 @@ func (r *SiteReconciler) reconcileWorkbenchNetworkPolicy(ctx context.Context, na
 					},
 				},
 			},
-		},
-	}
-
-	return internal.BasicCreateOrUpdate(ctx, r, l, key, &networkingv1.NetworkPolicy{}, targetPolicy)
+		}
+		return nil
+	})
+	return err
 }
 
 func (r *SiteReconciler) reconcileWorkbenchSessionNetworkPolicy(ctx context.Context, namespace string, l logr.Logger, site *v1beta1.Site) error {
-	key := client.ObjectKey{
-		Name:      site.Name + "-workbench-session",
-		Namespace: namespace,
-	}
+	policyName := site.Name + "-workbench-session"
 
-	// Build egress rules
-	egressRules := []networkingv1.NetworkPolicyEgressRule{
-		{
-			To: []networkingv1.NetworkPolicyPeer{
-				{
-					// to parent workbench host
-					PodSelector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							v1beta1.SiteLabelKey:      site.Name,
-							v1beta1.ComponentLabelKey: v1beta1.ComponentLabelValueWorkbench,
+	policy := &networkingv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      policyName,
+			Namespace: namespace,
+		},
+	}
+	_, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, policy, site, func() error {
+		// Build egress rules
+		egressRules := []networkingv1.NetworkPolicyEgressRule{
+			{
+				To: []networkingv1.NetworkPolicyPeer{
+					{
+						// to parent workbench host
+						PodSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								v1beta1.SiteLabelKey:      site.Name,
+								v1beta1.ComponentLabelKey: v1beta1.ComponentLabelValueWorkbench,
+							},
 						},
 					},
 				},
 			},
-		},
-		// access to the internet with no private networks
-		internal.PublicInternetOnlyNetworkPolicyEgressRule(),
-	}
+			// access to the internet with no private networks
+			internal.PublicInternetOnlyNetworkPolicyEgressRule(),
+		}
 
-	// Add EFS egress rule if enabled
-	if site.Spec.EFSEnabled && site.Spec.VPCCIDR != "" {
-		tcp := v1.ProtocolTCP
-		port2049 := intstr.FromInt(2049)
-		egressRules = append(egressRules, networkingv1.NetworkPolicyEgressRule{
-			To: []networkingv1.NetworkPolicyPeer{
-				{
-					IPBlock: &networkingv1.IPBlock{
-						CIDR: site.Spec.VPCCIDR,
+		// Add EFS egress rule if enabled
+		if site.Spec.EFSEnabled && site.Spec.VPCCIDR != "" {
+			tcp := v1.ProtocolTCP
+			port2049 := intstr.FromInt(2049)
+			egressRules = append(egressRules, networkingv1.NetworkPolicyEgressRule{
+				To: []networkingv1.NetworkPolicyPeer{
+					{
+						IPBlock: &networkingv1.IPBlock{
+							CIDR: site.Spec.VPCCIDR,
+						},
 					},
 				},
-			},
-			Ports: []networkingv1.NetworkPolicyPort{
-				{
-					Protocol: &tcp,
-					Port:     &port2049,
+				Ports: []networkingv1.NetworkPolicyPort{
+					{
+						Protocol: &tcp,
+						Port:     &port2049,
+					},
 				},
-			},
-		})
-	}
+			})
+		}
 
-	targetPolicy := &networkingv1.NetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            key.Name,
-			Namespace:       key.Namespace,
-			Labels:          site.KubernetesLabels(),
-			OwnerReferences: site.OwnerReferencesForChildren(),
-		},
-		Spec: networkingv1.NetworkPolicySpec{
+		policy.Labels = site.KubernetesLabels()
+		policy.Spec = networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					v1beta1.SiteLabelKey:      site.Name,
@@ -734,8 +718,8 @@ func (r *SiteReconciler) reconcileWorkbenchSessionNetworkPolicy(ctx context.Cont
 					},
 				},
 			},
-		},
-	}
-
-	return internal.BasicCreateOrUpdate(ctx, r, l, key, &networkingv1.NetworkPolicy{}, targetPolicy)
+		}
+		return nil
+	})
+	return err
 }

@@ -14,7 +14,6 @@ import (
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // deployPrePullDaemonset is a very simple prepull tool... it aims to pre-pull all images necessary for a site. It can
@@ -55,15 +54,16 @@ func deployPrePullDaemonset(ctx context.Context, r *SiteReconciler, req controll
 
 	daemonsetName := fmt.Sprintf("%s-prepull", req.Name)
 
-	// deploy the pre-pull daemonset
-	targetPrePullDaemonset := &v12.DaemonSet{
+	prePullDaemonset := &v12.DaemonSet{
 		ObjectMeta: v13.ObjectMeta{
-			Name:            daemonsetName,
-			Namespace:       req.Namespace,
-			Labels:          site.KubernetesLabels(),
-			OwnerReferences: site.OwnerReferencesForChildren(),
+			Name:      daemonsetName,
+			Namespace: req.Namespace,
 		},
-		Spec: v12.DaemonSetSpec{
+	}
+
+	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, prePullDaemonset, site, func() error {
+		prePullDaemonset.Labels = site.KubernetesLabels()
+		prePullDaemonset.Spec = v12.DaemonSetSpec{
 			Selector: &v13.LabelSelector{
 				MatchLabels: map[string]string{
 					// TODO: need to migrate this to something more formal...
@@ -102,25 +102,18 @@ func deployPrePullDaemonset(ctx context.Context, r *SiteReconciler, req controll
 					},
 				},
 			},
-		},
-	}
-
-	if len(site.Spec.Workbench.Tolerations) > 0 {
-		// add the tolerations to the daemonset
-		for _, t := range site.Spec.Workbench.Tolerations {
-			targetPrePullDaemonset.Spec.Template.Spec.Tolerations = append(targetPrePullDaemonset.Spec.Template.Spec.Tolerations, *t.DeepCopy())
 		}
 
-		// TODO: should also use the workbench node selectors...? But could differ from Connect...
-	}
+		if len(site.Spec.Workbench.Tolerations) > 0 {
+			// add the tolerations to the daemonset
+			for _, t := range site.Spec.Workbench.Tolerations {
+				prePullDaemonset.Spec.Template.Spec.Tolerations = append(prePullDaemonset.Spec.Template.Spec.Tolerations, *t.DeepCopy())
+			}
 
-	existingPrePullDaemonset := &v12.DaemonSet{}
-	prePullDaemonsetKey := client.ObjectKey{
-		Name:      targetPrePullDaemonset.Name,
-		Namespace: req.Namespace,
-	}
-
-	if err := internal.BasicCreateOrUpdate(ctx, r, l, prePullDaemonsetKey, existingPrePullDaemonset, targetPrePullDaemonset); err != nil {
+			// TODO: should also use the workbench node selectors...? But could differ from Connect...
+		}
+		return nil
+	}); err != nil {
 		l.Error(err, "error creating or updating pre-pull daemonset")
 		return err
 	}
