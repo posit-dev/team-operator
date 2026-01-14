@@ -11,8 +11,10 @@ import (
 	"github.com/posit-dev/team-operator/api/product"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -231,4 +233,79 @@ func BasicCreateOrUpdate(ctx context.Context, r product.SomeReconciler, l logr.L
 		}
 	}
 	return nil
+}
+
+// CreateOrUpdateResource uses controller-runtime's controllerutil.CreateOrUpdate to create or update
+// a Kubernetes resource. Unlike BasicCreateOrUpdate, this function only updates when the object has
+// actually changed, preventing unnecessary reconciliation loops.
+//
+// Parameters:
+//   - ctx: context for the operation
+//   - c: the Kubernetes client
+//   - scheme: the runtime scheme for setting controller references
+//   - l: logger for structured logging
+//   - obj: the object to create or update (must have Name and Namespace set in ObjectMeta)
+//   - owner: the owner object for setting controller reference (can be nil to skip owner reference)
+//   - mutateFn: function that mutates obj to the desired state (called for both create and update)
+//
+// The mutateFn should set all desired fields on obj. It will be called after the object is fetched
+// (for updates) or initialized (for creates). The function automatically:
+//   - Sets the controller reference if owner is provided
+//   - Validates the managed-by label for existing objects
+//   - Logs the operation result (created, updated, or unchanged)
+func CreateOrUpdateResource(
+	ctx context.Context,
+	c client.Client,
+	scheme *runtime.Scheme,
+	l logr.Logger,
+	obj client.Object,
+	owner client.Object,
+	mutateFn func() error,
+) (controllerutil.OperationResult, error) {
+	kind := reflect.TypeOf(obj).Elem().Name()
+	name := obj.GetName()
+	namespace := obj.GetNamespace()
+
+	l = l.WithValues(
+		"event", "create-or-update",
+		"object", kind,
+		"name", name,
+		"namespace", namespace,
+	)
+
+	result, err := controllerutil.CreateOrUpdate(ctx, c, obj, func() error {
+		// For existing objects, validate managed-by label before allowing mutations
+		if obj.GetResourceVersion() != "" {
+			labels := obj.GetLabels()
+			if labels[v1beta1.ManagedByLabelKey] != v1beta1.ManagedByLabelValue {
+				return errors.NewUnauthorized("object not managed by " + v1beta1.ManagedByLabelValue)
+			}
+		}
+
+		// Set controller reference if owner is provided
+		if owner != nil && scheme != nil {
+			if err := controllerutil.SetControllerReference(owner, obj, scheme); err != nil {
+				return err
+			}
+		}
+
+		// Apply the user's mutations
+		return mutateFn()
+	})
+
+	if err != nil {
+		l.Error(err, "error in create-or-update operation")
+		return result, err
+	}
+
+	switch result {
+	case controllerutil.OperationResultCreated:
+		l.Info("created object")
+	case controllerutil.OperationResultUpdated:
+		l.Info("updated object")
+	case controllerutil.OperationResultNone:
+		l.V(1).Info("object unchanged")
+	}
+
+	return result, nil
 }
