@@ -5,6 +5,21 @@
 
 A Kubernetes operator that manages the deployment and lifecycle of Posit Team products (Workbench, Connect, Package Manager, and Chronicle) within Kubernetes clusters.
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Components](#components)
+  - [Flightdeck](#flightdeck)
+- [Quick Start](#quick-start)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Local Development](#local-development)
+- [Configuration](#configuration)
+- [Architecture](#architecture)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
+- [Documentation](docs/README.md)
+
 ## Overview
 
 The Team Operator is a Kubernetes controller built using [Kubebuilder](https://book.kubebuilder.io/) that automates the deployment, configuration, and management of Posit Team products. It handles:
@@ -118,110 +133,61 @@ apiVersion: core.posit.team/v1beta1
 kind: Site
 metadata:
   name: my-site
-  namespace: posit-team
+  namespace: posit-team  # Where Site CRs are deployed (operator runs in posit-team-system)
 spec:
+  # Required: Base domain for product URLs
   domain: example.com
 
-  # Flightdeck configuration (optional)
+  # Ingress configuration
+  ingressClass: traefik
+
+  # Flightdeck landing page (optional)
   flightdeck:
     featureEnabler:
-      showAcademy: false  # Hide Academy from landing page
+      showAcademy: false
 
   # Products to deploy
   workbench:
     image: ghcr.io/rstudio/rstudio-workbench-daily:latest
+    replicas: 1
 
   connect:
     image: ghcr.io/rstudio/rstudio-connect-daily:latest
-    # ... additional config
+    replicas: 1
+
+  packageManager:
+    image: ghcr.io/rstudio/rstudio-pm-daily:latest
+    replicas: 1
 ```
 
-## Architecture Diagrams
+> **Note:** The operator runs in `posit-team-system` namespace, while Site CRs and deployed products live in a separate namespace (typically `posit-team` or a configured `watchNamespace`). See [docs/README.md](docs/README.md) for detailed architecture.
 
-### Database
+## Architecture
 
-```mermaid
-flowchart
-    subgraph db [Team Operator - Databases]
-    pub-user(Pub User)
-    pub-user-->pub-main
-    pub-user-->pub-metrics
-      subgraph pub[PublishDB]
-        pub-main[Main Schema]
-        pub-metrics[Instrumentation Schema]
-      end
-      pkg-user(Pkg User)
-      pkg-user-->pkg-main
-      pkg-user-->pkg-metrics
-      subgraph pkg[PackageDB]
-        pkg-main[Main Schema]
-        pkg-metrics[Metrics Schema]
-      end
-      dev-user(Dev User)
-      dev-user-->dev-main
-      subgraph dev[DevDB]
-        dev-main[Public Schema]
-      end
-    end
-    
-classDef other fill:#FAEEE9,stroke:#ab4d26
+The Team Operator uses a hierarchical controller pattern:
+
+```
+Site CR (single source of truth)
+    │
+    ├── Site Controller
+    │       ├── Creates Product CRs (Connect, Workbench, PackageManager, Chronicle, Flightdeck)
+    │       ├── Manages shared storage (PersistentVolumes)
+    │       └── Coordinates database provisioning
+    │
+    ├── Product Controllers
+    │       ├── Connect Controller → Pods, Services, Ingress, ConfigMaps
+    │       ├── Workbench Controller → Pods, Sessions, Job Templates
+    │       ├── PackageManager Controller → Pods, S3/Azure integration
+    │       ├── Chronicle Controller → Telemetry service, Sidecar injection
+    │       └── Flightdeck Controller → Landing page, Product navigation
+    │
+    └── Database Controller
+            └── PostgreSQL schemas, credentials, migrations
 ```
 
-### Publish / Connect
-```mermaid
-flowchart LR
+Each product has dedicated database schemas and isolated credentials. Workbench and Connect support off-host execution where user workloads run in separate Kubernetes Jobs. Chronicle collects telemetry via sidecars injected into product pods.
 
-  subgraph publish [Team Operator - Publish]
-    subgraph other [Other Resources]
-      ing(Ingress)
-      rbac(RBAC)
-      svc(Service Account)
-    end
-    pub-->other
-    manual(Manual)
-    pvc(PVC)
-    pv(PV)
-    op-->pv
-    op-->pub
-    op(Site Controller)
-    op-->dbcon
-    secretkey(Secret Key)
-    pub(Connect Controller)
-    db("Postgres Db (via CRD)")
-    license(License)
-    manual-->license
-    manual-->clientsecret
-    subgraph secrets [Secret Manager]
-      clientsecret(Auth Client Secret)
-    end
-    mainDbCon(Main Database Connection)
-    manual-->mainDbCon
-    mainDbCon-->dbcon
-    subgraph dbcon [DB Controller]
-      createdb(Create Databases)
-    end
-    license-->pubdeploy
-    clientsecret-->pubdeploy
-    cm(Config Maps)
-    dbsecret(Db Password Secret)
-    pub-->pvc
-    pub-->dbsecret
-    pub-->secretkey
-    pub-->pubdeploy
-    pub-->db
-    pub-->cm
-    cm-->pubdeploy
-    secretkey-->pubdeploy
-    pv-->pvc
-    db-->pubdeploy
-    pvc-->pubdeploy
-    pubdeploy(Connect Pod)
-    dbsecret-->pubdeploy
-  end
-  
-
-  classDef other fill:#FAEEE9,stroke:#ab4d26
-```
+For detailed architecture diagrams with component explanations, see the [Architecture Documentation](docs/architecture.md).
 
 ## Troubleshooting
 
