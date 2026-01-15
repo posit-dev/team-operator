@@ -262,7 +262,7 @@ func fetchAWSSecret(secretType SiteSecretType, vaultName, key string) (string, e
 	valueOutput, err := sm.GetSecretValue(query)
 	if err != nil {
 		var awsErr awserr.Error
-		if errors.As(err, &awsErr) && awsErr.Code() != secretsmanager.ErrCodeResourceNotFoundException {
+		if errors.As(err, &awsErr) && awsErr.Code() == secretsmanager.ErrCodeResourceNotFoundException {
 			return "", newSecretNotFoundError(secretType, vaultName, key, err)
 		}
 		return "", newSecretAccessError(secretType, vaultName, key, err)
