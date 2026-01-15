@@ -7,17 +7,71 @@ import (
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/pkg/errors"
 	v12 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	v1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	"sigs.k8s.io/yaml"
 )
+
+// SecretNotFoundError indicates a secret key was not found in the vault
+type SecretNotFoundError struct {
+	secretType SiteSecretType
+	vaultName  string
+	key        string
+	err        error
+}
+
+func newSecretNotFoundError(secretType SiteSecretType, vaultName, key string, err error) *SecretNotFoundError {
+	return &SecretNotFoundError{
+		secretType: secretType,
+		vaultName:  vaultName,
+		key:        key,
+		err:        err,
+	}
+}
+
+func (e *SecretNotFoundError) Error() string {
+	return fmt.Sprintf("secret key '%s' not found in vault '%s' (type: %s): %v",
+		e.key, e.vaultName, e.secretType, e.err)
+}
+
+func (e *SecretNotFoundError) Unwrap() error {
+	return e.err
+}
+
+// SecretAccessError indicates an error accessing the secret store
+type SecretAccessError struct {
+	secretType SiteSecretType
+	vaultName  string
+	key        string
+	err        error
+}
+
+func newSecretAccessError(secretType SiteSecretType, vaultName, key string, err error) *SecretAccessError {
+	return &SecretAccessError{
+		secretType: secretType,
+		vaultName:  vaultName,
+		key:        key,
+		err:        err,
+	}
+}
+
+func (e *SecretAccessError) Error() string {
+	return fmt.Sprintf("access error fetching secret key '%s' from vault '%s' (type: %s): %v",
+		e.key, e.vaultName, e.secretType, e.err)
+}
+
+func (e *SecretAccessError) Unwrap() error {
+	return e.err
+}
 
 type secretObjectJmesPath struct {
 	Path        string `json:"path,omitempty"`
@@ -31,11 +85,13 @@ type secretObject struct {
 }
 
 type TestSecretProvider struct {
-	Secrets map[string]string `json:"secrets,omitempty"`
+	Secrets    map[string]string `json:"secrets,omitempty"`
+	StrictMode bool              `json:"strictMode,omitempty"`
 }
 
 var GlobalTestSecretProvider = &TestSecretProvider{
-	Secrets: map[string]string{},
+	Secrets:    map[string]string{},
+	StrictMode: false, // Default to fallback behavior for backward compatibility
 }
 
 func (t *TestSecretProvider) SetSecret(key, val string) error {
@@ -57,6 +113,15 @@ func (t *TestSecretProvider) GetSecretWithFallback(key string) string {
 	} else {
 		return secret
 	}
+}
+
+func (t *TestSecretProvider) SetStrictMode(strict bool) {
+	t.StrictMode = strict
+}
+
+func (t *TestSecretProvider) Reset() {
+	t.Secrets = map[string]string{}
+	t.StrictMode = false
 }
 
 func mapToJmesPath(input map[string]string) (jmes []secretObjectJmesPath) {
@@ -155,57 +220,97 @@ func FetchSecret(ctx context.Context, r SomeReconciler, req ctrl.Request, secret
 	l := r.GetLogger(ctx)
 	switch secretType {
 	case SiteSecretAws:
-		if sess, err := session.NewSession(&aws.Config{
-			Region: aws.String(getAWSRegion()),
-		}); err != nil {
-			return "", err
-		} else {
-			sm := secretsmanager.New(sess)
-			query := &secretsmanager.GetSecretValueInput{
-				SecretId:     aws.String(vaultName),
-				VersionId:    nil,
-				VersionStage: aws.String("AWSCURRENT"),
-			}
-			if valueOutput, err := sm.GetSecretValue(query); err != nil {
-				return "", err
-			} else {
-				secretValue := map[string]json.RawMessage{}
-				if err := json.Unmarshal([]byte(*valueOutput.SecretString), &secretValue); err != nil {
-					return "", err
-				}
+		return fetchAWSSecret(secretType, vaultName, key)
 
-				if rawSecretEntry, ok := secretValue[key]; !ok {
-					// failed to find the configured key
-					return "", errors.New(fmt.Sprintf("could not find the configured key '%s' in secret '%s' with type '%s'", key, vaultName, secretType))
-				} else {
-					var secretEntry string
-					if err := json.Unmarshal(rawSecretEntry, &secretEntry); err != nil {
-						// error unmarshalling secret
-						return "", err
-					} else {
-						// SUCCESS!! we got the secret!
-						return secretEntry, nil
-					}
-				}
-			}
-		}
 	case SiteSecretKubernetes:
-		kubernetesSecretName := client.ObjectKey{Name: vaultName, Namespace: req.Namespace}
+		return fetchKubernetesSecret(ctx, r, secretType, vaultName, req.Namespace, key)
 
-		existingSecret := &v12.Secret{}
-		if err := r.Get(ctx, kubernetesSecretName, existingSecret); err != nil {
-			l.Error(err, "Error retrieving kubernetes secret", "secret", kubernetesSecretName)
-			return "", err
-		} else {
-			secretEntry := existingSecret.Data[key]
-			return string(secretEntry), nil
-		}
 	case SiteSecretTest:
-		// try using the global test secret provider (or fallback to the key)
+		// Use the global test secret provider
+		if GlobalTestSecretProvider.StrictMode {
+			// In strict mode, return typed errors for missing secrets
+			secret, err := GlobalTestSecretProvider.GetSecret(key)
+			if err != nil {
+				return "", newSecretNotFoundError(secretType, vaultName, key, err)
+			}
+			return secret, nil
+
+		}
+		// In non-strict mode, use fallback behavior (returns key if not found)
 		return GlobalTestSecretProvider.GetSecretWithFallback(key), nil
+
 	default:
 		err := errors.New("unknown secret type")
 		l.Error(err, "Unknown secret type", "type", secretType)
 		return "", err
 	}
+}
+
+func fetchAWSSecret(secretType SiteSecretType, vaultName, key string) (string, error) {
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String(getAWSRegion()),
+	})
+	if err != nil {
+		return "", newSecretAccessError(secretType, vaultName, key, err)
+	}
+	sm := secretsmanager.New(sess)
+	query := &secretsmanager.GetSecretValueInput{
+		SecretId:     aws.String(vaultName),
+		VersionId:    nil,
+		VersionStage: aws.String("AWSCURRENT"),
+	}
+	valueOutput, err := sm.GetSecretValue(query)
+	if err != nil {
+		var awsErr awserr.Error
+		if errors.As(err, &awsErr) && awsErr.Code() == secretsmanager.ErrCodeResourceNotFoundException {
+			return "", newSecretNotFoundError(secretType, vaultName, key, err)
+		}
+		return "", newSecretAccessError(secretType, vaultName, key, err)
+	}
+
+	secretValue := map[string]json.RawMessage{}
+	if err := json.Unmarshal([]byte(*valueOutput.SecretString), &secretValue); err != nil {
+		// Malformed secret - access error
+		return "", newSecretAccessError(secretType, vaultName, key, err)
+	}
+
+	rawSecretEntry, ok := secretValue[key]
+	if !ok {
+		// Vault exists but key doesn't - this is "not found"
+		return "", newSecretNotFoundError(secretType, vaultName, key,
+			fmt.Errorf("key %q not present in secret", key))
+	}
+
+	var secretEntry string
+	if err := json.Unmarshal(rawSecretEntry, &secretEntry); err != nil {
+		// Key exists but can't unmarshal - access error
+		return "", newSecretAccessError(secretType, vaultName, key, err)
+	}
+
+	return secretEntry, nil
+}
+
+func fetchKubernetesSecret(ctx context.Context, r SomeReconciler, secretType SiteSecretType,
+	vaultName, namespace, key string,
+) (string, error) {
+	kubernetesSecretName := client.ObjectKey{Name: vaultName, Namespace: namespace}
+
+	existingSecret := &v12.Secret{}
+	if err := r.Get(ctx, kubernetesSecretName, existingSecret); err != nil {
+		if kerrors.IsNotFound(err) {
+			// Secret doesn't exist
+			return "", newSecretNotFoundError(secretType, vaultName, key, err)
+		}
+		// Other error (permissions, network, etc.)
+		return "", newSecretAccessError(secretType, vaultName, key, err)
+	}
+
+	secretEntry, exists := existingSecret.Data[key]
+	if !exists {
+		// Secret exists but key doesn't
+		return "", newSecretNotFoundError(secretType, vaultName, key,
+			fmt.Errorf("key %q not found in kubernetes secret", key))
+	}
+
+	return string(secretEntry), nil
 }
