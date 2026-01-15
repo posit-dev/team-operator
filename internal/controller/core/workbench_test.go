@@ -18,10 +18,24 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func TestAzureDatabricks(t *testing.T) {
+func TestDatabricksClientSecretFetching(t *testing.T) {
 	r := &WorkbenchReconciler{}
 	ctx := context.TODO()
 	req := ctrl.Request{}
+
+	// Enable strict mode for this test to get typed errors
+	product.GlobalTestSecretProvider.SetStrictMode(true)
+	defer product.GlobalTestSecretProvider.Reset() // Clean up after test
+
+	// Set up test secrets for Azure instances
+	err := product.GlobalTestSecretProvider.SetSecret("dev-client-secret-some-client-id", "azure-secret-1")
+	require.NoError(t, err)
+	err = product.GlobalTestSecretProvider.SetSecret("dev-client-secret-another-client-id", "azure-secret-2")
+	require.NoError(t, err)
+	err = product.GlobalTestSecretProvider.SetSecret("dev-client-secret-other-client-id", "aws-secret-1")
+	require.NoError(t, err)
+	// Intentionally NOT setting secret for AWS instance to test warning behavior
+
 	w := &positcov1beta1.Workbench{
 		Spec: positcov1beta1.WorkbenchSpec{
 			Secret: positcov1beta1.SecretConfig{
@@ -31,23 +45,28 @@ func TestAzureDatabricks(t *testing.T) {
 			SecretConfig: positcov1beta1.WorkbenchSecretConfig{
 				WorkbenchSecretIniConfig: positcov1beta1.WorkbenchSecretIniConfig{
 					Databricks: map[string]*positcov1beta1.WorkbenchDatabricksConfig{
-						// this one checks that azure works
+						// Azure Databricks instances - should get secrets
 						"posit-azure": {
 							Name:     "Azure Databricks",
 							Url:      "https://someprefix.azuredatabricks.net",
 							ClientId: "some-client-id",
 						},
-						// this checks that other targets do not get interfered with
-						"posit-aws": {
-							Name:     "AWS Databricks",
-							Url:      "https://some-other-url.com",
-							ClientId: "aws-client-id",
-						},
-						// this one checks that a suffix does not interfere with the match
 						"another-azure": {
 							Name:     "Azure Databricks 2",
 							Url:      "https://someprefix.azuredatabricks.net/some-suffix/another-suffix",
 							ClientId: "another-client-id",
+						},
+						// AWS Databricks instance - should NOT error on missing secret
+						"posit-aws": {
+							Name:     "AWS Databricks",
+							Url:      "https://example-workspace.cloud.databricks.com",
+							ClientId: "aws-client-id",
+						},
+						// AWS Databricks instance - should populate secret
+						"posit-aws-with-client-secret": {
+							Name:     "AWS Databricks with client secret",
+							Url:      "https://confidential-workspace.cloud.databricks.com",
+							ClientId: "other-client-id",
 						},
 					},
 				},
@@ -55,16 +74,62 @@ func TestAzureDatabricks(t *testing.T) {
 		},
 	}
 
-	var err error
-	// azure
-	require.Equal(t, w.Spec.SecretConfig.Databricks["posit-azure"].ClientSecret, "")
-	require.Equal(t, w.Spec.SecretConfig.Databricks["posit-aws"].ClientSecret, "")
-	require.Equal(t, w.Spec.SecretConfig.Databricks["another-azure"].ClientSecret, "")
-	err = r.FetchAndSetClientSecretForAzureDatabricks(ctx, req, w)
+	// Verify initial state
+	require.Equal(t, "", w.Spec.SecretConfig.Databricks["posit-azure"].ClientSecret)
+	require.Equal(t, "", w.Spec.SecretConfig.Databricks["posit-aws"].ClientSecret)
+	require.Equal(t, "", w.Spec.SecretConfig.Databricks["another-azure"].ClientSecret)
+	require.Equal(t, "", w.Spec.SecretConfig.Databricks["posit-aws-with-client-secret"].ClientSecret)
+
+	// Execute the function
+	err = r.FetchAndSetClientSecretForDatabricks(ctx, req, w)
 	require.NoError(t, err)
-	require.Equal(t, w.Spec.SecretConfig.Databricks["posit-azure"].ClientSecret, "dev-client-secret-some-client-id")
-	require.Equal(t, w.Spec.SecretConfig.Databricks["posit-aws"].ClientSecret, "")
-	require.Equal(t, w.Spec.SecretConfig.Databricks["another-azure"].ClientSecret, "dev-client-secret-another-client-id")
+
+	// Azure instances should have secrets populated
+	require.Equal(t, "azure-secret-1", w.Spec.SecretConfig.Databricks["posit-azure"].ClientSecret)
+	require.Equal(t, "azure-secret-2", w.Spec.SecretConfig.Databricks["another-azure"].ClientSecret)
+
+	// First AWS instance should remain empty (secret not found, but no error)
+	require.Equal(t, "", w.Spec.SecretConfig.Databricks["posit-aws"].ClientSecret)
+	// Other AWS instance should get client secret
+	require.Equal(t, "aws-secret-1", w.Spec.SecretConfig.Databricks["posit-aws-with-client-secret"].ClientSecret)
+}
+
+func TestAzureDatabricksSecretNotFound(t *testing.T) {
+	r := &WorkbenchReconciler{}
+	ctx := context.TODO()
+	req := ctrl.Request{}
+
+	// Enable strict mode for this test to get typed errors
+	product.GlobalTestSecretProvider.SetStrictMode(true)
+	defer product.GlobalTestSecretProvider.Reset() // Clean up after test
+
+	// Don't set any secrets - simulating not found
+
+	w := &positcov1beta1.Workbench{
+		Spec: positcov1beta1.WorkbenchSpec{
+			Secret: positcov1beta1.SecretConfig{
+				VaultName: "test-vault",
+				Type:      product.SiteSecretTest,
+			},
+			SecretConfig: positcov1beta1.WorkbenchSecretConfig{
+				WorkbenchSecretIniConfig: positcov1beta1.WorkbenchSecretIniConfig{
+					Databricks: map[string]*positcov1beta1.WorkbenchDatabricksConfig{
+						"posit-azure": {
+							Name:     "Azure Databricks",
+							Url:      "https://someprefix.azuredatabricks.net",
+							ClientId: "missing-client-id",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Should return error for Azure when secret not found
+	err := r.FetchAndSetClientSecretForDatabricks(ctx, req, w)
+	require.Error(t, err)
+	var notFoundErr *product.SecretNotFoundError
+	require.ErrorAs(t, err, &notFoundErr)
 }
 
 func initWorkbenchReconciler(t *testing.T, ctx context.Context, namespace, name string) (context.Context, *WorkbenchReconciler, ctrl.Request, client.Client) {

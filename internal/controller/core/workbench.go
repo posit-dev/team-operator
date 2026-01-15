@@ -44,28 +44,57 @@ var invalidCharacters = regexp.MustCompile("[^a-z0-9]") // do not glob, lest we 
 
 var azureDatabricksRegexp = regexp.MustCompile("azuredatabricks\\.net")
 
-// FetchAndSetClientSecretForAzureDatabricks will check to see whether AzureDatabricks is in use... if it is,
-// it will fetch the secret from the secret manager and modify the Spec in-place...
-func (r *WorkbenchReconciler) FetchAndSetClientSecretForAzureDatabricks(ctx context.Context, req ctrl.Request, w *positcov1beta1.Workbench) error {
+// FetchAndSetClientSecretForDatabricks will check whether Databricks (AWS or Azure) is in use and
+// fetch the client secret from the secret manager. It modifies the Spec in-place.
+// For Azure Databricks: Secret is required (returns error if not found)
+// For AWS Databricks: Secret is optional (logs info if not found, continues without error)
+func (r *WorkbenchReconciler) FetchAndSetClientSecretForDatabricks(ctx context.Context, req ctrl.Request, w *positcov1beta1.Workbench) error {
 	l := r.GetLogger(ctx)
 
-	if w.Spec.SecretConfig.WorkbenchSecretIniConfig.Databricks != nil {
-		for _, v := range w.Spec.SecretConfig.WorkbenchSecretIniConfig.Databricks {
+	if w.Spec.SecretConfig.WorkbenchSecretIniConfig.Databricks == nil {
+		return nil
+	}
+
+	for dbName, v := range w.Spec.SecretConfig.WorkbenchSecretIniConfig.Databricks {
+		// TODO: ideally this secret would not be read by the operator...
+		//   but that means we need a way to "mount" the secret by env var / etc.
+		clientSecretName := fmt.Sprintf("dev-client-secret-%s", v.ClientId)
+		cs, err := product.FetchSecret(ctx, r, req, w.Spec.Secret.Type, w.Spec.Secret.VaultName, clientSecretName)
+		if err != nil {
 			if azureDatabricksRegexp.MatchString(v.Url) {
-
-				// matched azure url... fetch and set the client secret
-
-				// TODO: ideally this secret would not be read by the operator...
-				//   but that means we need a way to "mount" the secret by env var / etc.
-				clientSecretName := fmt.Sprintf("dev-client-secret-%s", v.ClientId)
-				if cs, err := product.FetchSecret(ctx, r, req, w.Spec.Secret.Type, w.Spec.Secret.VaultName, clientSecretName); err != nil {
-					l.Error(err, "error fetching client secret for databricks azure")
-					return err
-				} else {
-					v.ClientSecret = cs
-				}
+				// Azure Databricks + not found: return error
+				l.Error(err, "client secret required for Azure Databricks",
+					"databricks", dbName,
+					"url", v.Url)
+				return err
 			}
+
+			// The client secret is an optional parameter for Databricks instances in AWS, so if the error is a
+			// "not found", we just want to log that and continue to allow configuration to be created.
+			// See the Workbench docs for more information:
+			// https://docs.posit.co/ide/server-pro/admin/integration/databricks.html#workbench-configuration
+			var notFoundErr *product.SecretNotFoundError
+			if errors.As(err, &notFoundErr) {
+				// AWS Databricks + not found: log info and continue without setting secret
+				l.Info("Databricks client secret not found for AWS instance - continuing without OAuth",
+					"databricks", dbName,
+					"url", v.Url,
+					"clientId", v.ClientId,
+					"secretKey", clientSecretName,
+				)
+				// Don't set ClientSecret, don't return error
+				continue
+			}
+			// Any other error type from AWS should be returned
+			return err
 		}
+
+		// Success - set the client secret
+		v.ClientSecret = cs
+		l.Info("successfully fetched client secret for databricks",
+			"databricks", dbName,
+			"url", v.Url)
+
 	}
 	return nil
 }
@@ -129,9 +158,10 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 		// FYI: Password is set via env var in the CreateSecretVolumeFactory
 	}
 
-	// fetch azure secret, if databricks is involved
-	if err := r.FetchAndSetClientSecretForAzureDatabricks(ctx, req, w); err != nil {
-		l.Error(err, "error fetching client secret for databricks azure. Not fatal")
+	// fetch databricks secrets (both AWS and Azure)
+	if err := r.FetchAndSetClientSecretForDatabricks(ctx, req, w); err != nil {
+		l.Error(err, "error fetching client secret for databricks")
+		return ctrl.Result{}, err
 	}
 
 	// now create the service itself
