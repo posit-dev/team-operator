@@ -51,7 +51,7 @@ spec:
   dnsNames:
     - team-operator.{{ .Release.Namespace }}.svc
     - team-operator.{{ .Release.Namespace }}.svc.cluster.local
-    - team-operator-metrics-service.{{ .Release.Namespace }}.svc
+    - team-operator-controller-manager-metrics-service.{{ .Release.Namespace }}.svc
   issuerRef:
     kind: Issuer
     name: selfsigned-issuer
