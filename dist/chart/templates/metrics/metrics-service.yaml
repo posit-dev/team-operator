@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: team-operator-controller-manager-metrics-service
+  name: {{ .Values.controllerManager.serviceAccountName }}-metrics-service
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
