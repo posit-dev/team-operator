@@ -4,6 +4,8 @@ kind: Service
 metadata:
   name: team-operator-controller-manager-metrics-service
   namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/resource-policy: keep
   labels:
     {{- include "chart.labels" . | nindent 4 }}
 spec:

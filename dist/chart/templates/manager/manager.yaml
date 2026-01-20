@@ -3,6 +3,8 @@ kind: Deployment
 metadata:
   name: team-operator-controller-manager
   namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/resource-policy: keep
   labels:
     {{- include "chart.labels" . | nindent 4 }}
     control-plane: controller-manager
