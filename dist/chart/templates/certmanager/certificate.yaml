@@ -3,8 +3,10 @@
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
+{{- if .Values.resourcePolicy.keep }}
   annotations:
     helm.sh/resource-policy: keep
+{{- end }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
   name: selfsigned-issuer
@@ -17,8 +19,10 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
+{{- if .Values.resourcePolicy.keep }}
   annotations:
     helm.sh/resource-policy: keep
+{{- end }}
   name: serving-cert
   namespace: {{ .Release.Namespace }}
   labels:
@@ -39,8 +43,10 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
+{{- if .Values.resourcePolicy.keep }}
   annotations:
     helm.sh/resource-policy: keep
+{{- end }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
   name: metrics-certs

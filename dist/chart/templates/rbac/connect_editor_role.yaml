@@ -3,8 +3,10 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+{{- if .Values.resourcePolicy.keep }}
   annotations:
     helm.sh/resource-policy: keep
+{{- end }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
   name: connect-editor-role
