@@ -6,6 +6,7 @@ This comprehensive guide covers common issues and their solutions when running P
 
 1. [General Debugging](#general-debugging)
 2. [Operator Issues](#operator-issues)
+   - [Operator Pod Stuck in Pending (Scheduling Failures)](#operator-pod-stuck-in-pending-scheduling-failures)
 3. [Site Reconciliation Issues](#site-reconciliation-issues)
 4. [Database Issues](#database-issues)
 5. [Product-Specific Issues](#product-specific-issues)
@@ -202,6 +203,100 @@ kubectl describe crd sites.core.posit.team
   ```bash
   helm upgrade --install team-operator ./dist/chart --set installCRDs=true
   ```
+
+### Operator Pod Stuck in Pending (Scheduling Failures)
+
+**Symptoms:**
+- Operator pod stays in `Pending` state indefinitely
+- `kubectl describe pod` shows taint-related scheduling errors
+- Events contain messages like `node(s) had taints that the pod didn't tolerate`
+
+**Diagnosis:**
+```bash
+# Check operator pod status
+kubectl get pods -n posit-team-system
+
+# Describe the pod to see scheduling failures
+kubectl describe pod -n posit-team-system -l control-plane=controller-manager
+
+# List node taints to understand what tolerations are needed
+kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
+```
+
+**Cause:**
+
+Kubernetes nodes can have [taints](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) that prevent pods from scheduling unless the pod has a matching toleration. Common scenarios include:
+
+- Dedicated node pools for specific workloads (e.g., GPU nodes, session nodes)
+- Nodes reserved for critical system components
+- Cloud provider managed node pools with default taints
+
+If the operator pod doesn't have tolerations matching the node taints, it will remain in `Pending` state.
+
+**Solution:**
+
+Configure tolerations in your Helm values to match your cluster's node taints:
+
+```yaml
+# values.yaml
+controllerManager:
+  tolerations:
+    # Example: Tolerate nodes tainted for session workloads
+    - key: "workload-type"
+      operator: "Equal"
+      value: "session"
+      effect: "NoSchedule"
+
+    # Example: Tolerate nodes with GPU taints
+    - key: "nvidia.com/gpu"
+      operator: "Exists"
+      effect: "NoSchedule"
+
+    # Example: Tolerate all taints (use with caution)
+    # - operator: "Exists"
+```
+
+Apply the configuration:
+
+```bash
+helm upgrade team-operator ./dist/chart \
+  --namespace posit-team-system \
+  -f values.yaml
+```
+
+**Common Toleration Patterns:**
+
+| Scenario | Toleration Configuration |
+|----------|-------------------------|
+| Session-dedicated nodes | `key: "workload-type", value: "session", effect: "NoSchedule"` |
+| GPU nodes | `key: "nvidia.com/gpu", operator: "Exists", effect: "NoSchedule"` |
+| Cloud provider taints (EKS) | `key: "eks.amazonaws.com/compute-type", operator: "Exists"` |
+| Cloud provider taints (GKE) | `key: "cloud.google.com/gke-nodepool", operator: "Exists"` |
+| Control plane nodes | `key: "node-role.kubernetes.io/control-plane", operator: "Exists"` |
+
+**Using nodeSelector as an alternative:**
+
+If you want the operator to run on specific nodes instead of tolerating taints, use `nodeSelector`:
+
+```yaml
+controllerManager:
+  nodeSelector:
+    kubernetes.io/os: linux
+    node-type: management
+```
+
+**Verification:**
+
+After applying tolerations, verify the pod schedules successfully:
+
+```bash
+# Check pod is running
+kubectl get pods -n posit-team-system
+
+# Verify tolerations were applied
+kubectl get deployment team-operator-controller-manager -n posit-team-system \
+  -o jsonpath='{.spec.template.spec.tolerations}' | jq
+```
 
 ---
 
