@@ -4,6 +4,10 @@ kind: Service
 metadata:
   name: {{ .Values.controllerManager.serviceAccountName }}-metrics-service
   namespace: {{ .Release.Namespace }}
+{{- if .Values.resourcePolicy.keep }}
+  annotations:
+    helm.sh/resource-policy: keep
+{{- end }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
 spec:

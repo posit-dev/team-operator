@@ -3,6 +3,10 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
+{{- if .Values.resourcePolicy.keep }}
+  annotations:
+    helm.sh/resource-policy: keep
+{{- end }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
   name: team-operator-controller-manager-metrics-monitor

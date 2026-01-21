@@ -3,6 +3,10 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+{{- if .Values.resourcePolicy.keep }}
+  annotations:
+    helm.sh/resource-policy: keep
+{{- end }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
   name: team-operator-manager-role
@@ -23,6 +27,10 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
+{{- if .Values.resourcePolicy.keep }}
+  annotations:
+    helm.sh/resource-policy: keep
+{{- end }}
   name: team-operator-manager-role
   namespace: {{ .Values.watchNamespace }}
 rules:
