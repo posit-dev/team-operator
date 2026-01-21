@@ -1,3 +1,18 @@
+# [1.3.0](https://github.com/posit-dev/team-operator/compare/v1.2.0...v1.3.0) (2026-01-21)
+
+
+### Bug Fixes
+
+* correct metrics service DNS name in certificate template ([d45d880](https://github.com/posit-dev/team-operator/commit/d45d8800613ac3942085777d6302e53653e0e713))
+* remove duplicate metrics service and add tolerations docs ([e69c41c](https://github.com/posit-dev/team-operator/commit/e69c41cf5b7ecb4c28e04d2883b9671c64498b08))
+* use templated name for metrics service ([dceea83](https://github.com/posit-dev/team-operator/commit/dceea83d53029fb40d9f9b0a70e6d7826e7eb3d3))
+
+
+### Features
+
+* add helm.sh/resource-policy: keep to all chart resources ([b55376f](https://github.com/posit-dev/team-operator/commit/b55376f6cdc50ea2a0ef62f3ad09b2383f267b6e))
+* make resource-policy annotation configurable ([3ae9ada](https://github.com/posit-dev/team-operator/commit/3ae9adab9cd510ef0bf9ab8d31a809cda6cedd0a))
+
 # [1.2.0](https://github.com/posit-dev/team-operator/compare/v1.1.0...v1.2.0) (2026-01-14)
 
 
