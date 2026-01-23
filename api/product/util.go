@@ -92,7 +92,7 @@ func ComputeSha256(in map[string]string) (string, error) {
 	}
 }
 
-// GetAWSRegion returns the AWS region to use for secret operations.
+// GetAWSRegion returns the AWS region.
 // It checks the AWS_REGION environment variable first, then falls back to AWS_DEFAULT_REGION,
 // and finally defaults to us-east-2 for backwards compatibility.
 func GetAWSRegion() string {
