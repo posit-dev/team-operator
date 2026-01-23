@@ -29,10 +29,10 @@ type WorkbenchSecretConfig struct {
 }
 
 type WorkbenchSecretIniConfig struct {
-	Database           *WorkbenchDatabaseConfig                 `json:"database.conf,omitempty"`
-	OpenidClientSecret *WorkbenchOpenidClientSecret             `json:"openid-client-secret,omitempty"`
-	Databricks         map[string]*WorkbenchDatabricksConfig    `json:"databricks.conf,omitempty"`
-	OAuthClients       map[string]*WorkbenchOAuthClientConfig   `json:"oauth-clients.conf,omitempty"`
+	Database           *WorkbenchDatabaseConfig               `json:"database.conf,omitempty"`
+	OpenidClientSecret *WorkbenchOpenidClientSecret           `json:"openid-client-secret,omitempty"`
+	Databricks         map[string]*WorkbenchDatabricksConfig  `json:"databricks.conf,omitempty"`
+	OAuthClients       map[string]*WorkbenchOAuthClientConfig `json:"oauth-clients.conf,omitempty"`
 }
 
 func (w *WorkbenchSecretIniConfig) GenerateConfigMap() map[string]string {
