@@ -858,14 +858,46 @@ type WorkbenchDatabaseConfig struct {
 	Password string                    `json:"password,omitempty"`
 }
 
+// WorkbenchOAuthClientConfig defines configuration for a custom OAuth integration.
+// See https://docs.posit.co/ide/server-pro/integration/custom-oauth.html for details.
 type WorkbenchOAuthClientConfig struct {
-	Name                    string   `json:"name,omitempty"`
-	ClientId                string   `json:"client-id,omitempty"`
-	ClientSecret            string   `json:"client-secret,omitempty"`
-	AuthorizationUrl        string   `json:"authorization-url,omitempty"`
-	TokenUrl                string   `json:"token-url,omitempty"`
-	TokenEndpointAuthMethod string   `json:"token-endpoint-auth-method,omitempty"`
-	Scopes                  []string `json:"scopes,omitempty"`
+	// Name is the display name for this OAuth integration shown in the Workbench UI.
+	// If not provided, the section header (map key) is used as the display name.
+	// +optional
+	Name string `json:"name,omitempty"`
+
+	// ClientId is the OAuth client ID obtained from the external service provider.
+	// This field is required for the integration to function.
+	// +kubebuilder:validation:MinLength=1
+	ClientId string `json:"client-id,omitempty"`
+
+	// ClientSecret is populated automatically from the secret store.
+	// Do not set this field directly - instead, create a secret with the name
+	// "dev-oauth-client-secret-{integration-name}" in your secret store.
+	// +optional
+	ClientSecret string `json:"client-secret,omitempty"`
+
+	// AuthorizationUrl is the OAuth authorization endpoint URL.
+	// This field is required for the integration to function.
+	// +kubebuilder:validation:MinLength=1
+	AuthorizationUrl string `json:"authorization-url,omitempty"`
+
+	// TokenUrl is the OAuth token endpoint URL.
+	// This field is required for the integration to function.
+	// +kubebuilder:validation:MinLength=1
+	TokenUrl string `json:"token-url,omitempty"`
+
+	// TokenEndpointAuthMethod specifies how the client authenticates with the token endpoint.
+	// Common values: "client_secret_post", "client_secret_basic".
+	// Defaults to "client_secret_post" if not specified.
+	// +optional
+	// +kubebuilder:validation:Enum=client_secret_post;client_secret_basic
+	TokenEndpointAuthMethod string `json:"token-endpoint-auth-method,omitempty"`
+
+	// Scopes is a list of OAuth scopes to request from the authorization server.
+	// These are rendered as a comma-separated list in the configuration file.
+	// +optional
+	Scopes []string `json:"scopes,omitempty"`
 }
 
 type WorkbenchVsCodeConfig struct {

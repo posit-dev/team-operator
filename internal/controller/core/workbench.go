@@ -77,9 +77,24 @@ func (r *WorkbenchReconciler) FetchAndSetOAuthClientSecrets(ctx context.Context,
 		return nil
 	}
 
+	var lastErr error
 	for integrationName, config := range w.Spec.SecretConfig.WorkbenchSecretIniConfig.OAuthClients {
+		// Validate required fields per Workbench documentation
+		var missingFields []string
 		if config.ClientId == "" {
-			l.Info("skipping OAuth integration with no client ID", "integration", integrationName)
+			missingFields = append(missingFields, "client-id")
+		}
+		if config.AuthorizationUrl == "" {
+			missingFields = append(missingFields, "authorization-url")
+		}
+		if config.TokenUrl == "" {
+			missingFields = append(missingFields, "token-url")
+		}
+
+		if len(missingFields) > 0 {
+			l.Info("skipping OAuth integration with missing required fields",
+				"integration", integrationName,
+				"missingFields", missingFields)
 			continue
 		}
 
@@ -87,14 +102,15 @@ func (r *WorkbenchReconciler) FetchAndSetOAuthClientSecrets(ctx context.Context,
 
 		if cs, err := product.FetchSecret(ctx, r, req, w.Spec.Secret.Type, w.Spec.Secret.VaultName, clientSecretName); err != nil {
 			l.Error(err, "error fetching client secret for OAuth integration", "integration", integrationName)
-			return err
+			lastErr = err
+			// Continue processing other integrations
 		} else {
 			config.ClientSecret = cs
 			l.Info("successfully fetched OAuth client secret", "integration", integrationName)
 		}
 	}
 
-	return nil
+	return lastErr
 }
 
 func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.Request, w *positcov1beta1.Workbench) (ctrl.Result, error) {
@@ -161,10 +177,9 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 		l.Error(err, "error fetching client secret for databricks azure. Not fatal")
 	}
 
-	// fetch OAuth client secrets
+	// fetch OAuth client secrets (non-fatal, like Databricks)
 	if err := r.FetchAndSetOAuthClientSecrets(ctx, req, w); err != nil {
-		l.Error(err, "error fetching OAuth client secrets")
-		return ctrl.Result{}, err
+		l.Error(err, "error fetching OAuth client secrets. Not fatal")
 	}
 
 	// now create the service itself

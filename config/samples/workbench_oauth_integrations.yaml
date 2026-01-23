@@ -1,0 +1,85 @@
+# Example: Workbench with Custom OAuth Integrations
+#
+# This example shows how to configure custom OAuth integrations for Workbench,
+# enabling users to access external APIs like Box, Dropbox, Google Drive, etc.
+#
+# Documentation: https://docs.posit.co/ide/server-pro/integration/custom-oauth.html
+#
+# Prerequisites:
+# 1. Register your application with each OAuth provider to obtain client credentials
+# 2. Configure the redirect URI in each provider: https://<workbench-url>/oauth_redirect_callback
+# 3. Create secrets for each integration's client secret (see below)
+#
+---
+apiVersion: core.posit.team/v1beta1
+kind: Workbench
+metadata:
+  name: workbench-with-oauth
+  namespace: posit-team
+spec:
+  # Secret configuration - adjust based on your secret store type
+  secret:
+    type: kubernetes  # or "aws" for AWS Secrets Manager
+    vaultName: workbench-oauth-secrets
+
+  # OAuth integrations are configured under secretConfig
+  secretConfig:
+    workbench-secret-ini-config:
+      oauth-clients.conf:
+        # Box Integration
+        # Register at: https://developer.box.com/
+        box-integration:
+          name: "Box Cloud Storage"
+          client-id: "your-box-client-id"
+          authorization-url: "https://account.box.com/api/oauth2/authorize"
+          token-url: "https://api.box.com/oauth2/token"
+          scopes:
+            - "root_readwrite"
+
+        # Google Drive Integration
+        # Register at: https://console.cloud.google.com/
+        google-drive:
+          name: "Google Drive"
+          client-id: "your-google-client-id.apps.googleusercontent.com"
+          authorization-url: "https://accounts.google.com/o/oauth2/v2/auth"
+          token-url: "https://oauth2.googleapis.com/token"
+          scopes:
+            - "https://www.googleapis.com/auth/drive.readonly"
+            - "https://www.googleapis.com/auth/drive.file"
+
+        # Dropbox Integration
+        # Register at: https://www.dropbox.com/developers/apps
+        dropbox:
+          name: "Dropbox"
+          client-id: "your-dropbox-app-key"
+          authorization-url: "https://www.dropbox.com/oauth2/authorize"
+          token-url: "https://api.dropbox.com/oauth2/token"
+          token-endpoint-auth-method: "client_secret_post"
+
+        # Custom Internal API Example
+        internal-api:
+          name: "Company Data API"
+          client-id: "internal-api-client"
+          authorization-url: "https://auth.company.com/oauth/authorize"
+          token-url: "https://auth.company.com/oauth/token"
+          token-endpoint-auth-method: "client_secret_basic"
+          scopes:
+            - "read"
+            - "write"
+
+---
+# Kubernetes Secret containing OAuth client secrets
+# Each key follows the pattern: dev-oauth-client-secret-{integration-name}
+#
+# For AWS Secrets Manager, create secrets with the same names in your vault.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: workbench-oauth-secrets
+  namespace: posit-team
+type: Opaque
+stringData:
+  dev-oauth-client-secret-box-integration: "your-box-client-secret"
+  dev-oauth-client-secret-google-drive: "your-google-client-secret"
+  dev-oauth-client-secret-dropbox: "your-dropbox-app-secret"
+  dev-oauth-client-secret-internal-api: "your-internal-api-secret"
