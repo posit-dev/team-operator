@@ -700,6 +700,27 @@ spec:
                               type: string
                           type: object
                         type: object
+                      oauth-clients.conf:
+                        additionalProperties:
+                          properties:
+                            authorization-url:
+                              type: string
+                            client-id:
+                              type: string
+                            client-secret:
+                              type: string
+                            name:
+                              type: string
+                            scopes:
+                              items:
+                                type: string
+                              type: array
+                            token-endpoint-auth-method:
+                              type: string
+                            token-url:
+                              type: string
+                          type: object
+                        type: object
                       openid-client-secret:
                         properties:
                           client-id:

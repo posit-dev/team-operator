@@ -54,6 +54,21 @@ func (b *WorkbenchSecretConfigApplyConfiguration) WithDatabricks(entries map[str
 	return b
 }
 
+// WithOAuthClients puts the entries into the OAuthClients field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, the entries provided by each call will be put on the OAuthClients field,
+// overwriting an existing map entries in OAuthClients field with the same key.
+func (b *WorkbenchSecretConfigApplyConfiguration) WithOAuthClients(entries map[string]*corev1beta1.WorkbenchOAuthClientConfig) *WorkbenchSecretConfigApplyConfiguration {
+	b.ensureWorkbenchSecretIniConfigApplyConfigurationExists()
+	if b.WorkbenchSecretIniConfigApplyConfiguration.OAuthClients == nil && len(entries) > 0 {
+		b.WorkbenchSecretIniConfigApplyConfiguration.OAuthClients = make(map[string]*corev1beta1.WorkbenchOAuthClientConfig, len(entries))
+	}
+	for k, v := range entries {
+		b.WorkbenchSecretIniConfigApplyConfiguration.OAuthClients[k] = v
+	}
+	return b
+}
+
 func (b *WorkbenchSecretConfigApplyConfiguration) ensureWorkbenchSecretIniConfigApplyConfigurationExists() {
 	if b.WorkbenchSecretIniConfigApplyConfiguration == nil {
 		b.WorkbenchSecretIniConfigApplyConfiguration = &WorkbenchSecretIniConfigApplyConfiguration{}

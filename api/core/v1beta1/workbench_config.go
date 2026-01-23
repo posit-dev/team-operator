@@ -29,9 +29,10 @@ type WorkbenchSecretConfig struct {
 }
 
 type WorkbenchSecretIniConfig struct {
-	Database           *WorkbenchDatabaseConfig              `json:"database.conf,omitempty"`
-	OpenidClientSecret *WorkbenchOpenidClientSecret          `json:"openid-client-secret,omitempty"`
-	Databricks         map[string]*WorkbenchDatabricksConfig `json:"databricks.conf,omitempty"`
+	Database           *WorkbenchDatabaseConfig                 `json:"database.conf,omitempty"`
+	OpenidClientSecret *WorkbenchOpenidClientSecret             `json:"openid-client-secret,omitempty"`
+	Databricks         map[string]*WorkbenchDatabricksConfig    `json:"databricks.conf,omitempty"`
+	OAuthClients       map[string]*WorkbenchOAuthClientConfig   `json:"oauth-clients.conf,omitempty"`
 }
 
 func (w *WorkbenchSecretIniConfig) GenerateConfigMap() map[string]string {
@@ -850,6 +851,16 @@ type WorkbenchDatabaseConfig struct {
 	Host     string                    `json:"host,omitempty"`
 	Username string                    `json:"username,omitempty"`
 	Password string                    `json:"password,omitempty"`
+}
+
+type WorkbenchOAuthClientConfig struct {
+	Name                    string   `json:"name,omitempty"`
+	ClientId                string   `json:"client-id,omitempty"`
+	ClientSecret            string   `json:"client-secret,omitempty"`
+	AuthorizationUrl        string   `json:"authorization-url,omitempty"`
+	TokenUrl                string   `json:"token-url,omitempty"`
+	TokenEndpointAuthMethod string   `json:"token-endpoint-auth-method,omitempty"`
+	Scopes                  []string `json:"scopes,omitempty"`
 }
 
 type WorkbenchVsCodeConfig struct {

@@ -70,6 +70,33 @@ func (r *WorkbenchReconciler) FetchAndSetClientSecretForAzureDatabricks(ctx cont
 	return nil
 }
 
+func (r *WorkbenchReconciler) FetchAndSetOAuthClientSecrets(ctx context.Context, req ctrl.Request, w *positcov1beta1.Workbench) error {
+	l := r.GetLogger(ctx)
+
+	if w.Spec.SecretConfig.WorkbenchSecretIniConfig.OAuthClients == nil {
+		return nil
+	}
+
+	for integrationName, config := range w.Spec.SecretConfig.WorkbenchSecretIniConfig.OAuthClients {
+		if config.ClientId == "" {
+			l.Info("skipping OAuth integration with no client ID", "integration", integrationName)
+			continue
+		}
+
+		clientSecretName := fmt.Sprintf("dev-oauth-client-secret-%s", integrationName)
+
+		if cs, err := product.FetchSecret(ctx, r, req, w.Spec.Secret.Type, w.Spec.Secret.VaultName, clientSecretName); err != nil {
+			l.Error(err, "error fetching client secret for OAuth integration", "integration", integrationName)
+			return err
+		} else {
+			config.ClientSecret = cs
+			l.Info("successfully fetched OAuth client secret", "integration", integrationName)
+		}
+	}
+
+	return nil
+}
+
 func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.Request, w *positcov1beta1.Workbench) (ctrl.Result, error) {
 	l := r.GetLogger(ctx).WithValues(
 		"event", "reconcile-workbench",
@@ -132,6 +159,12 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 	// fetch azure secret, if databricks is involved
 	if err := r.FetchAndSetClientSecretForAzureDatabricks(ctx, req, w); err != nil {
 		l.Error(err, "error fetching client secret for databricks azure. Not fatal")
+	}
+
+	// fetch OAuth client secrets
+	if err := r.FetchAndSetOAuthClientSecrets(ctx, req, w); err != nil {
+		l.Error(err, "error fetching OAuth client secrets")
+		return ctrl.Result{}, err
 	}
 
 	// now create the service itself
@@ -283,6 +316,16 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 		// also ensure there is a kubernetes secret to back the admin token if chronicle needs it.
 		if w.Spec.ChronicleSidecarProductApiKeyEnabled {
 			kubernetesSecrets[secretName]["dev-chronicle-api-key"] = "dev-chronicle-api-key"
+		}
+
+		// OAuth client secrets
+		if w.Spec.SecretConfig.WorkbenchSecretIniConfig.OAuthClients != nil {
+			for integrationName, config := range w.Spec.SecretConfig.WorkbenchSecretIniConfig.OAuthClients {
+				if config.ClientId != "" {
+					secretKey := fmt.Sprintf("dev-oauth-client-secret-%s", integrationName)
+					allSecrets[secretKey] = secretKey
+				}
+			}
 		}
 
 		if targetSpc, err := product.GetSecretProviderClassForAllSecrets(

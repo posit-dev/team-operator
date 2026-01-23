@@ -219,6 +219,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &corev1beta1.WorkbenchLoggingSectionApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("WorkbenchNssConfig"):
 		return &corev1beta1.WorkbenchNssConfigApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("WorkbenchOAuthClientConfig"):
+		return &corev1beta1.WorkbenchOAuthClientConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("WorkbenchOpenidClientSecret"):
 		return &corev1beta1.WorkbenchOpenidClientSecretApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("WorkbenchPositronConfig"):

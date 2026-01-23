@@ -12,9 +12,10 @@ import (
 // WorkbenchSecretIniConfigApplyConfiguration represents a declarative configuration of the WorkbenchSecretIniConfig type for use
 // with apply.
 type WorkbenchSecretIniConfigApplyConfiguration struct {
-	Database           *WorkbenchDatabaseConfigApplyConfiguration        `json:"database.conf,omitempty"`
-	OpenidClientSecret *WorkbenchOpenidClientSecretApplyConfiguration    `json:"openid-client-secret,omitempty"`
-	Databricks         map[string]*corev1beta1.WorkbenchDatabricksConfig `json:"databricks.conf,omitempty"`
+	Database           *WorkbenchDatabaseConfigApplyConfiguration         `json:"database.conf,omitempty"`
+	OpenidClientSecret *WorkbenchOpenidClientSecretApplyConfiguration     `json:"openid-client-secret,omitempty"`
+	Databricks         map[string]*corev1beta1.WorkbenchDatabricksConfig  `json:"databricks.conf,omitempty"`
+	OAuthClients       map[string]*corev1beta1.WorkbenchOAuthClientConfig `json:"oauth-clients.conf,omitempty"`
 }
 
 // WorkbenchSecretIniConfigApplyConfiguration constructs a declarative configuration of the WorkbenchSecretIniConfig type for use with
@@ -49,6 +50,20 @@ func (b *WorkbenchSecretIniConfigApplyConfiguration) WithDatabricks(entries map[
 	}
 	for k, v := range entries {
 		b.Databricks[k] = v
+	}
+	return b
+}
+
+// WithOAuthClients puts the entries into the OAuthClients field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, the entries provided by each call will be put on the OAuthClients field,
+// overwriting an existing map entries in OAuthClients field with the same key.
+func (b *WorkbenchSecretIniConfigApplyConfiguration) WithOAuthClients(entries map[string]*corev1beta1.WorkbenchOAuthClientConfig) *WorkbenchSecretIniConfigApplyConfiguration {
+	if b.OAuthClients == nil && len(entries) > 0 {
+		b.OAuthClients = make(map[string]*corev1beta1.WorkbenchOAuthClientConfig, len(entries))
+	}
+	for k, v := range entries {
+		b.OAuthClients[k] = v
 	}
 	return b
 }
