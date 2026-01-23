@@ -1,3 +1,10 @@
+## [1.3.2](https://github.com/posit-dev/team-operator/compare/v1.3.1...v1.3.2) (2026-01-23)
+
+
+### Bug Fixes
+
+* add just format target referenced by docs and claude agent ([479f3a0](https://github.com/posit-dev/team-operator/commit/479f3a097903f601319de8927beca35383281d20))
+
 ## [1.3.1](https://github.com/posit-dev/team-operator/compare/v1.3.0...v1.3.1) (2026-01-23)
 
 
