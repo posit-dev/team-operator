@@ -262,3 +262,172 @@ func TestWorkbenchAuthSamlMissingMetadata(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "SAML authentication requires a metadata URL")
 }
+
+// OAuth Client Tests
+
+func TestOAuthClientSecrets(t *testing.T) {
+	r := &WorkbenchReconciler{}
+	ctx := context.TODO()
+	req := ctrl.Request{}
+	w := &positcov1beta1.Workbench{
+		Spec: positcov1beta1.WorkbenchSpec{
+			Secret: positcov1beta1.SecretConfig{
+				VaultName: "test-vault",
+				Type:      product.SiteSecretTest,
+			},
+			SecretConfig: positcov1beta1.WorkbenchSecretConfig{
+				WorkbenchSecretIniConfig: positcov1beta1.WorkbenchSecretIniConfig{
+					OAuthClients: map[string]*positcov1beta1.WorkbenchOAuthClientConfig{
+						"box-integration": {
+							Name:             "Box",
+							ClientId:         "box-client-id",
+							AuthorizationUrl: "https://account.box.com/api/oauth2/authorize",
+							TokenUrl:         "https://api.box.com/oauth2/token",
+						},
+						"google-drive": {
+							Name:             "Google Drive",
+							ClientId:         "google-client-id",
+							AuthorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+							TokenUrl:         "https://oauth2.googleapis.com/token",
+							Scopes:           []string{"drive.readonly"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Verify secrets are empty before fetching
+	require.Equal(t, "", w.Spec.SecretConfig.OAuthClients["box-integration"].ClientSecret)
+	require.Equal(t, "", w.Spec.SecretConfig.OAuthClients["google-drive"].ClientSecret)
+
+	// Fetch secrets
+	err := r.FetchAndSetOAuthClientSecrets(ctx, req, w)
+	require.NoError(t, err)
+
+	// Verify secrets were populated (test provider returns the secret name as the value)
+	require.Equal(t, "dev-oauth-client-secret-box-integration", w.Spec.SecretConfig.OAuthClients["box-integration"].ClientSecret)
+	require.Equal(t, "dev-oauth-client-secret-google-drive", w.Spec.SecretConfig.OAuthClients["google-drive"].ClientSecret)
+}
+
+func TestOAuthClientSecrets_NilOAuthClients(t *testing.T) {
+	r := &WorkbenchReconciler{}
+	ctx := context.TODO()
+	req := ctrl.Request{}
+	w := &positcov1beta1.Workbench{
+		Spec: positcov1beta1.WorkbenchSpec{
+			Secret: positcov1beta1.SecretConfig{
+				VaultName: "test-vault",
+				Type:      product.SiteSecretTest,
+			},
+			SecretConfig: positcov1beta1.WorkbenchSecretConfig{
+				WorkbenchSecretIniConfig: positcov1beta1.WorkbenchSecretIniConfig{
+					// OAuthClients is nil - should be a no-op
+				},
+			},
+		},
+	}
+
+	// Should return nil error for nil OAuthClients (no-op)
+	err := r.FetchAndSetOAuthClientSecrets(ctx, req, w)
+	require.NoError(t, err)
+}
+
+func TestOAuthClientSecrets_MissingRequiredFields(t *testing.T) {
+	r := &WorkbenchReconciler{}
+	ctx := context.TODO()
+	req := ctrl.Request{}
+	w := &positcov1beta1.Workbench{
+		Spec: positcov1beta1.WorkbenchSpec{
+			Secret: positcov1beta1.SecretConfig{
+				VaultName: "test-vault",
+				Type:      product.SiteSecretTest,
+			},
+			SecretConfig: positcov1beta1.WorkbenchSecretConfig{
+				WorkbenchSecretIniConfig: positcov1beta1.WorkbenchSecretIniConfig{
+					OAuthClients: map[string]*positcov1beta1.WorkbenchOAuthClientConfig{
+						// Missing client-id
+						"missing-client-id": {
+							Name:             "Missing Client ID",
+							AuthorizationUrl: "https://example.com/auth",
+							TokenUrl:         "https://example.com/token",
+						},
+						// Missing authorization-url
+						"missing-auth-url": {
+							Name:     "Missing Auth URL",
+							ClientId: "some-client-id",
+							TokenUrl: "https://example.com/token",
+						},
+						// Missing token-url
+						"missing-token-url": {
+							Name:             "Missing Token URL",
+							ClientId:         "some-client-id",
+							AuthorizationUrl: "https://example.com/auth",
+						},
+						// Valid integration - should still be processed
+						"valid-integration": {
+							Name:             "Valid",
+							ClientId:         "valid-client-id",
+							AuthorizationUrl: "https://example.com/auth",
+							TokenUrl:         "https://example.com/token",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Should not return error - invalid integrations are skipped, valid ones processed
+	err := r.FetchAndSetOAuthClientSecrets(ctx, req, w)
+	require.NoError(t, err)
+
+	// Invalid integrations should have empty secrets (they were skipped)
+	require.Equal(t, "", w.Spec.SecretConfig.OAuthClients["missing-client-id"].ClientSecret)
+	require.Equal(t, "", w.Spec.SecretConfig.OAuthClients["missing-auth-url"].ClientSecret)
+	require.Equal(t, "", w.Spec.SecretConfig.OAuthClients["missing-token-url"].ClientSecret)
+
+	// Valid integration should have its secret populated
+	require.Equal(t, "dev-oauth-client-secret-valid-integration", w.Spec.SecretConfig.OAuthClients["valid-integration"].ClientSecret)
+}
+
+func TestOAuthClientSecrets_BackwardsCompatibility(t *testing.T) {
+	// This test verifies that existing Workbench configurations without OAuth
+	// continue to work correctly (backwards compatibility)
+	r := &WorkbenchReconciler{}
+	ctx := context.TODO()
+	req := ctrl.Request{}
+
+	// Simulate an existing Workbench with Databricks but no OAuth
+	w := &positcov1beta1.Workbench{
+		Spec: positcov1beta1.WorkbenchSpec{
+			Secret: positcov1beta1.SecretConfig{
+				VaultName: "test-vault",
+				Type:      product.SiteSecretTest,
+			},
+			SecretConfig: positcov1beta1.WorkbenchSecretConfig{
+				WorkbenchSecretIniConfig: positcov1beta1.WorkbenchSecretIniConfig{
+					// Existing Databricks config
+					Databricks: map[string]*positcov1beta1.WorkbenchDatabricksConfig{
+						"existing-workspace": {
+							Name:     "Existing Workspace",
+							Url:      "https://existing.cloud.databricks.com",
+							ClientId: "existing-client-id",
+						},
+					},
+					// No OAuthClients configured (nil)
+				},
+			},
+		},
+	}
+
+	// OAuth fetching should be a no-op and not affect Databricks
+	err := r.FetchAndSetOAuthClientSecrets(ctx, req, w)
+	require.NoError(t, err)
+
+	// Databricks config should be unchanged
+	require.NotNil(t, w.Spec.SecretConfig.Databricks)
+	require.Equal(t, "Existing Workspace", w.Spec.SecretConfig.Databricks["existing-workspace"].Name)
+
+	// OAuthClients should still be nil
+	require.Nil(t, w.Spec.SecretConfig.OAuthClients)
+}
