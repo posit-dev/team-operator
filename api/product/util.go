@@ -3,8 +3,10 @@ package product
 import (
 	"crypto/sha256"
 	"fmt"
+	"os"
 	"sort"
 
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -88,4 +90,18 @@ func ComputeSha256(in map[string]string) (string, error) {
 		// convert h.Sum to a string
 		return fmt.Sprintf("%x", h.Sum(nil)), nil
 	}
+}
+
+// GetAWSRegion returns the AWS region to use for secret operations.
+// It checks the AWS_REGION environment variable first, then falls back to AWS_DEFAULT_REGION,
+// and finally defaults to us-east-2 for backwards compatibility.
+func GetAWSRegion() string {
+	if region := os.Getenv("AWS_REGION"); region != "" {
+		return region
+	}
+	if region := os.Getenv("AWS_DEFAULT_REGION"); region != "" {
+		return region
+	}
+	// Fallback to the original hardcoded region for backwards compatibility
+	return endpoints.UsEast2RegionID
 }
