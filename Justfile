@@ -42,6 +42,10 @@ build:
 mbuild:
   make build
 
+# Format code
+format:
+  go fmt ./...
+
 create-db-url-secret:
   #!/bin/bash
   set -xe
