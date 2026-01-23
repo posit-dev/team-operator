@@ -1,3 +1,11 @@
+## [1.3.1](https://github.com/posit-dev/team-operator/compare/v1.3.0...v1.3.1) (2026-01-23)
+
+
+### Bug Fixes
+
+* correct comment for moved function ([25a522d](https://github.com/posit-dev/team-operator/commit/25a522dacbfabe113025d2df66f5256bfcc86324))
+* set region for package manager and chronicle storage configs ([01e3242](https://github.com/posit-dev/team-operator/commit/01e3242006ffcbaa48e61cb82a4a883c4a0fae63))
+
 # [1.3.0](https://github.com/posit-dev/team-operator/compare/v1.2.0...v1.3.0) (2026-01-21)
 
 
