@@ -1,8 +1,10 @@
 package product_test
 
 import (
+	"os"
 	"testing"
 
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -79,4 +81,55 @@ func TestLabelMerge(t *testing.T) {
 	result = product.LabelMerge(m1, m2)
 	expected = map[string]string{"vorpal": "sword"}
 	assert.Equal(t, expected, result)
+}
+
+func TestGetAWSRegion(t *testing.T) {
+	tests := []struct {
+		name       string
+		awsRegion  string
+		awsDefault string
+		want       string
+	}{
+		{"AWS_REGION set", "us-west-2", "", "us-west-2"},
+		{"AWS_DEFAULT_REGION set", "", "eu-west-1", "eu-west-1"},
+		{"Both set, AWS_REGION wins", "us-west-2", "eu-west-1", "us-west-2"},
+		{"Neither set, defaults", "", "", endpoints.UsEast2RegionID},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Save original values
+			origRegion := os.Getenv("AWS_REGION")
+			origDefault := os.Getenv("AWS_DEFAULT_REGION")
+			defer func() {
+				// Restore original values
+				if origRegion != "" {
+					os.Setenv("AWS_REGION", origRegion)
+				} else {
+					os.Unsetenv("AWS_REGION")
+				}
+				if origDefault != "" {
+					os.Setenv("AWS_DEFAULT_REGION", origDefault)
+				} else {
+					os.Unsetenv("AWS_DEFAULT_REGION")
+				}
+			}()
+
+			// Set test values
+			if tt.awsRegion != "" {
+				os.Setenv("AWS_REGION", tt.awsRegion)
+			} else {
+				os.Unsetenv("AWS_REGION")
+			}
+			if tt.awsDefault != "" {
+				os.Setenv("AWS_DEFAULT_REGION", tt.awsDefault)
+			} else {
+				os.Unsetenv("AWS_DEFAULT_REGION")
+			}
+
+			if got := product.GetAWSRegion(); got != tt.want {
+				t.Errorf("GetAWSRegion() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

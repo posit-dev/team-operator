@@ -4,10 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/pkg/errors"
@@ -121,7 +119,7 @@ func GetSecretProviderClassForAllSecrets(p KubernetesOwnerProvider, name, namesp
 				SecretObjects: generateSecretObjects(p, kubernetesSecrets),
 				Parameters: map[string]string{
 					"objects": secretObjectYaml,
-					"region":  getAWSRegion(),
+					"region":  GetAWSRegion(),
 				},
 			},
 		}, nil
@@ -137,26 +135,12 @@ const (
 	SiteSecretNone       SiteSecretType = ""
 )
 
-// getAWSRegion returns the AWS region to use for secret operations.
-// It checks the AWS_REGION environment variable first, then falls back to AWS_DEFAULT_REGION,
-// and finally defaults to us-east-2 for backwards compatibility.
-func getAWSRegion() string {
-	if region := os.Getenv("AWS_REGION"); region != "" {
-		return region
-	}
-	if region := os.Getenv("AWS_DEFAULT_REGION"); region != "" {
-		return region
-	}
-	// Fallback to the original hardcoded region for backwards compatibility
-	return endpoints.UsEast2RegionID
-}
-
 func FetchSecret(ctx context.Context, r SomeReconciler, req ctrl.Request, secretType SiteSecretType, vaultName, key string) (string, error) {
 	l := r.GetLogger(ctx)
 	switch secretType {
 	case SiteSecretAws:
 		if sess, err := session.NewSession(&aws.Config{
-			Region: aws.String(getAWSRegion()),
+			Region: aws.String(GetAWSRegion()),
 		}); err != nil {
 			return "", err
 		} else {

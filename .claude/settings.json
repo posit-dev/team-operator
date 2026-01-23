@@ -3,7 +3,7 @@
     "allow": [
       "Bash(just test)",
       "Bash(just build)",
-      "Bash(make *)"
+      "Bash(make :*)"
     ]
   },
   "hooks": {

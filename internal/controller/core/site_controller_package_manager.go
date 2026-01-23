@@ -111,6 +111,7 @@ func (r *SiteReconciler) reconcilePackageManager(
 			}
 			pm.Spec.Config.S3Storage.Bucket = site.Spec.PackageManager.S3Bucket
 			pm.Spec.Config.S3Storage.Prefix = site.Name + "/ppm-v0"
+			pm.Spec.Config.S3Storage.Region = product.GetAWSRegion()
 		}
 		return nil
 	}); err != nil {
