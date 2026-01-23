@@ -70,7 +70,12 @@ func (w *WorkbenchSecretIniConfig) GenerateConfigMap() map[string]string {
 					valueKey := value.Type().Field(j).Name
 					valueVal := value.Field(j)
 
-					if fmt.Sprintf("%v", valueVal) != "" {
+					if valueVal.Kind() == reflect.Slice {
+						arrayString := sliceToString(valueVal, ",")
+						if arrayString != "" {
+							builder.WriteString(fmt.Sprintf("%v", toKebabCase(valueKey)) + "=" + arrayString + "\n")
+						}
+					} else if fmt.Sprintf("%v", valueVal) != "" {
 						builder.WriteString(fmt.Sprintf("%v", toKebabCase(valueKey)) + "=" + fmt.Sprintf("%v", valueVal) + "\n")
 					}
 				}

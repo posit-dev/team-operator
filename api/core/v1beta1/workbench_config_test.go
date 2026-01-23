@@ -45,6 +45,128 @@ func TestWorkbenchSecretConfig_GenerateSecretData(t *testing.T) {
 	require.Len(t, res, 3)
 }
 
+func TestWorkbenchSecretConfig_GenerateSecretData_WithOAuthClients(t *testing.T) {
+	wb := WorkbenchSecretConfig{
+		WorkbenchSecretIniConfig{
+			OAuthClients: map[string]*WorkbenchOAuthClientConfig{
+				"box-integration": {
+					Name:                    "Box API Access",
+					ClientId:                "box-client-id-123",
+					ClientSecret:            "box-secret-xyz",
+					AuthorizationUrl:        "https://account.box.com/api/oauth2/authorize",
+					TokenUrl:                "https://api.box.com/oauth2/token",
+					TokenEndpointAuthMethod: "client_secret_post",
+					Scopes:                  []string{"read", "write"},
+				},
+				"google-drive": {
+					Name:             "Google Drive",
+					ClientId:         "google-client-id-456",
+					ClientSecret:     "google-secret-abc",
+					AuthorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+					TokenUrl:         "https://oauth2.googleapis.com/token",
+					Scopes:           []string{"https://www.googleapis.com/auth/drive.readonly"},
+				},
+			},
+		},
+	}
+
+	res, err := wb.GenerateSecretData()
+	require.Nil(t, err)
+	require.Contains(t, res, "oauth-clients.conf")
+
+	oauthConf := res["oauth-clients.conf"]
+
+	// Verify box-integration section
+	require.Contains(t, oauthConf, "[box-integration]")
+	require.Contains(t, oauthConf, "name=Box API Access")
+	require.Contains(t, oauthConf, "client-id=box-client-id-123")
+	require.Contains(t, oauthConf, "client-secret=box-secret-xyz")
+	require.Contains(t, oauthConf, "authorization-url=https://account.box.com/api/oauth2/authorize")
+	require.Contains(t, oauthConf, "token-url=https://api.box.com/oauth2/token")
+	require.Contains(t, oauthConf, "token-endpoint-auth-method=client_secret_post")
+	require.Contains(t, oauthConf, "scopes=read,write")
+
+	// Verify google-drive section
+	require.Contains(t, oauthConf, "[google-drive]")
+	require.Contains(t, oauthConf, "name=Google Drive")
+	require.Contains(t, oauthConf, "client-id=google-client-id-456")
+	require.Contains(t, oauthConf, "client-secret=google-secret-abc")
+	require.Contains(t, oauthConf, "authorization-url=https://accounts.google.com/o/oauth2/v2/auth")
+	require.Contains(t, oauthConf, "token-url=https://oauth2.googleapis.com/token")
+	require.Contains(t, oauthConf, "scopes=https://www.googleapis.com/auth/drive.readonly")
+
+	// Verify field names are converted to kebab-case
+	require.NotContains(t, oauthConf, "ClientId")
+	require.NotContains(t, oauthConf, "AuthorizationUrl")
+
+	// Verify trailing newline
+	require.True(t, strings.HasSuffix(oauthConf, "\n"))
+}
+
+func TestWorkbenchSecretConfig_GenerateSecretData_WithOAuthClients_EmptyScopes(t *testing.T) {
+	wb := WorkbenchSecretConfig{
+		WorkbenchSecretIniConfig{
+			OAuthClients: map[string]*WorkbenchOAuthClientConfig{
+				"dropbox": {
+					Name:             "Dropbox",
+					ClientId:         "dropbox-client-id",
+					ClientSecret:     "dropbox-secret",
+					AuthorizationUrl: "https://www.dropbox.com/oauth2/authorize",
+					TokenUrl:         "https://api.dropbox.com/oauth2/token",
+					// No scopes specified
+				},
+			},
+		},
+	}
+
+	res, err := wb.GenerateSecretData()
+	require.Nil(t, err)
+	require.Contains(t, res, "oauth-clients.conf")
+
+	oauthConf := res["oauth-clients.conf"]
+	require.Contains(t, oauthConf, "[dropbox]")
+	require.Contains(t, oauthConf, "name=Dropbox")
+	require.Contains(t, oauthConf, "client-id=dropbox-client-id")
+
+	// Scopes should not appear in output if empty
+	require.NotContains(t, oauthConf, "scopes=")
+}
+
+func TestWorkbenchSecretConfig_GenerateSecretData_WithMultipleConfigs(t *testing.T) {
+	wb := WorkbenchSecretConfig{
+		WorkbenchSecretIniConfig{
+			Database: &WorkbenchDatabaseConfig{
+				Provider: WorkbenchDatabaseProviderPostgres,
+				Database: "testdb",
+				Port:     "5432",
+				Host:     "localhost",
+				Username: "user",
+			},
+			OAuthClients: map[string]*WorkbenchOAuthClientConfig{
+				"box": {
+					Name:             "Box",
+					ClientId:         "box-id",
+					ClientSecret:     "box-secret",
+					AuthorizationUrl: "https://account.box.com/api/oauth2/authorize",
+					TokenUrl:         "https://api.box.com/oauth2/token",
+				},
+			},
+		},
+	}
+
+	res, err := wb.GenerateSecretData()
+	require.Nil(t, err)
+
+	// Should have both database.conf and oauth-clients.conf
+	require.Contains(t, res, "database.conf")
+	require.Contains(t, res, "oauth-clients.conf")
+	require.Len(t, res, 2)
+
+	// Verify both configs are properly formatted
+	require.Contains(t, res["database.conf"], "provider=postgresql")
+	require.Contains(t, res["oauth-clients.conf"], "[box]")
+}
+
 func TestWorkbenchConfig_GenerateConfigmap(t *testing.T) {
 	wb := WorkbenchConfig{
 		WorkbenchIniConfig: WorkbenchIniConfig{
