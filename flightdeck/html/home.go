@@ -13,16 +13,16 @@ func HomePage(site positcov1beta1.Site, config *internal.ServerConfig) Node {
 	baseUrl := site.Spec.Domain
 	return page("Home", config,
 		Main(
-			Class("container mx-auto py-8 px-4"),
+			Class("max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8"),
 			Div(
 				Class("text-center mb-12 mt-8 mx-auto max-w-4xl"),
-				H2(
-					Class("text-3xl md:text-4xl font-semibold text-gray-800 dark:text-white mb-6 leading-tight"),
-					Text("Welcome to Posit Team, your end-to-end platform for creating amazing data products."),
+				H1(
+					Class("text-3xl md:text-4xl font-normal text-gray-800 dark:text-white mb-6 leading-tight"),
+					Text("Welcome to Posit Team, your end-to-end platform for creating amazing data products"),
 				),
 				P(
 					Class("text-gray-600 text-lg md:text-xl dark:text-gray-300 leading-relaxed"),
-					Text("Quickly build and share code and applications while seamlessly collaborating with your colleagues and stakeholders."),
+					Text("Quickly build and share code and applications while seamlessly collaborating with your colleagues and stakeholders"),
 				),
 			),
 			Div(
@@ -52,7 +52,7 @@ func productCard(logoSrc string, productName string, domainPrefix string, baseUr
 		Href(fmt.Sprintf("https://%s.%s", domainPrefix, baseUrl)),
 		Target("_blank"),
 		Rel("noopener noreferrer"),
-		Class("block bg-white border border-gray-200 rounded-md p-6 text-center hover:bg-[#E8F1FB] transition-colors dark:bg-neutral-800 dark:border-neutral-700 dark:hover:bg-neutral-700"),
+		Class("block bg-white border border-posit-border rounded-md p-6 text-center hover:border-posit-link-hover hover:shadow-md transition-all dark:bg-neutral-800 dark:border-neutral-700 dark:hover:border-posit-link-hover"),
 		Div(
 			Class("flex justify-center mb-4"),
 			Img(Class("h-6"),

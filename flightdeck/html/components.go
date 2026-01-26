@@ -25,6 +25,14 @@ func page(title string, config *internal.ServerConfig, children ...Node) Node {
 				theme: {
 					fontFamily: {
 						sans: ['Open Sans', 'Arial', 'Helvetica', 'sans-serif']
+					},
+					extend: {
+						colors: {
+							'posit-gray': '#F4F4F4',
+							'posit-border': '#DEDEDE',
+							'posit-text-muted': '#7C7C7C',
+							'posit-link-hover': '#3276B5'
+						}
 					}
 				}
 			}`)),
@@ -37,7 +45,7 @@ func page(title string, config *internal.ServerConfig, children ...Node) Node {
 			`)),
 		},
 		Body: []Node{
-			Class("min-h-screen flex flex-col bg-gray-100 dark:bg-black font-sans"),
+			Class("min-h-screen flex flex-col bg-posit-gray dark:bg-black font-sans"),
 			Div(
 				Class("flex-grow"),
 				navbar(config.ShowConfig),
@@ -50,22 +58,22 @@ func page(title string, config *internal.ServerConfig, children ...Node) Node {
 
 func footer() Node {
 	return Footer(
-		Class("bg-gray-100 dark:bg-black py-6 mt-auto"),
+		Class("bg-posit-gray dark:bg-black py-6 mt-auto border-t border-posit-border dark:border-neutral-700"),
 		Div(
-			Class("container mx-auto px-4"),
+			Class("max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"),
 			Div(
 				Class("flex justify-between items-center"),
 				Div(
-					Class("flex items-center space-x-6 text-sm text-gray-500 dark:text-gray-400"),
+					Class("flex items-center space-x-6 text-xs text-posit-text-muted dark:text-gray-400"),
 					Span(Text(fmt.Sprintf("© %d Posit Software, PBC", time.Now().Year()))),
-					A(Class("hover:text-gray-700 dark:hover:text-gray-300"), Href("https://posit.co/about/privacy-policy/"), Text("Privacy")),
-					A(Class("hover:text-gray-700 dark:hover:text-gray-300"), Href("https://posit.co/about/eula/"), Text("Terms")),
-					A(Class("hover:text-gray-700 dark:hover:text-gray-300"), Href("https://status.posit.co/"), Text("Status")),
+					A(Class("hover:text-posit-link-hover dark:hover:text-posit-link-hover"), Href("https://posit.co/about/privacy-policy/"), Text("Privacy")),
+					A(Class("hover:text-posit-link-hover dark:hover:text-posit-link-hover"), Href("https://posit.co/about/eula/"), Text("Terms")),
+					A(Class("hover:text-posit-link-hover dark:hover:text-posit-link-hover"), Href("https://status.posit.co/"), Text("Status")),
 				),
 				A(
 					Href("https://posit.co"),
-					Img(Class("block dark:hidden h-6"), Src("/static/logo-team-light.svg"), Alt("Posit")),
-					Img(Class("hidden dark:block h-6"), Src("/static/logo-team-dark.svg"), Alt("Posit")),
+					Img(Class("block dark:hidden h-[19px]"), Src("/static/logo-posit-light.svg"), Alt("Posit")),
+					Img(Class("hidden dark:block h-[19px]"), Src("/static/logo-posit-dark.svg"), Alt("Posit")),
 				),
 			),
 		),
@@ -74,27 +82,27 @@ func footer() Node {
 
 func navbar(showConfig bool) Node {
 	return Header(
-		Class("bg-white dark:bg-neutral-600 border-b border-gray-600"),
+		Class("bg-white dark:bg-neutral-600 border-b border-posit-border dark:border-neutral-700"),
 		Div(
-			Class("container mx-auto py-2"),
+			Class("max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2"),
 			Nav(
 				Div(Class("flex justify-between items-center"),
 					A(
-						Img(Class("block dark:hidden h-12"), Src("/static/logo-team-light.svg"), Alt("Posit Team")),
-						Img(Class("hidden dark:block h-12"), Src("/static/logo-team-dark.svg"), Alt("Posit Team")),
+						Img(Class("block dark:hidden h-[19px]"), Src("/static/logo-posit-light.svg"), Alt("Posit")),
+						Img(Class("hidden dark:block h-[19px]"), Src("/static/logo-posit-dark.svg"), Alt("Posit")),
 						Href("/"),
 					),
 					Div(Class("flex justify-right space-x-4 items-center"),
 						Button(
 							Type("button"),
-							Class("h-6 w-6 dark:text-white hover:text-gray-600 dark:hover:text-gray-500 cursor-pointer"),
+							Class("h-6 w-6 dark:text-white hover:text-posit-link-hover dark:hover:text-posit-link-hover cursor-pointer"),
 							ID("theme-toggle"),
 							Attr("aria-label", "Toggle theme"),
 							Span(Class("hidden dark:block"), outline.Sun()),
 							Span(Class("block dark:hidden"), outline.Moon()),
 						),
-						If(showConfig, A(Class("h-6 w-6 dark:text-white hover:text-gray-600 dark:hover:text-gray-500"), outline.Cog(), Href("/config"), TitleAttr("Configuration"))),
-						A(Class("h-6 w-6 dark:text-white hover:text-gray-600 dark:hover:text-gray-500"), outline.QuestionMarkCircle(), Href("/help"), TitleAttr("Help")),
+						If(showConfig, A(Class("h-6 w-6 dark:text-white hover:text-posit-link-hover dark:hover:text-posit-link-hover"), outline.Cog(), Href("/config"), TitleAttr("Configuration"))),
+						A(Class("h-6 w-6 dark:text-white hover:text-posit-link-hover dark:hover:text-posit-link-hover"), outline.QuestionMarkCircle(), Href("/help"), TitleAttr("Help")),
 					),
 				),
 				Script(Raw(`
