@@ -152,6 +152,9 @@ func FetchSecret(ctx context.Context, r SomeReconciler, req ctrl.Request, secret
 		if err != nil {
 			return "", err
 		}
+		if valueOutput.SecretString == nil {
+			return "", errors.New("secret value is nil or stored as binary, expected string")
+		}
 		secretValue := map[string]json.RawMessage{}
 		if err := json.Unmarshal([]byte(*valueOutput.SecretString), &secretValue); err != nil {
 			return "", err
