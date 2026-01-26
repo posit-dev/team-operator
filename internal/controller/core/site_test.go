@@ -985,6 +985,8 @@ func TestSiteReconciler_PythonPPMUrlWithLauncherEnvPath(t *testing.T) {
 	siteName := "python-ppm-with-path"
 	siteNamespace := "posit-team"
 	site := defaultSite(siteName)
+	site.Spec.Domain = "example.posit.co"
+	site.Spec.PackageManager.DomainPrefix = "packagemanager"
 	site.Spec.Workbench.ExperimentalFeatures = &v1beta1.InternalWorkbenchExperimentalFeatures{
 		LauncherEnvPath: "/opt/custom/bin:/usr/bin",
 	}
@@ -999,4 +1001,5 @@ func TestSiteReconciler_PythonPPMUrlWithLauncherEnvPath(t *testing.T) {
 	assert.Contains(t, testWorkbench.Spec.Config.WorkbenchDcfConfig.LauncherEnv.Environment, "PATH")
 	assert.Contains(t, testWorkbench.Spec.Config.WorkbenchDcfConfig.LauncherEnv.Environment, "PIP_INDEX_URL")
 	assert.Equal(t, "/opt/custom/bin:/usr/bin", testWorkbench.Spec.Config.WorkbenchDcfConfig.LauncherEnv.Environment["PATH"])
+	assert.Equal(t, "https://packagemanager.example.posit.co/pypi/latest/simple", testWorkbench.Spec.Config.WorkbenchDcfConfig.LauncherEnv.Environment["PIP_INDEX_URL"])
 }
