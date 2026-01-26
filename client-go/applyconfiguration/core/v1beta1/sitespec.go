@@ -40,6 +40,7 @@ type SiteSpecApplyConfiguration struct {
 	LogFormat                    *product.LogFormat                            `json:"logFormat,omitempty"`
 	NetworkTrust                 *corev1beta1.NetworkTrust                     `json:"networkTrust,omitempty"`
 	PackageManagerUrl            *string                                       `json:"packageManagerUrl,omitempty"`
+	PythonPackageManagerUrl      *string                                       `json:"pythonPackageManagerUrl,omitempty"`
 	EFSEnabled                   *bool                                         `json:"efsEnabled,omitempty"`
 	VPCCIDR                      *string                                       `json:"vpcCIDR,omitempty"`
 	EnableFQDNHealthChecks       *bool                                         `json:"enableFqdnHealthChecks,omitempty"`
@@ -277,6 +278,14 @@ func (b *SiteSpecApplyConfiguration) WithNetworkTrust(value corev1beta1.NetworkT
 // If called multiple times, the PackageManagerUrl field is set to the value of the last call.
 func (b *SiteSpecApplyConfiguration) WithPackageManagerUrl(value string) *SiteSpecApplyConfiguration {
 	b.PackageManagerUrl = &value
+	return b
+}
+
+// WithPythonPackageManagerUrl sets the PythonPackageManagerUrl field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the PythonPackageManagerUrl field is set to the value of the last call.
+func (b *SiteSpecApplyConfiguration) WithPythonPackageManagerUrl(value string) *SiteSpecApplyConfiguration {
+	b.PythonPackageManagerUrl = &value
 	return b
 }
 

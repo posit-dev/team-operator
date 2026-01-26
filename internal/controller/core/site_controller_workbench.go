@@ -24,6 +24,7 @@ func (r *SiteReconciler) reconcileWorkbench(
 	storageClassName string,
 	additionalVolumes []product.VolumeSpec,
 	packageManagerRepoUrl string,
+	pythonPackageManagerUrl string,
 	workbenchUrl string,
 ) error {
 
@@ -344,12 +345,17 @@ func (r *SiteReconciler) reconcileWorkbench(
 		}
 
 		if site.Spec.Workbench.ExperimentalFeatures.LauncherEnvPath != "" {
+			// Initialize with PATH from experimental features
+			launcherEnv := map[string]string{
+				"PATH": site.Spec.Workbench.ExperimentalFeatures.LauncherEnvPath,
+			}
+			// Add Python PPM URL
+			launcherEnv["PIP_INDEX_URL"] = pythonPackageManagerUrl
+
 			targetWorkbench.Spec.Config.WorkbenchDcfConfig = v1beta1.WorkbenchDcfConfig{
 				LauncherEnv: &v1beta1.WorkbenchLauncherEnvConfig{
-					JobType: "session",
-					Environment: map[string]string{
-						"PATH": site.Spec.Workbench.ExperimentalFeatures.LauncherEnvPath,
-					},
+					JobType:     "session",
+					Environment: launcherEnv,
 				},
 			}
 		}
@@ -360,6 +366,19 @@ func (r *SiteReconciler) reconcileWorkbench(
 
 		if site.Spec.Workbench.ExperimentalFeatures.ForceAdminUiEnabled {
 			targetWorkbench.Spec.Config.RServer.ForceAdminUiEnabled = 1
+		}
+	}
+
+	// Configure Python to use Package Manager (PIP_INDEX_URL)
+	// Only set if WorkbenchDcfConfig.LauncherEnv wasn't already configured above
+	if targetWorkbench.Spec.Config.WorkbenchDcfConfig.LauncherEnv == nil {
+		targetWorkbench.Spec.Config.WorkbenchDcfConfig = v1beta1.WorkbenchDcfConfig{
+			LauncherEnv: &v1beta1.WorkbenchLauncherEnvConfig{
+				JobType: "session",
+				Environment: map[string]string{
+					"PIP_INDEX_URL": pythonPackageManagerUrl,
+				},
+			},
 		}
 	}
 

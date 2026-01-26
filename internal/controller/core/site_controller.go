@@ -134,6 +134,12 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 		packageManagerRepoUrl = site.Spec.PackageManagerUrl
 	}
 
+	// Python PPM URL for pip index (PIP_INDEX_URL)
+	pythonPackageManagerUrl := fmt.Sprintf("https://%s/pypi/latest/simple", packageManagerUrl)
+	if site.Spec.PythonPackageManagerUrl != "" {
+		pythonPackageManagerUrl = site.Spec.PythonPackageManagerUrl
+	}
+
 	// VOLUMES
 
 	connectVolumeName := fmt.Sprintf("%s-connect", site.Name)
@@ -317,6 +323,7 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 		devStorageClassName,
 		workbenchAdditionalVolumes,
 		packageManagerRepoUrl,
+		pythonPackageManagerUrl,
 		workbenchUrl,
 	); err != nil {
 		l.Error(err, "error reconciling workbench")

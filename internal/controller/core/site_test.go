@@ -939,3 +939,64 @@ func TestSiteReconciler_WorkbenchSessionImagePullPolicyNever(t *testing.T) {
 	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
 	assert.Equal(t, corev1.PullNever, testWorkbench.Spec.SessionConfig.Pod.ImagePullPolicy)
 }
+
+// TestSiteReconciler_PythonPPMUrl tests that Python sessions are configured to use PPM
+func TestSiteReconciler_PythonPPMUrl(t *testing.T) {
+	siteName := "python-ppm-url"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Domain = "example.posit.co"
+	site.Spec.PackageManager.DomainPrefix = "packagemanager"
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+
+	// Verify PIP_INDEX_URL is set in launcher-env
+	assert.NotNil(t, testWorkbench.Spec.Config.WorkbenchDcfConfig.LauncherEnv)
+	assert.Equal(t, "session", testWorkbench.Spec.Config.WorkbenchDcfConfig.LauncherEnv.JobType)
+	assert.Contains(t, testWorkbench.Spec.Config.WorkbenchDcfConfig.LauncherEnv.Environment, "PIP_INDEX_URL")
+
+	// Verify the URL is derived from package manager domain
+	expectedUrl := "https://packagemanager.example.posit.co/pypi/latest/simple"
+	assert.Equal(t, expectedUrl, testWorkbench.Spec.Config.WorkbenchDcfConfig.LauncherEnv.Environment["PIP_INDEX_URL"])
+}
+
+// TestSiteReconciler_PythonPPMUrlCustom tests custom Python PPM URL override
+func TestSiteReconciler_PythonPPMUrlCustom(t *testing.T) {
+	siteName := "python-ppm-url-custom"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.PythonPackageManagerUrl = "https://custom-ppm.example.com/pypi/latest/simple"
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+
+	// Verify custom PIP_INDEX_URL is set
+	assert.NotNil(t, testWorkbench.Spec.Config.WorkbenchDcfConfig.LauncherEnv)
+	assert.Equal(t, "https://custom-ppm.example.com/pypi/latest/simple", testWorkbench.Spec.Config.WorkbenchDcfConfig.LauncherEnv.Environment["PIP_INDEX_URL"])
+}
+
+// TestSiteReconciler_PythonPPMUrlWithLauncherEnvPath tests that both PATH and PIP_INDEX_URL are set
+func TestSiteReconciler_PythonPPMUrlWithLauncherEnvPath(t *testing.T) {
+	siteName := "python-ppm-with-path"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Workbench.ExperimentalFeatures = &v1beta1.InternalWorkbenchExperimentalFeatures{
+		LauncherEnvPath: "/opt/custom/bin:/usr/bin",
+	}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+
+	// Verify both PATH and PIP_INDEX_URL are set
+	assert.NotNil(t, testWorkbench.Spec.Config.WorkbenchDcfConfig.LauncherEnv)
+	assert.Contains(t, testWorkbench.Spec.Config.WorkbenchDcfConfig.LauncherEnv.Environment, "PATH")
+	assert.Contains(t, testWorkbench.Spec.Config.WorkbenchDcfConfig.LauncherEnv.Environment, "PIP_INDEX_URL")
+	assert.Equal(t, "/opt/custom/bin:/usr/bin", testWorkbench.Spec.Config.WorkbenchDcfConfig.LauncherEnv.Environment["PATH"])
+}

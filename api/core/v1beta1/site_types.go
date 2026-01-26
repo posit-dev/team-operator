@@ -109,9 +109,15 @@ type SiteSpec struct {
 	// +kubebuilder:validation:Type=integer
 	NetworkTrust NetworkTrust `json:"networkTrust,omitempty"`
 
-	// PackageManagerUrl specifies the Package Manager URL for Workbench to use
+	// PackageManagerUrl specifies the Package Manager URL for Workbench to use for R packages (CRAN)
 	// If empty, Workbench will use the local Package Manager URL by default
+	// Example: https://packagemanager.example.com/cran/__linux__/jammy/latest
 	PackageManagerUrl string `json:"packageManagerUrl,omitempty"`
+
+	// PythonPackageManagerUrl specifies the Package Manager URL for Workbench to use for Python packages (PyPI)
+	// If empty, Workbench will derive it from the Package Manager domain: https://{domain}/pypi/latest/simple
+	// Example: https://packagemanager.example.com/pypi/latest/simple
+	PythonPackageManagerUrl string `json:"pythonPackageManagerUrl,omitempty"`
 
 	// EFSEnabled indicates whether EFS is enabled for this site
 	// When true, network policies will allow workbench sessions to access EFS mount targets
