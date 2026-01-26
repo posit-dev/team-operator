@@ -7,7 +7,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/pkg/errors"
@@ -233,7 +232,7 @@ func FetchSecret(ctx context.Context, r SomeReconciler, req ctrl.Request, secret
 
 func fetchAWSSecret(secretType SiteSecretType, vaultName, key string) (string, error) {
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(getAWSRegion()),
+		Region: aws.String(GetAWSRegion()),
 	})
 	if err != nil {
 		return "", newSecretAccessError(secretType, vaultName, key, err)
