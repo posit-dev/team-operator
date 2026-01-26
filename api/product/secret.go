@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/secretsmanager"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/pkg/errors"
 	v12 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -139,40 +139,36 @@ func FetchSecret(ctx context.Context, r SomeReconciler, req ctrl.Request, secret
 	l := r.GetLogger(ctx)
 	switch secretType {
 	case SiteSecretAws:
-		if sess, err := session.NewSession(&aws.Config{
-			Region: aws.String(GetAWSRegion()),
-		}); err != nil {
+		cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(GetAWSRegion()))
+		if err != nil {
 			return "", err
-		} else {
-			sm := secretsmanager.New(sess)
-			query := &secretsmanager.GetSecretValueInput{
-				SecretId:     aws.String(vaultName),
-				VersionId:    nil,
-				VersionStage: aws.String("AWSCURRENT"),
-			}
-			if valueOutput, err := sm.GetSecretValue(query); err != nil {
-				return "", err
-			} else {
-				secretValue := map[string]json.RawMessage{}
-				if err := json.Unmarshal([]byte(*valueOutput.SecretString), &secretValue); err != nil {
-					return "", err
-				}
-
-				if rawSecretEntry, ok := secretValue[key]; !ok {
-					// failed to find the configured key
-					return "", errors.New(fmt.Sprintf("could not find the configured key '%s' in secret '%s' with type '%s'", key, vaultName, secretType))
-				} else {
-					var secretEntry string
-					if err := json.Unmarshal(rawSecretEntry, &secretEntry); err != nil {
-						// error unmarshalling secret
-						return "", err
-					} else {
-						// SUCCESS!! we got the secret!
-						return secretEntry, nil
-					}
-				}
-			}
 		}
+		sm := secretsmanager.NewFromConfig(cfg)
+		query := &secretsmanager.GetSecretValueInput{
+			SecretId:     aws.String(vaultName),
+			VersionStage: aws.String("AWSCURRENT"),
+		}
+		valueOutput, err := sm.GetSecretValue(ctx, query)
+		if err != nil {
+			return "", err
+		}
+		secretValue := map[string]json.RawMessage{}
+		if err := json.Unmarshal([]byte(*valueOutput.SecretString), &secretValue); err != nil {
+			return "", err
+		}
+
+		rawSecretEntry, ok := secretValue[key]
+		if !ok {
+			// failed to find the configured key
+			return "", errors.New(fmt.Sprintf("could not find the configured key '%s' in secret '%s' with type '%s'", key, vaultName, secretType))
+		}
+		var secretEntry string
+		if err := json.Unmarshal(rawSecretEntry, &secretEntry); err != nil {
+			// error unmarshalling secret
+			return "", err
+		}
+		// SUCCESS!! we got the secret!
+		return secretEntry, nil
 	case SiteSecretKubernetes:
 		kubernetesSecretName := client.ObjectKey{Name: vaultName, Namespace: req.Namespace}
 
