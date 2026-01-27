@@ -126,6 +126,41 @@ cov: ## Show the coverage report at the function level.
 	$(SED) -i '/team-operator\/client-go/d' coverage.out
 	go tool cover -func coverage.out
 
+##@ Integration Testing
+
+KIND_CLUSTER_NAME ?= team-operator-test
+KIND_VERSION ?= 1.29.x
+
+.PHONY: kind-create
+kind-create: ## Create a kind cluster for integration testing.
+	@if kind get clusters | grep -q "^$(KIND_CLUSTER_NAME)$$"; then \
+		echo "Kind cluster '$(KIND_CLUSTER_NAME)' already exists"; \
+	else \
+		echo "Creating kind cluster '$(KIND_CLUSTER_NAME)'..."; \
+		kind create cluster --name $(KIND_CLUSTER_NAME) --wait 60s; \
+	fi
+
+.PHONY: kind-delete
+kind-delete: ## Delete the kind cluster.
+	kind delete cluster --name $(KIND_CLUSTER_NAME) || true
+
+.PHONY: kind-load-image
+kind-load-image: docker-build ## Load the operator image into kind cluster.
+	kind load docker-image $(IMG) --name $(KIND_CLUSTER_NAME)
+
+.PHONY: test-kind
+test-kind: kind-create ## Run integration tests on a kind cluster.
+	@echo "Running integration tests on kind cluster '$(KIND_CLUSTER_NAME)'..."
+	./hack/test-kind.sh $(KIND_CLUSTER_NAME)
+
+.PHONY: test-kind-full
+test-kind-full: kind-delete kind-create test-kind ## Run full integration tests (clean cluster).
+	@echo "Full integration test completed."
+
+.PHONY: test-integration
+test-integration: go-test test-kind ## Run all tests (unit + integration).
+	@echo "All tests completed."
+
 ##@ Build
 
 .PHONY: build
