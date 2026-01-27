@@ -3,50 +3,22 @@
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-{{- if .Values.resourcePolicy.keep }}
-  annotations:
-    helm.sh/resource-policy: keep
-{{- end }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
   name: selfsigned-issuer
   namespace: {{ .Release.Namespace }}
 spec:
   selfSigned: {}
-{{- if .Values.webhook.enable }}
----
-# Certificate for the webhook
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-{{- if .Values.resourcePolicy.keep }}
-  annotations:
-    helm.sh/resource-policy: keep
-{{- end }}
-  name: serving-cert
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "chart.labels" . | nindent 4 }}
-spec:
-  dnsNames:
-    - team-operator.{{ .Release.Namespace }}.svc
-    - team-operator.{{ .Release.Namespace }}.svc.cluster.local
-    - team-operator-webhook-service.{{ .Release.Namespace }}.svc
-  issuerRef:
-    kind: Issuer
-    name: selfsigned-issuer
-  secretName: webhook-server-cert
-{{- end }}
 {{- if .Values.metrics.enable }}
 ---
 # Certificate for the metrics
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-{{- if .Values.resourcePolicy.keep }}
   annotations:
-    helm.sh/resource-policy: keep
-{{- end }}
+    {{- if .Values.crd.keep }}
+    "helm.sh/resource-policy": keep
+    {{- end }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
   name: metrics-certs
@@ -55,7 +27,7 @@ spec:
   dnsNames:
     - team-operator.{{ .Release.Namespace }}.svc
     - team-operator.{{ .Release.Namespace }}.svc.cluster.local
-    - team-operator-controller-manager-metrics-service.{{ .Release.Namespace }}.svc
+    - team-operator-metrics-service.{{ .Release.Namespace }}.svc
   issuerRef:
     kind: Issuer
     name: selfsigned-issuer
