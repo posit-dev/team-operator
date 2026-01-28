@@ -1,3 +1,11 @@
+# [1.4.0](https://github.com/posit-dev/team-operator/compare/v1.3.2...v1.4.0) (2026-01-28)
+
+
+### Features
+
+* **flightdeck:** update UI styling to match Posit brand guidelines ([17e2a8f](https://github.com/posit-dev/team-operator/commit/17e2a8f154021ae204c3367ad1c2086ae891a158)), closes [#3276B5](https://github.com/posit-dev/team-operator/issues/3276B5)
+* **workbench:** add init container for load balancer config ([4e76e8b](https://github.com/posit-dev/team-operator/commit/4e76e8b948ee5919ced1ffedc3aa3cbf8230516d))
+
 ## [1.3.2](https://github.com/posit-dev/team-operator/compare/v1.3.1...v1.3.2) (2026-01-23)
 
 
