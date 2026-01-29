@@ -486,6 +486,11 @@ spec:
               flightdeck:
                 description: Flightdeck contains Flightdeck configuration
                 properties:
+                  enabled:
+                    description: |-
+                      Enabled controls whether Flightdeck is deployed. Defaults to true if not specified.
+                      Set to false to explicitly disable Flightdeck deployment.
+                    type: boolean
                   featureEnabler:
                     description: FeatureEnabler controls which features are enabled
                       in Flightdeck
@@ -500,7 +505,11 @@ spec:
                         type: boolean
                     type: object
                   image:
-                    description: Image is the container image for Flightdeck
+                    description: |-
+                      Image is the container image for Flightdeck.
+                      Can be a tag (e.g., "v1.2.3") which will be combined with the default registry,
+                      or a full image path (e.g., "my-registry.io/flightdeck:v1.0.0").
+                      Defaults to "docker.io/posit/ptd-flightdeck:latest" if not specified.
                     type: string
                   imagePullPolicy:
                     description: ImagePullPolicy controls when the kubelet pulls the
@@ -1328,6 +1337,46 @@ spec:
                     description: SessionInitContainerImageTag specifies the init container
                       image tag for Workbench sessions
                     type: string
+                  sessionTolerations:
+                    description: SessionTolerations are tolerations applied only to
+                      session pods (not the main workbench server)
+                    items:
+                      description: |-
+                        The pod this Toleration is attached to tolerates any taint that matches
+                        the triple <key,value,effect> using the matching operator <operator>.
+                      properties:
+                        effect:
+                          description: |-
+                            Effect indicates the taint effect to match. Empty means match all taint effects.
+                            When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+                          type: string
+                        key:
+                          description: |-
+                            Key is the taint key that the toleration applies to. Empty means match all taint keys.
+                            If the key is empty, operator must be Exists; this combination means to match all values and all keys.
+                          type: string
+                        operator:
+                          description: |-
+                            Operator represents a key's relationship to the value.
+                            Valid operators are Exists and Equal. Defaults to Equal.
+                            Exists is equivalent to wildcard for value, so that a pod can
+                            tolerate all taints of a particular category.
+                          type: string
+                        tolerationSeconds:
+                          description: |-
+                            TolerationSeconds represents the period of time the toleration (which must be
+                            of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default,
+                            it is not set, which means tolerate the taint forever (do not evict). Zero and
+                            negative values will be treated as 0 (evict immediately) by the system.
+                          format: int64
+                          type: integer
+                        value:
+                          description: |-
+                            Value is the taint value the toleration matches to.
+                            If the operator is Exists, the value should be empty, otherwise just a regular string.
+                          type: string
+                      type: object
+                    type: array
                   snowflake:
                     properties:
                       accountId:
