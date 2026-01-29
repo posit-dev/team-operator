@@ -104,6 +104,13 @@ func deployPrePullDaemonset(ctx context.Context, r *SiteReconciler, req controll
 			},
 		}
 
+		// Add universal toleration to run on all nodes regardless of taints
+		prePullDaemonset.Spec.Template.Spec.Tolerations = []v1.Toleration{
+			{
+				Operator: v1.TolerationOpExists,
+			},
+		}
+
 		if len(site.Spec.Workbench.Tolerations) > 0 {
 			// add the tolerations to the daemonset
 			for _, t := range site.Spec.Workbench.Tolerations {
