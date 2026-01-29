@@ -176,6 +176,10 @@ CHART_NAME ?= team-operator
 .PHONY: helm-generate
 helm-generate: manifests ## Regenerate Helm chart from kustomize
 	kubebuilder edit --plugins=helm.kubebuilder.io/v1-alpha
+	# Fix generated files that kubebuilder doesn't template correctly
+	$(SED) -i 's/team-operator-metrics-service/{{ .Values.controllerManager.serviceAccountName }}-metrics-service/g' dist/chart/templates/certmanager/certificate.yaml
+	$(SED) -i 's/team-operator-controller-manager-metrics-service/{{ .Values.controllerManager.serviceAccountName }}-metrics-service/g' dist/chart/templates/metrics/metrics-service.yaml
+	rm -f .github/workflows/test-chart.yml
 
 .PHONY: helm-lint
 helm-lint: ## Lint the Helm chart
