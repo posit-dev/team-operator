@@ -111,6 +111,27 @@ func deployPrePullDaemonset(ctx context.Context, r *SiteReconciler, req controll
 			},
 		}
 
+		// Add node affinity to target specific node pools if specified
+		if len(site.Spec.PrepullNodePools) > 0 {
+			prePullDaemonset.Spec.Template.Spec.Affinity = &v1.Affinity{
+				NodeAffinity: &v1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &v1.NodeSelector{
+						NodeSelectorTerms: []v1.NodeSelectorTerm{
+							{
+								MatchExpressions: []v1.NodeSelectorRequirement{
+									{
+										Key:      "karpenter.sh/nodepool",
+										Operator: v1.NodeSelectorOpIn,
+										Values:   site.Spec.PrepullNodePools,
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+		}
+
 		if len(site.Spec.Workbench.Tolerations) > 0 {
 			// add the tolerations to the daemonset
 			for _, t := range site.Spec.Workbench.Tolerations {

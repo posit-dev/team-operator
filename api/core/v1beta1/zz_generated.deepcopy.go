@@ -2135,6 +2135,11 @@ func (in *SiteSpec) DeepCopyInto(out *SiteSpec) {
 	}
 	out.Secret = in.Secret
 	out.WorkloadSecret = in.WorkloadSecret
+	if in.PrepullNodePools != nil {
+		in, out := &in.PrepullNodePools, &out.PrepullNodePools
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	out.MainDatabaseCredentialSecret = in.MainDatabaseCredentialSecret
 	if in.EnableFQDNHealthChecks != nil {
 		in, out := &in.EnableFQDNHealthChecks, &out.EnableFQDNHealthChecks

@@ -737,6 +737,14 @@ spec:
                   PackageManagerUrl specifies the Package Manager URL for Workbench to use
                   If empty, Workbench will use the local Package Manager URL by default
                 type: string
+              prepullNodePools:
+                description: |-
+                  PrepullNodePools is a list of Karpenter NodePool names to target for image prepulling.
+                  When set, the prepull DaemonSet will use node affinity to only run on nodes from these pools.
+                  This is typically populated automatically for node pools with session_taints enabled.
+                items:
+                  type: string
+                type: array
               secret:
                 description: Secret configures the secret management for this Site
                 properties:

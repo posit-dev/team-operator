@@ -34,6 +34,7 @@ type SiteSpecApplyConfiguration struct {
 	Secret                       *SecretConfigApplyConfiguration               `json:"secret,omitempty"`
 	WorkloadSecret               *SecretConfigApplyConfiguration               `json:"workloadSecret,omitempty"`
 	DisablePrePullImages         *bool                                         `json:"disablePrePullImages,omitempty"`
+	PrepullNodePools             []string                                      `json:"prepullNodePools,omitempty"`
 	MainDatabaseCredentialSecret *SecretConfigApplyConfiguration               `json:"mainDatabaseCredentialSecret,omitempty"`
 	DropDatabaseOnTeardown       *bool                                         `json:"dropDatabaseOnTearDown,omitempty"`
 	Debug                        *bool                                         `json:"debug,omitempty"`
@@ -229,6 +230,16 @@ func (b *SiteSpecApplyConfiguration) WithWorkloadSecret(value *SecretConfigApply
 // If called multiple times, the DisablePrePullImages field is set to the value of the last call.
 func (b *SiteSpecApplyConfiguration) WithDisablePrePullImages(value bool) *SiteSpecApplyConfiguration {
 	b.DisablePrePullImages = &value
+	return b
+}
+
+// WithPrepullNodePools adds the given value to the PrepullNodePools field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the PrepullNodePools field.
+func (b *SiteSpecApplyConfiguration) WithPrepullNodePools(values ...string) *SiteSpecApplyConfiguration {
+	for i := range values {
+		b.PrepullNodePools = append(b.PrepullNodePools, values[i])
+	}
 	return b
 }
 
