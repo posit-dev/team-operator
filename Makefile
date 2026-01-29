@@ -179,6 +179,7 @@ helm-generate: manifests ## Regenerate Helm chart from kustomize
 	# Fix generated files that kubebuilder doesn't template correctly
 	$(SED) -i 's/team-operator-metrics-service/{{ .Values.controllerManager.serviceAccountName }}-metrics-service/g' dist/chart/templates/certmanager/certificate.yaml
 	$(SED) -i 's/team-operator-controller-manager-metrics-service/{{ .Values.controllerManager.serviceAccountName }}-metrics-service/g' dist/chart/templates/metrics/metrics-service.yaml
+	# Remove kubebuilder-generated test workflow - we use our own CI workflows
 	rm -f .github/workflows/test-chart.yml
 
 .PHONY: helm-lint
