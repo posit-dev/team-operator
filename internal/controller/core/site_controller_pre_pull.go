@@ -111,34 +111,23 @@ func deployPrePullDaemonset(ctx context.Context, r *SiteReconciler, req controll
 			},
 		}
 
-		// Add node affinity to target specific node pools if specified
-		if len(site.Spec.PrepullNodePools) > 0 {
-			prePullDaemonset.Spec.Template.Spec.Affinity = &v1.Affinity{
-				NodeAffinity: &v1.NodeAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: &v1.NodeSelector{
-						NodeSelectorTerms: []v1.NodeSelectorTerm{
-							{
-								MatchExpressions: []v1.NodeSelectorRequirement{
-									{
-										Key:      "karpenter.sh/nodepool",
-										Operator: v1.NodeSelectorOpIn,
-										Values:   site.Spec.PrepullNodePools,
-									},
+		// Add anti-affinity to avoid scheduling on system nodes (nodes labeled with posit.team/node-role: system)
+		prePullDaemonset.Spec.Template.Spec.Affinity = &v1.Affinity{
+			NodeAffinity: &v1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &v1.NodeSelector{
+					NodeSelectorTerms: []v1.NodeSelectorTerm{
+						{
+							MatchExpressions: []v1.NodeSelectorRequirement{
+								{
+									Key:      "posit.team/node-role",
+									Operator: v1.NodeSelectorOpNotIn,
+									Values:   []string{"system"},
 								},
 							},
 						},
 					},
 				},
-			}
-		}
-
-		if len(site.Spec.Workbench.Tolerations) > 0 {
-			// add the tolerations to the daemonset
-			for _, t := range site.Spec.Workbench.Tolerations {
-				prePullDaemonset.Spec.Template.Spec.Tolerations = append(prePullDaemonset.Spec.Template.Spec.Tolerations, *t.DeepCopy())
-			}
-
-			// TODO: should also use the workbench node selectors...? But could differ from Connect...
+			},
 		}
 		return nil
 	}); err != nil {

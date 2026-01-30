@@ -95,11 +95,6 @@ type SiteSpec struct {
 
 	DisablePrePullImages bool `json:"disablePrePullImages,omitempty"`
 
-	// PrepullNodePools is a list of Karpenter NodePool names to target for image prepulling.
-	// When set, the prepull DaemonSet will use node affinity to only run on nodes from these pools.
-	// This is typically populated automatically for node pools with session_taints enabled.
-	PrepullNodePools []string `json:"prepullNodePools,omitempty"`
-
 	// MainDatabaseCredentialSecret configures the secret used for storing the main database credentials
 	MainDatabaseCredentialSecret SecretConfig `json:"mainDatabaseCredentialSecret,omitempty"`
 
