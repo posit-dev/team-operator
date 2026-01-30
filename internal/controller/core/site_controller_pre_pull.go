@@ -100,17 +100,14 @@ func deployPrePullDaemonset(ctx context.Context, r *SiteReconciler, req controll
 							},
 						},
 					},
+					// Universal toleration to run on all nodes regardless of taints
+					Tolerations: []v1.Toleration{
+						{
+							Operator: v1.TolerationOpExists,
+						},
+					},
 				},
 			},
-		}
-
-		if len(site.Spec.Workbench.Tolerations) > 0 {
-			// add the tolerations to the daemonset
-			for _, t := range site.Spec.Workbench.Tolerations {
-				prePullDaemonset.Spec.Template.Spec.Tolerations = append(prePullDaemonset.Spec.Template.Spec.Tolerations, *t.DeepCopy())
-			}
-
-			// TODO: should also use the workbench node selectors...? But could differ from Connect...
 		}
 		return nil
 	}); err != nil {
