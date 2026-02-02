@@ -5,10 +5,10 @@ The Team Operator is a Kubernetes operator that manages the deployment and confi
 ## Overview
 
 The Team Operator automates the deployment and lifecycle management of:
-- **Workbench** - Interactive development environment
-- **Connect** - Publishing and sharing platform
-- **Package Manager** - Package repository management
-- **Chronicle** - Telemetry and monitoring
+- **Posit Workbench** - Interactive development environment
+- **Posit Connect** - Publishing and sharing platform
+- **Posit Package Manager** - Package repository management
+- **Posit Chronicle** - Telemetry and monitoring
 - **Keycloak** - Authentication and identity management
 
 ## Architecture
