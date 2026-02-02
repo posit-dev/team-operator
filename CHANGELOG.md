@@ -1,3 +1,12 @@
+## [1.4.1](https://github.com/posit-dev/team-operator/compare/v1.4.0...v1.4.1) (2026-02-02)
+
+
+### Bug Fixes
+
+* comment out auth_proxy instead of deleting files ([91a2c74](https://github.com/posit-dev/team-operator/commit/91a2c744249e125387fd54eaba0e0d5c7abfbb38))
+* **helm:** sync CRDs and fix helm-generate post-processing ([72657e8](https://github.com/posit-dev/team-operator/commit/72657e85a6b0e132c8e71a984586e9ca310d4fb2))
+* include auth_proxy_service.yaml in commented out section ([9a10cd3](https://github.com/posit-dev/team-operator/commit/9a10cd3536333db7a632051b62d63bcb882f462d))
+
 # [1.4.0](https://github.com/posit-dev/team-operator/compare/v1.3.2...v1.4.0) (2026-01-28)
 
 
