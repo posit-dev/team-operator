@@ -81,12 +81,6 @@ crd:
   # the Helm release is uninstalled.
   keep: true
 
-# Resource policy for non-CRD resources (Deployment, RBAC, Services, etc.)
-# When enabled, adds helm.sh/resource-policy: keep annotation to prevent
-# deletion during helm uninstall
-resourcePolicy:
-  keep: true
-
 # [METRICS]: Set to true to generate manifests for exporting metrics.
 # To disable metrics export set false, and ensure that the
 # ControllerManager argument "--metrics-bind-address=:8443" is removed.
