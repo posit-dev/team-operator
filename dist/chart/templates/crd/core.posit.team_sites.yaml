@@ -148,6 +148,11 @@ spec:
                           type: string
                         type: array
                     type: object
+                  baseDomain:
+                    description: |-
+                      BaseDomain overrides site.Spec.Domain for this product's URL construction.
+                      When set, the product URL will be: domainPrefix.baseDomain
+                    type: string
                   databaseSettings:
                     properties:
                       instrumentationSchema:
@@ -597,6 +602,11 @@ spec:
                           StorageClass that uses the Azure Files CSI driver
                         type: string
                     type: object
+                  baseDomain:
+                    description: |-
+                      BaseDomain overrides site.Spec.Domain for this product's URL construction.
+                      When set, the product URL will be: domainPrefix.baseDomain
+                    type: string
                   domainPrefix:
                     default: packagemanager
                     type: string
@@ -926,6 +936,11 @@ spec:
                     type: object
                   authLoginPageHtml:
                     description: Workbench Auth/Login Landing Page Customization HTML
+                    type: string
+                  baseDomain:
+                    description: |-
+                      BaseDomain overrides site.Spec.Domain for this product's URL construction.
+                      When set, the product URL will be: domainPrefix.baseDomain
                     type: string
                   createUsersAutomatically:
                     type: boolean
