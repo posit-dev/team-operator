@@ -114,3 +114,30 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload ${{ steps.get-tag.outputs.tag }} team-operator-${{ steps.get-tag.outputs.tag }}.tgz --clobber
+
+  notify-ptd:
+    needs: package-helm
+    runs-on: ubuntu-latest
+    if: ${{ needs.package-helm.result == 'success' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Get latest tag
+        id: get-tag
+        run: |
+          git fetch --tags
+          TAG=$(git tag --sort=-version:refname | head -1 || echo "")
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Dispatch version update to PTD
+        if: steps.get-tag.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ secrets.PTD_REPO_TOKEN }}
+        run: |
+          gh workflow run update-team-operator-version.yml \
+            --repo posit-dev/ptd \
+            --field version=${{ steps.get-tag.outputs.tag }}
