@@ -939,3 +939,105 @@ func TestSiteReconciler_WorkbenchSessionImagePullPolicyNever(t *testing.T) {
 	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
 	assert.Equal(t, corev1.PullNever, testWorkbench.Spec.SessionConfig.Pod.ImagePullPolicy)
 }
+
+func TestSiteReconciler_BaseDomainNotSet(t *testing.T) {
+	siteName := "base-domain-not-set"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Domain = "example.com"
+	site.Spec.Connect.DomainPrefix = "connect"
+	site.Spec.Workbench.DomainPrefix = "workbench"
+	site.Spec.PackageManager.DomainPrefix = "packagemanager"
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	// Verify default behavior is preserved when BaseDomain is not set
+	testConnect := getConnect(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "connect.example.com", testConnect.Spec.Url)
+
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "workbench.example.com", testWorkbench.Spec.Url)
+	// Verify DefaultRSConnectServer uses site domain when BaseDomain not set
+	assert.Equal(t, "https://connect.example.com", testWorkbench.Spec.Config.RSession.DefaultRSConnectServer)
+
+	testPackageManager := getPackageManager(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "packagemanager.example.com", testPackageManager.Spec.Url)
+}
+
+func TestSiteReconciler_BaseDomainConnectOnly(t *testing.T) {
+	siteName := "base-domain-connect-only"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Domain = "example.com"
+	site.Spec.Connect.DomainPrefix = "connect"
+	site.Spec.Connect.BaseDomain = "connect-custom.com"
+	site.Spec.Workbench.DomainPrefix = "workbench"
+	site.Spec.PackageManager.DomainPrefix = "packagemanager"
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	// Verify Connect uses custom BaseDomain
+	testConnect := getConnect(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "connect.connect-custom.com", testConnect.Spec.Url)
+
+	// Verify Workbench uses site domain (not custom)
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "workbench.example.com", testWorkbench.Spec.Url)
+	// Verify DefaultRSConnectServer uses Connect's BaseDomain
+	assert.Equal(t, "https://connect.connect-custom.com", testWorkbench.Spec.Config.RSession.DefaultRSConnectServer)
+
+	// Verify PackageManager uses site domain (not custom)
+	testPackageManager := getPackageManager(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "packagemanager.example.com", testPackageManager.Spec.Url)
+}
+
+func TestSiteReconciler_BaseDomainAllProducts(t *testing.T) {
+	siteName := "base-domain-all-products"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Domain = "example.com"
+	site.Spec.Connect.DomainPrefix = "connect"
+	site.Spec.Connect.BaseDomain = "connect-domain.com"
+	site.Spec.Workbench.DomainPrefix = "workbench"
+	site.Spec.Workbench.BaseDomain = "workbench-domain.com"
+	site.Spec.PackageManager.DomainPrefix = "packagemanager"
+	site.Spec.PackageManager.BaseDomain = "pm-domain.com"
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	// Verify all products use their custom BaseDomains
+	testConnect := getConnect(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "connect.connect-domain.com", testConnect.Spec.Url)
+
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "workbench.workbench-domain.com", testWorkbench.Spec.Url)
+	// Verify DefaultRSConnectServer uses Connect's BaseDomain
+	assert.Equal(t, "https://connect.connect-domain.com", testWorkbench.Spec.Config.RSession.DefaultRSConnectServer)
+
+	testPackageManager := getPackageManager(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "packagemanager.pm-domain.com", testPackageManager.Spec.Url)
+}
+
+func TestSiteReconciler_BaseDomainWithCustomPrefix(t *testing.T) {
+	siteName := "base-domain-custom-prefix"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Domain = "example.com"
+	site.Spec.Connect.DomainPrefix = "rsc"
+	site.Spec.Connect.BaseDomain = "custom-domain.com"
+	site.Spec.Workbench.DomainPrefix = "workbench"
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	// Verify custom prefix is preserved with BaseDomain
+	testConnect := getConnect(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "rsc.custom-domain.com", testConnect.Spec.Url)
+
+	// Verify Workbench's DefaultRSConnectServer uses custom prefix and BaseDomain
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "https://rsc.custom-domain.com", testWorkbench.Spec.Config.RSession.DefaultRSConnectServer)
+}
