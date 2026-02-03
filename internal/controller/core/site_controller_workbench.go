@@ -161,8 +161,12 @@ func (r *SiteReconciler) reconcileWorkbench(
 				WorkbenchSessionIniConfig: v1beta1.WorkbenchSessionIniConfig{
 					RSession: &v1beta1.WorkbenchRSessionConfig{
 						// TODO: need TLS to be configurable... for plaintext sites...
-						DefaultRSConnectServer: "https://" + prefixDomain(site.Spec.Connect.DomainPrefix, site.Spec.Domain, v1beta1.SiteSubDomain),
-						CopilotEnabled:         1,
+						DefaultRSConnectServer: "https://" + prefixDomain(
+							site.Spec.Connect.DomainPrefix,
+							getEffectiveBaseDomain(site.Spec.Connect.BaseDomain, site.Spec.Domain),
+							v1beta1.SiteSubDomain,
+						),
+						CopilotEnabled: 1,
 					},
 					// TODO: configure the expected package manager repositories...?
 					Repos: &v1beta1.WorkbenchRepoConfig{

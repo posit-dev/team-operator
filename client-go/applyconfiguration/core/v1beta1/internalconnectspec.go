@@ -27,6 +27,7 @@ type InternalConnectSpecApplyConfiguration struct {
 	Replicas             *int                                                   `json:"replicas,omitempty"`
 	ExperimentalFeatures *InternalConnectExperimentalFeaturesApplyConfiguration `json:"experimentalFeatures,omitempty"`
 	DomainPrefix         *string                                                `json:"domainPrefix,omitempty"`
+	BaseDomain           *string                                                `json:"baseDomain,omitempty"`
 	GPUSettings          *GPUSettingsApplyConfiguration                         `json:"gpuSettings,omitempty"`
 	DatabaseSettings     *DatabaseSettingsApplyConfiguration                    `json:"databaseSettings,omitempty"`
 	ScheduleConcurrency  *int                                                   `json:"scheduleConcurrency,omitempty"`
@@ -159,6 +160,14 @@ func (b *InternalConnectSpecApplyConfiguration) WithExperimentalFeatures(value *
 // If called multiple times, the DomainPrefix field is set to the value of the last call.
 func (b *InternalConnectSpecApplyConfiguration) WithDomainPrefix(value string) *InternalConnectSpecApplyConfiguration {
 	b.DomainPrefix = &value
+	return b
+}
+
+// WithBaseDomain sets the BaseDomain field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the BaseDomain field is set to the value of the last call.
+func (b *InternalConnectSpecApplyConfiguration) WithBaseDomain(value string) *InternalConnectSpecApplyConfiguration {
+	b.BaseDomain = &value
 	return b
 }
 

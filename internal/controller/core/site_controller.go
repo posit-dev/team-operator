@@ -89,6 +89,13 @@ func prefixDomain(prefix, domain string, domainType positcov1beta1.SiteDomainTyp
 	return fmt.Sprintf("%s.%s", prefix, domain)
 }
 
+func getEffectiveBaseDomain(baseDomain, fallbackDomain string) string {
+	if baseDomain != "" {
+		return baseDomain
+	}
+	return fallbackDomain
+}
+
 func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Request, site *positcov1beta1.Site) (ctrl.Result, error) {
 
 	l := r.GetLogger(ctx).WithValues(
@@ -125,9 +132,21 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 
 	// Default to subdomain type since SiteHome is removed
 	domainType := positcov1beta1.SiteSubDomain
-	packageManagerUrl := prefixDomain(site.Spec.PackageManager.DomainPrefix, site.Spec.Domain, domainType)
-	connectUrl := prefixDomain(site.Spec.Connect.DomainPrefix, site.Spec.Domain, domainType)
-	workbenchUrl := prefixDomain(site.Spec.Workbench.DomainPrefix, site.Spec.Domain, domainType)
+	packageManagerUrl := prefixDomain(
+		site.Spec.PackageManager.DomainPrefix,
+		getEffectiveBaseDomain(site.Spec.PackageManager.BaseDomain, site.Spec.Domain),
+		domainType,
+	)
+	connectUrl := prefixDomain(
+		site.Spec.Connect.DomainPrefix,
+		getEffectiveBaseDomain(site.Spec.Connect.BaseDomain, site.Spec.Domain),
+		domainType,
+	)
+	workbenchUrl := prefixDomain(
+		site.Spec.Workbench.DomainPrefix,
+		getEffectiveBaseDomain(site.Spec.Workbench.BaseDomain, site.Spec.Domain),
+		domainType,
+	)
 
 	packageManagerRepoUrl := fmt.Sprintf("https://%s/cran/__linux__/jammy/latest", packageManagerUrl) // TODO: don't hardcode OS
 	if site.Spec.PackageManagerUrl != "" {
