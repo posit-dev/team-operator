@@ -1,3 +1,15 @@
+# [1.5.0](https://github.com/posit-dev/team-operator/compare/v1.4.1...v1.5.0) (2026-02-03)
+
+
+### Bug Fixes
+
+* **rbac:** add namespace to RoleBinding for watch namespace permissions ([e0dd821](https://github.com/posit-dev/team-operator/commit/e0dd821eae7158045c421629c7b0805395679e1c))
+
+
+### Features
+
+* dispatch version update to PTD on release ([b0f99ff](https://github.com/posit-dev/team-operator/commit/b0f99ffc808c0408345a4f0acdce13a289db790d))
+
 ## [1.4.1](https://github.com/posit-dev/team-operator/compare/v1.4.0...v1.4.1) (2026-02-02)
 
 
