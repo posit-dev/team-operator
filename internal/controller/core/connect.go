@@ -822,9 +822,8 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 	}
 
 	// POD DISRUPTION BUDGET
-	if err := CreateOrUpdateDisruptionBudget(
-		ctx, req, r.Client, r.Scheme, c, c, ptr.To(product.DetermineMinAvailableReplicas(c.Spec.Replicas)), nil,
-	); err != nil {
+	pdb := product.DefineDisruptionBudget(c, req, ptr.To(product.DetermineMinAvailableReplicas(c.Spec.Replicas)), nil)
+	if err := CreateOrUpdateDisruptionBudget(ctx, r.Client, r.Scheme, c, pdb); err != nil {
 		return ctrl.Result{}, err
 	}
 

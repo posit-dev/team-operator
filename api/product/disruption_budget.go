@@ -1,6 +1,8 @@
 package product
 
 import (
+	"fmt"
+
 	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -41,4 +43,30 @@ func DefineDisruptionBudget(p NamerAndOwnerProvider, req ctrl.Request, minAvaila
 	}
 
 	return pdb
+}
+
+// DefineSessionDisruptionBudget creates a PodDisruptionBudget for workbench session pods.
+// This PDB uses maxUnavailable=0 to prevent any session pods from being evicted during
+// node drains or cluster maintenance, ensuring session persistence.
+func DefineSessionDisruptionBudget(p NamerAndOwnerProvider, req ctrl.Request) *policyv1.PodDisruptionBudget {
+	return &policyv1.PodDisruptionBudget{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            fmt.Sprintf("%s-sessions", p.ComponentName()),
+			Namespace:       req.Namespace,
+			OwnerReferences: p.OwnerReferencesForChildren(),
+			Labels:          p.KubernetesLabels(),
+		},
+		Spec: policyv1.PodDisruptionBudgetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					// This label is set by the launcher on all session pods
+					"launcher-instance-id": p.ComponentName(),
+				},
+			},
+			MaxUnavailable: &intstr.IntOrString{
+				Type:   intstr.Int,
+				IntVal: 0,
+			},
+		},
+	}
 }

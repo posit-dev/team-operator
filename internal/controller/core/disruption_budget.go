@@ -9,13 +9,12 @@ import (
 	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreateOrUpdateDisruptionBudget(ctx context.Context, req ctrl.Request, c client.Client, scheme *runtime.Scheme, p product.NamerAndOwnerProvider, owner client.Object, minAvailable, maxUnavailable *int) error {
+// CreateOrUpdateDisruptionBudget creates or updates a PodDisruptionBudget from the given spec.
+func CreateOrUpdateDisruptionBudget(ctx context.Context, c client.Client, scheme *runtime.Scheme, owner client.Object, pdbSpec *policyv1.PodDisruptionBudget) error {
 	l := logr.FromContextOrDiscard(ctx)
-	pdbSpec := product.DefineDisruptionBudget(p, req, minAvailable, maxUnavailable)
 
 	pdb := &policyv1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{
