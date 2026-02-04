@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/posit-dev/team-operator/compare/v1.5.0...v1.6.0) (2026-02-04)
+
+
+### Features
+
+* Add NetworkPolicy for flightdeck component ([#68](https://github.com/posit-dev/team-operator/issues/68)) ([fbdf600](https://github.com/posit-dev/team-operator/commit/fbdf600dd90ef143d757fefac19a1c2908e78b63))
+
 # [1.5.0](https://github.com/posit-dev/team-operator/compare/v1.4.1...v1.5.0) (2026-02-03)
 
 
