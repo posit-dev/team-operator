@@ -124,25 +124,30 @@ just mtest
    - Good: `add-workbench-scaling`, `fix-database-connection`
    - Avoid: `feature/workbench`, `fix/db`
 
-### Commit Message Conventions
+### PR Title Conventions (Required)
 
-We use [Conventional Commits](https://www.conventionalcommits.org/). Each commit message should follow this format:
+We use [Conventional Commits](https://www.conventionalcommits.org/) and **squash merging**. Your PR title becomes the commit message, so it must follow this format:
 
 ```
 <type>(<scope>): <description>
-
-[optional body]
-
-[optional footer]
 ```
 
+> **Important**: PR titles are validated by CI. PRs with non-conforming titles cannot be merged. This is enforced because semantic-release uses commit messages to determine version bumps.
+
 **Types:**
-- `feat:` - New feature
-- `fix:` - Bug fix
+- `feat:` - New feature (triggers minor version bump)
+- `fix:` - Bug fix (triggers patch version bump)
 - `docs:` - Documentation only changes
 - `refactor:` - Code change that neither fixes a bug nor adds a feature
 - `test:` - Adding or correcting tests
-- `chore:` - Changes to the build process or auxiliary tools
+- `build:` - Changes to build system or dependencies
+- `ci:` - Changes to CI configuration
+- `chore:` - Other changes that don't modify src or test files
+- `perf:` - Performance improvements
+- `style:` - Code style changes (formatting, etc.)
+- `revert:` - Reverts a previous commit
+
+**Breaking changes**: Add `!` after the type (e.g., `feat!:`) or include `BREAKING CHANGE:` in the PR body. This triggers a major version bump.
 
 **Examples:**
 ```
@@ -150,6 +155,7 @@ feat(connect): add support for custom resource limits
 fix(workbench): resolve database connection timeout
 docs: update installation instructions
 refactor(controller): simplify reconciliation logic
+feat!: change API response format
 ```
 
 ### Code Style Guidelines
@@ -298,12 +304,17 @@ Include the following in your PR description:
 
 The following checks must pass:
 
+- **PR Title Check** - Title must follow conventional commit format (see above)
 - **Build** - The operator must compile successfully
 - **Unit tests** - All tests must pass
 - **Kustomize** - Kustomization must build without errors
 - **Helm lint** - Chart must pass linting
 - **Helm template** - Templates must render correctly
 - **No diff** - Generated files must be committed
+
+### Merging
+
+This repository uses **squash and merge**. Your PR title becomes the final commit message on `main`. This is why the PR title format is enforced - semantic-release analyzes these commit messages to determine version bumps.
 
 ### Review Expectations
 
