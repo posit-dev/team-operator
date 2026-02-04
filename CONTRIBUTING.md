@@ -11,6 +11,7 @@ Welcome! We appreciate your interest in contributing to the Team Operator projec
 - [Testing](#testing)
 - [Pull Request Process](#pull-request-process)
 - [Code Review Guidelines](#code-review-guidelines)
+- [Releasing](#releasing)
 - [Getting Help](#getting-help)
 
 ## Project Overview
@@ -351,6 +352,18 @@ We follow specific guidelines for code review. For detailed review standards, se
 - Style issues handled by formatters (run `make fmt`)
 - Personal preferences without clear benefit
 - Theoretical concerns without concrete impact
+
+## Releasing
+
+Releases are automated via [semantic-release](https://semantic-release.gitbook.io/) when commits are merged to `main`. Version bumps are determined by conventional commit prefixes:
+
+- `fix:` → patch (1.0.0 → 1.0.1)
+- `feat:` → minor (1.0.0 → 1.1.0)
+- `feat!:` or `BREAKING CHANGE:` → major (1.0.0 → 2.0.0)
+
+The release workflow updates the changelog, tags the release, publishes the Helm chart to GHCR, and notifies downstream repos.
+
+To manually trigger a release: `gh workflow run release.yml`
 
 ## Getting Help
 
