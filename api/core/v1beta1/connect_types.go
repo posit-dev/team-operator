@@ -16,18 +16,25 @@ import (
 	v1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 )
 
+// DefaultRuntimeImageRepo is the default container image repository for Connect runtime images
+const DefaultRuntimeImageRepo = "ghcr.io/rstudio/content-pro"
+
 // ConnectRuntimeImageSpec defines a runtime image for Connect off-host execution
 type ConnectRuntimeImageSpec struct {
 	// RVersion is the R version (e.g., "4.5.2")
+	// +kubebuilder:validation:MinLength=1
 	RVersion string `json:"rVersion"`
 
 	// PyVersion is the Python version (e.g., "3.13.9")
+	// +kubebuilder:validation:MinLength=1
 	PyVersion string `json:"pyVersion"`
 
 	// OSVersion is the OS version (e.g., "ubuntu2204")
+	// +kubebuilder:validation:MinLength=1
 	OSVersion string `json:"osVersion"`
 
 	// QuartoVersion is the Quarto version (e.g., "1.8.25")
+	// +kubebuilder:validation:MinLength=1
 	QuartoVersion string `json:"quartoVersion"`
 
 	// Repo is the container image repository (e.g., "ghcr.io/rstudio/content-pro")
@@ -40,7 +47,7 @@ type ConnectRuntimeImageSpec struct {
 func (s *ConnectRuntimeImageSpec) ToProductDefinition() product.ConnectRuntimeImageDefinition {
 	repo := s.Repo
 	if repo == "" {
-		repo = "ghcr.io/rstudio/content-pro"
+		repo = DefaultRuntimeImageRepo
 	}
 	return product.ConnectRuntimeImageDefinition{
 		PyVersion:     s.PyVersion,
@@ -275,21 +282,21 @@ func (c *Connect) DefaultRuntimeYAML() (string, error) {
 			RVersion:      "4.5.2",
 			OSVersion:     "ubuntu2204",
 			QuartoVersion: "1.8.25",
-			Repo:          "ghcr.io/rstudio/content-pro",
+			Repo:          DefaultRuntimeImageRepo,
 		},
 		{
 			PyVersion:     "3.12.4",
 			RVersion:      "4.4.1",
 			OSVersion:     "ubuntu2204",
 			QuartoVersion: "1.4.557",
-			Repo:          "ghcr.io/rstudio/content-pro",
+			Repo:          DefaultRuntimeImageRepo,
 		},
 		{
 			PyVersion:     "3.11.3",
 			RVersion:      "4.2.2",
 			OSVersion:     "ubuntu2204",
 			QuartoVersion: "1.3.340",
-			Repo:          "ghcr.io/rstudio/content-pro",
+			Repo:          DefaultRuntimeImageRepo,
 		},
 	} {
 

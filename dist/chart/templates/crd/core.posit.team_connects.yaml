@@ -79,15 +79,19 @@ spec:
                   properties:
                     osVersion:
                       description: OSVersion is the OS version (e.g., "ubuntu2204")
+                      minLength: 1
                       type: string
                     pyVersion:
                       description: PyVersion is the Python version (e.g., "3.13.9")
+                      minLength: 1
                       type: string
                     quartoVersion:
                       description: QuartoVersion is the Quarto version (e.g., "1.8.25")
+                      minLength: 1
                       type: string
                     rVersion:
                       description: RVersion is the R version (e.g., "4.5.2")
+                      minLength: 1
                       type: string
                     repo:
                       default: ghcr.io/rstudio/content-pro

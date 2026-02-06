@@ -147,10 +147,10 @@ func (r *SiteReconciler) reconcileConnect(
 			OffHostExecution:        true,
 			AdditionalRuntimeImages: site.Spec.Connect.AdditionalRuntimeImages,
 			Auth:                    site.Spec.Connect.Auth,
-			Secret:           site.Spec.Secret,
-			WorkloadSecret:   site.Spec.WorkloadSecret,
-			Debug:            connectDebugLog,
-			Replicas:         product.PassDefaultReplicas(site.Spec.Connect.Replicas, 1),
+			Secret:                  site.Spec.Secret,
+			WorkloadSecret:          site.Spec.WorkloadSecret,
+			Debug:                   connectDebugLog,
+			Replicas:                product.PassDefaultReplicas(site.Spec.Connect.Replicas, 1),
 		},
 	}
 

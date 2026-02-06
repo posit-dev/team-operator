@@ -379,6 +379,30 @@ func TestConnect_DefaultRuntimeYAML_AdditionalImagesDefaultRepo(t *testing.T) {
 	r.Contains(lastImage.Name, "ghcr.io/rstudio/content-pro:")
 }
 
+func TestConnect_DefaultRuntimeYAML_AdditionalImageInvalid(t *testing.T) {
+	r := require.New(t)
+
+	con := &Connect{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "invalid-image",
+			Namespace: "posit-team",
+		},
+		Spec: ConnectSpec{
+			AdditionalRuntimeImages: []ConnectRuntimeImageSpec{
+				{
+					RVersion:      "4.6.0",
+					// Missing PyVersion - should cause GenerateImageEntry to fail
+					OSVersion:     "ubuntu2204",
+					QuartoVersion: "1.9.0",
+				},
+			},
+		},
+	}
+
+	_, err := con.DefaultRuntimeYAML()
+	r.Error(err)
+}
+
 func TestConnect_CreateSessionVolumeFactory(t *testing.T) {
 	con := &Connect{
 		ObjectMeta: v1.ObjectMeta{
