@@ -390,7 +390,7 @@ func TestConnect_DefaultRuntimeYAML_AdditionalImageInvalid(t *testing.T) {
 		Spec: ConnectSpec{
 			AdditionalRuntimeImages: []ConnectRuntimeImageSpec{
 				{
-					RVersion:      "4.6.0",
+					RVersion: "4.6.0",
 					// Missing PyVersion - should cause GenerateImageEntry to fail
 					OSVersion:     "ubuntu2204",
 					QuartoVersion: "1.9.0",
