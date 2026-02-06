@@ -77,6 +77,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &corev1beta1.ConnectQuartoConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ConnectRConfig"):
 		return &corev1beta1.ConnectRConfigApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("ConnectRuntimeImageSpec"):
+		return &corev1beta1.ConnectRuntimeImageSpecApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ConnectSamlConfig"):
 		return &corev1beta1.ConnectSamlConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ConnectSchedulerConfig"):

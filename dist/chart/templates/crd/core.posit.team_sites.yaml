@@ -97,6 +97,39 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  additionalRuntimeImages:
+                    description: |-
+                      AdditionalRuntimeImages specifies additional runtime images to append to the defaults
+                      for Connect off-host execution
+                    items:
+                      description: ConnectRuntimeImageSpec defines a runtime image
+                        for Connect off-host execution
+                      properties:
+                        osVersion:
+                          description: OSVersion is the OS version (e.g., "ubuntu2204")
+                          type: string
+                        pyVersion:
+                          description: PyVersion is the Python version (e.g., "3.13.9")
+                          type: string
+                        quartoVersion:
+                          description: QuartoVersion is the Quarto version (e.g.,
+                            "1.8.25")
+                          type: string
+                        rVersion:
+                          description: RVersion is the R version (e.g., "4.5.2")
+                          type: string
+                        repo:
+                          default: ghcr.io/rstudio/content-pro
+                          description: Repo is the container image repository (e.g.,
+                            "ghcr.io/rstudio/content-pro")
+                          type: string
+                      required:
+                      - osVersion
+                      - pyVersion
+                      - quartoVersion
+                      - rVersion
+                      type: object
+                    type: array
                   auth:
                     properties:
                       administratorRoleMapping:
