@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/posit-dev/team-operator/compare/v1.6.0...v1.7.0) (2026-02-09)
+
+
+### Features
+
+* add R 4.5.x default runtime image and configurable additionalRuntimeImages ([#72](https://github.com/posit-dev/team-operator/issues/72)) ([1c39720](https://github.com/posit-dev/team-operator/commit/1c39720dcefb3054852d0b20196f5b776a8dab70))
+
 # [1.6.0](https://github.com/posit-dev/team-operator/compare/v1.5.0...v1.6.0) (2026-02-04)
 
 
