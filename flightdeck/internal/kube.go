@@ -111,13 +111,7 @@ func (c *siteClient) Get(name string, namespace string, opts metav1.GetOptions, 
 		Into(&result)
 
 	if err != nil {
-		// Check if the error is because Sites CRD doesn't exist
-		// This can happen on clusters without sites
-		// The error will typically be "the server could not find the requested resource"
-		// when the CRD is not installed
-		errStr := err.Error()
-		if strings.Contains(errStr, "the server could not find the requested resource") ||
-			strings.Contains(errStr, "no matches for kind") {
+		if isCRDNotFoundError(err.Error()) {
 			slog.Info("Sites CRD not found on cluster, returning empty site", "name", name, "namespace", namespace)
 			// Return an empty Site with minimal info for display
 			result.Name = name
@@ -130,4 +124,10 @@ func (c *siteClient) Get(name string, namespace string, opts metav1.GetOptions, 
 
 	slog.Debug("site fetched successfully", "name", name, "namespace", namespace)
 	return &result, err
+}
+
+// isCRDNotFoundError checks if an error message indicates the Site CRD is not installed.
+func isCRDNotFoundError(errMsg string) bool {
+	return strings.Contains(errMsg, "the server could not find the requested resource") ||
+		strings.Contains(errMsg, "no matches for kind")
 }
