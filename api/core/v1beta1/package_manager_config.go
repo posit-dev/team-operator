@@ -3,6 +3,7 @@ package v1beta1
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 )
 
@@ -95,7 +96,15 @@ func (configStruct *PackageManagerConfig) GenerateGcfg() (string, error) {
 
 	// Apply Additional (passthrough) overrides
 	if configStruct.Additional != nil {
-		for key, value := range configStruct.Additional {
+		// Sort keys for deterministic output
+		additionalKeys := make([]string, 0, len(configStruct.Additional))
+		for key := range configStruct.Additional {
+			additionalKeys = append(additionalKeys, key)
+		}
+		sort.Strings(additionalKeys)
+
+		for _, key := range additionalKeys {
+			value := configStruct.Additional[key]
 			parts := strings.SplitN(key, ".", 2)
 			if len(parts) != 2 {
 				continue // skip malformed keys
