@@ -266,6 +266,11 @@ type InternalConnectSpec struct {
 	// +kubebuilder:default=2
 	// +kubebuilder:validation:Minimum=0
 	ScheduleConcurrency int `json:"scheduleConcurrency,omitempty"`
+
+	// AdditionalRuntimeImages specifies additional runtime images to append to the defaults
+	// for Connect off-host execution
+	// +optional
+	AdditionalRuntimeImages []ConnectRuntimeImageSpec `json:"additionalRuntimeImages,omitempty"`
 }
 
 type DatabaseSettings struct {
