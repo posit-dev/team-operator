@@ -76,6 +76,14 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  additionalConfig:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      AdditionalConfig allows setting arbitrary gcfg config values not covered by typed fields.
+                      Keys should be in "Section.Key" format (e.g., "Server.DataDir", "Scheduler.MaxCPURequest").
+                      Values set here take precedence over typed fields if both specify the same key.
+                    type: object
                   additionalRuntimeImages:
                     description: |-
                       AdditionalRuntimeImages specifies additional runtime images to append to the defaults
@@ -605,6 +613,14 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  additionalConfig:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      AdditionalConfig allows setting arbitrary gcfg config values not covered by typed fields.
+                      Keys should be in "Section.Key" format (e.g., "Server.DataDir", "Storage.Default").
+                      Values set here take precedence over typed fields if both specify the same key.
+                    type: object
                   azureFiles:
                     description: AzureFiles configures Azure Files integration for
                       persistent storage
@@ -828,6 +844,20 @@ spec:
                   addEnv:
                     additionalProperties:
                       type: string
+                    type: object
+                  additionalConfigs:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      AdditionalConfigs allows appending arbitrary content to Workbench server config files.
+                      Keys are config file names (e.g., "rserver.conf", "launcher.conf").
+                    type: object
+                  additionalSessionConfigs:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      AdditionalSessionConfigs allows appending arbitrary content to Workbench session config files.
+                      Keys are config file names (e.g., "rsession.conf", "repos.conf").
                     type: object
                   additionalVolumes:
                     description: AdditionalVolumes represents additional VolumeSpec's

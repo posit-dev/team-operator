@@ -32,6 +32,7 @@ type InternalConnectSpecApplyConfiguration struct {
 	DatabaseSettings        *DatabaseSettingsApplyConfiguration                    `json:"databaseSettings,omitempty"`
 	ScheduleConcurrency     *int                                                   `json:"scheduleConcurrency,omitempty"`
 	AdditionalRuntimeImages []ConnectRuntimeImageSpecApplyConfiguration            `json:"additionalRuntimeImages,omitempty"`
+	AdditionalConfig        map[string]string                                      `json:"additionalConfig,omitempty"`
 }
 
 // InternalConnectSpecApplyConfiguration constructs a declarative configuration of the InternalConnectSpec type for use with
@@ -205,6 +206,20 @@ func (b *InternalConnectSpecApplyConfiguration) WithAdditionalRuntimeImages(valu
 			panic("nil value passed to WithAdditionalRuntimeImages")
 		}
 		b.AdditionalRuntimeImages = append(b.AdditionalRuntimeImages, *values[i])
+	}
+	return b
+}
+
+// WithAdditionalConfig puts the entries into the AdditionalConfig field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, the entries provided by each call will be put on the AdditionalConfig field,
+// overwriting an existing map entries in AdditionalConfig field with the same key.
+func (b *InternalConnectSpecApplyConfiguration) WithAdditionalConfig(entries map[string]string) *InternalConnectSpecApplyConfiguration {
+	if b.AdditionalConfig == nil && len(entries) > 0 {
+		b.AdditionalConfig = make(map[string]string, len(entries))
+	}
+	for k, v := range entries {
+		b.AdditionalConfig[k] = v
 	}
 	return b
 }

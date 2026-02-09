@@ -423,6 +423,14 @@ spec:
                       Logging:
                         type: boolean
                     type: object
+                  additional:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      Additional allows setting arbitrary gcfg config values not covered by typed fields.
+                      Keys should be in "Section.Key" format (e.g., "Server.DataDir", "Scheduler.MaxCPURequest").
+                      Values set here take precedence over typed fields if both specify the same key.
+                    type: object
                 type: object
               databaseConfig:
                 properties:

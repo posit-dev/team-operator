@@ -113,6 +113,12 @@ func (r *SiteReconciler) reconcilePackageManager(
 			pm.Spec.Config.S3Storage.Prefix = site.Name + "/ppm-v0"
 			pm.Spec.Config.S3Storage.Region = product.GetAWSRegion()
 		}
+
+		// Propagate additional config from Site to PackageManager
+		if site.Spec.PackageManager.AdditionalConfig != nil {
+			pm.Spec.Config.Additional = site.Spec.PackageManager.AdditionalConfig
+		}
+
 		return nil
 	}); err != nil {
 		l.Error(err, "error creating package manager instance")

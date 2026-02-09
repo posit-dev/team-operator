@@ -26,6 +26,7 @@ type ConnectConfigApplyConfiguration struct {
 	Scheduler          *ConnectSchedulerConfigApplyConfiguration             `json:"Scheduler,omitempty"`
 	RPackageRepository map[string]RPackageRepositoryConfigApplyConfiguration `json:"RPackageRepositories,omitempty"`
 	TableauIntegration *ConnectTableauIntegrationConfigApplyConfiguration    `json:"TableauIntegration,omitempty"`
+	Additional         map[string]string                                     `json:"additional,omitempty"`
 }
 
 // ConnectConfigApplyConfiguration constructs a declarative configuration of the ConnectConfig type for use with
@@ -181,5 +182,19 @@ func (b *ConnectConfigApplyConfiguration) WithRPackageRepository(entries map[str
 // If called multiple times, the TableauIntegration field is set to the value of the last call.
 func (b *ConnectConfigApplyConfiguration) WithTableauIntegration(value *ConnectTableauIntegrationConfigApplyConfiguration) *ConnectConfigApplyConfiguration {
 	b.TableauIntegration = value
+	return b
+}
+
+// WithAdditional puts the entries into the Additional field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, the entries provided by each call will be put on the Additional field,
+// overwriting an existing map entries in Additional field with the same key.
+func (b *ConnectConfigApplyConfiguration) WithAdditional(entries map[string]string) *ConnectConfigApplyConfiguration {
+	if b.Additional == nil && len(entries) > 0 {
+		b.Additional = make(map[string]string, len(entries))
+	}
+	for k, v := range entries {
+		b.Additional[k] = v
+	}
 	return b
 }

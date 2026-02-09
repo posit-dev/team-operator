@@ -209,8 +209,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &corev1beta1.WorkbenchLauncherKubernetesConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("WorkbenchLauncherKubernetesProfilesConfigSection"):
 		return &corev1beta1.WorkbenchLauncherKubernetesProfilesConfigSectionApplyConfiguration{}
-	case v1beta1.SchemeGroupVersion.WithKind("WorkbenchLauncherKubnernetesResourcesConfigSection"):
-		return &corev1beta1.WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("WorkbenchLauncherKubernetesResourcesConfigSection"):
+		return &corev1beta1.WorkbenchLauncherKubernetesResourcesConfigSectionApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("WorkbenchLauncherLocalConfig"):
 		return &corev1beta1.WorkbenchLauncherLocalConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("WorkbenchLauncherServerConfig"):

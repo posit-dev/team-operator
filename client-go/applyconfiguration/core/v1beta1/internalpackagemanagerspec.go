@@ -13,18 +13,19 @@ import (
 // InternalPackageManagerSpecApplyConfiguration represents a declarative configuration of the InternalPackageManagerSpec type for use
 // with apply.
 type InternalPackageManagerSpecApplyConfiguration struct {
-	License         *product.LicenseSpec                `json:"license,omitempty"`
-	Volume          *product.VolumeSpec                 `json:"volume,omitempty"`
-	NodeSelector    map[string]string                   `json:"nodeSelector,omitempty"`
-	AddEnv          map[string]string                   `json:"addEnv,omitempty"`
-	Image           *string                             `json:"image,omitempty"`
-	ImagePullPolicy *v1.PullPolicy                      `json:"imagePullPolicy,omitempty"`
-	S3Bucket        *string                             `json:"s3Bucket,omitempty"`
-	Replicas        *int                                `json:"replicas,omitempty"`
-	DomainPrefix    *string                             `json:"domainPrefix,omitempty"`
-	BaseDomain      *string                             `json:"baseDomain,omitempty"`
-	GitSSHKeys      []SSHKeyConfigApplyConfiguration    `json:"gitSSHKeys,omitempty"`
-	AzureFiles      *AzureFilesConfigApplyConfiguration `json:"azureFiles,omitempty"`
+	License          *product.LicenseSpec                `json:"license,omitempty"`
+	Volume           *product.VolumeSpec                 `json:"volume,omitempty"`
+	NodeSelector     map[string]string                   `json:"nodeSelector,omitempty"`
+	AddEnv           map[string]string                   `json:"addEnv,omitempty"`
+	Image            *string                             `json:"image,omitempty"`
+	ImagePullPolicy  *v1.PullPolicy                      `json:"imagePullPolicy,omitempty"`
+	S3Bucket         *string                             `json:"s3Bucket,omitempty"`
+	Replicas         *int                                `json:"replicas,omitempty"`
+	DomainPrefix     *string                             `json:"domainPrefix,omitempty"`
+	BaseDomain       *string                             `json:"baseDomain,omitempty"`
+	GitSSHKeys       []SSHKeyConfigApplyConfiguration    `json:"gitSSHKeys,omitempty"`
+	AzureFiles       *AzureFilesConfigApplyConfiguration `json:"azureFiles,omitempty"`
+	AdditionalConfig map[string]string                   `json:"additionalConfig,omitempty"`
 }
 
 // InternalPackageManagerSpecApplyConfiguration constructs a declarative configuration of the InternalPackageManagerSpec type for use with
@@ -143,5 +144,19 @@ func (b *InternalPackageManagerSpecApplyConfiguration) WithGitSSHKeys(values ...
 // If called multiple times, the AzureFiles field is set to the value of the last call.
 func (b *InternalPackageManagerSpecApplyConfiguration) WithAzureFiles(value *AzureFilesConfigApplyConfiguration) *InternalPackageManagerSpecApplyConfiguration {
 	b.AzureFiles = value
+	return b
+}
+
+// WithAdditionalConfig puts the entries into the AdditionalConfig field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, the entries provided by each call will be put on the AdditionalConfig field,
+// overwriting an existing map entries in AdditionalConfig field with the same key.
+func (b *InternalPackageManagerSpecApplyConfiguration) WithAdditionalConfig(entries map[string]string) *InternalPackageManagerSpecApplyConfiguration {
+	if b.AdditionalConfig == nil && len(entries) > 0 {
+		b.AdditionalConfig = make(map[string]string, len(entries))
+	}
+	for k, v := range entries {
+		b.AdditionalConfig[k] = v
+	}
 	return b
 }

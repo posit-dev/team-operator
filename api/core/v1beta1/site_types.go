@@ -221,6 +221,12 @@ type InternalPackageManagerSpec struct {
 	// AzureFiles configures Azure Files integration for persistent storage
 	// +optional
 	AzureFiles *AzureFilesConfig `json:"azureFiles,omitempty"`
+
+	// AdditionalConfig allows setting arbitrary gcfg config values not covered by typed fields.
+	// Keys should be in "Section.Key" format (e.g., "Server.DataDir", "Storage.Default").
+	// Values set here take precedence over typed fields if both specify the same key.
+	// +optional
+	AdditionalConfig map[string]string `json:"additionalConfig,omitempty"`
 }
 
 type InternalConnectSpec struct {
@@ -271,6 +277,12 @@ type InternalConnectSpec struct {
 	// for Connect off-host execution
 	// +optional
 	AdditionalRuntimeImages []ConnectRuntimeImageSpec `json:"additionalRuntimeImages,omitempty"`
+
+	// AdditionalConfig allows setting arbitrary gcfg config values not covered by typed fields.
+	// Keys should be in "Section.Key" format (e.g., "Server.DataDir", "Scheduler.MaxCPURequest").
+	// Values set here take precedence over typed fields if both specify the same key.
+	// +optional
+	AdditionalConfig map[string]string `json:"additionalConfig,omitempty"`
 }
 
 type DatabaseSettings struct {
@@ -391,6 +403,16 @@ type InternalWorkbenchSpec struct {
 
 	// JupyterConfig contains Jupyter configuration for Workbench
 	JupyterConfig *WorkbenchJupyterConfig `json:"jupyterConfig,omitempty"`
+
+	// AdditionalConfigs allows appending arbitrary content to Workbench server config files.
+	// Keys are config file names (e.g., "rserver.conf", "launcher.conf").
+	// +optional
+	AdditionalConfigs map[string]string `json:"additionalConfigs,omitempty"`
+
+	// AdditionalSessionConfigs allows appending arbitrary content to Workbench session config files.
+	// Keys are config file names (e.g., "rsession.conf", "repos.conf").
+	// +optional
+	AdditionalSessionConfigs map[string]string `json:"additionalSessionConfigs,omitempty"`
 }
 
 type InternalWorkbenchExperimentalFeatures struct {
@@ -431,7 +453,7 @@ type InternalWorkbenchExperimentalFeatures struct {
 	VsCodeExtensionsDir string `json:"vsCodeExtensionsDir,omitempty"`
 
 	// ResourceProfiles for use by Workbench. If not provided, a default will be used
-	ResourceProfiles map[string]*WorkbenchLauncherKubnernetesResourcesConfigSection `json:"resourceProfiles,omitempty"`
+	ResourceProfiles map[string]*WorkbenchLauncherKubernetesResourcesConfigSection `json:"resourceProfiles,omitempty"`
 
 	// CpuRequestRatio defines the ratio of CPU requests to limits for session pods
 	// Value must be a decimal number between 0 and 1 (e.g., "0.6" means requests are 60% of limits)
