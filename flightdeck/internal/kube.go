@@ -3,6 +3,8 @@ package internal
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -109,6 +111,19 @@ func (c *siteClient) Get(name string, namespace string, opts metav1.GetOptions, 
 		Into(&result)
 
 	if err != nil {
+		// Check if the error is because Sites CRD doesn't exist
+		// This can happen on clusters without sites
+		// The error will typically be "the server could not find the requested resource"
+		// when the CRD is not installed
+		errStr := err.Error()
+		if strings.Contains(errStr, "the server could not find the requested resource") ||
+			strings.Contains(errStr, "no matches for kind") {
+			slog.Info("Sites CRD not found on cluster, returning empty site", "name", name, "namespace", namespace)
+			// Return an empty Site with minimal info for display
+			result.Name = name
+			result.Namespace = namespace
+			return &result, nil
+		}
 		slog.Error("failed to fetch site", "name", name, "namespace", namespace, "error", err)
 		return &result, err
 	}

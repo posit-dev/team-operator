@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
 	"strconv"
@@ -11,6 +12,10 @@ import (
 	"github.com/posit-dev/team-operator/api/keycloak/v2alpha1"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/traefik/traefik/v3/pkg/provider/kubernetes/crd/traefikio/v1alpha1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -73,6 +78,29 @@ func init() {
 	LoadSchemes(scheme)
 }
 
+// isCRDPresent checks if a Custom Resource Definition exists on the cluster
+func isCRDPresent(ctx context.Context, config *rest.Config, crdName string) (bool, error) {
+	// Create a clientset for CRD operations
+	crdClient, err := clientset.NewForConfig(config)
+	if err != nil {
+		return false, err
+	}
+
+	// Try to get the CRD
+	_, err = crdClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, crdName, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// CRD doesn't exist, which is okay
+			return false, nil
+		}
+		// Some other error occurred
+		return false, err
+	}
+
+	// CRD exists
+	return true, nil
+}
+
 func main() {
 	var (
 		metricsAddr          string
@@ -132,13 +160,27 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&corecontroller.SiteReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Log:    setupLog,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Site")
-		os.Exit(1)
+	// Check if Site CRD exists before setting up Site controller
+	ctx := context.Background()
+	siteCRDExists, err := isCRDPresent(ctx, mgr.GetConfig(), "sites.core.posit.team")
+	if err != nil {
+		setupLog.Error(err, "unable to check if Site CRD exists")
+		// Continue without Site controller rather than exiting
+		siteCRDExists = false
+	}
+
+	if siteCRDExists {
+		setupLog.Info("Site CRD found, setting up Site controller")
+		if err = (&corecontroller.SiteReconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+			Log:    setupLog,
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Site")
+			os.Exit(1)
+		}
+	} else {
+		setupLog.Info("Site CRD not found, skipping Site controller setup")
 	}
 
 	if err = (&corecontroller.PostgresDatabaseReconciler{
@@ -185,13 +227,26 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&corecontroller.FlightdeckReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Log:    setupLog,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Flightdeck")
-		os.Exit(1)
+	// Check if Flightdeck CRD exists before setting up Flightdeck controller
+	flightdeckCRDExists, err := isCRDPresent(ctx, mgr.GetConfig(), "flightdecks.core.posit.team")
+	if err != nil {
+		setupLog.Error(err, "unable to check if Flightdeck CRD exists")
+		// Continue without Flightdeck controller rather than exiting
+		flightdeckCRDExists = false
+	}
+
+	if flightdeckCRDExists {
+		setupLog.Info("Flightdeck CRD found, setting up Flightdeck controller")
+		if err = (&corecontroller.FlightdeckReconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+			Log:    setupLog,
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Flightdeck")
+			os.Exit(1)
+		}
+	} else {
+		setupLog.Info("Flightdeck CRD not found, skipping Flightdeck controller setup")
 	}
 
 	//+kubebuilder:scaffold:builder
