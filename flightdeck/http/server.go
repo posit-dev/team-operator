@@ -67,8 +67,9 @@ func requestLoggingMiddleware(next http.Handler) http.Handler {
 
 		duration := time.Since(start)
 
-		// Skip logging for static assets at debug level
-		if len(r.URL.Path) > 7 && r.URL.Path[:8] == "/static/" {
+		// Skip logging for static assets and health check endpoints at debug level
+		if (len(r.URL.Path) > 7 && r.URL.Path[:8] == "/static/") ||
+			r.URL.Path == "/healthz" || r.URL.Path == "/readyz" {
 			slog.Debug("request",
 				"method", r.Method,
 				"path", r.URL.Path,
