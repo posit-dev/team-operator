@@ -305,10 +305,10 @@ func TestConnectConfig_AdditionalMalformedKey(t *testing.T) {
 	// Test malformed key in Additional (no "." separator — should be skipped)
 	cfg := ConnectConfig{
 		Additional: map[string]string{
-			"MalformedKey":        "should-be-skipped",  // No section separator
-			"Server.ValidKey":     "should-be-included",
-			"AnotherBadKey":       "also-skipped",
-			"Good.Section.Key":    "multi-dot-ok",       // Multiple dots are OK (first is section separator)
+			"MalformedKey":     "should-be-skipped", // No section separator
+			"Server.ValidKey":  "should-be-included",
+			"AnotherBadKey":    "also-skipped",
+			"Good.Section.Key": "multi-dot-ok", // Multiple dots are OK (first is section separator)
 		},
 	}
 	str, err := cfg.GenerateGcfg()
@@ -342,18 +342,18 @@ func TestConnectConfig_AdditionalComplexScenario(t *testing.T) {
 		},
 		Additional: map[string]string{
 			// Override existing fields
-			"Server.Address":             "override.com",
-			"Http.Listen":                ":8080",
+			"Server.Address":                   "override.com",
+			"Http.Listen":                      ":8080",
 			"Applications.ScheduleConcurrency": "10",
 
 			// Add new fields to existing sections
-			"Server.NewServerField":      "server-new",
-			"Http.Timeout":               "60",
+			"Server.NewServerField": "server-new",
+			"Http.Timeout":          "60",
 
 			// Add entirely new sections
-			"CustomSection.Field1":       "value1",
-			"CustomSection.Field2":       "value2",
-			"AnotherSection.Setting":     "some-setting",
+			"CustomSection.Field1":   "value1",
+			"CustomSection.Field2":   "value2",
+			"AnotherSection.Setting": "some-setting",
 		},
 	}
 	str, err := cfg.GenerateGcfg()

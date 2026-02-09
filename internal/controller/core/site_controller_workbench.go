@@ -399,17 +399,11 @@ func (r *SiteReconciler) reconcileWorkbench(
 
 	// Propagate additional configs for server config files
 	if site.Spec.Workbench.AdditionalConfigs != nil {
-		if targetWorkbench.Spec.Config.WorkbenchIniConfig == nil {
-			targetWorkbench.Spec.Config.WorkbenchIniConfig = &v1beta1.WorkbenchIniConfig{}
-		}
 		targetWorkbench.Spec.Config.WorkbenchIniConfig.AdditionalConfigs = site.Spec.Workbench.AdditionalConfigs
 	}
 
 	// Propagate additional configs for session config files
 	if site.Spec.Workbench.AdditionalSessionConfigs != nil {
-		if targetWorkbench.Spec.Config.WorkbenchSessionIniConfig == nil {
-			targetWorkbench.Spec.Config.WorkbenchSessionIniConfig = &v1beta1.WorkbenchSessionIniConfig{}
-		}
 		targetWorkbench.Spec.Config.WorkbenchSessionIniConfig.AdditionalConfigs = site.Spec.Workbench.AdditionalSessionConfigs
 	}
 

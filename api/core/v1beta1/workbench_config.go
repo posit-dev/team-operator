@@ -522,14 +522,14 @@ type SupervisordProgramConfig struct {
 }
 
 type WorkbenchIniConfig struct {
-	Launcher           *WorkbenchLauncherConfig                                       `json:"launcher.conf,omitempty"`
-	VsCode             *WorkbenchVsCodeConfig                                         `json:"vscode.conf,omitempty"`
-	Logging            *WorkbenchLoggingConfig                                        `json:"logging.conf,omitempty"`
-	Jupyter            *WorkbenchJupyterConfig                                        `json:"jupyter.conf,omitempty"`
-	RServer            *WorkbenchRServerConfig                                        `json:"rserver.conf,omitempty"`
-	LauncherKubernetes *WorkbenchLauncherKubernetesConfig                             `json:"launcher.kubernetes.conf,omitempty"`
-	LauncherLocal      *WorkbenchLauncherLocalConfig                                  `json:"launcher.local.conf,omitempty"`
-	Databricks         map[string]*WorkbenchDatabricksConfig                          `json:"databricks.conf,omitempty"` // TODO: DEPRECATED
+	Launcher           *WorkbenchLauncherConfig                                      `json:"launcher.conf,omitempty"`
+	VsCode             *WorkbenchVsCodeConfig                                        `json:"vscode.conf,omitempty"`
+	Logging            *WorkbenchLoggingConfig                                       `json:"logging.conf,omitempty"`
+	Jupyter            *WorkbenchJupyterConfig                                       `json:"jupyter.conf,omitempty"`
+	RServer            *WorkbenchRServerConfig                                       `json:"rserver.conf,omitempty"`
+	LauncherKubernetes *WorkbenchLauncherKubernetesConfig                            `json:"launcher.kubernetes.conf,omitempty"`
+	LauncherLocal      *WorkbenchLauncherLocalConfig                                 `json:"launcher.local.conf,omitempty"`
+	Databricks         map[string]*WorkbenchDatabricksConfig                         `json:"databricks.conf,omitempty"` // TODO: DEPRECATED
 	Resources          map[string]*WorkbenchLauncherKubernetesResourcesConfigSection `json:"launcher.kubernetes.resources.conf,omitempty"`
 
 	// AdditionalConfigs allows appending arbitrary content to server config files.

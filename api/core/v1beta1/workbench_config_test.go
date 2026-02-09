@@ -249,7 +249,7 @@ func TestWorkbenchIniConfig_AdditionalConfigs(t *testing.T) {
 		wb := WorkbenchIniConfig{
 			RServer: &WorkbenchRServerConfig{
 				AdminEnabled: 1,
-				AdminGroup: "workbench-admin",
+				AdminGroup:   "workbench-admin",
 			},
 			AdditionalConfigs: map[string]string{
 				"rserver.conf": "custom-option=value\nanother-option=123\n",
