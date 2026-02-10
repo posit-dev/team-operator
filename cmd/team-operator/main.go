@@ -180,7 +180,7 @@ func main() {
 			os.Exit(1)
 		}
 	} else {
-		setupLog.Info("Site CRD not found, skipping Site controller setup")
+		setupLog.Warn("Site CRD not found, skipping Site controller setup")
 	}
 
 	if err = (&corecontroller.PostgresDatabaseReconciler{

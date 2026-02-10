@@ -3,6 +3,7 @@ package html
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
@@ -128,7 +129,7 @@ func renderStruct(v reflect.Value, name string, depth int) Node {
 		}
 	} else {
 		// For nested structs, render all fields together
-		allFields := append(append(basicFields, productFields...), advancedFields...)
+		allFields := slices.Concat(basicFields, productFields, advancedFields)
 		if len(allFields) > 0 {
 			tableClass := "table-auto w-full border-collapse border border-gray-300 dark:border-gray-700"
 			if depth > 0 {
@@ -334,6 +335,9 @@ func isInternalField(name string) bool {
 
 // isProductField checks if a field is a product configuration
 func isProductField(name string) bool {
+	// NOTE: This list is hardcoded. New product fields will default to the basic category
+	// unless explicitly added here. This is intentional to ensure new fields are at least
+	// visible rather than being lost.
 	productNames := []string{
 		"workbench", "connect", "packageManager", "chronicle", "flightdeck",
 	}
@@ -347,6 +351,9 @@ func isProductField(name string) bool {
 
 // isAdvancedField checks if a field is an advanced configuration
 func isAdvancedField(name string) bool {
+	// NOTE: This list is hardcoded. New advanced fields will default to the basic category
+	// unless explicitly added here. This ensures unknown fields are visible by default
+	// rather than hidden in an advanced section.
 	advancedNames := []string{
 		"secret", "workloadSecret", "mainDatabaseCredentialSecret",
 		"volumeSource", "volumeSubdirJobOff", "dropDatabaseOnTearDown",
@@ -363,13 +370,6 @@ func isAdvancedField(name string) bool {
 
 // formatFieldName converts a field name to a more readable format
 func formatFieldName(name string) string {
-	// Handle acronyms
-	name = strings.ReplaceAll(name, "AWS", "AWS")
-	name = strings.ReplaceAll(name, "VPC", "VPC")
-	name = strings.ReplaceAll(name, "CIDR", "CIDR")
-	name = strings.ReplaceAll(name, "EFS", "EFS")
-	name = strings.ReplaceAll(name, "FQDN", "FQDN")
-
 	// Add spaces before capitals (camelCase to Title Case)
 	var result strings.Builder
 	for i, r := range name {

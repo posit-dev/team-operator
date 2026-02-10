@@ -3,9 +3,9 @@ package internal
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -111,7 +111,7 @@ func (c *siteClient) Get(name string, namespace string, opts metav1.GetOptions, 
 		Into(&result)
 
 	if err != nil {
-		if isCRDNotFoundError(err.Error()) {
+		if isCRDNotFoundError(err) {
 			slog.Info("Sites CRD not found on cluster, returning empty site", "name", name, "namespace", namespace)
 			// Return an empty Site with minimal info for display
 			result.Name = name
@@ -126,8 +126,26 @@ func (c *siteClient) Get(name string, namespace string, opts metav1.GetOptions, 
 	return &result, err
 }
 
-// isCRDNotFoundError checks if an error message indicates the Site CRD is not installed.
-func isCRDNotFoundError(errMsg string) bool {
-	return strings.Contains(errMsg, "the server could not find the requested resource") ||
-		strings.Contains(errMsg, "no matches for kind")
+// isCRDNotFoundError checks if an error indicates the Site CRD is not installed.
+func isCRDNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Check if it's a NotFound error (404)
+	if apierrors.IsNotFound(err) {
+		return true
+	}
+
+	// Also check for other errors that indicate missing CRD
+	// (e.g., when the API group/version isn't registered)
+	if statusErr, ok := err.(*apierrors.StatusError); ok {
+		// Check if it's specifically about a missing resource type
+		reason := statusErr.Status().Reason
+		if reason == metav1.StatusReasonNotFound {
+			return true
+		}
+	}
+
+	return false
 }

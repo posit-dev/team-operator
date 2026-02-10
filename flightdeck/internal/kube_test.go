@@ -4,44 +4,36 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestIsCRDNotFoundError(t *testing.T) {
 	tests := []struct {
 		name        string
-		errMsg      string
+		err         error
 		isCRDAbsent bool
 	}{
 		{
-			name:        "resource not found indicates missing CRD",
-			errMsg:      "the server could not find the requested resource",
+			name: "NotFound error indicates missing CRD",
+			err: &apierrors.StatusError{
+				ErrStatus: metav1.Status{
+					Code:   404,
+					Reason: metav1.StatusReasonNotFound,
+				},
+			},
 			isCRDAbsent: true,
 		},
 		{
-			name:        "no matches for kind indicates missing CRD",
-			errMsg:      "no matches for kind \"Site\" in version \"core.posit.team/v1beta1\"",
-			isCRDAbsent: true,
-		},
-		{
-			name:        "connection refused is not a missing CRD",
-			errMsg:      "connection refused",
-			isCRDAbsent: false,
-		},
-		{
-			name:        "timeout is not a missing CRD",
-			errMsg:      "context deadline exceeded",
-			isCRDAbsent: false,
-		},
-		{
-			name:        "empty string is not a missing CRD",
-			errMsg:      "",
+			name:        "nil error is not a missing CRD",
+			err:         nil,
 			isCRDAbsent: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := isCRDNotFoundError(tt.errMsg)
+			result := isCRDNotFoundError(tt.err)
 			assert.Equal(t, tt.isCRDAbsent, result)
 		})
 	}
