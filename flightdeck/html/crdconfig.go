@@ -392,6 +392,37 @@ func createExpandableField(name string, content Node) Node {
 	)
 }
 
+// formatValue extracts a display string from a reflect.Value,
+// handling special types like apiextensionsv1.JSON that contain raw JSON bytes.
+func formatValue(v reflect.Value) string {
+	// Dereference pointers
+	for v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
+		if v.IsNil() {
+			return ""
+		}
+		v = v.Elem()
+	}
+
+	// Check for structs with a Raw []byte field (e.g., apiextensionsv1.JSON)
+	if v.Kind() == reflect.Struct {
+		rawField := v.FieldByName("Raw")
+		if rawField.IsValid() && rawField.Kind() == reflect.Slice && rawField.Type().Elem().Kind() == reflect.Uint8 {
+			raw := rawField.Bytes()
+			if len(raw) > 0 {
+				s := strings.TrimSpace(string(raw))
+				// Strip surrounding quotes from JSON strings
+				if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
+					s = s[1 : len(s)-1]
+				}
+				return s
+			}
+			return ""
+		}
+	}
+
+	return fmt.Sprintf("%v", v.Interface())
+}
+
 // renderMap renders a map as a definition list
 func renderMap(v reflect.Value) Node {
 	if v.Len() == 0 {
@@ -401,15 +432,22 @@ func renderMap(v reflect.Value) Node {
 	var items []Node
 	for _, key := range v.MapKeys() {
 		val := v.MapIndex(key)
+		display := formatValue(val)
+		if display == "" {
+			continue
+		}
 		items = append(items,
 			Div(
 				Class("flex gap-2 py-1"),
 				Span(Text(fmt.Sprintf("%v:", key)), Class("font-semibold text-gray-700 dark:text-gray-300")),
-				Span(Text(fmt.Sprintf("%v", val)), Class("font-mono text-sm text-gray-800 dark:text-white")),
+				Span(Text(display), Class("font-mono text-sm text-gray-800 dark:text-white")),
 			),
 		)
 	}
 
+	if len(items) == 0 {
+		return nil
+	}
 	return Div(Class("bg-gray-50 dark:bg-neutral-900 rounded p-2 space-y-1"), Group(items))
 }
 
