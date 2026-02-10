@@ -1,3 +1,10 @@
+# [1.8.0](https://github.com/posit-dev/team-operator/compare/v1.7.0...v1.8.0) (2026-02-10)
+
+
+### Features
+
+* add dedicated health check endpoints for flightdeck ([#77](https://github.com/posit-dev/team-operator/issues/77)) ([484b78a](https://github.com/posit-dev/team-operator/commit/484b78adf0d2c8098fe58e0c0e2984296793a756))
+
 # [1.7.0](https://github.com/posit-dev/team-operator/compare/v1.6.0...v1.7.0) (2026-02-09)
 
 
