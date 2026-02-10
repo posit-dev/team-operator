@@ -211,6 +211,11 @@ spec:
                   domainPrefix:
                     default: connect
                     type: string
+                  enabled:
+                    description: |-
+                      Enabled controls whether Connect is deployed. Defaults to true if not specified.
+                      Set to false to explicitly disable Connect deployment.
+                    type: boolean
                   experimentalFeatures:
                     properties:
                       chronicleSidecarProductApiKeyEnabled:
