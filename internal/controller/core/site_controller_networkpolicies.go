@@ -43,14 +43,22 @@ func (r *SiteReconciler) reconcileNetworkPolicies(ctx context.Context, req ctrl.
 		return err
 	}
 
-	if err := r.reconcileConnectNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
-		l.Error(err, "error ensuring connect network policy")
-		return err
-	}
-
-	if err := r.reconcileConnectSessionNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
-		l.Error(err, "error ensuring connect session network policy")
-		return err
+	// Connect network policies
+	if site.Spec.Connect.Enabled == nil || *site.Spec.Connect.Enabled == true {
+		if err := r.reconcileConnectNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
+			l.Error(err, "error ensuring connect network policy")
+			return err
+		}
+		if err := r.reconcileConnectSessionNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
+			l.Error(err, "error ensuring connect session network policy")
+			return err
+		}
+	} else {
+		// Clean up Connect network policies
+		if err := r.cleanupConnectNetworkPolicies(ctx, req, l); err != nil {
+			l.Error(err, "error cleaning up connect network policies")
+			return err
+		}
 	}
 
 	if err := r.reconcileHomeNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
@@ -782,4 +790,14 @@ func (r *SiteReconciler) reconcileFlightdeckNetworkPolicy(ctx context.Context, n
 		return nil
 	})
 	return err
+}
+
+func (r *SiteReconciler) cleanupConnectNetworkPolicies(ctx context.Context, req ctrl.Request, l logr.Logger) error {
+	for _, suffix := range []string{"connect", "connect-session"} {
+		key := client.ObjectKey{Name: req.Name + "-" + suffix, Namespace: req.Namespace}
+		if err := internal.BasicDelete(ctx, r, l, key, &networkingv1.NetworkPolicy{}); err != nil {
+			return err
+		}
+	}
+	return nil
 }

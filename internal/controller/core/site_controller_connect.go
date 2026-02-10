@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	"github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	controllerruntime "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (r *SiteReconciler) reconcileConnect(
@@ -27,12 +29,6 @@ func (r *SiteReconciler) reconcileConnect(
 	l := r.GetLogger(ctx).WithValues(
 		"event", "reconcile-connect",
 	)
-
-	// Skip Connect reconciliation if explicitly disabled
-	if site.Spec.Connect.Enabled != nil && !*site.Spec.Connect.Enabled {
-		l.V(1).Info("skipping Connect reconciliation: explicitly disabled via Site.Spec.Connect.Enabled=false")
-		return nil
-	}
 
 	connectDebugLog := false
 	if site.Spec.Debug {
@@ -253,5 +249,17 @@ func (r *SiteReconciler) reconcileConnect(
 		l.Error(err, "error creating connect instance")
 		return err
 	}
+	return nil
+}
+
+func (r *SiteReconciler) cleanupConnect(ctx context.Context, req controllerruntime.Request, l logr.Logger) error {
+	l = l.WithValues("event", "cleanup-connect")
+
+	// Delete Connect CRD if it exists
+	connectKey := client.ObjectKey{Name: req.Name, Namespace: req.Namespace}
+	if err := internal.BasicDelete(ctx, r, l, connectKey, &v1beta1.Connect{}); err != nil {
+		return err
+	}
+
 	return nil
 }

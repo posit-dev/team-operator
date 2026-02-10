@@ -296,20 +296,28 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 	workbenchAdditionalVolumes = append(workbenchAdditionalVolumes, site.Spec.Workbench.AdditionalVolumes...)
 
 	// CONNECT
-	if err := r.reconcileConnect(
-		ctx,
-		req,
-		site,
-		dbUrl.Host,
-		sslMode,
-		connectVolumeName,
-		connectStorageClassName,
-		additionalVolumes,
-		packageManagerRepoUrl,
-		connectUrl,
-	); err != nil {
-		l.Error(err, "error reconciling connect")
-		return ctrl.Result{}, err
+	if site.Spec.Connect.Enabled == nil || *site.Spec.Connect.Enabled == true {
+		if err := r.reconcileConnect(
+			ctx,
+			req,
+			site,
+			dbUrl.Host,
+			sslMode,
+			connectVolumeName,
+			connectStorageClassName,
+			additionalVolumes,
+			packageManagerRepoUrl,
+			connectUrl,
+		); err != nil {
+			l.Error(err, "error reconciling connect")
+			return ctrl.Result{}, err
+		}
+	} else {
+		// Connect is disabled - clean up any existing Connect resources
+		if err := r.cleanupConnect(ctx, req, l); err != nil {
+			l.Error(err, "error cleaning up connect resources")
+			return ctrl.Result{}, err
+		}
 	}
 
 	// PACKAGE MANAGER
