@@ -18,18 +18,15 @@ jobs:
     if: |
       (
         github.event_name == 'issue_comment' &&
-        contains(github.event.comment.body, '@claude') &&
-        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+        contains(github.event.comment.body, '@claude')
       ) ||
       (
         github.event_name == 'pull_request_review_comment' &&
-        contains(github.event.comment.body, '@claude') &&
-        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+        contains(github.event.comment.body, '@claude')
       ) ||
       (
         github.event_name == 'issues' &&
-        contains(github.event.issue.body, '@claude') &&
-        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
+        contains(github.event.issue.body, '@claude')
       )
     runs-on: ubuntu-latest
     permissions:
@@ -38,6 +35,17 @@ jobs:
       issues: write
       id-token: write
     steps:
+      - name: Check actor has write permission
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PERMISSION=$(gh api /repos/${{ github.repository }}/collaborators/${{ github.actor }}/permission --jq '.permission')
+          if [[ "$PERMISSION" != "admin" && "$PERMISSION" != "write" ]]; then
+            echo "::error::Actor ${{ github.actor }} has '$PERMISSION' permission, requires 'write' or 'admin'"
+            exit 1
+          fi
+          echo "Actor ${{ github.actor }} authorized with '$PERMISSION' permission"
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
