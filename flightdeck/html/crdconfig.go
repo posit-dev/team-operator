@@ -16,25 +16,20 @@ import (
 func CRDConfigPage(site *positcov1beta1.Site, config *internal.ServerConfig) Node {
 	return page("Config", config,
 		Main(
+			Class("max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8"),
 			H2(Text("Site Configuration"), Class("text-3xl font-bold text-gray-800 dark:text-white mb-4")),
 			Div(
-				Class("text-sm text-gray-600 dark:text-gray-400 mb-4"),
+				Class("text-sm text-gray-600 dark:text-gray-400 mb-6"),
 				Text("This configuration is auto-generated from the Site Custom Resource Definition"),
 			),
-			Div(
-				Class("container mx-auto py-8"),
-				renderSiteSpec(&site.Spec),
-			),
+			renderSiteSpec(&site.Spec),
 		),
 	)
 }
 
 // renderSiteSpec renders the SiteSpec using reflection
 func renderSiteSpec(spec *positcov1beta1.SiteSpec) Node {
-	return Div(
-		Class("space-y-6"),
-		renderStruct(reflect.ValueOf(spec).Elem(), "SiteSpec", 0),
-	)
+	return renderStruct(reflect.ValueOf(spec).Elem(), "SiteSpec", 0)
 }
 
 // renderStruct recursively renders a struct and its fields
@@ -84,15 +79,27 @@ func renderStruct(v reflect.Value, name string, depth int) Node {
 			continue
 		}
 
-		row := renderField(field, fieldName, fieldType.Type, depth+1)
-		if row != nil {
-			// Categorize fields
-			if isProductField(fieldName) {
-				productFields = append(productFields, row)
-			} else if isAdvancedField(fieldName) {
-				advancedFields = append(advancedFields, row)
-			} else {
-				basicFields = append(basicFields, row)
+		// For product fields at root level, render them differently
+		if depth == 0 && isProductField(fieldName) {
+			// Skip empty product structs
+			if field.Kind() == reflect.Struct && isEmptyStruct(field) {
+				continue
+			}
+			// Render product as a separate card section
+			productSection := renderProductSection(field, fieldName)
+			if productSection != nil {
+				productFields = append(productFields, productSection)
+			}
+		} else {
+			// Regular field rendering
+			row := renderField(field, fieldName, fieldType.Type, depth+1)
+			if row != nil {
+				// Categorize fields
+				if isAdvancedField(fieldName) {
+					advancedFields = append(advancedFields, row)
+				} else {
+					basicFields = append(basicFields, row)
+				}
 			}
 		}
 	}
@@ -102,28 +109,40 @@ func renderStruct(v reflect.Value, name string, depth int) Node {
 		// At root level, organize into sections
 		if len(basicFields) > 0 {
 			nodes = append(nodes,
-				H3(Text("Basic Configuration"), Class("text-xl font-bold text-gray-800 dark:text-white mb-2")),
-				Table(
-					Class("table-auto w-full border-collapse border border-gray-300 dark:border-gray-700 mb-6"),
-					TBody(basicFields...),
+				Div(
+					Class("mb-8"),
+					H3(Text("Basic Configuration"), Class("text-2xl font-bold text-gray-800 dark:text-white mb-4")),
+					Div(
+						Class("bg-white dark:bg-neutral-800 rounded-md border border-posit-border dark:border-neutral-700 overflow-hidden"),
+						Table(
+							Class("table-auto w-full"),
+							TBody(basicFields...),
+						),
+					),
 				),
 			)
 		}
 		if len(productFields) > 0 {
 			nodes = append(nodes,
-				H3(Text("Product Configuration"), Class("text-xl font-bold text-gray-800 dark:text-white mb-2")),
-				Table(
-					Class("table-auto w-full border-collapse border border-gray-300 dark:border-gray-700 mb-6"),
-					TBody(productFields...),
+				Div(
+					Class("mb-8"),
+					H3(Text("Product Configuration"), Class("text-2xl font-bold text-gray-800 dark:text-white mb-4")),
+					Div(Class("space-y-6"), Group(productFields)),
 				),
 			)
 		}
 		if len(advancedFields) > 0 {
 			nodes = append(nodes,
-				H3(Text("Advanced Configuration"), Class("text-xl font-bold text-gray-800 dark:text-white mb-2")),
-				Table(
-					Class("table-auto w-full border-collapse border border-gray-300 dark:border-gray-700 mb-6"),
-					TBody(advancedFields...),
+				Div(
+					Class("mb-8"),
+					H3(Text("Advanced Configuration"), Class("text-2xl font-bold text-gray-800 dark:text-white mb-4")),
+					Div(
+						Class("bg-white dark:bg-neutral-800 rounded-md border border-posit-border dark:border-neutral-700 overflow-hidden"),
+						Table(
+							Class("table-auto w-full"),
+							TBody(advancedFields...),
+						),
+					),
 				),
 			)
 		}
@@ -131,20 +150,165 @@ func renderStruct(v reflect.Value, name string, depth int) Node {
 		// For nested structs, render all fields together
 		allFields := slices.Concat(basicFields, productFields, advancedFields)
 		if len(allFields) > 0 {
-			tableClass := "table-auto w-full border-collapse border border-gray-300 dark:border-gray-700"
-			if depth > 0 {
-				tableClass += " ml-4"
-			}
 			nodes = append(nodes,
 				Table(
-					Class(tableClass),
+					Class("table-auto w-full"),
 					TBody(allFields...),
 				),
 			)
 		}
 	}
 
-	return Div(Class("space-y-4"), Group(nodes))
+	return Div(Class("space-y-6"), Group(nodes))
+}
+
+// renderNestedStruct renders a nested struct as a clean subsection
+func renderNestedStruct(v reflect.Value, name string, depth int) Node {
+	if !v.IsValid() || v.Kind() != reflect.Struct {
+		return nil
+	}
+
+	var fieldItems []Node
+	t := v.Type()
+
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
+		fieldType := t.Field(i)
+
+		// Skip unexported fields
+		if !fieldType.IsExported() {
+			continue
+		}
+
+		// Get field name from JSON tag if available
+		fieldName := fieldType.Name
+		if jsonTag := fieldType.Tag.Get("json"); jsonTag != "" {
+			parts := strings.Split(jsonTag, ",")
+			if parts[0] != "" && parts[0] != "-" {
+				fieldName = parts[0]
+			}
+			// Skip fields marked as omitempty if they're empty
+			if len(parts) > 1 && strings.Contains(parts[1], "omitempty") && isZeroValue(field) {
+				continue
+			}
+		}
+
+		// Skip internal or empty fields
+		if isInternalField(fieldName) || isZeroValue(field) {
+			continue
+		}
+
+		formattedName := formatFieldName(fieldName)
+
+		// Render the field value
+		var valueNode Node
+		switch field.Kind() {
+		case reflect.String:
+			valueNode = Span(Text(field.String()), Class("font-mono text-sm"))
+		case reflect.Int, reflect.Int32, reflect.Int64:
+			valueNode = Span(Text(fmt.Sprintf("%d", field.Int())), Class("font-mono text-sm"))
+		case reflect.Bool:
+			if field.Bool() {
+				valueNode = Span(Text("true"), Class("font-mono text-sm"))
+			}
+		case reflect.Map:
+			if field.Len() > 0 {
+				valueNode = renderMap(field)
+			}
+		case reflect.Slice:
+			if field.Len() > 0 {
+				valueNode = renderSlice(field, depth+1)
+			}
+		case reflect.Struct:
+			// Recursively render nested struct
+			valueNode = renderNestedStruct(field, fieldName, depth+1)
+		default:
+			valueNode = Span(Text(fmt.Sprintf("%v", field.Interface())), Class("font-mono text-sm"))
+		}
+
+		if valueNode != nil {
+			fieldItems = append(fieldItems,
+				Div(
+					Class("flex flex-col sm:flex-row gap-2 py-2"),
+					Div(Text(formattedName+":"), Class("font-semibold text-gray-700 dark:text-gray-300 min-w-[150px]")),
+					Div(valueNode, Class("text-gray-800 dark:text-white")),
+				),
+			)
+		}
+	}
+
+	if len(fieldItems) == 0 {
+		return nil
+	}
+
+	return Div(
+		Class("bg-gray-50 dark:bg-neutral-900 rounded p-3 space-y-1"),
+		Group(fieldItems),
+	)
+}
+
+// renderProductSection renders a product configuration as a card-style section
+func renderProductSection(v reflect.Value, name string) Node {
+	if !v.IsValid() || (v.Kind() == reflect.Struct && isEmptyStruct(v)) {
+		return nil
+	}
+
+	formattedName := formatFieldName(name)
+
+	// Collect all non-empty fields from the product struct
+	var fieldRows []Node
+	t := v.Type()
+
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
+		fieldType := t.Field(i)
+
+		// Skip unexported fields
+		if !fieldType.IsExported() {
+			continue
+		}
+
+		// Get field name from JSON tag if available
+		fieldName := fieldType.Name
+		if jsonTag := fieldType.Tag.Get("json"); jsonTag != "" {
+			parts := strings.Split(jsonTag, ",")
+			if parts[0] != "" && parts[0] != "-" {
+				fieldName = parts[0]
+			}
+			// Skip fields marked as omitempty if they're empty
+			if len(parts) > 1 && strings.Contains(parts[1], "omitempty") && isZeroValue(field) {
+				continue
+			}
+		}
+
+		// Skip internal fields
+		if isInternalField(fieldName) {
+			continue
+		}
+
+		// Render the field
+		row := renderField(field, fieldName, fieldType.Type, 1)
+		if row != nil {
+			fieldRows = append(fieldRows, row)
+		}
+	}
+
+	if len(fieldRows) == 0 {
+		return nil
+	}
+
+	// Return a card-style section for this product
+	return Div(
+		Class("bg-white dark:bg-neutral-800 rounded-md border border-posit-border dark:border-neutral-700 p-6"),
+		H4(Text(formattedName), Class("text-xl font-bold text-gray-800 dark:text-white mb-4")),
+		Div(
+			Class("overflow-x-auto"),
+			Table(
+				Class("table-auto w-full"),
+				TBody(fieldRows...),
+			),
+		),
+	)
 }
 
 // renderField renders a single field as a table row or nested structure
@@ -189,8 +353,12 @@ func renderField(v reflect.Value, name string, t reflect.Type, depth int) Node {
 		return createExpandableField(formattedName, renderSlice(v, depth))
 
 	case reflect.Struct:
-		// For nested structs, render them inline
-		return createExpandableField(formattedName, renderStruct(v, name, depth))
+		// For nested structs, render them as a nested section
+		nestedContent := renderNestedStruct(v, name, depth)
+		if nestedContent == nil {
+			return nil
+		}
+		return createExpandableField(formattedName, nestedContent)
 
 	case reflect.Ptr:
 		if v.IsNil() {
@@ -207,8 +375,8 @@ func renderField(v reflect.Value, name string, t reflect.Type, depth int) Node {
 // createFieldRow creates a simple table row for a field
 func createFieldRow(name, value string) Node {
 	return Tr(
-		Td(Text(name), Class("text-left font-semibold text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-700 p-2")),
-		Td(Text(value), Class("text-left text-gray-800 dark:text-white border border-gray-300 dark:border-gray-700 p-2 font-mono")),
+		Td(Text(name), Class("text-left font-semibold text-gray-700 dark:text-gray-300 border-b border-posit-border dark:border-neutral-700 p-3")),
+		Td(Text(value), Class("text-left text-gray-800 dark:text-white border-b border-posit-border dark:border-neutral-700 p-3 font-mono text-sm")),
 	)
 }
 
@@ -219,8 +387,8 @@ func createExpandableField(name string, content Node) Node {
 	}
 
 	return Tr(
-		Td(Text(name), Class("text-left font-semibold text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-700 p-2 align-top")),
-		Td(content, Class("text-left text-gray-800 dark:text-white border border-gray-300 dark:border-gray-700 p-2")),
+		Td(Text(name), Class("text-left font-semibold text-gray-700 dark:text-gray-300 border-b border-posit-border dark:border-neutral-700 p-3 align-top")),
+		Td(content, Class("text-left text-gray-800 dark:text-white border-b border-posit-border dark:border-neutral-700 p-3")),
 	)
 }
 
@@ -235,14 +403,14 @@ func renderMap(v reflect.Value) Node {
 		val := v.MapIndex(key)
 		items = append(items,
 			Div(
-				Class("flex space-x-2"),
-				Span(Text(fmt.Sprintf("%v:", key)), Class("font-semibold")),
-				Span(Text(fmt.Sprintf("%v", val)), Class("font-mono")),
+				Class("flex gap-2 py-1"),
+				Span(Text(fmt.Sprintf("%v:", key)), Class("font-semibold text-gray-700 dark:text-gray-300")),
+				Span(Text(fmt.Sprintf("%v", val)), Class("font-mono text-sm text-gray-800 dark:text-white")),
 			),
 		)
 	}
 
-	return Div(Class("space-y-1"), Group(items))
+	return Div(Class("bg-gray-50 dark:bg-neutral-900 rounded p-2 space-y-1"), Group(items))
 }
 
 // renderSlice renders a slice as a list
@@ -261,21 +429,25 @@ func renderSlice(v reflect.Value, depth int) Node {
 		if elem.Kind() == reflect.Struct {
 			items = append(items,
 				Div(
-					Class("border-l-2 border-gray-300 dark:border-gray-600 pl-2 ml-2 mb-2"),
-					renderStruct(elem, fmt.Sprintf("Item %d", i+1), depth+1),
+					Class("bg-gray-50 dark:bg-neutral-900 rounded p-3 mb-2"),
+					H5(Text(fmt.Sprintf("Item %d", i+1)), Class("font-semibold text-gray-700 dark:text-gray-300 mb-2")),
+					renderNestedStruct(elem, fmt.Sprintf("Item %d", i+1), depth+1),
 				),
 			)
 		} else {
 			// For primitive types, render as list items
 			isListOfPrimitives = true
 			items = append(items,
-				Li(Text(fmt.Sprintf("%v", elem.Interface())), Class("font-mono")),
+				Li(Text(fmt.Sprintf("%v", elem.Interface())), Class("font-mono text-sm text-gray-800 dark:text-white")),
 			)
 		}
 	}
 
 	if isListOfPrimitives {
-		return Ul(Class("list-disc list-inside space-y-1"), Group(items))
+		return Div(
+			Class("bg-gray-50 dark:bg-neutral-900 rounded p-2"),
+			Ul(Class("list-disc list-inside space-y-1"), Group(items)),
+		)
 	}
 	return Div(Class("space-y-2"), Group(items))
 }
