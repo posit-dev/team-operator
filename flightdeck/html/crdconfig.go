@@ -461,8 +461,20 @@ func renderMap(v reflect.Value) Node {
 
 		keyStr := fmt.Sprintf("%v", key.Interface())
 
-		// If the value is a struct, render it recursively as a nested section
+		// If the value is a struct, check if it's a raw JSON type first
 		if val.Kind() == reflect.Struct {
+			// Try formatValue first — handles apiextensionsv1.JSON and similar
+			if display := formatValue(val); display != "" && display != fmt.Sprintf("%v", val.Interface()) {
+				items = append(items,
+					Div(
+						Class("flex gap-2 py-1"),
+						Span(Text(keyStr+":"), Class("font-semibold text-gray-700 dark:text-gray-300")),
+						Span(Text(display), Class("font-mono text-sm text-gray-800 dark:text-white")),
+					),
+				)
+				continue
+			}
+			// Otherwise render recursively
 			nested := renderNestedStruct(val, keyStr, 2)
 			if nested != nil {
 				items = append(items,
