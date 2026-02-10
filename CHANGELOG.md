@@ -1,3 +1,24 @@
+# [1.8.0](https://github.com/posit-dev/team-operator/compare/v1.7.0...v1.8.0) (2026-02-10)
+
+
+### Features
+
+* add dedicated health check endpoints for flightdeck ([#77](https://github.com/posit-dev/team-operator/issues/77)) ([484b78a](https://github.com/posit-dev/team-operator/commit/484b78adf0d2c8098fe58e0c0e2984296793a756))
+
+# [1.7.0](https://github.com/posit-dev/team-operator/compare/v1.6.0...v1.7.0) (2026-02-09)
+
+
+### Features
+
+* add R 4.5.x default runtime image and configurable additionalRuntimeImages ([#72](https://github.com/posit-dev/team-operator/issues/72)) ([1c39720](https://github.com/posit-dev/team-operator/commit/1c39720dcefb3054852d0b20196f5b776a8dab70))
+
+# [1.6.0](https://github.com/posit-dev/team-operator/compare/v1.5.0...v1.6.0) (2026-02-04)
+
+
+### Features
+
+* Add NetworkPolicy for flightdeck component ([#68](https://github.com/posit-dev/team-operator/issues/68)) ([fbdf600](https://github.com/posit-dev/team-operator/commit/fbdf600dd90ef143d757fefac19a1c2908e78b63))
+
 # [1.5.0](https://github.com/posit-dev/team-operator/compare/v1.4.1...v1.5.0) (2026-02-03)
 
 

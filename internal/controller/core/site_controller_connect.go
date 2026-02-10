@@ -144,12 +144,13 @@ func (r *SiteReconciler) reconcileConnect(
 			NodeSelector:                 site.Spec.Connect.NodeSelector,
 			AddEnv:                       site.Spec.Connect.AddEnv,
 			// default to true...
-			OffHostExecution: true,
-			Auth:             site.Spec.Connect.Auth,
-			Secret:           site.Spec.Secret,
-			WorkloadSecret:   site.Spec.WorkloadSecret,
-			Debug:            connectDebugLog,
-			Replicas:         product.PassDefaultReplicas(site.Spec.Connect.Replicas, 1),
+			OffHostExecution:        true,
+			AdditionalRuntimeImages: site.Spec.Connect.AdditionalRuntimeImages,
+			Auth:                    site.Spec.Connect.Auth,
+			Secret:                  site.Spec.Secret,
+			WorkloadSecret:          site.Spec.WorkloadSecret,
+			Debug:                   connectDebugLog,
+			Replicas:                product.PassDefaultReplicas(site.Spec.Connect.Replicas, 1),
 		},
 	}
 
