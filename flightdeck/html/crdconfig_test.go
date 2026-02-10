@@ -14,14 +14,14 @@ func TestCRDConfigPage(t *testing.T) {
 	site := &positcov1beta1.Site{
 		Spec: positcov1beta1.SiteSpec{
 			Domain:               "example.com",
-			AwsAccountId:        "123456789012",
-			ClusterDate:         "20250101",
+			AwsAccountId:         "123456789012",
+			ClusterDate:          "20250101",
 			WorkloadCompoundName: "test-workload",
-			IngressClass:        "nginx",
-			SharedDirectory:     "shared",
-			PackageManagerUrl:   "https://pm.example.com",
-			EFSEnabled:          true,
-			VPCCIDR:            "10.0.0.0/16",
+			IngressClass:         "nginx",
+			SharedDirectory:      "shared",
+			PackageManagerUrl:    "https://pm.example.com",
+			EFSEnabled:           true,
+			VPCCIDR:              "10.0.0.0/16",
 			Workbench: positcov1beta1.InternalWorkbenchSpec{
 				Image:           "rstudio/workbench:latest",
 				Replicas:        2,

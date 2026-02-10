@@ -327,9 +327,9 @@ func isEmptyStruct(v reflect.Value) bool {
 func isInternalField(name string) bool {
 	// Skip Kubernetes internal fields
 	return strings.HasPrefix(name, "XXX_") ||
-		   name == "TypeMeta" ||
-		   name == "ObjectMeta" ||
-		   strings.HasSuffix(name, "_")
+		name == "TypeMeta" ||
+		name == "ObjectMeta" ||
+		strings.HasSuffix(name, "_")
 }
 
 // isProductField checks if a field is a product configuration
