@@ -200,30 +200,44 @@ func renderNestedStruct(v reflect.Value, name string, depth int) Node {
 
 		formattedName := formatFieldName(fieldName)
 
+		// Dereference pointer fields
+		actualField := field
+		if actualField.Kind() == reflect.Ptr {
+			if actualField.IsNil() {
+				continue
+			}
+			actualField = actualField.Elem()
+		}
+
 		// Render the field value
 		var valueNode Node
-		switch field.Kind() {
+		switch actualField.Kind() {
 		case reflect.String:
-			valueNode = Span(Text(field.String()), Class("font-mono text-sm"))
+			valueNode = Span(Text(actualField.String()), Class("font-mono text-sm"))
 		case reflect.Int, reflect.Int32, reflect.Int64:
-			valueNode = Span(Text(fmt.Sprintf("%d", field.Int())), Class("font-mono text-sm"))
+			valueNode = Span(Text(fmt.Sprintf("%d", actualField.Int())), Class("font-mono text-sm"))
 		case reflect.Bool:
-			if field.Bool() {
+			if actualField.Bool() {
 				valueNode = Span(Text("true"), Class("font-mono text-sm"))
 			}
 		case reflect.Map:
-			if field.Len() > 0 {
-				valueNode = renderMap(field)
+			if actualField.Len() > 0 {
+				valueNode = renderMap(actualField)
 			}
 		case reflect.Slice:
-			if field.Len() > 0 {
-				valueNode = renderSlice(field, depth+1)
+			if actualField.Len() > 0 {
+				valueNode = renderSlice(actualField, depth+1)
 			}
 		case reflect.Struct:
-			// Recursively render nested struct
-			valueNode = renderNestedStruct(field, fieldName, depth+1)
+			// Check for Raw JSON struct first
+			display := formatValue(actualField)
+			if display != "" && display != fmt.Sprintf("%v", actualField.Interface()) {
+				valueNode = Span(Text(display), Class("font-mono text-sm"))
+			} else {
+				valueNode = renderNestedStruct(actualField, fieldName, depth+1)
+			}
 		default:
-			valueNode = Span(Text(fmt.Sprintf("%v", field.Interface())), Class("font-mono text-sm"))
+			valueNode = Span(Text(formatValue(actualField)), Class("font-mono text-sm"))
 		}
 
 		if valueNode != nil {
@@ -393,14 +407,12 @@ func createExpandableField(name string, content Node) Node {
 }
 
 // formatValue extracts a display string from a reflect.Value,
-// handling special types like apiextensionsv1.JSON that contain raw JSON bytes.
+// handling special types like apiextensionsv1.JSON that contain raw JSON bytes,
+// and dereferencing pointer types to their underlying values.
 func formatValue(v reflect.Value) string {
-	// Dereference pointers
-	for v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
-		if v.IsNil() {
-			return ""
-		}
-		v = v.Elem()
+	v = deref(v)
+	if !v.IsValid() {
+		return ""
 	}
 
 	// Check for structs with a Raw []byte field (e.g., apiextensionsv1.JSON)
@@ -423,7 +435,18 @@ func formatValue(v reflect.Value) string {
 	return fmt.Sprintf("%v", v.Interface())
 }
 
-// renderMap renders a map as a definition list
+// deref dereferences pointers and interfaces to their underlying value.
+func deref(v reflect.Value) reflect.Value {
+	for v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
+		if v.IsNil() {
+			return reflect.Value{}
+		}
+		v = v.Elem()
+	}
+	return v
+}
+
+// renderMap renders a map, recursively expanding struct values
 func renderMap(v reflect.Value) Node {
 	if v.Len() == 0 {
 		return nil
@@ -431,7 +454,29 @@ func renderMap(v reflect.Value) Node {
 
 	var items []Node
 	for _, key := range v.MapKeys() {
-		val := v.MapIndex(key)
+		val := deref(v.MapIndex(key))
+		if !val.IsValid() {
+			continue
+		}
+
+		keyStr := fmt.Sprintf("%v", key.Interface())
+
+		// If the value is a struct, render it recursively as a nested section
+		if val.Kind() == reflect.Struct {
+			nested := renderNestedStruct(val, keyStr, 2)
+			if nested != nil {
+				items = append(items,
+					Div(
+						Class("py-2"),
+						Div(Text(keyStr+":"), Class("font-semibold text-gray-700 dark:text-gray-300 mb-1")),
+						nested,
+					),
+				)
+				continue
+			}
+		}
+
+		// For scalar values, use formatValue
 		display := formatValue(val)
 		if display == "" {
 			continue
@@ -439,7 +484,7 @@ func renderMap(v reflect.Value) Node {
 		items = append(items,
 			Div(
 				Class("flex gap-2 py-1"),
-				Span(Text(fmt.Sprintf("%v:", key)), Class("font-semibold text-gray-700 dark:text-gray-300")),
+				Span(Text(keyStr+":"), Class("font-semibold text-gray-700 dark:text-gray-300")),
 				Span(Text(display), Class("font-mono text-sm text-gray-800 dark:text-white")),
 			),
 		)
