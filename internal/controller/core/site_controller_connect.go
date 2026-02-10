@@ -28,6 +28,12 @@ func (r *SiteReconciler) reconcileConnect(
 		"event", "reconcile-connect",
 	)
 
+	// Skip Connect reconciliation if explicitly disabled
+	if site.Spec.Connect.Enabled != nil && !*site.Spec.Connect.Enabled {
+		l.V(1).Info("skipping Connect reconciliation: explicitly disabled via Site.Spec.Connect.Enabled=false")
+		return nil
+	}
+
 	connectDebugLog := false
 	if site.Spec.Debug {
 		connectDebugLog = true

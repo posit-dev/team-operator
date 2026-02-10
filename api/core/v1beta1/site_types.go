@@ -224,6 +224,11 @@ type InternalPackageManagerSpec struct {
 }
 
 type InternalConnectSpec struct {
+	// Enabled controls whether Connect is deployed. Defaults to true if not specified.
+	// Set to false to explicitly disable Connect deployment.
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+
 	License product.LicenseSpec `json:"license,omitempty"`
 
 	Volume *product.VolumeSpec `json:"volume,omitempty"`

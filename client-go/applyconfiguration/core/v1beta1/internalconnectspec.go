@@ -13,6 +13,7 @@ import (
 // InternalConnectSpecApplyConfiguration represents a declarative configuration of the InternalConnectSpec type for use
 // with apply.
 type InternalConnectSpecApplyConfiguration struct {
+	Enabled                 *bool                                                  `json:"enabled,omitempty"`
 	License                 *product.LicenseSpec                                   `json:"license,omitempty"`
 	Volume                  *product.VolumeSpec                                    `json:"volume,omitempty"`
 	NodeSelector            map[string]string                                      `json:"nodeSelector,omitempty"`
@@ -38,6 +39,14 @@ type InternalConnectSpecApplyConfiguration struct {
 // apply.
 func InternalConnectSpec() *InternalConnectSpecApplyConfiguration {
 	return &InternalConnectSpecApplyConfiguration{}
+}
+
+// WithEnabled sets the Enabled field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Enabled field is set to the value of the last call.
+func (b *InternalConnectSpecApplyConfiguration) WithEnabled(value bool) *InternalConnectSpecApplyConfiguration {
+	b.Enabled = &value
+	return b
 }
 
 // WithLicense sets the License field in the declarative configuration to the given value

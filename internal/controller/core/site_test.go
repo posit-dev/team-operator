@@ -1041,3 +1041,19 @@ func TestSiteReconciler_BaseDomainWithCustomPrefix(t *testing.T) {
 	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
 	assert.Equal(t, "https://rsc.custom-domain.com", testWorkbench.Spec.Config.RSession.DefaultRSConnectServer)
 }
+
+func TestSiteConnectSkippedWhenDisabled(t *testing.T) {
+	siteName := "disabled-connect"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	enabled := false
+	site.Spec.Connect.Enabled = &enabled
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.NoError(t, err)
+
+	// Connect CRD should NOT be created when explicitly disabled
+	connect := &v1beta1.Connect{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, connect)
+	assert.Error(t, err) // Should error because it doesn't exist
+}
