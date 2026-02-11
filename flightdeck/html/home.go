@@ -41,7 +41,9 @@ func HomePage(site positcov1beta1.Site, config *internal.ServerConfig) Node {
 						"Manage your environments with integrated tools like JupyterLab, RStudio, VS Code and Positron. "+
 							"Self-service workspaces provide a secure solution for both on-premises and cloud deployments"),
 				),
-				If(!internal.IsEmptyStruct(site.Spec.Connect),
+				// Check Enabled field explicitly for Connect - when Enabled=false, Connect should not appear
+				// even if other fields like License or Image are set
+				If((site.Spec.Connect.Enabled == nil || *site.Spec.Connect.Enabled == true) && !internal.IsEmptyStruct(site.Spec.Connect),
 					productCard("/static/logo-connect.svg", "Posit Connect", site.Spec.Connect.DomainPrefix, connectBaseUrl,
 						"Share your interactive applications, dashboards, and reports built with R and Python. "+
 							"Manage access, and deliver real-time insights to your stakeholders."),

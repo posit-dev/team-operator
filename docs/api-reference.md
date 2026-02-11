@@ -743,6 +743,7 @@ These types are used within the Site CRD for product configuration.
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `.enabled` | `*bool` | Enable/disable Connect deployment (default: true). **WARNING:** Setting to `false` permanently deletes all Connect data including the database, secrets, and volumes. Cannot be reversed. See [Connect Configuration Guide](guides/connect-configuration.md#enablingdisabling-connect) for details. |
 | `.license` | `LicenseSpec` | License configuration |
 | `.volume` | `*VolumeSpec` | Data volume |
 | `.nodeSelector` | `map[string]string` | Node selector |

@@ -6,6 +6,10 @@ This comprehensive guide covers all configuration options for Posit Connect when
 
 1. [Overview](#overview)
 2. [Basic Configuration](#basic-configuration)
+   - [Enabling/Disabling Connect](#enablingdisabling-connect)
+   - [Image Configuration](#image-configuration)
+   - [Resource Scaling](#resource-scaling)
+   - [Domain and Ingress](#domain-and-ingress)
 3. [Authentication Configuration](#authentication-configuration)
 4. [Database Configuration](#database-configuration)
 5. [Off-Host Execution / Kubernetes Launcher](#off-host-execution--kubernetes-launcher)
@@ -55,6 +59,61 @@ When using a Site resource, the Site controller generates and manages the Connec
 ---
 
 ## Basic Configuration
+
+### Enabling/Disabling Connect
+
+By default, Connect is enabled when specified in a Site configuration. You can explicitly control whether Connect is deployed:
+
+```yaml
+spec:
+  connect:
+    # Enable Connect deployment (default: true)
+    enabled: true
+```
+
+#### WARNING: Disabling Connect is Destructive
+
+**Setting `enabled: false` is a PERMANENT, DESTRUCTIVE operation that cannot be reversed without complete data loss.**
+
+When you disable Connect by setting `enabled: false`, the Team Operator:
+
+1. **Deletes the Connect Custom Resource (CR)** from Kubernetes
+2. **Triggers finalizers** that destroy all Connect resources, including:
+   - The Connect PostgreSQL database and **all its data** (published content, users, settings, schedules, etc.)
+   - All Kubernetes secrets (database credentials, provisioning keys, OAuth secrets)
+   - Persistent volumes and all stored content
+   - All Kubernetes deployments, services, ingress routes, and jobs
+
+**This means:**
+
+- All published content, applications, reports, and APIs are **permanently deleted**
+- All user accounts, permissions, and settings are **permanently deleted**
+- All content schedules, email subscriptions, and integrations are **permanently deleted**
+- **Re-enabling Connect later will start with a completely fresh, empty instance** with no data from the previous deployment
+
+**When to use `enabled: false`:**
+
+- During initial cluster setup when you don't want Connect deployed yet
+- When permanently decommissioning Connect and migrating to a different instance
+- When you explicitly want to destroy all Connect data and start fresh
+
+**Never use `enabled: false` for:**
+
+- Temporarily stopping Connect (use `replicas: 0` instead to scale down without data loss)
+- Maintenance windows (scale down replicas instead)
+- Troubleshooting (use debug mode or check logs instead)
+
+**Example of safely scaling down Connect temporarily:**
+
+```yaml
+spec:
+  connect:
+    # Scale down Connect pods without deleting data
+    replicas: 0
+    # Keep enabled: true (or omit it, as true is the default)
+```
+
+---
 
 ### Image Configuration
 

@@ -252,6 +252,21 @@ func (r *SiteReconciler) reconcileConnect(
 	return nil
 }
 
+// cleanupConnect deletes the Connect CRD when Connect is disabled (Enabled=false).
+//
+// WARNING: This is a DESTRUCTIVE operation. Deleting the Connect CRD triggers the Connect
+// finalizer (CleanupConnect in connect_controller.go) which permanently destroys:
+//   - The Connect database and all its data
+//   - All secrets (database credentials, provisioning keys, etc.)
+//   - Persistent volumes and claims
+//   - All deployed Kubernetes resources
+//
+// This means that disabling Connect via Site.Spec.Connect.Enabled=false is a one-way
+// operation that results in complete data loss. Re-enabling Connect will start fresh
+// with a new database and no previous content or configuration.
+//
+// This behavior is intentional to ensure clean teardown of Connect resources when
+// a user explicitly disables the product.
 func (r *SiteReconciler) cleanupConnect(ctx context.Context, req controllerruntime.Request, l logr.Logger) error {
 	l = l.WithValues("event", "cleanup-connect")
 

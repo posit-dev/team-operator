@@ -177,8 +177,11 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 				return ctrl.Result{}, err
 			}
 
-			if err := r.provisionFsxVolume(ctx, site, connectVolumeName, "connect", connectVolumeSize); err != nil {
-				return ctrl.Result{}, err
+			// Only provision Connect volume if Connect is enabled
+			if site.Spec.Connect.Enabled == nil || *site.Spec.Connect.Enabled == true {
+				if err := r.provisionFsxVolume(ctx, site, connectVolumeName, "connect", connectVolumeSize); err != nil {
+					return ctrl.Result{}, err
+				}
 			}
 
 			if err := r.provisionFsxVolume(ctx, site, devVolumeName, "workbench", connectVolumeSize); err != nil {
@@ -209,10 +212,13 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 				return ctrl.Result{}, err
 			}
 
-			connectStorageClassName = fmt.Sprintf("%s-nfs", connectVolumeName)
+			// Only provision Connect volume if Connect is enabled
+			if site.Spec.Connect.Enabled == nil || *site.Spec.Connect.Enabled == true {
+				connectStorageClassName = fmt.Sprintf("%s-nfs", connectVolumeName)
 
-			if err := r.provisionNfsVolume(ctx, site, connectVolumeName, "connect", connectStorageClassName, connectVolumeSize); err != nil {
-				return ctrl.Result{}, err
+				if err := r.provisionNfsVolume(ctx, site, connectVolumeName, "connect", connectStorageClassName, connectVolumeSize); err != nil {
+					return ctrl.Result{}, err
+				}
 			}
 
 			devStorageClassName = fmt.Sprintf("%s-nfs", devVolumeName)
@@ -296,6 +302,8 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 	workbenchAdditionalVolumes = append(workbenchAdditionalVolumes, site.Spec.Workbench.AdditionalVolumes...)
 
 	// CONNECT
+	// When Enabled is nil or true, reconcile Connect (create/update resources)
+	// When Enabled is false, cleanup Connect (DESTRUCTIVE: deletes database, secrets, and all resources)
 	if site.Spec.Connect.Enabled == nil || *site.Spec.Connect.Enabled == true {
 		if err := r.reconcileConnect(
 			ctx,
@@ -314,6 +322,9 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 		}
 	} else {
 		// Connect is disabled - clean up any existing Connect resources
+		// WARNING: This triggers permanent deletion of the Connect CRD, which causes
+		// the Connect finalizer to destroy the database, secrets, and all resources.
+		// See cleanupConnect() and CleanupConnect() for details.
 		if err := r.cleanupConnect(ctx, req, l); err != nil {
 			l.Error(err, "error cleaning up connect resources")
 			return ctrl.Result{}, err
