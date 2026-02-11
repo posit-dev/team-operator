@@ -109,6 +109,25 @@ jobs:
       - name: Helm template
         run: make helm-template > /dev/null
 
+      - name: Verify Helm chart is in sync with kustomize
+        run: |
+          # Regenerate Helm chart from base kustomize CRDs
+          make helm-generate
+          # Fail if regeneration produced any changes
+          if ! git diff --quiet; then
+            echo "::error::Helm chart is out of sync with kustomize CRDs"
+            echo ""
+            echo "The Helm chart in dist/chart/ was generated from config/crd/ but has drifted."
+            echo "Run this locally to fix:"
+            echo ""
+            echo "  make helm-generate"
+            echo ""
+            echo "Then commit the changes."
+            echo ""
+            git diff --stat
+            exit 1
+          fi
+
       - name: Assert no diff
         run: |
           git diff --exit-code

@@ -300,11 +300,107 @@ func TestConnect_DefaultRuntimeYAML(t *testing.T) {
 
 	r.NoError(yaml.Unmarshal([]byte(runtimeYaml), parsedRuntimeYaml))
 
-	r.Len(parsedRuntimeYaml.Images, 2)
+	r.Len(parsedRuntimeYaml.Images, 3)
 
 	repo, _, ok := strings.Cut(parsedRuntimeYaml.Images[0].Name, ":")
 	r.True(ok)
 	r.Equal(repo, "ghcr.io/rstudio/content-pro")
+}
+
+func TestConnect_DefaultRuntimeYAML_WithAdditionalImages(t *testing.T) {
+	r := require.New(t)
+
+	con := &Connect{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "additional-images",
+			Namespace: "posit-team",
+		},
+		Spec: ConnectSpec{
+			AdditionalRuntimeImages: []ConnectRuntimeImageSpec{
+				{
+					RVersion:      "4.6.0",
+					PyVersion:     "3.14.0",
+					OSVersion:     "ubuntu2204",
+					QuartoVersion: "1.9.0",
+					Repo:          "ghcr.io/rstudio/content-pro",
+				},
+			},
+		},
+	}
+
+	runtimeYaml, err := con.DefaultRuntimeYAML()
+	r.NoError(err)
+	r.NotEqual(runtimeYaml, "")
+
+	parsedRuntimeYaml := &product.ConnectRuntimeDefinition{}
+	r.NoError(yaml.Unmarshal([]byte(runtimeYaml), parsedRuntimeYaml))
+
+	// 3 defaults + 1 additional
+	r.Len(parsedRuntimeYaml.Images, 4)
+
+	// Verify the additional image is last
+	lastImage := parsedRuntimeYaml.Images[3]
+	r.Contains(lastImage.Name, "r4.6.0-py3.14.0-ubuntu2204")
+	r.Equal("4.6.0", lastImage.R.Installations[0].Version)
+	r.Equal("3.14.0", lastImage.Python.Installations[0].Version)
+}
+
+func TestConnect_DefaultRuntimeYAML_AdditionalImagesDefaultRepo(t *testing.T) {
+	r := require.New(t)
+
+	con := &Connect{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "default-repo",
+			Namespace: "posit-team",
+		},
+		Spec: ConnectSpec{
+			AdditionalRuntimeImages: []ConnectRuntimeImageSpec{
+				{
+					RVersion:      "4.6.0",
+					PyVersion:     "3.14.0",
+					OSVersion:     "ubuntu2204",
+					QuartoVersion: "1.9.0",
+					// No repo specified - should default
+				},
+			},
+		},
+	}
+
+	runtimeYaml, err := con.DefaultRuntimeYAML()
+	r.NoError(err)
+
+	parsedRuntimeYaml := &product.ConnectRuntimeDefinition{}
+	r.NoError(yaml.Unmarshal([]byte(runtimeYaml), parsedRuntimeYaml))
+
+	r.Len(parsedRuntimeYaml.Images, 4)
+
+	// Verify it uses default repo
+	lastImage := parsedRuntimeYaml.Images[3]
+	r.Contains(lastImage.Name, "ghcr.io/rstudio/content-pro:")
+}
+
+func TestConnect_DefaultRuntimeYAML_AdditionalImageInvalid(t *testing.T) {
+	r := require.New(t)
+
+	con := &Connect{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "invalid-image",
+			Namespace: "posit-team",
+		},
+		Spec: ConnectSpec{
+			AdditionalRuntimeImages: []ConnectRuntimeImageSpec{
+				{
+					RVersion: "4.6.0",
+					// Missing PyVersion - should cause GenerateImageEntry to fail
+					OSVersion:     "ubuntu2204",
+					QuartoVersion: "1.9.0",
+				},
+			},
+		},
+	}
+
+	_, err := con.DefaultRuntimeYAML()
+	r.Error(err)
 }
 
 func TestConnect_CreateSessionVolumeFactory(t *testing.T) {

@@ -30,10 +30,7 @@ metadata:
     app.kubernetes.io/part-of: team-operator
     app.kubernetes.io/managed-by: kustomize
   name: manager-rolebinding
-  # NOTE: The namespace will be set via kustomize to `posit-team-system` but we need this
-  # role binding to be in the `posit-team` "watch namespace". I haven't figured out how to
-  # do this directly in the kustomize layer, but we have an opportunity to patch arbitrary
-  # things in pulumi, so that's where this will get patched before apply. ~ @meatballhat
+  namespace: posit-team
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role

@@ -174,8 +174,15 @@ CHART_DIR ?= dist/chart
 CHART_NAME ?= team-operator
 
 .PHONY: helm-generate
-helm-generate: manifests ## Regenerate Helm chart from kustomize
-	kubebuilder edit --plugins=helm.kubebuilder.io/v1-alpha
+helm-generate: manifests kubebuilder ## Regenerate Helm chart from kustomize
+	$(KUBEBUILDER) edit --plugins=helm.kubebuilder.io/v1-alpha
+	# Fix generated files that kubebuilder doesn't template correctly
+	$(SED) -i 's/team-operator-metrics-service/{{ .Values.controllerManager.serviceAccountName }}-metrics-service/g' dist/chart/templates/certmanager/certificate.yaml
+	$(SED) -i 's/team-operator-controller-manager-metrics-service/{{ .Values.controllerManager.serviceAccountName }}-metrics-service/g' dist/chart/templates/metrics/metrics-service.yaml
+	# Fix RoleBinding namespace to use watchNamespace value
+	$(SED) -i '/kind: RoleBinding/,/roleRef:/{s/namespace: posit-team/namespace: {{ .Values.watchNamespace }}/}' dist/chart/templates/rbac/role_binding.yaml
+	# Remove kubebuilder-generated test workflow - we use our own CI workflows
+	rm -f .github/workflows/test-chart.yml
 
 .PHONY: helm-lint
 helm-lint: ## Lint the Helm chart
@@ -206,6 +213,7 @@ $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
 ## Tool Binaries
+KUBEBUILDER ?= $(LOCALBIN)/kubebuilder
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 APPLYCONFIGURATION_GEN ?= $(LOCALBIN)/applyconfiguration-gen
@@ -216,6 +224,7 @@ ENVTEST ?= $(LOCALBIN)/setup-envtest
 KUBE_CODEGEN ?= $(LOCALBIN)/kube_codegen.sh
 
 ## Tool Versions
+KUBEBUILDER_VERSION ?= v4.5.1
 KUSTOMIZE_VERSION ?= v3.8.7
 CONTROLLER_TOOLS_VERSION ?= v0.17.0
 KUBE_CODEGEN_VERSION ?= v0.30.1
@@ -241,6 +250,15 @@ controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessar
 $(CONTROLLER_GEN): $(LOCALBIN)
 	test -s $(LOCALBIN)/controller-gen && $(LOCALBIN)/controller-gen --version | grep -q $(CONTROLLER_TOOLS_VERSION) || \
 	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+
+.PHONY: kubebuilder
+kubebuilder: $(KUBEBUILDER) ## Download kubebuilder locally if necessary.
+$(KUBEBUILDER): $(LOCALBIN)
+	@if ! test -s $(LOCALBIN)/kubebuilder || ! $(LOCALBIN)/kubebuilder version | grep -q $(KUBEBUILDER_VERSION); then \
+		OS=$$(go env GOOS) && ARCH=$$(go env GOARCH) && \
+		curl -sSL -o $(LOCALBIN)/kubebuilder "https://github.com/kubernetes-sigs/kubebuilder/releases/download/$(KUBEBUILDER_VERSION)/kubebuilder_$${OS}_$${ARCH}" && \
+		chmod +x $(LOCALBIN)/kubebuilder; \
+	fi
 
 .PHONY: kube-codgen
 kube-codegen: $(LOCALBIN)

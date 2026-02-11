@@ -14,6 +14,7 @@ const (
 	DefaultPortChronicleHTTP         TCPPort = 5252
 	DefaultPortChronicleMetrics      TCPPort = 3030
 	DefaultPortConnectHTTP           TCPPort = 3939
+	DefaultPortFlightdeckHTTP        TCPPort = 8080
 	DefaultPortConnectMetrics        TCPPort = 3232
 	DefaultPortConnectSession        TCPPort = 50734
 	DefaultPortHomeHTTP              TCPPort = 8080

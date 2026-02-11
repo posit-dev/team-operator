@@ -97,6 +97,43 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  additionalRuntimeImages:
+                    description: |-
+                      AdditionalRuntimeImages specifies additional runtime images to append to the defaults
+                      for Connect off-host execution
+                    items:
+                      description: ConnectRuntimeImageSpec defines a runtime image
+                        for Connect off-host execution
+                      properties:
+                        osVersion:
+                          description: OSVersion is the OS version (e.g., "ubuntu2204")
+                          minLength: 1
+                          type: string
+                        pyVersion:
+                          description: PyVersion is the Python version (e.g., "3.13.9")
+                          minLength: 1
+                          type: string
+                        quartoVersion:
+                          description: QuartoVersion is the Quarto version (e.g.,
+                            "1.8.25")
+                          minLength: 1
+                          type: string
+                        rVersion:
+                          description: RVersion is the R version (e.g., "4.5.2")
+                          minLength: 1
+                          type: string
+                        repo:
+                          default: ghcr.io/rstudio/content-pro
+                          description: Repo is the container image repository (e.g.,
+                            "ghcr.io/rstudio/content-pro")
+                          type: string
+                      required:
+                      - osVersion
+                      - pyVersion
+                      - quartoVersion
+                      - rVersion
+                      type: object
+                    type: array
                   auth:
                     properties:
                       administratorRoleMapping:
@@ -148,6 +185,11 @@ spec:
                           type: string
                         type: array
                     type: object
+                  baseDomain:
+                    description: |-
+                      BaseDomain overrides site.Spec.Domain for this product's URL construction.
+                      When set, the product URL will be: domainPrefix.baseDomain
+                    type: string
                   databaseSettings:
                     properties:
                       instrumentationSchema:
@@ -486,6 +528,11 @@ spec:
               flightdeck:
                 description: Flightdeck contains Flightdeck configuration
                 properties:
+                  enabled:
+                    description: |-
+                      Enabled controls whether Flightdeck is deployed. Defaults to true if not specified.
+                      Set to false to explicitly disable Flightdeck deployment.
+                    type: boolean
                   featureEnabler:
                     description: FeatureEnabler controls which features are enabled
                       in Flightdeck
@@ -500,7 +547,11 @@ spec:
                         type: boolean
                     type: object
                   image:
-                    description: Image is the container image for Flightdeck
+                    description: |-
+                      Image is the container image for Flightdeck.
+                      Can be a tag (e.g., "v1.2.3") which will be combined with the default registry,
+                      or a full image path (e.g., "my-registry.io/flightdeck:v1.0.0").
+                      Defaults to "docker.io/posit/ptd-flightdeck:latest" if not specified.
                     type: string
                   imagePullPolicy:
                     description: ImagePullPolicy controls when the kubelet pulls the
@@ -588,6 +639,11 @@ spec:
                           StorageClass that uses the Azure Files CSI driver
                         type: string
                     type: object
+                  baseDomain:
+                    description: |-
+                      BaseDomain overrides site.Spec.Domain for this product's URL construction.
+                      When set, the product URL will be: domainPrefix.baseDomain
+                    type: string
                   domainPrefix:
                     default: packagemanager
                     type: string
@@ -917,6 +973,11 @@ spec:
                     type: object
                   authLoginPageHtml:
                     description: Workbench Auth/Login Landing Page Customization HTML
+                    type: string
+                  baseDomain:
+                    description: |-
+                      BaseDomain overrides site.Spec.Domain for this product's URL construction.
+                      When set, the product URL will be: domainPrefix.baseDomain
                     type: string
                   createUsersAutomatically:
                     type: boolean
@@ -1328,6 +1389,46 @@ spec:
                     description: SessionInitContainerImageTag specifies the init container
                       image tag for Workbench sessions
                     type: string
+                  sessionTolerations:
+                    description: SessionTolerations are tolerations applied only to
+                      session pods (not the main workbench server)
+                    items:
+                      description: |-
+                        The pod this Toleration is attached to tolerates any taint that matches
+                        the triple <key,value,effect> using the matching operator <operator>.
+                      properties:
+                        effect:
+                          description: |-
+                            Effect indicates the taint effect to match. Empty means match all taint effects.
+                            When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+                          type: string
+                        key:
+                          description: |-
+                            Key is the taint key that the toleration applies to. Empty means match all taint keys.
+                            If the key is empty, operator must be Exists; this combination means to match all values and all keys.
+                          type: string
+                        operator:
+                          description: |-
+                            Operator represents a key's relationship to the value.
+                            Valid operators are Exists and Equal. Defaults to Equal.
+                            Exists is equivalent to wildcard for value, so that a pod can
+                            tolerate all taints of a particular category.
+                          type: string
+                        tolerationSeconds:
+                          description: |-
+                            TolerationSeconds represents the period of time the toleration (which must be
+                            of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default,
+                            it is not set, which means tolerate the taint forever (do not evict). Zero and
+                            negative values will be treated as 0 (evict immediately) by the system.
+                          format: int64
+                          type: integer
+                        value:
+                          description: |-
+                            Value is the taint value the toleration matches to.
+                            If the operator is Exists, the value should be empty, otherwise just a regular string.
+                          type: string
+                      type: object
+                    type: array
                   snowflake:
                     properties:
                       accountId:

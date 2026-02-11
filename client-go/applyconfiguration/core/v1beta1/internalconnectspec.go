@@ -13,23 +13,25 @@ import (
 // InternalConnectSpecApplyConfiguration represents a declarative configuration of the InternalConnectSpec type for use
 // with apply.
 type InternalConnectSpecApplyConfiguration struct {
-	License              *product.LicenseSpec                                   `json:"license,omitempty"`
-	Volume               *product.VolumeSpec                                    `json:"volume,omitempty"`
-	NodeSelector         map[string]string                                      `json:"nodeSelector,omitempty"`
-	Auth                 *AuthSpecApplyConfiguration                            `json:"auth,omitempty"`
-	AddEnv               map[string]string                                      `json:"addEnv,omitempty"`
-	Image                *string                                                `json:"image,omitempty"`
-	SessionImage         *string                                                `json:"sessionImage,omitempty"`
-	ImagePullPolicy      *v1.PullPolicy                                         `json:"imagePullPolicy,omitempty"`
-	Databricks           *DatabricksConfigApplyConfiguration                    `json:"databricks,omitempty"`
-	LoggedInWarning      *string                                                `json:"loggedInWarning,omitempty"`
-	PublicWarning        *string                                                `json:"publicWarning,omitempty"`
-	Replicas             *int                                                   `json:"replicas,omitempty"`
-	ExperimentalFeatures *InternalConnectExperimentalFeaturesApplyConfiguration `json:"experimentalFeatures,omitempty"`
-	DomainPrefix         *string                                                `json:"domainPrefix,omitempty"`
-	GPUSettings          *GPUSettingsApplyConfiguration                         `json:"gpuSettings,omitempty"`
-	DatabaseSettings     *DatabaseSettingsApplyConfiguration                    `json:"databaseSettings,omitempty"`
-	ScheduleConcurrency  *int                                                   `json:"scheduleConcurrency,omitempty"`
+	License                 *product.LicenseSpec                                   `json:"license,omitempty"`
+	Volume                  *product.VolumeSpec                                    `json:"volume,omitempty"`
+	NodeSelector            map[string]string                                      `json:"nodeSelector,omitempty"`
+	Auth                    *AuthSpecApplyConfiguration                            `json:"auth,omitempty"`
+	AddEnv                  map[string]string                                      `json:"addEnv,omitempty"`
+	Image                   *string                                                `json:"image,omitempty"`
+	SessionImage            *string                                                `json:"sessionImage,omitempty"`
+	ImagePullPolicy         *v1.PullPolicy                                         `json:"imagePullPolicy,omitempty"`
+	Databricks              *DatabricksConfigApplyConfiguration                    `json:"databricks,omitempty"`
+	LoggedInWarning         *string                                                `json:"loggedInWarning,omitempty"`
+	PublicWarning           *string                                                `json:"publicWarning,omitempty"`
+	Replicas                *int                                                   `json:"replicas,omitempty"`
+	ExperimentalFeatures    *InternalConnectExperimentalFeaturesApplyConfiguration `json:"experimentalFeatures,omitempty"`
+	DomainPrefix            *string                                                `json:"domainPrefix,omitempty"`
+	BaseDomain              *string                                                `json:"baseDomain,omitempty"`
+	GPUSettings             *GPUSettingsApplyConfiguration                         `json:"gpuSettings,omitempty"`
+	DatabaseSettings        *DatabaseSettingsApplyConfiguration                    `json:"databaseSettings,omitempty"`
+	ScheduleConcurrency     *int                                                   `json:"scheduleConcurrency,omitempty"`
+	AdditionalRuntimeImages []ConnectRuntimeImageSpecApplyConfiguration            `json:"additionalRuntimeImages,omitempty"`
 }
 
 // InternalConnectSpecApplyConfiguration constructs a declarative configuration of the InternalConnectSpec type for use with
@@ -162,6 +164,14 @@ func (b *InternalConnectSpecApplyConfiguration) WithDomainPrefix(value string) *
 	return b
 }
 
+// WithBaseDomain sets the BaseDomain field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the BaseDomain field is set to the value of the last call.
+func (b *InternalConnectSpecApplyConfiguration) WithBaseDomain(value string) *InternalConnectSpecApplyConfiguration {
+	b.BaseDomain = &value
+	return b
+}
+
 // WithGPUSettings sets the GPUSettings field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the GPUSettings field is set to the value of the last call.
@@ -183,5 +193,18 @@ func (b *InternalConnectSpecApplyConfiguration) WithDatabaseSettings(value *Data
 // If called multiple times, the ScheduleConcurrency field is set to the value of the last call.
 func (b *InternalConnectSpecApplyConfiguration) WithScheduleConcurrency(value int) *InternalConnectSpecApplyConfiguration {
 	b.ScheduleConcurrency = &value
+	return b
+}
+
+// WithAdditionalRuntimeImages adds the given value to the AdditionalRuntimeImages field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the AdditionalRuntimeImages field.
+func (b *InternalConnectSpecApplyConfiguration) WithAdditionalRuntimeImages(values ...*ConnectRuntimeImageSpecApplyConfiguration) *InternalConnectSpecApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithAdditionalRuntimeImages")
+		}
+		b.AdditionalRuntimeImages = append(b.AdditionalRuntimeImages, *values[i])
+	}
 	return b
 }

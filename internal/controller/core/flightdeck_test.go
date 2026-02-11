@@ -196,12 +196,12 @@ func TestFlightdeckReconciler_DeploymentHasProbes(t *testing.T) {
 
 	// Verify LivenessProbe exists
 	assert.NotNil(t, container.LivenessProbe)
-	assert.Equal(t, "/", container.LivenessProbe.HTTPGet.Path)
+	assert.Equal(t, "/healthz", container.LivenessProbe.HTTPGet.Path)
 	assert.Equal(t, int32(10), container.LivenessProbe.InitialDelaySeconds)
 
 	// Verify ReadinessProbe exists
 	assert.NotNil(t, container.ReadinessProbe)
-	assert.Equal(t, "/", container.ReadinessProbe.HTTPGet.Path)
+	assert.Equal(t, "/readyz", container.ReadinessProbe.HTTPGet.Path)
 	assert.Equal(t, int32(3), container.ReadinessProbe.InitialDelaySeconds)
 }
 
