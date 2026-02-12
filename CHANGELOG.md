@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/posit-dev/team-operator/compare/v1.8.1...v1.9.0) (2026-02-12)
+
+
+### Features
+
+* add audited jobs configuration support for Workbench ([#81](https://github.com/posit-dev/team-operator/issues/81)) ([78ccdf2](https://github.com/posit-dev/team-operator/commit/78ccdf21ef2fec6673fb3a3f2db65b90a1f5710a))
+
 ## [1.8.1](https://github.com/posit-dev/team-operator/compare/v1.8.0...v1.8.1) (2026-02-12)
 
 
