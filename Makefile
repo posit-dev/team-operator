@@ -181,6 +181,10 @@ helm-generate: manifests kubebuilder ## Regenerate Helm chart from kustomize
 	$(SED) -i 's/team-operator-controller-manager-metrics-service/{{ .Values.controllerManager.serviceAccountName }}-metrics-service/g' dist/chart/templates/metrics/metrics-service.yaml
 	# Fix RoleBinding namespace to use watchNamespace value
 	$(SED) -i '/kind: RoleBinding/,/roleRef:/{s/namespace: posit-team/namespace: {{ .Values.watchNamespace }}/}' dist/chart/templates/rbac/role_binding.yaml
+	# Remove duplicate metrics service that kubebuilder generates - we already have one in dist/chart/templates/metrics/
+	# This was causing "services 'team-operator-controller-manager-metrics-service' already exists" errors
+	# The correct metrics service is gated on .Values.metrics.enable, not .Values.rbac.enable
+	rm -f dist/chart/templates/rbac/auth_proxy_service.yaml
 	# Remove kubebuilder-generated test workflow - we use our own CI workflows
 	rm -f .github/workflows/test-chart.yml
 
