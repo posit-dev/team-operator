@@ -1,3 +1,10 @@
+## [1.8.1](https://github.com/posit-dev/team-operator/compare/v1.8.0...v1.8.1) (2026-02-12)
+
+
+### Bug Fixes
+
+* **helm:** remove duplicate metrics service causing install failures ([#83](https://github.com/posit-dev/team-operator/issues/83)) ([8533b4f](https://github.com/posit-dev/team-operator/commit/8533b4f144629d357ca2d79b6d62be3d96d5ee41))
+
 # [1.8.0](https://github.com/posit-dev/team-operator/compare/v1.7.0...v1.8.0) (2026-02-10)
 
 
