@@ -389,6 +389,13 @@ type InternalWorkbenchSpec struct {
 	// Workbench Auth/Login Landing Page Customization HTML
 	AuthLoginPageHtml string `json:"authLoginPageHtml,omitempty"`
 
+	// AuditedJobs configures Workbench Audited Jobs for tracking execution details
+	// alongside job output, including digital signatures and environment data.
+	// Requires the Advanced product tier.
+	// See: https://docs.posit.co/ide/server-pro/admin/auditing_and_monitoring/audited_workbench_jobs.html
+	// +optional
+	AuditedJobs *AuditedJobsConfig `json:"auditedJobs,omitempty"`
+
 	// JupyterConfig contains Jupyter configuration for Workbench
 	JupyterConfig *WorkbenchJupyterConfig `json:"jupyterConfig,omitempty"`
 }

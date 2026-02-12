@@ -899,6 +899,67 @@ spec:
                       workbenchApiSuperAdminEnabled:
                         type: integer
                     type: object
+                  auditedJobs:
+                    description: |-
+                      AuditedJobs configures Workbench Audited Jobs for tracking execution details
+                      alongside job output, including digital signatures and environment data.
+                      Requires the Advanced product tier.
+                      See: https://docs.posit.co/ide/server-pro/admin/auditing_and_monitoring/audited_workbench_jobs.html
+                    properties:
+                      deletionExpiry:
+                        description: |-
+                          DeletionExpiry sets the number of days before completed audited jobs are deleted
+                          Maps to rserver.conf: audited-jobs-deletion-expiry
+                        type: integer
+                      detailsEnvironment:
+                        description: |-
+                          DetailsEnvironment enables capturing environment information (0=disabled, 1=enabled)
+                          Maps to rserver.conf: audited-jobs-details-environment
+                        maximum: 1
+                        minimum: 0
+                        type: integer
+                      detailsUserDefined:
+                        description: |-
+                          DetailsUserDefined enables capturing user-defined data (0=disabled, 1=enabled)
+                          Maps to rserver.conf: audited-jobs-details-user-defined
+                        maximum: 1
+                        minimum: 0
+                        type: integer
+                      enabled:
+                        description: |-
+                          Enabled enables audited jobs support (0=disabled, 1=enabled)
+                          Maps to rserver.conf: audited-jobs
+                        maximum: 1
+                        minimum: 0
+                        type: integer
+                      logLimit:
+                        description: |-
+                          LogLimit sets the maximum number of audit log entries
+                          Maps to rserver.conf: audited-jobs-log-limit
+                        type: integer
+                      privateKeyPath:
+                        description: |-
+                          PrivateKeyPath sets the path to the RSA private key for digital signatures
+                          Maps to rserver.conf: audited-jobs-private-key-path
+                        type: string
+                      publicKeyPaths:
+                        description: |-
+                          PublicKeyPaths sets the path(s) to RSA public keys for signature verification
+                          Maps to rserver.conf: audited-jobs-public-key-paths
+                        type: string
+                      storagePath:
+                        description: |-
+                          StoragePath sets the directory for audited job data
+                          Maps to rserver.conf: audited-jobs-storage-path
+                        type: string
+                      vanillaRequired:
+                        description: |-
+                          VanillaRequired requires --vanilla flag for R jobs (0=disabled, 1=enabled)
+                          Maps to rserver.conf: audited-jobs-vanilla-required
+                        maximum: 1
+                        minimum: 0
+                        type: integer
+                    type: object
                   auth:
                     properties:
                       administratorRoleMapping:
