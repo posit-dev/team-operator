@@ -442,6 +442,39 @@ func TestSiteAuditedJobsConfiguration(t *testing.T) {
 	assert.Equal(t, 0, testWorkbench.Spec.Config.RServer.AuditedJobsDetailsUserDefined)
 }
 
+func TestSiteAuditedJobsPartialConfiguration(t *testing.T) {
+	siteName := "audited-jobs-partial-site"
+	siteNamespace := "posit-team"
+
+	intPtr := func(i int) *int {
+		return &i
+	}
+
+	site := defaultSite(siteName)
+	site.Spec.Workbench.AuditedJobs = &v1beta1.AuditedJobsConfig{
+		Enabled:     intPtr(1),
+		StoragePath: "/mnt/shared-storage/audited-jobs",
+	}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+
+	assert.NotNil(t, testWorkbench.Spec.Config.RServer)
+	// Set fields should be propagated
+	assert.Equal(t, 1, testWorkbench.Spec.Config.RServer.AuditedJobs)
+	assert.Equal(t, "/mnt/shared-storage/audited-jobs", testWorkbench.Spec.Config.RServer.AuditedJobsStoragePath)
+	// Unset fields should remain at zero values
+	assert.Equal(t, "", testWorkbench.Spec.Config.RServer.AuditedJobsPrivateKeyPath)
+	assert.Equal(t, "", testWorkbench.Spec.Config.RServer.AuditedJobsPublicKeyPaths)
+	assert.Equal(t, 0, testWorkbench.Spec.Config.RServer.AuditedJobsLogLimit)
+	assert.Equal(t, 0, testWorkbench.Spec.Config.RServer.AuditedJobsDeletionExpiry)
+	assert.Equal(t, 0, testWorkbench.Spec.Config.RServer.AuditedJobsVanillaRequired)
+	assert.Equal(t, 0, testWorkbench.Spec.Config.RServer.AuditedJobsDetailsEnvironment)
+	assert.Equal(t, 0, testWorkbench.Spec.Config.RServer.AuditedJobsDetailsUserDefined)
+}
+
 func TestSiteJupyterConfiguration(t *testing.T) {
 	siteName := "jupyter-config-site"
 	siteNamespace := "posit-team"

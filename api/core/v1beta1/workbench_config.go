@@ -906,6 +906,8 @@ type WorkbenchJupyterConfig struct {
 type AuditedJobsConfig struct {
 	// Enabled enables audited jobs support (0=disabled, 1=enabled)
 	// Maps to rserver.conf: audited-jobs
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1
 	// +optional
 	Enabled *int `json:"enabled,omitempty"`
 
@@ -936,16 +938,22 @@ type AuditedJobsConfig struct {
 
 	// VanillaRequired requires --vanilla flag for R jobs (0=disabled, 1=enabled)
 	// Maps to rserver.conf: audited-jobs-vanilla-required
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1
 	// +optional
 	VanillaRequired *int `json:"vanillaRequired,omitempty"`
 
 	// DetailsEnvironment enables capturing environment information (0=disabled, 1=enabled)
 	// Maps to rserver.conf: audited-jobs-details-environment
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1
 	// +optional
 	DetailsEnvironment *int `json:"detailsEnvironment,omitempty"`
 
 	// DetailsUserDefined enables capturing user-defined data (0=disabled, 1=enabled)
 	// Maps to rserver.conf: audited-jobs-details-user-defined
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1
 	// +optional
 	DetailsUserDefined *int `json:"detailsUserDefined,omitempty"`
 }

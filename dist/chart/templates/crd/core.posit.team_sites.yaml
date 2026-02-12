@@ -936,16 +936,22 @@ spec:
                         description: |-
                           DetailsEnvironment enables capturing environment information (0=disabled, 1=enabled)
                           Maps to rserver.conf: audited-jobs-details-environment
+                        maximum: 1
+                        minimum: 0
                         type: integer
                       detailsUserDefined:
                         description: |-
                           DetailsUserDefined enables capturing user-defined data (0=disabled, 1=enabled)
                           Maps to rserver.conf: audited-jobs-details-user-defined
+                        maximum: 1
+                        minimum: 0
                         type: integer
                       enabled:
                         description: |-
                           Enabled enables audited jobs support (0=disabled, 1=enabled)
                           Maps to rserver.conf: audited-jobs
+                        maximum: 1
+                        minimum: 0
                         type: integer
                       logLimit:
                         description: |-
@@ -971,6 +977,8 @@ spec:
                         description: |-
                           VanillaRequired requires --vanilla flag for R jobs (0=disabled, 1=enabled)
                           Maps to rserver.conf: audited-jobs-vanilla-required
+                        maximum: 1
+                        minimum: 0
                         type: integer
                     type: object
                   auth:
