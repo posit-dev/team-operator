@@ -20,11 +20,12 @@ When configured via a Site resource, Workbench:
 3. [Off-Host Execution / Kubernetes Launcher](#off-host-execution--kubernetes-launcher)
 4. [IDE Configuration](#ide-configuration)
 5. [Data Integrations](#data-integrations)
-6. [Session Customization](#session-customization)
-7. [Non-Root Execution Mode](#non-root-execution-mode)
-8. [Experimental Features](#experimental-features)
-9. [Example Configurations](#example-configurations)
-10. [Troubleshooting](#troubleshooting)
+6. [Audited Jobs](#audited-jobs)
+7. [Session Customization](#session-customization)
+8. [Non-Root Execution Mode](#non-root-execution-mode)
+9. [Experimental Features](#experimental-features)
+10. [Example Configurations](#example-configurations)
+11. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -514,6 +515,88 @@ Server = account.snowflakecomputing.com
 Database = ANALYTICS
 Schema = PUBLIC
 ```
+
+---
+
+## Audited Jobs
+
+Audited Jobs is an advanced feature in Posit Workbench that tracks execution details alongside job output, including digital signatures and environment data. This feature requires the Advanced product tier and the `pwb-supervisor` binary to be available in sessions.
+
+### Configuration
+
+Enable and configure Audited Jobs via the Site resource:
+
+```yaml
+apiVersion: core.posit.team/v1beta1
+kind: Site
+metadata:
+  name: my-site
+  namespace: posit-team
+spec:
+  workbench:
+    auditedJobs:
+      # Enable audited jobs (0=disabled, 1=enabled)
+      enabled: 1
+
+      # Directory for storing audited job data
+      storagePath: "/mnt/shared-storage/audited-jobs"
+
+      # RSA key paths for digital signatures
+      privateKeyPath: "/etc/rstudio/audited-jobs-private-key.pem"
+      publicKeyPaths: "/etc/rstudio/audited-jobs-public-key.pem"
+
+      # Maximum number of audit log entries (default: unlimited)
+      logLimit: 5000
+
+      # Days before completed audited jobs are deleted (default: 30)
+      deletionExpiry: 60
+
+      # Require --vanilla flag for R jobs (0=disabled, 1=enabled)
+      vanillaRequired: 0
+
+      # Capture environment information (0=disabled, 1=enabled)
+      detailsEnvironment: 1
+
+      # Capture user-defined data (0=disabled, 1=enabled)
+      detailsUserDefined: 1
+```
+
+### Key Management
+
+For production deployments, you'll need to manage RSA keys for digital signatures:
+
+1. **Generate RSA key pair** (if not already provided):
+   ```bash
+   openssl genrsa -out audited-jobs-private-key.pem 2048
+   openssl rsa -in audited-jobs-private-key.pem -pubout -out audited-jobs-public-key.pem
+   ```
+
+2. **Create Kubernetes Secret** with the keys:
+   ```bash
+   kubectl create secret generic audited-jobs-keys \
+     --from-file=private-key.pem=audited-jobs-private-key.pem \
+     --from-file=public-key.pem=audited-jobs-public-key.pem \
+     -n posit-team
+   ```
+
+3. **Mount keys into Workbench** via additional volumes:
+   ```yaml
+   spec:
+     workbench:
+       additionalVolumes:
+         - secretName: audited-jobs-keys
+           mountPath: /etc/rstudio
+           readOnly: true
+   ```
+
+### Requirements
+
+- **Product Tier**: Advanced tier required for Audited Jobs feature
+- **Binary**: `pwb-supervisor` must be available in the session image
+- **Storage**: Shared storage recommended when `storagePath` is configured
+- **Keys**: RSA keys required for digital signature functionality
+
+For more details, see the [Posit Workbench documentation on Audited Jobs](https://docs.posit.co/ide/server-pro/admin/auditing_and_monitoring/audited_workbench_jobs.html).
 
 ---
 
