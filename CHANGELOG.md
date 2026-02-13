@@ -1,3 +1,10 @@
+# [1.10.0](https://github.com/posit-dev/team-operator/compare/v1.9.0...v1.10.0) (2026-02-13)
+
+
+### Features
+
+* adds pdbs to workbench sessions ([#67](https://github.com/posit-dev/team-operator/issues/67)) ([a21e10e](https://github.com/posit-dev/team-operator/commit/a21e10ee0aea164fb35af3bba487ab186c16e332))
+
 # [1.9.0](https://github.com/posit-dev/team-operator/compare/v1.8.1...v1.9.0) (2026-02-12)
 
 
