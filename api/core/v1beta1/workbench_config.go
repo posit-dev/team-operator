@@ -949,6 +949,63 @@ type WorkbenchJupyterConfig struct {
 	DefaultSessionContainerImage string `json:"default-session-container-image,omitempty"`
 }
 
+// AuditedJobsConfig contains configuration for Workbench Audited Jobs.
+// See: https://docs.posit.co/ide/server-pro/admin/auditing_and_monitoring/audited_workbench_jobs.html
+type AuditedJobsConfig struct {
+	// Enabled enables audited jobs support (0=disabled, 1=enabled)
+	// Maps to rserver.conf: audited-jobs
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1
+	// +optional
+	Enabled *int `json:"enabled,omitempty"`
+
+	// StoragePath sets the directory for audited job data
+	// Maps to rserver.conf: audited-jobs-storage-path
+	// +optional
+	StoragePath string `json:"storagePath,omitempty"`
+
+	// PrivateKeyPath sets the path to the RSA private key for digital signatures
+	// Maps to rserver.conf: audited-jobs-private-key-path
+	// +optional
+	PrivateKeyPath string `json:"privateKeyPath,omitempty"`
+
+	// PublicKeyPaths sets the path(s) to RSA public keys for signature verification
+	// Maps to rserver.conf: audited-jobs-public-key-paths
+	// +optional
+	PublicKeyPaths string `json:"publicKeyPaths,omitempty"`
+
+	// LogLimit sets the maximum number of audit log entries
+	// Maps to rserver.conf: audited-jobs-log-limit
+	// +optional
+	LogLimit *int `json:"logLimit,omitempty"`
+
+	// DeletionExpiry sets the number of days before completed audited jobs are deleted
+	// Maps to rserver.conf: audited-jobs-deletion-expiry
+	// +optional
+	DeletionExpiry *int `json:"deletionExpiry,omitempty"`
+
+	// VanillaRequired requires --vanilla flag for R jobs (0=disabled, 1=enabled)
+	// Maps to rserver.conf: audited-jobs-vanilla-required
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1
+	// +optional
+	VanillaRequired *int `json:"vanillaRequired,omitempty"`
+
+	// DetailsEnvironment enables capturing environment information (0=disabled, 1=enabled)
+	// Maps to rserver.conf: audited-jobs-details-environment
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1
+	// +optional
+	DetailsEnvironment *int `json:"detailsEnvironment,omitempty"`
+
+	// DetailsUserDefined enables capturing user-defined data (0=disabled, 1=enabled)
+	// Maps to rserver.conf: audited-jobs-details-user-defined
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1
+	// +optional
+	DetailsUserDefined *int `json:"detailsUserDefined,omitempty"`
+}
+
 type WorkbenchLoggingConfig struct {
 	All *WorkbenchLoggingSection `json:"*,omitempty"`
 }
@@ -1022,6 +1079,17 @@ type WorkbenchRServerConfig struct {
 	WorkbenchApiAdminEnabled               int      `json:"workbench-api-admin-enabled,omitempty"`
 	WorkbenchApiSuperAdminEnabled          int      `json:"workbench-api-super-admin-enabled,omitempty"`
 	ForceAdminUiEnabled                    int      `json:"force-admin-ui-enabled,omitempty"`
+	// Audited Jobs Configuration
+	// See: https://docs.posit.co/ide/server-pro/admin/auditing_and_monitoring/audited_workbench_jobs.html
+	AuditedJobs                   int    `json:"audited-jobs,omitempty"`
+	AuditedJobsStoragePath        string `json:"audited-jobs-storage-path,omitempty"`
+	AuditedJobsPrivateKeyPath     string `json:"audited-jobs-private-key-path,omitempty"`
+	AuditedJobsPublicKeyPaths     string `json:"audited-jobs-public-key-paths,omitempty"`
+	AuditedJobsLogLimit           int    `json:"audited-jobs-log-limit,omitempty"`
+	AuditedJobsDeletionExpiry     int    `json:"audited-jobs-deletion-expiry,omitempty"`
+	AuditedJobsVanillaRequired    int    `json:"audited-jobs-vanilla-required,omitempty"`
+	AuditedJobsDetailsEnvironment int    `json:"audited-jobs-details-environment,omitempty"`
+	AuditedJobsDetailsUserDefined int    `json:"audited-jobs-details-user-defined,omitempty"`
 }
 
 type WorkbenchLauncherConfig struct {

@@ -6,8 +6,8 @@ import (
 	"github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	controllerruntime "sigs.k8s.io/controller-runtime"
 )
 
 func (r *SiteReconciler) reconcileChronicle(ctx context.Context, req controllerruntime.Request, site *v1beta1.Site) error {
@@ -83,8 +83,7 @@ func (r *SiteReconciler) reconcileChronicle(ctx context.Context, req controllerr
 				Enabled: true,
 				Bucket:  site.Spec.Chronicle.S3Bucket,
 				Prefix:  site.Name + "/chr-v0",
-				// TODO: should not be hard-coded
-				Region: "us-east-2",
+				Region:  product.GetAWSRegion(),
 			}
 		}
 		return nil

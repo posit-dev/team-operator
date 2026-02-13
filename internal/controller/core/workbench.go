@@ -852,6 +852,7 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 					ImagePullSecrets:             pullSecrets,
 					ServiceAccountName:           maybeServiceAccountName,
 					AutomountServiceAccountToken: ptr.To(true),
+					InitContainers:               r.buildWorkbenchInitContainers(w),
 					Containers: product.ConcatLists(
 						[]corev1.Container{
 							{
@@ -891,6 +892,7 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 									workbenchVolumeFactory.VolumeMounts(),
 									workbenchSecretVolumeFactory.VolumeMounts(),
 									chronicleFactory.VolumeMounts(),
+									r.buildLoadBalancerVolumeMounts(w),
 								),
 								Resources: corev1.ResourceRequirements{
 									Requests: corev1.ResourceList{
@@ -934,6 +936,7 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 						workbenchVolumeFactory.Volumes(),
 						workbenchSecretVolumeFactory.Volumes(),
 						chronicleFactory.Volumes(),
+						r.buildLoadBalancerVolumes(w),
 					),
 				},
 			},
@@ -1084,4 +1087,79 @@ func (r *WorkbenchReconciler) cleanupDeployedService(ctx context.Context, req ct
 	l.Info("starting")
 
 	return nil
+}
+
+// loadBalancerVolumeName is the name of the emptyDir volume used for the load-balancer config
+const loadBalancerVolumeName = "load-balancer-config"
+
+// loadBalancerMountPath is where the load-balancer config is mounted in the container
+const loadBalancerMountPath = "/mnt/load-balancer"
+
+// isLoadBalancingEnabled returns true if load balancing is enabled for the workbench
+func (r *WorkbenchReconciler) isLoadBalancingEnabled(w *positcov1beta1.Workbench) bool {
+	return w.Spec.Config.RServer != nil && w.Spec.Config.RServer.LoadBalancingEnabled == 1
+}
+
+// buildWorkbenchInitContainers returns init containers for the workbench deployment.
+// When load balancing is enabled, it includes an init container that creates the
+// load-balancer configuration file with the pod's IP address.
+func (r *WorkbenchReconciler) buildWorkbenchInitContainers(w *positcov1beta1.Workbench) []corev1.Container {
+	if !r.isLoadBalancingEnabled(w) {
+		return nil
+	}
+
+	// The load-balancer file tells Workbench how to register with the load balancer.
+	// - delete-node-on-exit=1: Clean up this node's registration when the pod terminates
+	// - www-host-name: The IP address other nodes should use to contact this instance
+	//
+	// This matches the behavior of the RStudio Helm chart's prestart-workbench.bash script.
+	// See: https://github.com/rstudio/helm/blob/main/charts/rstudio-workbench/prestart-workbench.bash
+	initScript := `mkdir -p /mnt/load-balancer/rstudio && echo -e "delete-node-on-exit=1\nwww-host-name=$(hostname -i)" > /mnt/load-balancer/rstudio/load-balancer`
+
+	return []corev1.Container{
+		{
+			Name:    "load-balancer-init",
+			Image:   "busybox:1.36",
+			Command: []string{"/bin/sh", "-c"},
+			Args:    []string{initScript},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      loadBalancerVolumeName,
+					MountPath: loadBalancerMountPath,
+				},
+			},
+		},
+	}
+}
+
+// buildLoadBalancerVolumeMounts returns volume mounts for the load-balancer config.
+// Returns an empty slice if load balancing is not enabled.
+func (r *WorkbenchReconciler) buildLoadBalancerVolumeMounts(w *positcov1beta1.Workbench) []corev1.VolumeMount {
+	if !r.isLoadBalancingEnabled(w) {
+		return nil
+	}
+
+	return []corev1.VolumeMount{
+		{
+			Name:      loadBalancerVolumeName,
+			MountPath: loadBalancerMountPath,
+		},
+	}
+}
+
+// buildLoadBalancerVolumes returns the volumes needed for load-balancer configuration.
+// Returns an empty slice if load balancing is not enabled.
+func (r *WorkbenchReconciler) buildLoadBalancerVolumes(w *positcov1beta1.Workbench) []corev1.Volume {
+	if !r.isLoadBalancingEnabled(w) {
+		return nil
+	}
+
+	return []corev1.Volume{
+		{
+			Name: loadBalancerVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+	}
 }

@@ -1,3 +1,82 @@
+# [1.9.0](https://github.com/posit-dev/team-operator/compare/v1.8.1...v1.9.0) (2026-02-12)
+
+
+### Features
+
+* add audited jobs configuration support for Workbench ([#81](https://github.com/posit-dev/team-operator/issues/81)) ([78ccdf2](https://github.com/posit-dev/team-operator/commit/78ccdf21ef2fec6673fb3a3f2db65b90a1f5710a))
+
+## [1.8.1](https://github.com/posit-dev/team-operator/compare/v1.8.0...v1.8.1) (2026-02-12)
+
+
+### Bug Fixes
+
+* **helm:** remove duplicate metrics service causing install failures ([#83](https://github.com/posit-dev/team-operator/issues/83)) ([8533b4f](https://github.com/posit-dev/team-operator/commit/8533b4f144629d357ca2d79b6d62be3d96d5ee41))
+
+# [1.8.0](https://github.com/posit-dev/team-operator/compare/v1.7.0...v1.8.0) (2026-02-10)
+
+
+### Features
+
+* add dedicated health check endpoints for flightdeck ([#77](https://github.com/posit-dev/team-operator/issues/77)) ([484b78a](https://github.com/posit-dev/team-operator/commit/484b78adf0d2c8098fe58e0c0e2984296793a756))
+
+# [1.7.0](https://github.com/posit-dev/team-operator/compare/v1.6.0...v1.7.0) (2026-02-09)
+
+
+### Features
+
+* add R 4.5.x default runtime image and configurable additionalRuntimeImages ([#72](https://github.com/posit-dev/team-operator/issues/72)) ([1c39720](https://github.com/posit-dev/team-operator/commit/1c39720dcefb3054852d0b20196f5b776a8dab70))
+
+# [1.6.0](https://github.com/posit-dev/team-operator/compare/v1.5.0...v1.6.0) (2026-02-04)
+
+
+### Features
+
+* Add NetworkPolicy for flightdeck component ([#68](https://github.com/posit-dev/team-operator/issues/68)) ([fbdf600](https://github.com/posit-dev/team-operator/commit/fbdf600dd90ef143d757fefac19a1c2908e78b63))
+
+# [1.5.0](https://github.com/posit-dev/team-operator/compare/v1.4.1...v1.5.0) (2026-02-03)
+
+
+### Bug Fixes
+
+* **rbac:** add namespace to RoleBinding for watch namespace permissions ([e0dd821](https://github.com/posit-dev/team-operator/commit/e0dd821eae7158045c421629c7b0805395679e1c))
+
+
+### Features
+
+* dispatch version update to PTD on release ([b0f99ff](https://github.com/posit-dev/team-operator/commit/b0f99ffc808c0408345a4f0acdce13a289db790d))
+
+## [1.4.1](https://github.com/posit-dev/team-operator/compare/v1.4.0...v1.4.1) (2026-02-02)
+
+
+### Bug Fixes
+
+* comment out auth_proxy instead of deleting files ([91a2c74](https://github.com/posit-dev/team-operator/commit/91a2c744249e125387fd54eaba0e0d5c7abfbb38))
+* **helm:** sync CRDs and fix helm-generate post-processing ([72657e8](https://github.com/posit-dev/team-operator/commit/72657e85a6b0e132c8e71a984586e9ca310d4fb2))
+* include auth_proxy_service.yaml in commented out section ([9a10cd3](https://github.com/posit-dev/team-operator/commit/9a10cd3536333db7a632051b62d63bcb882f462d))
+
+# [1.4.0](https://github.com/posit-dev/team-operator/compare/v1.3.2...v1.4.0) (2026-01-28)
+
+
+### Features
+
+* **flightdeck:** update UI styling to match Posit brand guidelines ([17e2a8f](https://github.com/posit-dev/team-operator/commit/17e2a8f154021ae204c3367ad1c2086ae891a158)), closes [#3276B5](https://github.com/posit-dev/team-operator/issues/3276B5)
+* **workbench:** add init container for load balancer config ([4e76e8b](https://github.com/posit-dev/team-operator/commit/4e76e8b948ee5919ced1ffedc3aa3cbf8230516d))
+
+## [1.3.2](https://github.com/posit-dev/team-operator/compare/v1.3.1...v1.3.2) (2026-01-23)
+
+
+### Bug Fixes
+
+* add just format target referenced by docs and claude agent ([479f3a0](https://github.com/posit-dev/team-operator/commit/479f3a097903f601319de8927beca35383281d20))
+
+## [1.3.1](https://github.com/posit-dev/team-operator/compare/v1.3.0...v1.3.1) (2026-01-23)
+
+
+### Bug Fixes
+
+* correct comment for moved function ([25a522d](https://github.com/posit-dev/team-operator/commit/25a522dacbfabe113025d2df66f5256bfcc86324))
+* set region for package manager and chronicle storage configs ([01e3242](https://github.com/posit-dev/team-operator/commit/01e3242006ffcbaa48e61cb82a4a883c4a0fae63))
+
 # [1.3.0](https://github.com/posit-dev/team-operator/compare/v1.2.0...v1.3.0) (2026-01-21)
 
 

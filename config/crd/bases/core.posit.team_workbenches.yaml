@@ -367,6 +367,27 @@ spec:
                             type: string
                           admin-superuser-group:
                             type: string
+                          audited-jobs:
+                            description: |-
+                              Audited Jobs Configuration
+                              See: https://docs.posit.co/ide/server-pro/admin/auditing_and_monitoring/audited_workbench_jobs.html
+                            type: integer
+                          audited-jobs-deletion-expiry:
+                            type: integer
+                          audited-jobs-details-environment:
+                            type: integer
+                          audited-jobs-details-user-defined:
+                            type: integer
+                          audited-jobs-log-limit:
+                            type: integer
+                          audited-jobs-private-key-path:
+                            type: string
+                          audited-jobs-public-key-paths:
+                            type: string
+                          audited-jobs-storage-path:
+                            type: string
+                          audited-jobs-vanilla-required:
+                            type: integer
                           auth-openid:
                             type: integer
                           auth-openid-issuer:

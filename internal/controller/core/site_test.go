@@ -402,6 +402,79 @@ func TestSiteReconcileWithSharedDirectory(t *testing.T) {
 	assert.Equal(t, resource.MustParse("10Gi"), pvc.Spec.Resources.Requests[corev1.ResourceStorage])
 }
 
+func TestSiteAuditedJobsConfiguration(t *testing.T) {
+	siteName := "audited-jobs-config-site"
+	siteNamespace := "posit-team"
+
+	// Helper function to create int pointers
+	intPtr := func(i int) *int {
+		return &i
+	}
+
+	site := defaultSite(siteName)
+	site.Spec.Workbench.AuditedJobs = &v1beta1.AuditedJobsConfig{
+		Enabled:            intPtr(1),
+		StoragePath:        "/mnt/shared-storage/audited-jobs",
+		PrivateKeyPath:     "/etc/rstudio/audited-jobs-private-key.pem",
+		PublicKeyPaths:     "/etc/rstudio/audited-jobs-public-key.pem",
+		LogLimit:           intPtr(5000),
+		DeletionExpiry:     intPtr(60),
+		VanillaRequired:    intPtr(1),
+		DetailsEnvironment: intPtr(1),
+		DetailsUserDefined: intPtr(0),
+	}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+
+	// Verify that the Audited Jobs configuration was applied to the RServer config
+	assert.NotNil(t, testWorkbench.Spec.Config.RServer)
+	assert.Equal(t, 1, testWorkbench.Spec.Config.RServer.AuditedJobs)
+	assert.Equal(t, "/mnt/shared-storage/audited-jobs", testWorkbench.Spec.Config.RServer.AuditedJobsStoragePath)
+	assert.Equal(t, "/etc/rstudio/audited-jobs-private-key.pem", testWorkbench.Spec.Config.RServer.AuditedJobsPrivateKeyPath)
+	assert.Equal(t, "/etc/rstudio/audited-jobs-public-key.pem", testWorkbench.Spec.Config.RServer.AuditedJobsPublicKeyPaths)
+	assert.Equal(t, 5000, testWorkbench.Spec.Config.RServer.AuditedJobsLogLimit)
+	assert.Equal(t, 60, testWorkbench.Spec.Config.RServer.AuditedJobsDeletionExpiry)
+	assert.Equal(t, 1, testWorkbench.Spec.Config.RServer.AuditedJobsVanillaRequired)
+	assert.Equal(t, 1, testWorkbench.Spec.Config.RServer.AuditedJobsDetailsEnvironment)
+	assert.Equal(t, 0, testWorkbench.Spec.Config.RServer.AuditedJobsDetailsUserDefined)
+}
+
+func TestSiteAuditedJobsPartialConfiguration(t *testing.T) {
+	siteName := "audited-jobs-partial-site"
+	siteNamespace := "posit-team"
+
+	intPtr := func(i int) *int {
+		return &i
+	}
+
+	site := defaultSite(siteName)
+	site.Spec.Workbench.AuditedJobs = &v1beta1.AuditedJobsConfig{
+		Enabled:     intPtr(1),
+		StoragePath: "/mnt/shared-storage/audited-jobs",
+	}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+
+	assert.NotNil(t, testWorkbench.Spec.Config.RServer)
+	// Set fields should be propagated
+	assert.Equal(t, 1, testWorkbench.Spec.Config.RServer.AuditedJobs)
+	assert.Equal(t, "/mnt/shared-storage/audited-jobs", testWorkbench.Spec.Config.RServer.AuditedJobsStoragePath)
+	// Unset fields should remain at zero values
+	assert.Equal(t, "", testWorkbench.Spec.Config.RServer.AuditedJobsPrivateKeyPath)
+	assert.Equal(t, "", testWorkbench.Spec.Config.RServer.AuditedJobsPublicKeyPaths)
+	assert.Equal(t, 0, testWorkbench.Spec.Config.RServer.AuditedJobsLogLimit)
+	assert.Equal(t, 0, testWorkbench.Spec.Config.RServer.AuditedJobsDeletionExpiry)
+	assert.Equal(t, 0, testWorkbench.Spec.Config.RServer.AuditedJobsVanillaRequired)
+	assert.Equal(t, 0, testWorkbench.Spec.Config.RServer.AuditedJobsDetailsEnvironment)
+	assert.Equal(t, 0, testWorkbench.Spec.Config.RServer.AuditedJobsDetailsUserDefined)
+}
+
 func TestSiteJupyterConfiguration(t *testing.T) {
 	siteName := "jupyter-config-site"
 	siteNamespace := "posit-team"
@@ -938,4 +1011,106 @@ func TestSiteReconciler_WorkbenchSessionImagePullPolicyNever(t *testing.T) {
 
 	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
 	assert.Equal(t, corev1.PullNever, testWorkbench.Spec.SessionConfig.Pod.ImagePullPolicy)
+}
+
+func TestSiteReconciler_BaseDomainNotSet(t *testing.T) {
+	siteName := "base-domain-not-set"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Domain = "example.com"
+	site.Spec.Connect.DomainPrefix = "connect"
+	site.Spec.Workbench.DomainPrefix = "workbench"
+	site.Spec.PackageManager.DomainPrefix = "packagemanager"
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	// Verify default behavior is preserved when BaseDomain is not set
+	testConnect := getConnect(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "connect.example.com", testConnect.Spec.Url)
+
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "workbench.example.com", testWorkbench.Spec.Url)
+	// Verify DefaultRSConnectServer uses site domain when BaseDomain not set
+	assert.Equal(t, "https://connect.example.com", testWorkbench.Spec.Config.RSession.DefaultRSConnectServer)
+
+	testPackageManager := getPackageManager(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "packagemanager.example.com", testPackageManager.Spec.Url)
+}
+
+func TestSiteReconciler_BaseDomainConnectOnly(t *testing.T) {
+	siteName := "base-domain-connect-only"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Domain = "example.com"
+	site.Spec.Connect.DomainPrefix = "connect"
+	site.Spec.Connect.BaseDomain = "connect-custom.com"
+	site.Spec.Workbench.DomainPrefix = "workbench"
+	site.Spec.PackageManager.DomainPrefix = "packagemanager"
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	// Verify Connect uses custom BaseDomain
+	testConnect := getConnect(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "connect.connect-custom.com", testConnect.Spec.Url)
+
+	// Verify Workbench uses site domain (not custom)
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "workbench.example.com", testWorkbench.Spec.Url)
+	// Verify DefaultRSConnectServer uses Connect's BaseDomain
+	assert.Equal(t, "https://connect.connect-custom.com", testWorkbench.Spec.Config.RSession.DefaultRSConnectServer)
+
+	// Verify PackageManager uses site domain (not custom)
+	testPackageManager := getPackageManager(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "packagemanager.example.com", testPackageManager.Spec.Url)
+}
+
+func TestSiteReconciler_BaseDomainAllProducts(t *testing.T) {
+	siteName := "base-domain-all-products"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Domain = "example.com"
+	site.Spec.Connect.DomainPrefix = "connect"
+	site.Spec.Connect.BaseDomain = "connect-domain.com"
+	site.Spec.Workbench.DomainPrefix = "workbench"
+	site.Spec.Workbench.BaseDomain = "workbench-domain.com"
+	site.Spec.PackageManager.DomainPrefix = "packagemanager"
+	site.Spec.PackageManager.BaseDomain = "pm-domain.com"
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	// Verify all products use their custom BaseDomains
+	testConnect := getConnect(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "connect.connect-domain.com", testConnect.Spec.Url)
+
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "workbench.workbench-domain.com", testWorkbench.Spec.Url)
+	// Verify DefaultRSConnectServer uses Connect's BaseDomain
+	assert.Equal(t, "https://connect.connect-domain.com", testWorkbench.Spec.Config.RSession.DefaultRSConnectServer)
+
+	testPackageManager := getPackageManager(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "packagemanager.pm-domain.com", testPackageManager.Spec.Url)
+}
+
+func TestSiteReconciler_BaseDomainWithCustomPrefix(t *testing.T) {
+	siteName := "base-domain-custom-prefix"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Domain = "example.com"
+	site.Spec.Connect.DomainPrefix = "rsc"
+	site.Spec.Connect.BaseDomain = "custom-domain.com"
+	site.Spec.Workbench.DomainPrefix = "workbench"
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	// Verify custom prefix is preserved with BaseDomain
+	testConnect := getConnect(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "rsc.custom-domain.com", testConnect.Spec.Url)
+
+	// Verify Workbench's DefaultRSConnectServer uses custom prefix and BaseDomain
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "https://rsc.custom-domain.com", testWorkbench.Spec.Config.RSession.DefaultRSConnectServer)
 }

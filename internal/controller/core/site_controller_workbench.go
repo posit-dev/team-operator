@@ -161,8 +161,12 @@ func (r *SiteReconciler) reconcileWorkbench(
 				WorkbenchSessionIniConfig: v1beta1.WorkbenchSessionIniConfig{
 					RSession: &v1beta1.WorkbenchRSessionConfig{
 						// TODO: need TLS to be configurable... for plaintext sites...
-						DefaultRSConnectServer: "https://" + prefixDomain(site.Spec.Connect.DomainPrefix, site.Spec.Domain, v1beta1.SiteSubDomain),
-						CopilotEnabled:         1,
+						DefaultRSConnectServer: "https://" + prefixDomain(
+							site.Spec.Connect.DomainPrefix,
+							getEffectiveBaseDomain(site.Spec.Connect.BaseDomain, site.Spec.Domain),
+							v1beta1.SiteSubDomain,
+						),
+						CopilotEnabled: 1,
 					},
 					// TODO: configure the expected package manager repositories...?
 					Repos: &v1beta1.WorkbenchRepoConfig{
@@ -391,6 +395,38 @@ func (r *SiteReconciler) reconcileWorkbench(
 	// Apply Site-level Jupyter configuration if provided
 	if site.Spec.Workbench.JupyterConfig != nil {
 		targetWorkbench.Spec.Config.WorkbenchIniConfig.Jupyter = site.Spec.Workbench.JupyterConfig
+	}
+
+	// Propagate audited jobs configuration
+	if site.Spec.Workbench.AuditedJobs != nil {
+		aj := site.Spec.Workbench.AuditedJobs
+		if aj.Enabled != nil {
+			targetWorkbench.Spec.Config.RServer.AuditedJobs = *aj.Enabled
+		}
+		if aj.StoragePath != "" {
+			targetWorkbench.Spec.Config.RServer.AuditedJobsStoragePath = aj.StoragePath
+		}
+		if aj.PrivateKeyPath != "" {
+			targetWorkbench.Spec.Config.RServer.AuditedJobsPrivateKeyPath = aj.PrivateKeyPath
+		}
+		if aj.PublicKeyPaths != "" {
+			targetWorkbench.Spec.Config.RServer.AuditedJobsPublicKeyPaths = aj.PublicKeyPaths
+		}
+		if aj.LogLimit != nil {
+			targetWorkbench.Spec.Config.RServer.AuditedJobsLogLimit = *aj.LogLimit
+		}
+		if aj.DeletionExpiry != nil {
+			targetWorkbench.Spec.Config.RServer.AuditedJobsDeletionExpiry = *aj.DeletionExpiry
+		}
+		if aj.VanillaRequired != nil {
+			targetWorkbench.Spec.Config.RServer.AuditedJobsVanillaRequired = *aj.VanillaRequired
+		}
+		if aj.DetailsEnvironment != nil {
+			targetWorkbench.Spec.Config.RServer.AuditedJobsDetailsEnvironment = *aj.DetailsEnvironment
+		}
+		if aj.DetailsUserDefined != nil {
+			targetWorkbench.Spec.Config.RServer.AuditedJobsDetailsUserDefined = *aj.DetailsUserDefined
+		}
 	}
 
 	// if landing/auth page is customized

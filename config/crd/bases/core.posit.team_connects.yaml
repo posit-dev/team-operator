@@ -48,6 +48,41 @@ spec:
                 description: AddEnv adds arbitrary environment variables to the container
                   env
                 type: object
+              additionalRuntimeImages:
+                description: |-
+                  AdditionalRuntimeImages specifies additional runtime images to append to the defaults
+                  for Connect off-host execution. These are added after the built-in default images.
+                items:
+                  description: ConnectRuntimeImageSpec defines a runtime image for
+                    Connect off-host execution
+                  properties:
+                    osVersion:
+                      description: OSVersion is the OS version (e.g., "ubuntu2204")
+                      minLength: 1
+                      type: string
+                    pyVersion:
+                      description: PyVersion is the Python version (e.g., "3.13.9")
+                      minLength: 1
+                      type: string
+                    quartoVersion:
+                      description: QuartoVersion is the Quarto version (e.g., "1.8.25")
+                      minLength: 1
+                      type: string
+                    rVersion:
+                      description: RVersion is the R version (e.g., "4.5.2")
+                      minLength: 1
+                      type: string
+                    repo:
+                      default: ghcr.io/rstudio/content-pro
+                      description: Repo is the container image repository (e.g., "ghcr.io/rstudio/content-pro")
+                      type: string
+                  required:
+                  - osVersion
+                  - pyVersion
+                  - quartoVersion
+                  - rVersion
+                  type: object
+                type: array
               additionalVolumes:
                 description: AdditionalVolumes represents additional VolumeSpec's
                   that can be defined

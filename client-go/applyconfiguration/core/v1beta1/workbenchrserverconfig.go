@@ -45,6 +45,15 @@ type WorkbenchRServerConfigApplyConfiguration struct {
 	WorkbenchApiAdminEnabled               *int     `json:"workbench-api-admin-enabled,omitempty"`
 	WorkbenchApiSuperAdminEnabled          *int     `json:"workbench-api-super-admin-enabled,omitempty"`
 	ForceAdminUiEnabled                    *int     `json:"force-admin-ui-enabled,omitempty"`
+	AuditedJobs                            *int     `json:"audited-jobs,omitempty"`
+	AuditedJobsStoragePath                 *string  `json:"audited-jobs-storage-path,omitempty"`
+	AuditedJobsPrivateKeyPath              *string  `json:"audited-jobs-private-key-path,omitempty"`
+	AuditedJobsPublicKeyPaths              *string  `json:"audited-jobs-public-key-paths,omitempty"`
+	AuditedJobsLogLimit                    *int     `json:"audited-jobs-log-limit,omitempty"`
+	AuditedJobsDeletionExpiry              *int     `json:"audited-jobs-deletion-expiry,omitempty"`
+	AuditedJobsVanillaRequired             *int     `json:"audited-jobs-vanilla-required,omitempty"`
+	AuditedJobsDetailsEnvironment          *int     `json:"audited-jobs-details-environment,omitempty"`
+	AuditedJobsDetailsUserDefined          *int     `json:"audited-jobs-details-user-defined,omitempty"`
 }
 
 // WorkbenchRServerConfigApplyConfiguration constructs a declarative configuration of the WorkbenchRServerConfig type for use with
@@ -348,5 +357,77 @@ func (b *WorkbenchRServerConfigApplyConfiguration) WithWorkbenchApiSuperAdminEna
 // If called multiple times, the ForceAdminUiEnabled field is set to the value of the last call.
 func (b *WorkbenchRServerConfigApplyConfiguration) WithForceAdminUiEnabled(value int) *WorkbenchRServerConfigApplyConfiguration {
 	b.ForceAdminUiEnabled = &value
+	return b
+}
+
+// WithAuditedJobs sets the AuditedJobs field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the AuditedJobs field is set to the value of the last call.
+func (b *WorkbenchRServerConfigApplyConfiguration) WithAuditedJobs(value int) *WorkbenchRServerConfigApplyConfiguration {
+	b.AuditedJobs = &value
+	return b
+}
+
+// WithAuditedJobsStoragePath sets the AuditedJobsStoragePath field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the AuditedJobsStoragePath field is set to the value of the last call.
+func (b *WorkbenchRServerConfigApplyConfiguration) WithAuditedJobsStoragePath(value string) *WorkbenchRServerConfigApplyConfiguration {
+	b.AuditedJobsStoragePath = &value
+	return b
+}
+
+// WithAuditedJobsPrivateKeyPath sets the AuditedJobsPrivateKeyPath field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the AuditedJobsPrivateKeyPath field is set to the value of the last call.
+func (b *WorkbenchRServerConfigApplyConfiguration) WithAuditedJobsPrivateKeyPath(value string) *WorkbenchRServerConfigApplyConfiguration {
+	b.AuditedJobsPrivateKeyPath = &value
+	return b
+}
+
+// WithAuditedJobsPublicKeyPaths sets the AuditedJobsPublicKeyPaths field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the AuditedJobsPublicKeyPaths field is set to the value of the last call.
+func (b *WorkbenchRServerConfigApplyConfiguration) WithAuditedJobsPublicKeyPaths(value string) *WorkbenchRServerConfigApplyConfiguration {
+	b.AuditedJobsPublicKeyPaths = &value
+	return b
+}
+
+// WithAuditedJobsLogLimit sets the AuditedJobsLogLimit field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the AuditedJobsLogLimit field is set to the value of the last call.
+func (b *WorkbenchRServerConfigApplyConfiguration) WithAuditedJobsLogLimit(value int) *WorkbenchRServerConfigApplyConfiguration {
+	b.AuditedJobsLogLimit = &value
+	return b
+}
+
+// WithAuditedJobsDeletionExpiry sets the AuditedJobsDeletionExpiry field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the AuditedJobsDeletionExpiry field is set to the value of the last call.
+func (b *WorkbenchRServerConfigApplyConfiguration) WithAuditedJobsDeletionExpiry(value int) *WorkbenchRServerConfigApplyConfiguration {
+	b.AuditedJobsDeletionExpiry = &value
+	return b
+}
+
+// WithAuditedJobsVanillaRequired sets the AuditedJobsVanillaRequired field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the AuditedJobsVanillaRequired field is set to the value of the last call.
+func (b *WorkbenchRServerConfigApplyConfiguration) WithAuditedJobsVanillaRequired(value int) *WorkbenchRServerConfigApplyConfiguration {
+	b.AuditedJobsVanillaRequired = &value
+	return b
+}
+
+// WithAuditedJobsDetailsEnvironment sets the AuditedJobsDetailsEnvironment field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the AuditedJobsDetailsEnvironment field is set to the value of the last call.
+func (b *WorkbenchRServerConfigApplyConfiguration) WithAuditedJobsDetailsEnvironment(value int) *WorkbenchRServerConfigApplyConfiguration {
+	b.AuditedJobsDetailsEnvironment = &value
+	return b
+}
+
+// WithAuditedJobsDetailsUserDefined sets the AuditedJobsDetailsUserDefined field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the AuditedJobsDetailsUserDefined field is set to the value of the last call.
+func (b *WorkbenchRServerConfigApplyConfiguration) WithAuditedJobsDetailsUserDefined(value int) *WorkbenchRServerConfigApplyConfiguration {
+	b.AuditedJobsDetailsUserDefined = &value
 	return b
 }
