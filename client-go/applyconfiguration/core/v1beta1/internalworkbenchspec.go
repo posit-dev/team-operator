@@ -43,6 +43,7 @@ type InternalWorkbenchSpecApplyConfiguration struct {
 	DomainPrefix                  *string                                                  `json:"domainPrefix,omitempty"`
 	BaseDomain                    *string                                                  `json:"baseDomain,omitempty"`
 	AuthLoginPageHtml             *string                                                  `json:"authLoginPageHtml,omitempty"`
+	AuditedJobs                   *AuditedJobsConfigApplyConfiguration                     `json:"auditedJobs,omitempty"`
 	JupyterConfig                 *WorkbenchJupyterConfigApplyConfiguration                `json:"jupyterConfig,omitempty"`
 }
 
@@ -319,6 +320,14 @@ func (b *InternalWorkbenchSpecApplyConfiguration) WithBaseDomain(value string) *
 // If called multiple times, the AuthLoginPageHtml field is set to the value of the last call.
 func (b *InternalWorkbenchSpecApplyConfiguration) WithAuthLoginPageHtml(value string) *InternalWorkbenchSpecApplyConfiguration {
 	b.AuthLoginPageHtml = &value
+	return b
+}
+
+// WithAuditedJobs sets the AuditedJobs field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the AuditedJobs field is set to the value of the last call.
+func (b *InternalWorkbenchSpecApplyConfiguration) WithAuditedJobs(value *AuditedJobsConfigApplyConfiguration) *InternalWorkbenchSpecApplyConfiguration {
+	b.AuditedJobs = value
 	return b
 }
 
