@@ -14,6 +14,7 @@ import (
 	"github.com/traefik/traefik/v3/pkg/provider/kubernetes/crd/traefikio/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -341,6 +342,13 @@ func getMiddleware(t *testing.T, cli client.Client, siteNamespace, siteName stri
 	assert.Nil(t, err)
 
 	return middleware
+}
+
+func getPodDisruptionBudget(t *testing.T, cli client.Client, namespace, name string) *policyv1.PodDisruptionBudget {
+	pdb := &policyv1.PodDisruptionBudget{}
+	err := cli.Get(context.TODO(), client.ObjectKey{Name: name, Namespace: namespace}, pdb, &client.GetOptions{})
+	assert.Nil(t, err)
+	return pdb
 }
 
 func TestSiteReconcileWithTolerations(t *testing.T) {
