@@ -414,8 +414,6 @@ spec:
                         type: string
                       DataDir:
                         type: string
-                      DefaultContentListView:
-                        type: string
                       EmailProvider:
                         description: EmailProvider sets the email provider for Connect
                           emails. If set, secrets will be mounted for SMTP connections

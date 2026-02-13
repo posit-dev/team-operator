@@ -71,13 +71,12 @@ func (r *SiteReconciler) reconcileConnect(
 				},
 				Server: &v1beta1.ConnectServerConfig{
 					// This will be filled in by the controller... see "Url" below
-					Address:                "",
-					FrameOptionsDashboard:  "NONE",
-					FrameOptionsContent:    "NONE",
-					DefaultContentListView: v1beta1.ContentListViewCompact,
-					LoggedInWarning:        site.Spec.Connect.LoggedInWarning,
-					PublicWarning:          site.Spec.Connect.PublicWarning,
-					HideEmailAddresses:     true,
+					Address:               "",
+					FrameOptionsDashboard: "NONE",
+					FrameOptionsContent:   "NONE",
+					LoggedInWarning:       site.Spec.Connect.LoggedInWarning,
+					PublicWarning:         site.Spec.Connect.PublicWarning,
+					HideEmailAddresses:    true,
 				},
 				Http: &v1beta1.ConnectHttpConfig{
 					ForceSecure: true,
