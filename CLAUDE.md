@@ -17,7 +17,8 @@ Kubernetes operator for managing Posit Team deployments.
 
 ```bash
 just build          # Build operator binary to ./bin/team-operator
-just test           # Run go tests
+just test           # Run go tests (unit tests only, no envtest/kubebuilder)
+just mtest          # Run all tests including integration tests (requires envtest)
 just run            # Run operator locally from source
 just deps           # Install dependencies
 just mgenerate      # Regenerate manifests after API changes
@@ -39,6 +40,13 @@ helm install team-operator ./dist/chart \
   --namespace posit-team-system \
   --create-namespace
 ```
+
+## Testing
+
+- **`just test`** runs `go test` directly — fast, but skips integration tests that need a control plane (etcd, kube-apiserver).
+- **`just mtest`** runs `make test`, which uses `setup-envtest` to download kubebuilder binaries and sets `KUBEBUILDER_ASSETS` before running tests. Use this for controller/reconciler tests in `internal/controller/`.
+
+Use `just mtest` when changing reconciler logic or controller tests. Use `just test` for quick feedback on unit-only packages (`api/`, `internal/` non-controller code).
 
 ## Contributing
 
