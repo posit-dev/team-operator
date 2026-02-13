@@ -742,6 +742,59 @@ spec:
                               type: string
                           type: object
                         type: object
+                      oauth-clients.conf:
+                        additionalProperties:
+                          description: |-
+                            WorkbenchOAuthClientConfig defines configuration for a custom OAuth integration.
+                            See https://docs.posit.co/ide/server-pro/integration/custom-oauth.html for details.
+                          properties:
+                            authorization-url:
+                              description: |-
+                                AuthorizationUrl is the OAuth authorization endpoint URL.
+                                This field is required for the integration to function.
+                              minLength: 1
+                              type: string
+                            client-id:
+                              description: |-
+                                ClientId is the OAuth client ID obtained from the external service provider.
+                                This field is required for the integration to function.
+                              minLength: 1
+                              type: string
+                            client-secret:
+                              description: |-
+                                ClientSecret is populated automatically from the secret store.
+                                Do not set this field directly - instead, create a secret with the name
+                                "dev-oauth-client-secret-{integration-name}" in your secret store.
+                              type: string
+                            name:
+                              description: |-
+                                Name is the display name for this OAuth integration shown in the Workbench UI.
+                                If not provided, the section header (map key) is used as the display name.
+                              type: string
+                            scopes:
+                              description: |-
+                                Scopes is a list of OAuth scopes to request from the authorization server.
+                                These are rendered as a comma-separated list in the configuration file.
+                              items:
+                                type: string
+                              type: array
+                            token-endpoint-auth-method:
+                              description: |-
+                                TokenEndpointAuthMethod specifies how the client authenticates with the token endpoint.
+                                Common values: "client_secret_post", "client_secret_basic".
+                                Defaults to "client_secret_post" if not specified.
+                              enum:
+                              - client_secret_post
+                              - client_secret_basic
+                              type: string
+                            token-url:
+                              description: |-
+                                TokenUrl is the OAuth token endpoint URL.
+                                This field is required for the integration to function.
+                              minLength: 1
+                              type: string
+                          type: object
+                        type: object
                       openid-client-secret:
                         properties:
                           client-id:
