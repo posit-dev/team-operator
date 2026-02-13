@@ -21,7 +21,8 @@ just test           # Run go tests (unit tests only, no envtest/kubebuilder)
 just mtest          # Run all tests including integration tests (requires envtest)
 just run            # Run operator locally from source
 just deps           # Install dependencies
-just mgenerate      # Regenerate manifests after API changes
+just mgenerate      # Regenerate manifests and client-go after API changes
+just helm-generate  # Sync Helm chart with kustomize CRDs/RBAC (run after mgenerate)
 just helm-lint      # Lint Helm chart
 just helm-template  # Render Helm templates locally
 just helm-install   # Install operator via Helm
@@ -47,6 +48,13 @@ helm install team-operator ./dist/chart \
 - **`just mtest`** runs `make test`, which uses `setup-envtest` to download kubebuilder binaries and sets `KUBEBUILDER_ASSETS` before running tests. Use this for controller/reconciler tests in `internal/controller/`.
 
 Use `just mtest` when changing reconciler logic or controller tests. Use `just test` for quick feedback on unit-only packages (`api/`, `internal/` non-controller code).
+
+## Code Generation
+
+After changing CRD types in `api/`, run these in order:
+
+1. **`just mgenerate`** — regenerates deepcopy, client-go, CRD manifests in `config/crd/`, and OpenAPI specs.
+2. **`make helm-generate`** — copies CRDs and RBAC from `config/` into `dist/chart/templates/`. The Helm chart is not updated automatically by `mgenerate`, so this step is required or the chart will drift.
 
 ## Contributing
 
