@@ -1021,6 +1021,31 @@ func TestSiteReconciler_WorkbenchSessionImagePullPolicyNever(t *testing.T) {
 	assert.Equal(t, corev1.PullNever, testWorkbench.Spec.SessionConfig.Pod.ImagePullPolicy)
 }
 
+func TestSiteReconciler_RegisterOnFirstLoginPropagation(t *testing.T) {
+	siteName := "register-on-first-login"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Connect.RegisterOnFirstLogin = true
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testConnect := getConnect(t, cli, siteNamespace, siteName)
+	assert.True(t, testConnect.Spec.RegisterOnFirstLogin)
+}
+
+func TestSiteReconciler_RegisterOnFirstLoginDefaultFalse(t *testing.T) {
+	siteName := "register-on-first-login-default"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testConnect := getConnect(t, cli, siteNamespace, siteName)
+	assert.False(t, testConnect.Spec.RegisterOnFirstLogin)
+}
+
 func TestSiteReconciler_BaseDomainNotSet(t *testing.T) {
 	siteName := "base-domain-not-set"
 	siteNamespace := "posit-team"
