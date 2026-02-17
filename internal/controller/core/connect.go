@@ -268,6 +268,10 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 		}
 	}
 
+	if c.Spec.RegisterOnFirstLogin && c.Spec.Auth.Type != positcov1beta1.AuthTypeOidc {
+		l.Info("registerOnFirstLogin is set but auth type is not oidc; this setting only applies to OAuth2/OIDC and will be ignored")
+	}
+
 	if c.Spec.Auth.Type == positcov1beta1.AuthTypeOidc {
 		if configCopy.Authentication != nil {
 			configCopy.Authentication.Provider = "OAuth2"
@@ -311,7 +315,7 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 		if c.Spec.Auth.UniqueIdClaim != "" {
 			configCopy.OAuth2.UniqueIdClaim = c.Spec.Auth.UniqueIdClaim
 		}
-		configCopy.OAuth2.RegisterOnFirstLogin = c.Spec.Auth.RegisterOnFirstLogin
+		configCopy.OAuth2.RegisterOnFirstLogin = c.Spec.RegisterOnFirstLogin
 		if c.Spec.Auth.DisableGroupsClaim {
 			// Explicitly set GroupsClaim to empty string to override Connect's default
 			configCopy.OAuth2.GroupsClaim = ptr.To("")

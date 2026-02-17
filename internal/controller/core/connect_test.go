@@ -343,11 +343,11 @@ func TestConnectReconciler_OIDC_EnableRegisterOnFirstLogin(t *testing.T) {
 	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
 
 	c := defineDefaultConnect(t, ns, name)
+	c.Spec.RegisterOnFirstLogin = true
 	c.Spec.Auth = positcov1beta1.AuthSpec{
-		Type:                 positcov1beta1.AuthTypeOidc,
-		ClientId:             "test-client",
-		Issuer:               "https://idp.example.com",
-		RegisterOnFirstLogin: true,
+		Type:     positcov1beta1.AuthTypeOidc,
+		ClientId: "test-client",
+		Issuer:   "https://idp.example.com",
 	}
 
 	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)

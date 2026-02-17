@@ -170,8 +170,6 @@ spec:
                     items:
                       type: string
                     type: array
-                  registerOnFirstLogin:
-                    type: boolean
                   samlEmailAttribute:
                     type: string
                   samlFirstNameAttribute:
@@ -518,6 +516,11 @@ spec:
                   type: string
                 type: object
               offHostExecution:
+                type: boolean
+              registerOnFirstLogin:
+                description: |-
+                  RegisterOnFirstLogin controls whether new users are automatically registered
+                  when they first log in via OAuth2/OIDC. Only applies when auth type is "oidc".
                 type: boolean
               replicas:
                 type: integer

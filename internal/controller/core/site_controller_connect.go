@@ -147,6 +147,7 @@ func (r *SiteReconciler) reconcileConnect(
 			OffHostExecution:        true,
 			AdditionalRuntimeImages: site.Spec.Connect.AdditionalRuntimeImages,
 			Auth:                    site.Spec.Connect.Auth,
+			RegisterOnFirstLogin:    site.Spec.Connect.RegisterOnFirstLogin,
 			Secret:                  site.Spec.Secret,
 			WorkloadSecret:          site.Spec.WorkloadSecret,
 			Debug:                   connectDebugLog,

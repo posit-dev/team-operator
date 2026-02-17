@@ -127,6 +127,10 @@ type ConnectSpec struct {
 	// MainDatabaseCredentialSecret configures the secret used for storing the main database credentials
 	MainDatabaseCredentialSecret SecretConfig `json:"mainDatabaseCredentialSecret,omitempty"`
 
+	// RegisterOnFirstLogin controls whether new users are automatically registered
+	// when they first log in via OAuth2/OIDC. Only applies when auth type is "oidc".
+	RegisterOnFirstLogin bool `json:"registerOnFirstLogin,omitempty"`
+
 	// Debug sets whether to enable debug settings. This setting overrides specific "Config.Logging" sections globally
 	Debug bool `json:"debug,omitempty"`
 
