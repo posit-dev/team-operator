@@ -41,16 +41,17 @@ const (
 type NetworkTrust uint8
 
 type AuthSpec struct {
-	Type               AuthType `json:"type,omitempty"`
-	ClientId           string   `json:"clientId,omitempty"`
-	Issuer             string   `json:"issuer,omitempty"`
-	Groups             bool     `json:"groups,omitempty"`
-	UsernameClaim      string   `json:"usernameClaim,omitempty"`
-	EmailClaim         string   `json:"emailClaim,omitempty"`
-	UniqueIdClaim      string   `json:"uniqueIdClaim,omitempty"`
-	GroupsClaim        string   `json:"groupsClaim,omitempty"`
-	DisableGroupsClaim bool     `json:"disableGroupsClaim,omitempty"`
-	SamlMetadataUrl    string   `json:"samlMetadataUrl,omitempty"`
+	Type                 AuthType `json:"type,omitempty"`
+	ClientId             string   `json:"clientId,omitempty"`
+	Issuer               string   `json:"issuer,omitempty"`
+	Groups               bool     `json:"groups,omitempty"`
+	RegisterOnFirstLogin bool     `json:"registerOnFirstLogin,omitempty"`
+	UsernameClaim        string   `json:"usernameClaim,omitempty"`
+	EmailClaim           string   `json:"emailClaim,omitempty"`
+	UniqueIdClaim        string   `json:"uniqueIdClaim,omitempty"`
+	GroupsClaim          string   `json:"groupsClaim,omitempty"`
+	DisableGroupsClaim   bool     `json:"disableGroupsClaim,omitempty"`
+	SamlMetadataUrl      string   `json:"samlMetadataUrl,omitempty"`
 	// SAML-specific attribute mappings (mutually exclusive with SamlIdPAttributeProfile)
 	SamlIdPAttributeProfile  string   `json:"samlIdPAttributeProfile,omitempty"`
 	SamlUsernameAttribute    string   `json:"samlUsernameAttribute,omitempty"`

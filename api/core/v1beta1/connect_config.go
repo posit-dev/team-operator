@@ -86,6 +86,7 @@ type ConnectOAuth2Config struct {
 	ClientSecretFile     string   `json:"ClientSecretFile,omitempty"`
 	OpenIDConnectIssuer  string   `json:"OpenIDConnectIssuer,omitempty"`
 	RequireUsernameClaim bool     `json:"RequireUsernameClaim,omitempty"`
+	RegisterOnFirstLogin bool     `json:"RegisterOnFirstLogin,omitempty"`
 	CustomScope          []string `json:"CustomScope,omitempty"`
 	GroupsAutoProvision  bool     `json:"GroupsAutoProvision,omitempty"`
 	UniqueIdClaim        string   `json:"UniqueIdClaim,omitempty"`

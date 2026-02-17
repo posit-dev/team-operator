@@ -12,6 +12,7 @@ type ConnectOAuth2ConfigApplyConfiguration struct {
 	ClientSecretFile     *string  `json:"ClientSecretFile,omitempty"`
 	OpenIDConnectIssuer  *string  `json:"OpenIDConnectIssuer,omitempty"`
 	RequireUsernameClaim *bool    `json:"RequireUsernameClaim,omitempty"`
+	RegisterOnFirstLogin *bool    `json:"RegisterOnFirstLogin,omitempty"`
 	CustomScope          []string `json:"CustomScope,omitempty"`
 	GroupsAutoProvision  *bool    `json:"GroupsAutoProvision,omitempty"`
 	UniqueIdClaim        *string  `json:"UniqueIdClaim,omitempty"`
@@ -56,6 +57,14 @@ func (b *ConnectOAuth2ConfigApplyConfiguration) WithOpenIDConnectIssuer(value st
 // If called multiple times, the RequireUsernameClaim field is set to the value of the last call.
 func (b *ConnectOAuth2ConfigApplyConfiguration) WithRequireUsernameClaim(value bool) *ConnectOAuth2ConfigApplyConfiguration {
 	b.RequireUsernameClaim = &value
+	return b
+}
+
+// WithRegisterOnFirstLogin sets the RegisterOnFirstLogin field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the RegisterOnFirstLogin field is set to the value of the last call.
+func (b *ConnectOAuth2ConfigApplyConfiguration) WithRegisterOnFirstLogin(value bool) *ConnectOAuth2ConfigApplyConfiguration {
+	b.RegisterOnFirstLogin = &value
 	return b
 }
 

@@ -311,6 +311,7 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 		if c.Spec.Auth.UniqueIdClaim != "" {
 			configCopy.OAuth2.UniqueIdClaim = c.Spec.Auth.UniqueIdClaim
 		}
+		configCopy.OAuth2.RegisterOnFirstLogin = c.Spec.Auth.RegisterOnFirstLogin
 		if c.Spec.Auth.DisableGroupsClaim {
 			// Explicitly set GroupsClaim to empty string to override Connect's default
 			configCopy.OAuth2.GroupsClaim = ptr.To("")

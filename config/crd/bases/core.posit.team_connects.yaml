@@ -149,6 +149,8 @@ spec:
                     items:
                       type: string
                     type: array
+                  registerOnFirstLogin:
+                    type: boolean
                   samlEmailAttribute:
                     type: string
                   samlFirstNameAttribute:
@@ -311,6 +313,8 @@ spec:
                         type: boolean
                       OpenIDConnectIssuer:
                         type: string
+                      RegisterOnFirstLogin:
+                        type: boolean
                       RequireUsernameClaim:
                         type: boolean
                       UniqueIdClaim:

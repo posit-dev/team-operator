@@ -135,6 +135,8 @@ spec:
                     items:
                       type: string
                     type: array
+                  registerOnFirstLogin:
+                    type: boolean
                   samlEmailAttribute:
                     type: string
                   samlFirstNameAttribute:

@@ -335,6 +335,81 @@ func TestConnectReconciler_CustomDatabaseSchemas(t *testing.T) {
 	assert.Contains(t, config, "InstrumentationURL = postgres://connect_custom_schemas_connect@localhost/connect_custom_schemas_connect?options=-csearch_path=custom_metrics", "Custom instrumentation schema should be used")
 }
 
+func TestConnectReconciler_OIDC_EnableRegisterOnFirstLogin(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "connect-oidc-enable-reg"
+
+	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
+
+	c := defineDefaultConnect(t, ns, name)
+	c.Spec.Auth = positcov1beta1.AuthSpec{
+		Type:                 positcov1beta1.AuthTypeOidc,
+		ClientId:             "test-client",
+		Issuer:               "https://idp.example.com",
+		RegisterOnFirstLogin: true,
+	}
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	require.NoError(t, err)
+
+	c = getConnect(t, cli, ns, name)
+
+	res, err := r.ReconcileConnect(ctx, req, c)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	c = getConnect(t, cli, ns, name)
+
+	configmap := &corev1.ConfigMap{}
+	err = cli.Get(ctx, client.ObjectKey{Name: c.ComponentName(), Namespace: ns}, configmap, &client.GetOptions{})
+	require.NoError(t, err)
+
+	config, exists := configmap.Data["rstudio-connect.gcfg"]
+	require.True(t, exists, "rstudio-connect.gcfg should exist in the ConfigMap")
+	t.Logf("Generated config:\n%s", config)
+
+	assert.Contains(t, config, "[OAuth2]", "OAuth2 section should exist")
+	assert.Contains(t, config, "RegisterOnFirstLogin = true", "RegisterOnFirstLogin should be explicitly enabled")
+}
+
+func TestConnectReconciler_OIDC_DefaultRegisterOnFirstLogin(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "connect-oidc-default-reg"
+
+	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
+
+	c := defineDefaultConnect(t, ns, name)
+	c.Spec.Auth = positcov1beta1.AuthSpec{
+		Type:     positcov1beta1.AuthTypeOidc,
+		ClientId: "test-client",
+		Issuer:   "https://idp.example.com",
+	}
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	require.NoError(t, err)
+
+	c = getConnect(t, cli, ns, name)
+
+	res, err := r.ReconcileConnect(ctx, req, c)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	c = getConnect(t, cli, ns, name)
+
+	configmap := &corev1.ConfigMap{}
+	err = cli.Get(ctx, client.ObjectKey{Name: c.ComponentName(), Namespace: ns}, configmap, &client.GetOptions{})
+	require.NoError(t, err)
+
+	config, exists := configmap.Data["rstudio-connect.gcfg"]
+	require.True(t, exists, "rstudio-connect.gcfg should exist in the ConfigMap")
+	t.Logf("Generated config:\n%s", config)
+
+	assert.Contains(t, config, "[OAuth2]", "OAuth2 section should exist")
+	assert.Contains(t, config, "RegisterOnFirstLogin = false", "RegisterOnFirstLogin should default to false when not set")
+}
+
 func TestConnectReconciler_OIDC_DisableGroupsClaim(t *testing.T) {
 	ctx := context.Background()
 	ns := "posit-team"
