@@ -410,6 +410,76 @@ func TestConnectReconciler_OIDC_DefaultRegisterOnFirstLogin(t *testing.T) {
 	assert.Contains(t, config, "RegisterOnFirstLogin = false", "RegisterOnFirstLogin should default to false when not set")
 }
 
+func TestConnectReconciler_RegisterOnFirstLogin_IgnoredWithNoAuth(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "connect-reg-no-auth"
+
+	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
+
+	c := defineDefaultConnect(t, ns, name)
+	c.Spec.RegisterOnFirstLogin = true
+	// Auth.Type left empty (no auth configured)
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	require.NoError(t, err)
+
+	c = getConnect(t, cli, ns, name)
+
+	res, err := r.ReconcileConnect(ctx, req, c)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	c = getConnect(t, cli, ns, name)
+
+	configmap := &corev1.ConfigMap{}
+	err = cli.Get(ctx, client.ObjectKey{Name: c.ComponentName(), Namespace: ns}, configmap, &client.GetOptions{})
+	require.NoError(t, err)
+
+	config, exists := configmap.Data["rstudio-connect.gcfg"]
+	require.True(t, exists, "rstudio-connect.gcfg should exist in the ConfigMap")
+
+	assert.NotContains(t, config, "[OAuth2]", "OAuth2 section should not exist when auth type is not oidc")
+	assert.NotContains(t, config, "RegisterOnFirstLogin", "RegisterOnFirstLogin should not appear in config when auth type is not oidc")
+}
+
+func TestConnectReconciler_RegisterOnFirstLogin_IgnoredWithSAML(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "connect-reg-saml"
+
+	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
+
+	c := defineDefaultConnect(t, ns, name)
+	c.Spec.RegisterOnFirstLogin = true
+	c.Spec.Auth = positcov1beta1.AuthSpec{
+		Type:            positcov1beta1.AuthTypeSaml,
+		SamlMetadataUrl: "https://idp.example.com/saml/metadata",
+	}
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	require.NoError(t, err)
+
+	c = getConnect(t, cli, ns, name)
+
+	res, err := r.ReconcileConnect(ctx, req, c)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	c = getConnect(t, cli, ns, name)
+
+	configmap := &corev1.ConfigMap{}
+	err = cli.Get(ctx, client.ObjectKey{Name: c.ComponentName(), Namespace: ns}, configmap, &client.GetOptions{})
+	require.NoError(t, err)
+
+	config, exists := configmap.Data["rstudio-connect.gcfg"]
+	require.True(t, exists, "rstudio-connect.gcfg should exist in the ConfigMap")
+
+	assert.NotContains(t, config, "[OAuth2]", "OAuth2 section should not exist when auth type is saml")
+	assert.NotContains(t, config, "RegisterOnFirstLogin", "RegisterOnFirstLogin should not appear in config when auth type is saml")
+	assert.Contains(t, config, "[SAML]", "SAML section should still be configured")
+}
+
 func TestConnectReconciler_OIDC_DisableGroupsClaim(t *testing.T) {
 	ctx := context.Background()
 	ns := "posit-team"

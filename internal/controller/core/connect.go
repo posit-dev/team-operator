@@ -269,7 +269,7 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 	}
 
 	if c.Spec.RegisterOnFirstLogin && c.Spec.Auth.Type == "" {
-		l.Info("registerOnFirstLogin is set but no auth type is configured; this setting only takes effect with auth type oidc")
+		l.Info("registerOnFirstLogin is set but no auth type is configured; this setting only applies to OAuth2/OIDC and will be ignored")
 	} else if c.Spec.RegisterOnFirstLogin && c.Spec.Auth.Type != positcov1beta1.AuthTypeOidc {
 		l.Info("registerOnFirstLogin is set but auth type is not oidc; this setting only applies to OAuth2/OIDC and will be ignored",
 			"authType", c.Spec.Auth.Type)
