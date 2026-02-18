@@ -1,3 +1,10 @@
+## [1.10.1](https://github.com/posit-dev/team-operator/compare/v1.10.0...v1.10.1) (2026-02-18)
+
+
+### Bug Fixes
+
+* remove deprecated DefaultContentListView ([#84](https://github.com/posit-dev/team-operator/issues/84)) ([68f4ea5](https://github.com/posit-dev/team-operator/commit/68f4ea5c1bc3a43892e65495ad09cff5df91419b))
+
 # [1.10.0](https://github.com/posit-dev/team-operator/compare/v1.9.0...v1.10.0) (2026-02-13)
 
 
