@@ -1036,7 +1036,7 @@ func TestSiteReconciler_RegisterOnFirstLoginPropagation(t *testing.T) {
 	assert.True(t, *testConnect.Spec.RegisterOnFirstLogin)
 }
 
-func TestSiteReconciler_RegisterOnFirstLoginDefaultFalse(t *testing.T) {
+func TestSiteReconciler_RegisterOnFirstLoginDefaultNil(t *testing.T) {
 	siteName := "register-on-first-login-default"
 	siteNamespace := "posit-team"
 	site := defaultSite(siteName)

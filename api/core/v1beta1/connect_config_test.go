@@ -201,6 +201,18 @@ func TestConnectConfig_RegisterOnFirstLogin(t *testing.T) {
 	str, err = cfgDefault.GenerateGcfg()
 	require.Nil(t, err)
 	require.NotContains(t, str, "RegisterOnFirstLogin")
+
+	// Test with RegisterOnFirstLogin explicitly set to false - should be written
+	cfgFalse := ConnectConfig{
+		OAuth2: &ConnectOAuth2Config{
+			ClientId:             "test-client",
+			OpenIDConnectIssuer:  "https://example.com",
+			RegisterOnFirstLogin: ptr.To(false),
+		},
+	}
+	str, err = cfgFalse.GenerateGcfg()
+	require.Nil(t, err)
+	require.Contains(t, str, "RegisterOnFirstLogin = false")
 }
 
 func TestConnectConfig_CustomScope(t *testing.T) {
