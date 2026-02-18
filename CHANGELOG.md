@@ -1,3 +1,10 @@
+# [1.11.0](https://github.com/posit-dev/team-operator/compare/v1.10.1...v1.11.0) (2026-02-18)
+
+
+### Features
+
+* add support for disabling Connect OAuth2.RegisterOnFirstLogin ([#87](https://github.com/posit-dev/team-operator/issues/87)) ([32277d7](https://github.com/posit-dev/team-operator/commit/32277d7cc3773ddbfb9bb80309edd8524c4aa1a7))
+
 ## [1.10.1](https://github.com/posit-dev/team-operator/compare/v1.10.0...v1.10.1) (2026-02-18)
 
 
