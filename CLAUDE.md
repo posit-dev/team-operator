@@ -46,12 +46,17 @@ helm install team-operator ./dist/chart \
 
 ### Creating a Worktree
 
+This repo is expected to live at `ptd-workspace/team-operator/`. The `../../.worktrees/` relative path resolves to `ptd-workspace/.worktrees/` in that layout.
+
 ```bash
-# From the team-operator repo root (or any existing worktree)
+# New branch
 git worktree add ../../.worktrees/team-operator-<branch-name> -b <branch-name>
+
+# Existing remote branch
+git worktree add ../../.worktrees/team-operator-<branch-name> <branch-name>
 ```
 
-Worktrees live at `ptd-workspace/.worktrees/team-operator-<branch-name>` — always prefix with `team-operator-` to avoid collisions with other repos.
+Always prefix worktree directories with `team-operator-` to avoid collisions with other repos.
 
 ### After Creating a Worktree
 
@@ -76,7 +81,7 @@ git worktree prune
 
 - **NEVER** use `git checkout -b` for new work — always `git worktree add`
 - **NEVER** put worktrees inside the repo directory — always use `../../.worktrees/team-operator-<name>`
-- Branch names: kebab-case, no slashes, no usernames
+- Branch names: kebab-case, no slashes, no usernames (slashes break worktree directory paths)
 
 ## Contributing
 
