@@ -420,6 +420,11 @@ spec:
                     type: object
                   publicWarning:
                     type: string
+                  registerOnFirstLogin:
+                    description: |-
+                      RegisterOnFirstLogin controls whether new users are automatically registered
+                      when they first log in via OAuth2/OIDC. Only applies when auth type is "oidc".
+                    type: boolean
                   replicas:
                     type: integer
                   scheduleConcurrency:

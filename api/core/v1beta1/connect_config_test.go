@@ -176,6 +176,33 @@ func TestConnectConfig_GroupsClaim(t *testing.T) {
 	require.Contains(t, str, "GroupsClaim = ", "Explicitly empty GroupsClaim should be written to config")
 }
 
+func TestConnectConfig_RegisterOnFirstLogin(t *testing.T) {
+	// Test with RegisterOnFirstLogin set to true
+	cfgTrue := ConnectConfig{
+		OAuth2: &ConnectOAuth2Config{
+			ClientId:             "test-client",
+			OpenIDConnectIssuer:  "https://example.com",
+			RegisterOnFirstLogin: true,
+		},
+	}
+	str, err := cfgTrue.GenerateGcfg()
+	require.Nil(t, err)
+	t.Logf("Generated gcfg:\n%s", str)
+	require.Contains(t, str, "[OAuth2]")
+	require.Contains(t, str, "RegisterOnFirstLogin = true")
+
+	// Test with RegisterOnFirstLogin not set (zero value = false) - still written
+	cfgDefault := ConnectConfig{
+		OAuth2: &ConnectOAuth2Config{
+			ClientId:            "test-client",
+			OpenIDConnectIssuer: "https://example.com",
+		},
+	}
+	str, err = cfgDefault.GenerateGcfg()
+	require.Nil(t, err)
+	require.Contains(t, str, "RegisterOnFirstLogin = false")
+}
+
 func TestConnectConfig_CustomScope(t *testing.T) {
 	// Test with CustomScope
 	cfg := ConnectConfig{

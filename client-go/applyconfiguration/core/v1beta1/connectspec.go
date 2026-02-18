@@ -40,6 +40,7 @@ type ConnectSpecApplyConfiguration struct {
 	Secret                               *SecretConfigApplyConfiguration             `json:"secret,omitempty"`
 	WorkloadSecret                       *SecretConfigApplyConfiguration             `json:"workloadSecret,omitempty"`
 	MainDatabaseCredentialSecret         *SecretConfigApplyConfiguration             `json:"mainDatabaseCredentialSecret,omitempty"`
+	RegisterOnFirstLogin                 *bool                                       `json:"registerOnFirstLogin,omitempty"`
 	Debug                                *bool                                       `json:"debug,omitempty"`
 	Replicas                             *int                                        `json:"replicas,omitempty"`
 	DsnSecret                            *string                                     `json:"dsnSecret,omitempty"`
@@ -292,6 +293,14 @@ func (b *ConnectSpecApplyConfiguration) WithWorkloadSecret(value *SecretConfigAp
 // If called multiple times, the MainDatabaseCredentialSecret field is set to the value of the last call.
 func (b *ConnectSpecApplyConfiguration) WithMainDatabaseCredentialSecret(value *SecretConfigApplyConfiguration) *ConnectSpecApplyConfiguration {
 	b.MainDatabaseCredentialSecret = value
+	return b
+}
+
+// WithRegisterOnFirstLogin sets the RegisterOnFirstLogin field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the RegisterOnFirstLogin field is set to the value of the last call.
+func (b *ConnectSpecApplyConfiguration) WithRegisterOnFirstLogin(value bool) *ConnectSpecApplyConfiguration {
+	b.RegisterOnFirstLogin = &value
 	return b
 }
 
