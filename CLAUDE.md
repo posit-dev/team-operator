@@ -40,6 +40,44 @@ helm install team-operator ./dist/chart \
   --create-namespace
 ```
 
+## Git Worktrees
+
+**Always use git worktrees instead of plain branches.** This enables concurrent Claude sessions in the same repo.
+
+### Creating a Worktree
+
+```bash
+# From the team-operator repo root (or any existing worktree)
+git worktree add ../../.worktrees/team-operator-<branch-name> -b <branch-name>
+```
+
+Worktrees live at `ptd-workspace/.worktrees/team-operator-<branch-name>` — always prefix with `team-operator-` to avoid collisions with other repos.
+
+### After Creating a Worktree
+
+No special setup needed. The `Justfile` and `Makefile` use relative paths, so they work in worktrees out of the box:
+
+```bash
+cd ../../.worktrees/team-operator-<branch-name>
+just build    # builds to ./bin/team-operator
+just test     # runs tests
+```
+
+### Cleaning Up
+
+```bash
+# From the main checkout
+git worktree remove ../../.worktrees/team-operator-<branch-name>
+# Prune stale worktree references
+git worktree prune
+```
+
+### Rules
+
+- **NEVER** use `git checkout -b` for new work — always `git worktree add`
+- **NEVER** put worktrees inside the repo directory — always use `../../.worktrees/team-operator-<name>`
+- Branch names: kebab-case, no slashes, no usernames
+
 ## Contributing
 
 - **PR titles must follow conventional commit format** (`feat:`, `fix:`, `docs:`, etc.) - this is enforced by CI
