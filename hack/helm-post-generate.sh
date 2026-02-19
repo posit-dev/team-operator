@@ -4,6 +4,11 @@ set -euo pipefail
 # Post-processing script for helm chart generation
 # Applies customizations that are lost when kubebuilder helm/v2-alpha regenerates templates
 
+# Track upstream kubebuilder issues:
+# - #5486: replicas hardcoded (not templated from values)
+# - #5489: env var list format not ergonomic
+# When these are fixed upstream, remove corresponding sections below.
+
 CHART_DIR="dist/chart"
 SED="${SED:-sed}"
 
@@ -353,5 +358,60 @@ subjects:
       name: {{ include "team-operator.resourceName" (dict "suffix" "controller-manager" "context" $) }}
       namespace: {{ .Release.Namespace }}
 EOF
+
+# Issue 8: Add migration guide to README.md
+echo "  - Adding migration guide to README.md..."
+$SED -i '/^> ```$/a\
+\
+## Upgrading from helm\/v1-alpha\
+\
+If upgrading from chart versions prior to 2.0.0 (which used kubebuilder helm\/v1-alpha):\
+\
+### Values Changes\
+\
+| Old Path | New Path | Notes |\
+|----------|----------|-------|\
+| `controllerManager.*` | `manager.*` | Top-level key renamed |\
+| `controllerManager.container.image` | `manager.image` | Flattened one level |\
+| `controllerManager.container.env` | `manager.env` | Changed from map to list format |\
+| `controllerManager.container.args` | `manager.args` | Flattened one level |\
+| `controllerManager.container.resources` | `manager.resources` | Flattened one level |\
+| `controllerManager.serviceAccountName` | _(removed)_ | Now generated from release name |\
+| `controllerManager.serviceAccount.annotations` | `manager.serviceAccount.annotations` | Path changed |\
+| `controllerManager.tolerations` | `manager.tolerations` | Path changed |\
+| `controllerManager.nodeSelector` | `manager.nodeSelector` | Path changed |\
+| `certmanager.enable` | `certManager.enable` | Capitalization changed |\
+| `watchNamespace` | `watchNamespace` | Unchanged |\
+| `rbac.enable` | _(removed)_ | RBAC is always enabled |\
+| `webhook.enable` | _(removed)_ | Not currently used |\
+| `networkPolicy.enable` | _(removed)_ | Not currently used |\
+\
+### Environment Variables\
+\
+Environment variables changed from map format to list format:\
+\
+**Before:**\
+```yaml\
+controllerManager:\
+  container:\
+    env:\
+      WATCH_NAMESPACES: "posit-team"\
+      AWS_REGION: "us-east-1"\
+```\
+\
+**After:**\
+```yaml\
+manager:\
+  env:\
+    - name: WATCH_NAMESPACES\
+      value: "posit-team"\
+    - name: AWS_REGION\
+      value: "us-east-1"\
+```\
+\
+### Removed Features\
+\
+- **RBAC helper roles**: Convenience ClusterRoles for CRD access (e.g., `site-editor-role`, `connect-viewer-role`) are no longer generated. Create custom RBAC rules if needed.\
+- **Digest-based image tags**: The `@sha256:` image tag format is no longer supported. Use standard `repository:tag` format.' "$CHART_DIR/README.md"
 
 echo "Post-generation customizations complete!"

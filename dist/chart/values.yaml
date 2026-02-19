@@ -79,12 +79,6 @@ manager:
   ##
   tolerations: []
 
-## Helper RBAC roles for managing custom resources
-##
-rbacHelpers:
-  # Install convenience admin/editor/viewer roles for CRDs
-  enable: false
-
 ## Custom Resource Definitions
 ##
 crd:

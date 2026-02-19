@@ -202,6 +202,17 @@ helm-lint: ## Lint the Helm chart
 helm-template: ## Render Helm templates locally
 	helm template $(CHART_NAME) $(CHART_DIR)
 
+.PHONY: helm-test-certmanager
+helm-test-certmanager: ## Verify cert-manager volumes render correctly
+	@echo "Testing cert-manager volume mounts..."
+	@helm template test $(CHART_DIR) --set certManager.enable=true | \
+		grep -q "mountPath: /tmp/k8s-webhook-server/serving-certs" || \
+		(echo "ERROR: cert-manager volumeMounts not rendered!" && exit 1)
+	@helm template test $(CHART_DIR) --set certManager.enable=true | \
+		grep -q "webhook-server-cert" || \
+		(echo "ERROR: cert-manager volumes not rendered!" && exit 1)
+	@echo "cert-manager volumes OK"
+
 .PHONY: helm-install
 helm-install: ## Install operator via Helm
 	helm upgrade --install $(CHART_NAME) $(CHART_DIR) \
