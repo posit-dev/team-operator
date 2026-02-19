@@ -67,6 +67,7 @@ type FlightdeckSpec struct {
 type FlightdeckStatus struct {
 	CommonProductStatus `json:",inline"`
 	// Ready indicates whether the Flightdeck deployment is ready
+	// +optional
 	Ready bool `json:"ready"`
 }
 

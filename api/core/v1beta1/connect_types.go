@@ -151,8 +151,9 @@ type ConnectSpec struct {
 // ConnectStatus defines the observed state of Connect
 type ConnectStatus struct {
 	CommonProductStatus `json:",inline"`
-	KeySecretRef        corev1.SecretReference `json:"keySecretRef,omitempty"`
-	Ready               bool                   `json:"ready"`
+	KeySecretRef corev1.SecretReference `json:"keySecretRef,omitempty"`
+	// +optional
+	Ready bool `json:"ready"`
 }
 
 //+kubebuilder:object:root=true

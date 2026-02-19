@@ -39,7 +39,8 @@ type ChronicleSpec struct {
 // ChronicleStatus defines the observed state of Chronicle
 type ChronicleStatus struct {
 	CommonProductStatus `json:",inline"`
-	Ready               bool `json:"ready"`
+	// +optional
+	Ready bool `json:"ready"`
 }
 
 // +kubebuilder:object:root=true
