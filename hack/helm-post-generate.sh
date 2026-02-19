@@ -28,65 +28,79 @@ $SED -i '/^        spec:$/a\
             {{- end }}' "$CHART_DIR/templates/manager/manager.yaml"
 
 # Issue 4: Add cert-manager volumeMounts and volumes to manager.yaml
-# Use Python for more complex multi-line insertion
+# Use Python for more robust multi-line insertion
 echo "  - Adding cert-manager volumeMounts and volumes to manager.yaml..."
 python3 - <<'PYTHON'
 import sys
+import re
 
 # Read the file
 with open('dist/chart/templates/manager/manager.yaml', 'r') as f:
-    lines = f.readlines()
+    content = f.read()
 
-# Find where to insert volumeMounts (after the last line of securityContext block in container)
-# Find where to insert volumes (after terminationGracePeriodSeconds)
-output = []
-i = 0
+# Strategy: Find the securityContext block at container level (20 spaces indentation)
+# and insert volumeMounts AFTER its closing {{- end }}
+
+# Pattern: Find "securityContext:" at container level (20 spaces)
+# Then find the matching {{- end }} that closes it
+# Insert volumeMounts after that {{- end }}
+
+volumemounts_block = """                  {{- if .Values.certManager.enable }}
+                  volumeMounts:
+                    - mountPath: /tmp/k8s-webhook-server/serving-certs
+                      name: cert
+                      readOnly: true
+                  {{- end }}
+"""
+
+volumes_block = """            {{- if .Values.certManager.enable }}
+            volumes:
+              - name: cert
+                secret:
+                  defaultMode: 420
+                  secretName: {{ include "team-operator.resourceName" (dict "suffix" "webhook-server-cert" "context" $) }}
+            {{- end }}
+"""
+
+# Find securityContext at container level and insert volumeMounts after its closing
+# Look for the pattern where securityContext closes with {{- end }}
+# The securityContext block is at 20 spaces indentation
+lines = content.split('\n')
+output_lines = []
 volumemounts_inserted = False
 volumes_inserted = False
 
+i = 0
 while i < len(lines):
     line = lines[i]
-    output.append(line)
+    output_lines.append(line)
 
-    # Insert volumeMounts after the container's securityContext block closes
-    # Look for the pattern: securityContext block followed by either another top-level container field or pod-level field
-    if not volumemounts_inserted and line.strip() == '{}' and i > 0:
-        # Check if this is the closing of container securityContext (look back for "securityContext:")
-        # and check if next non-empty line is at the pod level (less indentation)
-        if i + 1 < len(lines):
-            # Check previous context - should have "securityContext:" before
-            found_sec_ctx = False
-            for j in range(max(0, i-5), i):
-                if 'securityContext:' in lines[j] and lines[j].startswith('                  '):  # container level (18 spaces)
-                    found_sec_ctx = True
-                    break
+    # Insert volumeMounts after the closing of container securityContext
+    # Pattern: Look for "{{- end }}" at 20 spaces (container level) that closes securityContext
+    if not volumemounts_inserted and line == '                    {{- end }}':
+        # Check if this closes the securityContext block by looking back
+        # Look for "securityContext:" within the last 10 lines
+        found_securityContext = False
+        for j in range(max(0, i-10), i):
+            if 'securityContext:' in lines[j] and lines[j].startswith('                  '):
+                found_securityContext = True
+                break
 
-            if found_sec_ctx:
-                # Insert volumeMounts here
-                output.append('                  {{- if .Values.certManager.enable }}\n')
-                output.append('                  volumeMounts:\n')
-                output.append('                    - mountPath: /tmp/k8s-webhook-server/serving-certs\n')
-                output.append('                      name: cert\n')
-                output.append('                      readOnly: true\n')
-                output.append('                  {{- end }}\n')
-                volumemounts_inserted = True
+        if found_securityContext:
+            # Insert volumeMounts after this closing
+            output_lines.append(volumemounts_block.rstrip())
+            volumemounts_inserted = True
 
     # Insert volumes after terminationGracePeriodSeconds
     if not volumes_inserted and 'terminationGracePeriodSeconds: 10' in line:
-        output.append('            {{- if .Values.certManager.enable }}\n')
-        output.append('            volumes:\n')
-        output.append('              - name: cert\n')
-        output.append('                secret:\n')
-        output.append('                  defaultMode: 420\n')
-        output.append('                  secretName: {{ include "team-operator.resourceName" (dict "suffix" "webhook-server-cert" "context" $) }}\n')
-        output.append('            {{- end }}\n')
+        output_lines.append(volumes_block.rstrip())
         volumes_inserted = True
 
     i += 1
 
 # Write the file
 with open('dist/chart/templates/manager/manager.yaml', 'w') as f:
-    f.writelines(output)
+    f.write('\n'.join(output_lines))
 
 if not volumemounts_inserted:
     print("WARNING: volumeMounts not inserted!", file=sys.stderr)
@@ -94,6 +108,8 @@ if not volumemounts_inserted:
 if not volumes_inserted:
     print("WARNING: volumes not inserted!", file=sys.stderr)
     sys.exit(1)
+
+print("Successfully inserted volumeMounts and volumes", file=sys.stderr)
 PYTHON
 
 # Issue 5: Add ServiceAccount annotations to controller-manager.yaml
@@ -106,7 +122,212 @@ $SED -i '/^    labels:$/i\
     {{- end }}\
     {{- end }}' "$CHART_DIR/templates/rbac/controller-manager.yaml"
 
-# Issue 6: Add namespace-scoped RoleBinding to manager-rolebinding.yaml
+# Issue 6: Add namespace-scoped Role to manager-role.yaml
+echo "  - Adding namespace-scoped Role to manager-role.yaml..."
+cat >> "$CHART_DIR/templates/rbac/manager-role.yaml" <<'EOF'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+    labels:
+        app.kubernetes.io/component: rbac
+        app.kubernetes.io/created-by: team-operator
+        app.kubernetes.io/instance: manager-role
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        app.kubernetes.io/name: role
+        helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+        app.kubernetes.io/part-of: team-operator
+    name: {{ include "team-operator.resourceName" (dict "suffix" "manager-role" "context" $) }}
+    namespace: {{ .Values.watchNamespace }}
+rules:
+    - apiGroups:
+        - ""
+      resources:
+        - configmaps
+        - persistentvolumeclaims
+        - pods
+        - pods/attach
+        - pods/exec
+        - secrets
+        - serviceaccounts
+        - services
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+    - apiGroups:
+        - ""
+      resources:
+        - events
+      verbs:
+        - watch
+    - apiGroups:
+        - ""
+      resources:
+        - pods/log
+      verbs:
+        - get
+        - list
+        - watch
+    - apiGroups:
+        - apps
+      resources:
+        - daemonsets
+        - deployments
+        - statefulsets
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+    - apiGroups:
+        - batch
+      resources:
+        - jobs
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+    - apiGroups:
+        - core.posit.team
+      resources:
+        - chronicles
+        - connects
+        - flightdecks
+        - packagemanagers
+        - postgresdatabases
+        - sites
+        - workbenches
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+    - apiGroups:
+        - core.posit.team
+      resources:
+        - chronicles/finalizers
+        - connects/finalizers
+        - flightdecks/finalizers
+        - packagemanagers/finalizers
+        - postgresdatabases/finalizers
+        - sites/finalizers
+        - workbenches/finalizers
+      verbs:
+        - update
+    - apiGroups:
+        - core.posit.team
+      resources:
+        - chronicles/status
+        - connects/status
+        - flightdecks/status
+        - packagemanagers/status
+        - postgresdatabases/status
+        - sites/status
+        - workbenches/status
+      verbs:
+        - get
+        - patch
+        - update
+    - apiGroups:
+        - k8s.keycloak.org
+      resources:
+        - keycloakrealmimports
+        - keycloaks
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+    - apiGroups:
+        - metrics.k8s.io
+      resources:
+        - pods
+      verbs:
+        - get
+    - apiGroups:
+        - networking.k8s.io
+      resources:
+        - ingresses
+        - networkpolicies
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+    - apiGroups:
+        - policy
+      resources:
+        - poddisruptionbudgets
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+    - apiGroups:
+        - rbac.authorization.k8s.io
+      resources:
+        - rolebindings
+        - roles
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+    - apiGroups:
+        - secrets-store.csi.x-k8s.io
+      resources:
+        - secretproviderclasses
+        - secretsproviderclass
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+    - apiGroups:
+        - traefik.io
+      resources:
+        - middlewares
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+EOF
+
+# Issue 7: Add namespace-scoped RoleBinding to manager-rolebinding.yaml
 echo "  - Adding namespace-scoped RoleBinding to manager-rolebinding.yaml..."
 cat >> "$CHART_DIR/templates/rbac/manager-rolebinding.yaml" <<'EOF'
 ---

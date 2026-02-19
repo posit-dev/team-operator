@@ -1,0 +1,68 @@
+{{- if .Values.certManager.enable }}
+# Self-signed Issuer
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  labels:
+    app.kubernetes.io/component: certmanager
+    app.kubernetes.io/created-by: team-operator
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/part-of: team-operator
+  name: {{ include "team-operator.resourceName" (dict "suffix" "selfsigned-issuer" "context" $) }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  selfSigned: {}
+---
+# Certificate for the webhook
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  annotations:
+    {{- if .Values.crd.keep }}
+    "helm.sh/resource-policy": keep
+    {{- end }}
+  labels:
+    app.kubernetes.io/component: certmanager
+    app.kubernetes.io/created-by: team-operator
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/part-of: team-operator
+  name: {{ include "team-operator.resourceName" (dict "suffix" "serving-cert" "context" $) }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  dnsNames:
+    - {{ include "team-operator.resourceName" (dict "suffix" "webhook-service" "context" $) }}.{{ .Release.Namespace }}.svc
+    - {{ include "team-operator.resourceName" (dict "suffix" "webhook-service" "context" $) }}.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: {{ include "team-operator.resourceName" (dict "suffix" "selfsigned-issuer" "context" $) }}
+  secretName: {{ include "team-operator.resourceName" (dict "suffix" "webhook-server-cert" "context" $) }}
+{{- if .Values.metrics.enable }}
+---
+# Certificate for the metrics
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  annotations:
+    {{- if .Values.crd.keep }}
+    "helm.sh/resource-policy": keep
+    {{- end }}
+  labels:
+    app.kubernetes.io/component: certmanager
+    app.kubernetes.io/created-by: team-operator
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/part-of: team-operator
+  name: {{ include "team-operator.resourceName" (dict "suffix" "metrics-certs" "context" $) }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  dnsNames:
+    - {{ include "team-operator.resourceName" (dict "suffix" "metrics-service" "context" $) }}.{{ .Release.Namespace }}.svc
+    - {{ include "team-operator.resourceName" (dict "suffix" "metrics-service" "context" $) }}.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: {{ include "team-operator.resourceName" (dict "suffix" "selfsigned-issuer" "context" $) }}
+  secretName: {{ include "team-operator.resourceName" (dict "suffix" "metrics-server-cert" "context" $) }}
+{{- end }}
+{{- end }}

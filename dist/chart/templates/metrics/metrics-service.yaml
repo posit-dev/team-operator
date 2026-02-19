@@ -1,0 +1,22 @@
+{{- if .Values.metrics.enable }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "team-operator.resourceName" (dict "suffix" "metrics-service" "context" $) }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: metrics
+    app.kubernetes.io/created-by: team-operator
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/part-of: team-operator
+    control-plane: controller-manager
+spec:
+  ports:
+    - port: {{ .Values.metrics.port }}
+      targetPort: {{ .Values.metrics.port }}
+      protocol: TCP
+      name: https
+  selector:
+    control-plane: controller-manager
+{{- end }}

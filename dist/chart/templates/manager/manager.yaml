@@ -82,13 +82,13 @@ spec:
                     {{- toYaml .Values.manager.securityContext | nindent 20 }}
                     {{- else }}
                     {}
+                    {{- end }}
                   {{- if .Values.certManager.enable }}
                   volumeMounts:
                     - mountPath: /tmp/k8s-webhook-server/serving-certs
                       name: cert
                       readOnly: true
                   {{- end }}
-                    {{- end }}
             securityContext:
               {{- if .Values.manager.podSecurityContext }}
               {{- toYaml .Values.manager.podSecurityContext | nindent 14 }}
