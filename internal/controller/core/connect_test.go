@@ -9,6 +9,7 @@ import (
 	localtest "github.com/posit-dev/team-operator/api/localtest"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
+	"github.com/rstudio/goex/ptr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -343,7 +344,7 @@ func TestConnectReconciler_OIDC_EnableRegisterOnFirstLogin(t *testing.T) {
 	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
 
 	c := defineDefaultConnect(t, ns, name)
-	c.Spec.RegisterOnFirstLogin = true
+	c.Spec.RegisterOnFirstLogin = ptr.To(true)
 	c.Spec.Auth = positcov1beta1.AuthSpec{
 		Type:     positcov1beta1.AuthTypeOidc,
 		ClientId: "test-client",
@@ -407,7 +408,7 @@ func TestConnectReconciler_OIDC_DefaultRegisterOnFirstLogin(t *testing.T) {
 	t.Logf("Generated config:\n%s", config)
 
 	assert.Contains(t, config, "[OAuth2]", "OAuth2 section should exist")
-	assert.Contains(t, config, "RegisterOnFirstLogin = false", "RegisterOnFirstLogin should default to false when not set")
+	assert.NotContains(t, config, "RegisterOnFirstLogin", "RegisterOnFirstLogin should not be written to config when not set, allowing Connect to use its default")
 }
 
 func TestConnectReconciler_RegisterOnFirstLogin_IgnoredWithNoAuth(t *testing.T) {
@@ -418,7 +419,7 @@ func TestConnectReconciler_RegisterOnFirstLogin_IgnoredWithNoAuth(t *testing.T) 
 	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
 
 	c := defineDefaultConnect(t, ns, name)
-	c.Spec.RegisterOnFirstLogin = true
+	c.Spec.RegisterOnFirstLogin = ptr.To(true)
 	// Auth.Type left empty (no auth configured)
 
 	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
@@ -451,7 +452,7 @@ func TestConnectReconciler_RegisterOnFirstLogin_IgnoredWithSAML(t *testing.T) {
 	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
 
 	c := defineDefaultConnect(t, ns, name)
-	c.Spec.RegisterOnFirstLogin = true
+	c.Spec.RegisterOnFirstLogin = ptr.To(true)
 	c.Spec.Auth = positcov1beta1.AuthSpec{
 		Type:            positcov1beta1.AuthTypeSaml,
 		SamlMetadataUrl: "https://idp.example.com/saml/metadata",

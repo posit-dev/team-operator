@@ -182,7 +182,7 @@ func TestConnectConfig_RegisterOnFirstLogin(t *testing.T) {
 		OAuth2: &ConnectOAuth2Config{
 			ClientId:             "test-client",
 			OpenIDConnectIssuer:  "https://example.com",
-			RegisterOnFirstLogin: true,
+			RegisterOnFirstLogin: ptr.To(true),
 		},
 	}
 	str, err := cfgTrue.GenerateGcfg()
@@ -191,7 +191,7 @@ func TestConnectConfig_RegisterOnFirstLogin(t *testing.T) {
 	require.Contains(t, str, "[OAuth2]")
 	require.Contains(t, str, "RegisterOnFirstLogin = true")
 
-	// Test with RegisterOnFirstLogin not set (zero value = false) - still written
+	// Test with RegisterOnFirstLogin not set (nil) - should not be written
 	cfgDefault := ConnectConfig{
 		OAuth2: &ConnectOAuth2Config{
 			ClientId:            "test-client",
@@ -199,6 +199,18 @@ func TestConnectConfig_RegisterOnFirstLogin(t *testing.T) {
 		},
 	}
 	str, err = cfgDefault.GenerateGcfg()
+	require.Nil(t, err)
+	require.NotContains(t, str, "RegisterOnFirstLogin")
+
+	// Test with RegisterOnFirstLogin explicitly set to false - should be written
+	cfgFalse := ConnectConfig{
+		OAuth2: &ConnectOAuth2Config{
+			ClientId:             "test-client",
+			OpenIDConnectIssuer:  "https://example.com",
+			RegisterOnFirstLogin: ptr.To(false),
+		},
+	}
+	str, err = cfgFalse.GenerateGcfg()
 	require.Nil(t, err)
 	require.Contains(t, str, "RegisterOnFirstLogin = false")
 }

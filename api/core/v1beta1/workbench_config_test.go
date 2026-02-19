@@ -178,18 +178,19 @@ func TestWorkbenchConfig_GenerateConfigmap(t *testing.T) {
 }
 
 func TestWorkbenchConfig_AuditedJobs(t *testing.T) {
+	intPtr := func(i int) *int { return &i }
 	wb := WorkbenchConfig{
 		WorkbenchIniConfig: WorkbenchIniConfig{
 			RServer: &WorkbenchRServerConfig{
-				AuditedJobs:                   1,
+				AuditedJobs:                   intPtr(1),
 				AuditedJobsStoragePath:        "/mnt/shared-storage/audited-jobs",
 				AuditedJobsPrivateKeyPath:     "/etc/rstudio/audited-jobs-private-key.pem",
 				AuditedJobsPublicKeyPaths:     "/etc/rstudio/audited-jobs-public-key.pem",
-				AuditedJobsLogLimit:           5000,
-				AuditedJobsDeletionExpiry:     60,
-				AuditedJobsVanillaRequired:    1,
-				AuditedJobsDetailsEnvironment: 1,
-				AuditedJobsDetailsUserDefined: 0,
+				AuditedJobsLogLimit:           intPtr(5000),
+				AuditedJobsDeletionExpiry:     intPtr(60),
+				AuditedJobsVanillaRequired:    intPtr(1),
+				AuditedJobsDetailsEnvironment: intPtr(1),
+				AuditedJobsDetailsUserDefined: intPtr(0),
 			},
 		},
 	}
@@ -208,10 +209,11 @@ func TestWorkbenchConfig_AuditedJobs(t *testing.T) {
 }
 
 func TestWorkbenchConfig_AuditedJobsPartial(t *testing.T) {
+	intPtr := func(i int) *int { return &i }
 	wb := WorkbenchConfig{
 		WorkbenchIniConfig: WorkbenchIniConfig{
 			RServer: &WorkbenchRServerConfig{
-				AuditedJobs:            1,
+				AuditedJobs:            intPtr(1),
 				AuditedJobsStoragePath: "/mnt/shared-storage/audited-jobs",
 			},
 		},
@@ -221,13 +223,13 @@ func TestWorkbenchConfig_AuditedJobsPartial(t *testing.T) {
 	require.Nil(t, err)
 	require.Contains(t, res["rserver.conf"], "audited-jobs=1\n")
 	require.Contains(t, res["rserver.conf"], "audited-jobs-storage-path=/mnt/shared-storage/audited-jobs\n")
-	// Unset int fields render as zero (consistent with all other WorkbenchRServerConfig int fields)
-	require.Contains(t, res["rserver.conf"], "audited-jobs-log-limit=0\n")
-	require.Contains(t, res["rserver.conf"], "audited-jobs-deletion-expiry=0\n")
-	require.Contains(t, res["rserver.conf"], "audited-jobs-vanilla-required=0\n")
-	require.Contains(t, res["rserver.conf"], "audited-jobs-details-environment=0\n")
-	require.Contains(t, res["rserver.conf"], "audited-jobs-details-user-defined=0\n")
-	// Unset string fields should be omitted
+	// Nil *int fields should NOT appear in the config (letting product use its defaults)
+	require.NotContains(t, res["rserver.conf"], "audited-jobs-log-limit")
+	require.NotContains(t, res["rserver.conf"], "audited-jobs-deletion-expiry")
+	require.NotContains(t, res["rserver.conf"], "audited-jobs-vanilla-required")
+	require.NotContains(t, res["rserver.conf"], "audited-jobs-details-environment")
+	require.NotContains(t, res["rserver.conf"], "audited-jobs-details-user-defined")
+	// Unset string fields should still be omitted
 	require.NotContains(t, res["rserver.conf"], "audited-jobs-private-key-path=")
 	require.NotContains(t, res["rserver.conf"], "audited-jobs-public-key-paths=")
 }
