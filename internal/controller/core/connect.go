@@ -268,6 +268,15 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 		}
 	}
 
+	if regOnFirst := c.Spec.RegisterOnFirstLogin; regOnFirst != nil && *regOnFirst {
+		if c.Spec.Auth.Type == "" {
+			l.Info("registerOnFirstLogin is set but no auth type is configured; this setting only applies to OAuth2/OIDC and will be ignored")
+		} else if c.Spec.Auth.Type != positcov1beta1.AuthTypeOidc {
+			l.Info("registerOnFirstLogin is set but auth type is not oidc; this setting only applies to OAuth2/OIDC and will be ignored",
+				"authType", c.Spec.Auth.Type)
+		}
+	}
+
 	if c.Spec.Auth.Type == positcov1beta1.AuthTypeOidc {
 		if configCopy.Authentication != nil {
 			configCopy.Authentication.Provider = "OAuth2"
@@ -311,6 +320,7 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 		if c.Spec.Auth.UniqueIdClaim != "" {
 			configCopy.OAuth2.UniqueIdClaim = c.Spec.Auth.UniqueIdClaim
 		}
+		configCopy.OAuth2.RegisterOnFirstLogin = c.Spec.RegisterOnFirstLogin
 		if c.Spec.Auth.DisableGroupsClaim {
 			// Explicitly set GroupsClaim to empty string to override Connect's default
 			configCopy.OAuth2.GroupsClaim = ptr.To("")
@@ -822,9 +832,8 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 	}
 
 	// POD DISRUPTION BUDGET
-	if err := CreateOrUpdateDisruptionBudget(
-		ctx, req, r.Client, r.Scheme, c, c, ptr.To(product.DetermineMinAvailableReplicas(c.Spec.Replicas)), nil,
-	); err != nil {
+	pdb := product.DefineDisruptionBudget(c, req, ptr.To(product.DetermineMinAvailableReplicas(c.Spec.Replicas)), nil)
+	if err := CreateOrUpdateDisruptionBudget(ctx, r.Client, r.Scheme, c, pdb); err != nil {
 		return ctrl.Result{}, err
 	}
 

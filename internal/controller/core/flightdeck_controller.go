@@ -295,7 +295,7 @@ func (r *FlightdeckReconciler) reconcileFlightdeckResources(
 							LivenessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
-										Path: "/",
+										Path: "/healthz",
 										Port: intstr.FromString("http"),
 									},
 								},
@@ -308,7 +308,7 @@ func (r *FlightdeckReconciler) reconcileFlightdeckResources(
 							ReadinessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
-										Path: "/",
+										Path: "/readyz",
 										Port: intstr.FromString("http"),
 									},
 								},
