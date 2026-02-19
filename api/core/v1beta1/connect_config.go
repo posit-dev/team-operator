@@ -91,6 +91,7 @@ type ConnectOAuth2Config struct {
 	ClientSecretFile     string   `json:"ClientSecretFile,omitempty"`
 	OpenIDConnectIssuer  string   `json:"OpenIDConnectIssuer,omitempty"`
 	RequireUsernameClaim bool     `json:"RequireUsernameClaim,omitempty"`
+	RegisterOnFirstLogin *bool    `json:"RegisterOnFirstLogin,omitempty"`
 	CustomScope          []string `json:"CustomScope,omitempty"`
 	GroupsAutoProvision  bool     `json:"GroupsAutoProvision,omitempty"`
 	UniqueIdClaim        string   `json:"UniqueIdClaim,omitempty"`
@@ -119,22 +120,14 @@ type ConnectSchedulerConfig struct {
 	MaxAMDGPULimit    int `json:"MaxAMDGPULimit,omitempty"`
 }
 
-type ContentListView string
-
-const (
-	ContentListViewCompact  ContentListView = "compact"
-	ContentListViewExpanded ContentListView = "expanded"
-)
-
 type ConnectServerConfig struct {
-	Address                string          `json:"Address,omitempty"`
-	DataDir                string          `json:"DataDir,omitempty"`
-	FrameOptionsContent    string          `json:"FrameOptionsContent,omitempty"`
-	FrameOptionsDashboard  string          `json:"FrameOptionsDashboard,omitempty"`
-	DefaultContentListView ContentListView `json:"DefaultContentListView,omitempty"`
-	LoggedInWarning        string          `json:"LoggedInWarning,omitempty"`
-	PublicWarning          string          `json:"PublicWarning,omitempty"`
-	ProxyHeaderLogging     bool            `json:"ProxyHeaderLogging,omitempty"`
+	Address               string `json:"Address,omitempty"`
+	DataDir               string `json:"DataDir,omitempty"`
+	FrameOptionsContent   string `json:"FrameOptionsContent,omitempty"`
+	FrameOptionsDashboard string `json:"FrameOptionsDashboard,omitempty"`
+	LoggedInWarning       string `json:"LoggedInWarning,omitempty"`
+	PublicWarning         string `json:"PublicWarning,omitempty"`
+	ProxyHeaderLogging    bool   `json:"ProxyHeaderLogging,omitempty"`
 	// EmailProvider sets the email provider for Connect emails. If set, secrets will be mounted for SMTP connections
 	EmailProvider          string `json:"EmailProvider,omitempty"`
 	SenderEmail            string `json:"SenderEmail,omitempty"`

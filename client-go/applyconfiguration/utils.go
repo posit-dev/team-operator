@@ -23,6 +23,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 	// Group=core, Version=v1beta1
 	case v1beta1.SchemeGroupVersion.WithKind("ApiSettingsConfig"):
 		return &corev1beta1.ApiSettingsConfigApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("AuditedJobsConfig"):
+		return &corev1beta1.AuditedJobsConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("AuthSpec"):
 		return &corev1beta1.AuthSpecApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("AzureFilesConfig"):

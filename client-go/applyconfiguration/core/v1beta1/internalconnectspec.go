@@ -17,6 +17,7 @@ type InternalConnectSpecApplyConfiguration struct {
 	Volume                  *product.VolumeSpec                                    `json:"volume,omitempty"`
 	NodeSelector            map[string]string                                      `json:"nodeSelector,omitempty"`
 	Auth                    *AuthSpecApplyConfiguration                            `json:"auth,omitempty"`
+	RegisterOnFirstLogin    *bool                                                  `json:"registerOnFirstLogin,omitempty"`
 	AddEnv                  map[string]string                                      `json:"addEnv,omitempty"`
 	Image                   *string                                                `json:"image,omitempty"`
 	SessionImage            *string                                                `json:"sessionImage,omitempty"`
@@ -76,6 +77,14 @@ func (b *InternalConnectSpecApplyConfiguration) WithNodeSelector(entries map[str
 // If called multiple times, the Auth field is set to the value of the last call.
 func (b *InternalConnectSpecApplyConfiguration) WithAuth(value *AuthSpecApplyConfiguration) *InternalConnectSpecApplyConfiguration {
 	b.Auth = value
+	return b
+}
+
+// WithRegisterOnFirstLogin sets the RegisterOnFirstLogin field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the RegisterOnFirstLogin field is set to the value of the last call.
+func (b *InternalConnectSpecApplyConfiguration) WithRegisterOnFirstLogin(value bool) *InternalConnectSpecApplyConfiguration {
+	b.RegisterOnFirstLogin = &value
 	return b
 }
 

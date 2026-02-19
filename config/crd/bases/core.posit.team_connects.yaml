@@ -311,6 +311,8 @@ spec:
                         type: boolean
                       OpenIDConnectIssuer:
                         type: string
+                      RegisterOnFirstLogin:
+                        type: boolean
                       RequireUsernameClaim:
                         type: boolean
                       UniqueIdClaim:
@@ -392,8 +394,6 @@ spec:
                       Address:
                         type: string
                       DataDir:
-                        type: string
-                      DefaultContentListView:
                         type: string
                       EmailProvider:
                         description: EmailProvider sets the email provider for Connect
@@ -501,6 +501,11 @@ spec:
                   type: string
                 type: object
               offHostExecution:
+                type: boolean
+              registerOnFirstLogin:
+                description: |-
+                  RegisterOnFirstLogin controls whether new users are automatically registered
+                  when they first log in via OAuth2/OIDC. Only applies when auth type is "oidc".
                 type: boolean
               replicas:
                 type: integer

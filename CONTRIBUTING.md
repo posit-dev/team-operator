@@ -376,6 +376,18 @@ The release workflow updates the changelog, tags the release, publishes the Helm
 
 To manually trigger a release: `gh workflow run release.yml`
 
+## roborev Code Review
+
+This repo uses [roborev](https://www.roborev.io/) for continuous AI-assisted code review. roborev runs automatically on each commit and posts review feedback to pull requests.
+
+To enable it locally, install the commit hook into your copy of the repo:
+
+```bash
+roborev install-hook
+```
+
+Once installed, roborev will run after each `git commit` and submit a review for any open PR associated with your branch.
+
 ## Getting Help
 
 If you have questions or need help:
