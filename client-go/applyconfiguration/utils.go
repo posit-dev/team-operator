@@ -179,6 +179,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &corev1beta1.SiteApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("SiteSpec"):
 		return &corev1beta1.SiteSpecApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("SiteStatus"):
+		return &corev1beta1.SiteStatusApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("SnowflakeConfig"):
 		return &corev1beta1.SnowflakeConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("SSHKeyConfig"):

@@ -13,6 +13,7 @@ import (
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
+	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -75,7 +76,43 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	l.Info("Site found; updating resources")
 
-	return r.reconcileResources(ctx, req, s)
+	// Save a copy for status patching
+	patchBase := client.MergeFrom(s.DeepCopy())
+
+	// Set observed generation and progressing condition
+	s.Status.ObservedGeneration = s.Generation
+	status.SetProgressing(&s.Status.Conditions, s.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Reconciliation in progress")
+
+	result, reconcileErr := r.reconcileResources(ctx, req, s)
+
+	// Aggregate child component status
+	r.aggregateChildStatus(ctx, req, s, l)
+
+	// Update status based on reconciliation result
+	if reconcileErr != nil {
+		status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconcileError, reconcileErr.Error())
+		status.SetProgressing(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconcileError, reconcileErr.Error())
+	} else {
+		// Overall Ready is true only if all children are ready
+		allReady := s.Status.ConnectReady && s.Status.WorkbenchReady && s.Status.PackageManagerReady && s.Status.ChronicleReady && s.Status.FlightdeckReady
+		if allReady {
+			status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionTrue, "AllComponentsReady", "All child components are ready")
+		} else {
+			status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, "ComponentsNotReady", "One or more child components are not ready")
+		}
+		status.SetProgressing(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconciling, "Reconciliation complete")
+	}
+
+	// Patch status
+	if patchErr := r.Status().Patch(ctx, s, patchBase); patchErr != nil {
+		l.Error(patchErr, "Error patching status")
+		if reconcileErr != nil {
+			return result, reconcileErr
+		}
+		return ctrl.Result{}, patchErr
+	}
+
+	return result, reconcileErr
 }
 
 var rootVolumeSize = resource.MustParse("1Gi")
@@ -391,6 +428,51 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 	return ctrl.Result{}, nil
 }
 
+// aggregateChildStatus fetches each child CR and populates per-component readiness bools on the Site status.
+func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Request, site *positcov1beta1.Site, l logr.Logger) {
+	key := client.ObjectKey{Name: site.Name, Namespace: req.Namespace}
+
+	// Connect
+	connect := &positcov1beta1.Connect{}
+	if err := r.Get(ctx, key, connect); err == nil {
+		site.Status.ConnectReady = status.IsReady(connect.Status.Conditions)
+	} else {
+		site.Status.ConnectReady = false
+	}
+
+	// Workbench
+	workbench := &positcov1beta1.Workbench{}
+	if err := r.Get(ctx, key, workbench); err == nil {
+		site.Status.WorkbenchReady = status.IsReady(workbench.Status.Conditions)
+	} else {
+		site.Status.WorkbenchReady = false
+	}
+
+	// PackageManager
+	pm := &positcov1beta1.PackageManager{}
+	if err := r.Get(ctx, key, pm); err == nil {
+		site.Status.PackageManagerReady = status.IsReady(pm.Status.Conditions)
+	} else {
+		site.Status.PackageManagerReady = false
+	}
+
+	// Chronicle
+	chronicle := &positcov1beta1.Chronicle{}
+	if err := r.Get(ctx, key, chronicle); err == nil {
+		site.Status.ChronicleReady = status.IsReady(chronicle.Status.Conditions)
+	} else {
+		site.Status.ChronicleReady = false
+	}
+
+	// Flightdeck
+	flightdeck := &positcov1beta1.Flightdeck{}
+	if err := r.Get(ctx, key, flightdeck); err == nil {
+		site.Status.FlightdeckReady = status.IsReady(flightdeck.Status.Conditions)
+	} else {
+		site.Status.FlightdeckReady = false
+	}
+}
+
 func (r *SiteReconciler) GetLogger(ctx context.Context) logr.Logger {
 	if v, err := logr.FromContext(ctx); err == nil {
 		return v
@@ -446,5 +528,10 @@ func (r *SiteReconciler) cleanupResources(ctx context.Context, req ctrl.Request)
 func (r *SiteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&positcov1beta1.Site{}).
+		Owns(&positcov1beta1.Connect{}).
+		Owns(&positcov1beta1.Workbench{}).
+		Owns(&positcov1beta1.PackageManager{}).
+		Owns(&positcov1beta1.Chronicle{}).
+		Owns(&positcov1beta1.Flightdeck{}).
 		Complete(r)
 }
