@@ -8,6 +8,7 @@ import (
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/posit-dev/team-operator/internal/db"
+	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -113,10 +114,20 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 		"product", "package-manager",
 	)
 
+	// Save a copy for status patching
+	patchBase := client.MergeFrom(pm.DeepCopy())
+
+	// Set observed generation and progressing condition
+	pm.Status.ObservedGeneration = pm.Generation
+	status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Reconciliation in progress")
+
 	// create database
 	secretKey := "pkg-db-password"
 	if err := db.EnsureDatabaseExists(ctx, r, req, pm, pm.Spec.DatabaseConfig, pm.ComponentName(), "", []string{"pm", "metrics"}, pm.Spec.Secret, pm.Spec.WorkloadSecret, pm.Spec.MainDatabaseCredentialSecret, secretKey); err != nil {
 		l.Error(err, "error creating database", "database", pm.ComponentName())
+		status.SetReady(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
+		status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
+		_ = r.Status().Patch(ctx, pm, patchBase)
 		return ctrl.Result{}, err
 	}
 
@@ -127,6 +138,9 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 	//   For now, we just use it to give to Package Manager
 	if _, err := internal.EnsureProvisioningKey(ctx, pm, r, req, pm); err != nil {
 		l.Error(err, "error ensuring that provisioning key exists")
+		status.SetReady(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
+		status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
+		_ = r.Status().Patch(ctx, pm, patchBase)
 		return ctrl.Result{}, err
 	} else {
 		l.Info("successfully created or retrieved provisioning key value")
@@ -135,10 +149,6 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 	pm.Status.KeySecretRef = corev1.SecretReference{
 		Name:      pm.KeySecretName(),
 		Namespace: req.Namespace,
-	}
-	if err := r.Status().Update(ctx, pm); err != nil {
-		l.Error(err, "Error updating status")
-		return ctrl.Result{}, err
 	}
 
 	// TODO: at some point, postgres should probably be an option... (i.e. multi-tenant world?)
@@ -169,6 +179,9 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 
 		if err := r.createAzureFilesStoragePVC(ctx, pm); err != nil {
 			l.Error(err, "error creating Azure Files PVC")
+			status.SetReady(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
+			status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
+			_ = r.Status().Patch(ctx, pm, patchBase)
 			return ctrl.Result{}, err
 		}
 	}
@@ -177,18 +190,48 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 	res, err := r.ensureDeployedService(ctx, req, pm)
 	if err != nil {
 		l.Error(err, "error deploying service")
+		status.SetReady(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
+		status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
+		_ = r.Status().Patch(ctx, pm, patchBase)
 		return res, err
 	}
 
-	// TODO: should we watch for happy pods?
+	// Check deployment health
+	deploy := &v1.Deployment{}
+	if err := r.Get(ctx, client.ObjectKey{Name: pm.ComponentName(), Namespace: req.Namespace}, deploy); err != nil {
+		l.Error(err, "error fetching deployment for status")
+		status.SetReady(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, "Failed to fetch deployment")
+		status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
+		_ = r.Status().Patch(ctx, pm, patchBase)
+		return ctrl.Result{}, err
+	}
 
-	// set to ready if it is not set yet...
-	if !pm.Status.Ready {
-		pm.Status.Ready = true
-		if err := r.Status().Update(ctx, pm); err != nil {
-			l.Error(err, "Error setting ready status")
-			return ctrl.Result{}, err
-		}
+	desiredReplicas := int32(1)
+	if deploy.Spec.Replicas != nil {
+		desiredReplicas = *deploy.Spec.Replicas
+	}
+
+	if deploy.Status.ReadyReplicas >= desiredReplicas {
+		status.SetReady(&pm.Status.Conditions, pm.Generation, metav1.ConditionTrue, status.ReasonDeploymentReady, "Deployment has minimum availability")
+	} else {
+		status.SetReady(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonDeploymentNotReady,
+			fmt.Sprintf("Deployment has %d/%d ready replicas", deploy.Status.ReadyReplicas, desiredReplicas))
+	}
+	status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconciling, "Reconciliation complete")
+
+	// Extract version from image (note: PM doesn't have a Spec.Image field typically, so this may need adjustment)
+	// TODO: Verify if PackageManager has an Image field
+	if pm.Spec.Image != "" {
+		pm.Status.Version = status.ExtractVersion(pm.Spec.Image)
+	}
+
+	// Derive Ready bool from condition
+	pm.Status.Ready = status.IsReady(pm.Status.Conditions)
+
+	// Patch status
+	if err := r.Status().Patch(ctx, pm, patchBase); err != nil {
+		l.Error(err, "Error patching status")
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
