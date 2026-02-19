@@ -144,9 +144,8 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 	}
 	status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconciling, "Reconciliation complete")
 
-	// Chronicle typically doesn't have a tagged version, but we include the field for consistency
-	// If Chronicle gets a Spec.Image field in the future, extract version from it
-	c.Status.Version = ""
+	// Extract version from image if available
+	c.Status.Version = status.ExtractVersion(c.Spec.Image)
 
 	// Derive Ready bool from condition
 	c.Status.Ready = status.IsReady(c.Status.Conditions)

@@ -437,6 +437,9 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	if err := r.Get(ctx, key, connect); err == nil {
 		site.Status.ConnectReady = status.IsReady(connect.Status.Conditions)
 	} else {
+		if !apierrors.IsNotFound(err) {
+			l.Error(err, "error fetching Connect for status aggregation")
+		}
 		site.Status.ConnectReady = false
 	}
 
@@ -445,6 +448,9 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	if err := r.Get(ctx, key, workbench); err == nil {
 		site.Status.WorkbenchReady = status.IsReady(workbench.Status.Conditions)
 	} else {
+		if !apierrors.IsNotFound(err) {
+			l.Error(err, "error fetching Workbench for status aggregation")
+		}
 		site.Status.WorkbenchReady = false
 	}
 
@@ -453,6 +459,9 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	if err := r.Get(ctx, key, pm); err == nil {
 		site.Status.PackageManagerReady = status.IsReady(pm.Status.Conditions)
 	} else {
+		if !apierrors.IsNotFound(err) {
+			l.Error(err, "error fetching PackageManager for status aggregation")
+		}
 		site.Status.PackageManagerReady = false
 	}
 
@@ -461,6 +470,9 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	if err := r.Get(ctx, key, chronicle); err == nil {
 		site.Status.ChronicleReady = status.IsReady(chronicle.Status.Conditions)
 	} else {
+		if !apierrors.IsNotFound(err) {
+			l.Error(err, "error fetching Chronicle for status aggregation")
+		}
 		site.Status.ChronicleReady = false
 	}
 
@@ -469,6 +481,9 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	if err := r.Get(ctx, key, flightdeck); err == nil {
 		site.Status.FlightdeckReady = status.IsReady(flightdeck.Status.Conditions)
 	} else {
+		if !apierrors.IsNotFound(err) {
+			l.Error(err, "error fetching Flightdeck for status aggregation")
+		}
 		site.Status.FlightdeckReady = false
 	}
 }

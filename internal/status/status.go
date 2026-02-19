@@ -53,11 +53,12 @@ func IsReady(conditions []metav1.Condition) bool {
 
 // ExtractVersion extracts a version string from a container image reference.
 // For example, "ghcr.io/rstudio/rstudio-connect:2024.06.0" returns "2024.06.0".
+// Also handles digest references: "image:2024.06.0@sha256:abc" returns "2024.06.0".
 // Returns empty string if no tag is found.
 func ExtractVersion(image string) string {
-	// Handle digest references (image@sha256:...)
+	// Strip digest suffix if present (image:tag@sha256:...)
 	if idx := strings.LastIndex(image, "@"); idx != -1 {
-		return ""
+		image = image[:idx]
 	}
 	if idx := strings.LastIndex(image, ":"); idx != -1 {
 		tag := image[idx+1:]
