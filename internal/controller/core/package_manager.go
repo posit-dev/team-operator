@@ -686,9 +686,8 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 	}
 
 	// POD DISRUPTION BUDGET
-	if err := CreateOrUpdateDisruptionBudget(
-		ctx, req, r.Client, r.Scheme, pm, pm, ptr.To(product.DetermineMinAvailableReplicas(pm.Spec.Replicas)), nil,
-	); err != nil {
+	pdb := product.DefineDisruptionBudget(pm, req, ptr.To(product.DetermineMinAvailableReplicas(pm.Spec.Replicas)), nil)
+	if err := CreateOrUpdateDisruptionBudget(ctx, r.Client, r.Scheme, pm, pdb); err != nil {
 		return ctrl.Result{}, err
 	}
 

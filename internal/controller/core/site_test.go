@@ -9,11 +9,13 @@ import (
 	"github.com/posit-dev/team-operator/api/keycloak/v2alpha1"
 	"github.com/posit-dev/team-operator/api/localtest"
 	"github.com/posit-dev/team-operator/api/product"
+	"github.com/rstudio/goex/ptr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/traefik/traefik/v3/pkg/provider/kubernetes/crd/traefikio/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -343,6 +345,13 @@ func getMiddleware(t *testing.T, cli client.Client, siteNamespace, siteName stri
 	return middleware
 }
 
+func getPodDisruptionBudget(t *testing.T, cli client.Client, namespace, name string) *policyv1.PodDisruptionBudget {
+	pdb := &policyv1.PodDisruptionBudget{}
+	err := cli.Get(context.TODO(), client.ObjectKey{Name: name, Namespace: namespace}, pdb, &client.GetOptions{})
+	assert.Nil(t, err)
+	return pdb
+}
+
 func TestSiteReconcileWithTolerations(t *testing.T) {
 	siteName := "tolerations-site"
 	siteNamespace := "posit-team"
@@ -400,6 +409,80 @@ func TestSiteReconcileWithSharedDirectory(t *testing.T) {
 	assert.Equal(t, siteNamespace, pvc.Namespace)
 	assert.Equal(t, corev1.PersistentVolumeAccessMode("ReadWriteMany"), pvc.Spec.AccessModes[0])
 	assert.Equal(t, resource.MustParse("10Gi"), pvc.Spec.Resources.Requests[corev1.ResourceStorage])
+}
+
+func TestSiteAuditedJobsConfiguration(t *testing.T) {
+	siteName := "audited-jobs-config-site"
+	siteNamespace := "posit-team"
+
+	// Helper function to create int pointers
+	intPtr := func(i int) *int {
+		return &i
+	}
+
+	site := defaultSite(siteName)
+	site.Spec.Workbench.AuditedJobs = &v1beta1.AuditedJobsConfig{
+		Enabled:            intPtr(1),
+		StoragePath:        "/mnt/shared-storage/audited-jobs",
+		PrivateKeyPath:     "/etc/rstudio/audited-jobs-private-key.pem",
+		PublicKeyPaths:     "/etc/rstudio/audited-jobs-public-key.pem",
+		LogLimit:           intPtr(5000),
+		DeletionExpiry:     intPtr(60),
+		VanillaRequired:    intPtr(1),
+		DetailsEnvironment: intPtr(1),
+		DetailsUserDefined: intPtr(0),
+	}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+
+	// Verify that the Audited Jobs configuration was applied to the RServer config
+	assert.NotNil(t, testWorkbench.Spec.Config.RServer)
+	assert.Equal(t, intPtr(1), testWorkbench.Spec.Config.RServer.AuditedJobs)
+	assert.Equal(t, "/mnt/shared-storage/audited-jobs", testWorkbench.Spec.Config.RServer.AuditedJobsStoragePath)
+	assert.Equal(t, "/etc/rstudio/audited-jobs-private-key.pem", testWorkbench.Spec.Config.RServer.AuditedJobsPrivateKeyPath)
+	assert.Equal(t, "/etc/rstudio/audited-jobs-public-key.pem", testWorkbench.Spec.Config.RServer.AuditedJobsPublicKeyPaths)
+	assert.Equal(t, intPtr(5000), testWorkbench.Spec.Config.RServer.AuditedJobsLogLimit)
+	assert.Equal(t, intPtr(60), testWorkbench.Spec.Config.RServer.AuditedJobsDeletionExpiry)
+	assert.Equal(t, intPtr(1), testWorkbench.Spec.Config.RServer.AuditedJobsVanillaRequired)
+	assert.Equal(t, intPtr(1), testWorkbench.Spec.Config.RServer.AuditedJobsDetailsEnvironment)
+	assert.Equal(t, intPtr(0), testWorkbench.Spec.Config.RServer.AuditedJobsDetailsUserDefined)
+}
+
+func TestSiteAuditedJobsPartialConfiguration(t *testing.T) {
+	siteName := "audited-jobs-partial-site"
+	siteNamespace := "posit-team"
+
+	intPtr := func(i int) *int {
+		return &i
+	}
+
+	site := defaultSite(siteName)
+	site.Spec.Workbench.AuditedJobs = &v1beta1.AuditedJobsConfig{
+		Enabled:     intPtr(1),
+		StoragePath: "/mnt/shared-storage/audited-jobs",
+	}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+
+	assert.NotNil(t, testWorkbench.Spec.Config.RServer)
+	// Set fields should be propagated
+	assert.Equal(t, intPtr(1), testWorkbench.Spec.Config.RServer.AuditedJobs)
+	assert.Equal(t, "/mnt/shared-storage/audited-jobs", testWorkbench.Spec.Config.RServer.AuditedJobsStoragePath)
+	// Unset string fields remain empty string
+	assert.Equal(t, "", testWorkbench.Spec.Config.RServer.AuditedJobsPrivateKeyPath)
+	assert.Equal(t, "", testWorkbench.Spec.Config.RServer.AuditedJobsPublicKeyPaths)
+	// Unset *int fields should be nil
+	assert.Nil(t, testWorkbench.Spec.Config.RServer.AuditedJobsLogLimit)
+	assert.Nil(t, testWorkbench.Spec.Config.RServer.AuditedJobsDeletionExpiry)
+	assert.Nil(t, testWorkbench.Spec.Config.RServer.AuditedJobsVanillaRequired)
+	assert.Nil(t, testWorkbench.Spec.Config.RServer.AuditedJobsDetailsEnvironment)
+	assert.Nil(t, testWorkbench.Spec.Config.RServer.AuditedJobsDetailsUserDefined)
 }
 
 func TestSiteJupyterConfiguration(t *testing.T) {
@@ -938,6 +1021,32 @@ func TestSiteReconciler_WorkbenchSessionImagePullPolicyNever(t *testing.T) {
 
 	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
 	assert.Equal(t, corev1.PullNever, testWorkbench.Spec.SessionConfig.Pod.ImagePullPolicy)
+}
+
+func TestSiteReconciler_RegisterOnFirstLoginPropagation(t *testing.T) {
+	siteName := "register-on-first-login"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Connect.RegisterOnFirstLogin = ptr.To(true)
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testConnect := getConnect(t, cli, siteNamespace, siteName)
+	require.NotNil(t, testConnect.Spec.RegisterOnFirstLogin)
+	assert.True(t, *testConnect.Spec.RegisterOnFirstLogin)
+}
+
+func TestSiteReconciler_RegisterOnFirstLoginDefaultNil(t *testing.T) {
+	siteName := "register-on-first-login-default"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testConnect := getConnect(t, cli, siteNamespace, siteName)
+	assert.Nil(t, testConnect.Spec.RegisterOnFirstLogin)
 }
 
 func TestSiteReconciler_BaseDomainNotSet(t *testing.T) {
