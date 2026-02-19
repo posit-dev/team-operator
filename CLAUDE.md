@@ -83,6 +83,16 @@ git worktree prune
 - **NEVER** put worktrees inside the repo directory — always use `../../.worktrees/team-operator-<name>`
 - Branch names: kebab-case, no slashes, no usernames (slashes break worktree directory paths)
 
+## roborev Code Review
+
+This repo uses [roborev](https://www.roborev.io/) for AI-assisted code review. If you haven't already, install the commit hook:
+
+```bash
+roborev install-hook
+```
+
+This enables automatic review submissions after each commit.
+
 ## Contributing
 
 - **PR titles must follow conventional commit format** (`feat:`, `fix:`, `docs:`, etc.) - this is enforced by CI
