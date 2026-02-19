@@ -35,84 +35,30 @@ func TestPackageManagerConfig_GenerateGcfg(t *testing.T) {
 	require.Contains(t, str, "/another/path")
 }
 
-func TestPackageManagerConfig_GenerateGcfg_WithAdditional(t *testing.T) {
-	// Test passthrough-only: Additional sets a value in a new section
-	pmCfg := PackageManagerConfig{
-		Additional: map[string]string{
-			"NewSection.SomeKey": "some-value",
-		},
-	}
-	str, err := pmCfg.GenerateGcfg()
-	require.Nil(t, err)
-	require.Contains(t, str, "[NewSection]")
-	require.Contains(t, str, "SomeKey = some-value")
-
-	// Test passthrough override: typed field + Additional for same key
-	pmCfg = PackageManagerConfig{
+func TestPackageManagerConfig_AdditionalConfig(t *testing.T) {
+	// Test basic string append
+	cfg := PackageManagerConfig{
 		Server: &PackageManagerServerConfig{
-			LauncherDir: "/typed/path",
+			Address: "some-address.com",
 		},
-		Additional: map[string]string{
-			"Server.LauncherDir": "/passthrough/path",
-		},
+		AdditionalConfig: "\n[NewSection]\nNewKey = custom-value\n",
 	}
-	str, err = pmCfg.GenerateGcfg()
-	require.Nil(t, err)
-	require.Contains(t, str, "LauncherDir = /passthrough/path")
-	require.NotContains(t, str, "/typed/path") // passthrough wins
-
-	// Test empty Additional map
-	pmCfg = PackageManagerConfig{
-		Server: &PackageManagerServerConfig{
-			LauncherDir: "/test/path",
-		},
-		Additional: map[string]string{},
-	}
-	str, err = pmCfg.GenerateGcfg()
-	require.Nil(t, err)
-	require.Contains(t, str, "LauncherDir = /test/path")
-
-	// Test Additional adding to existing section
-	pmCfg = PackageManagerConfig{
-		Server: &PackageManagerServerConfig{
-			LauncherDir: "/test/path",
-		},
-		Additional: map[string]string{
-			"Server.DataDir": "/data/dir",
-		},
-	}
-	str, err = pmCfg.GenerateGcfg()
+	str, err := cfg.GenerateGcfg()
 	require.Nil(t, err)
 	require.Contains(t, str, "[Server]")
-	require.Contains(t, str, "LauncherDir = /test/path")
-	require.Contains(t, str, "DataDir = /data/dir")
+	require.Contains(t, str, "Address = some-address.com")
+	require.Contains(t, str, "[NewSection]")
+	require.Contains(t, str, "NewKey = custom-value")
+}
 
-	// Test malformed key (no ".") - should be skipped gracefully
-	pmCfg = PackageManagerConfig{
+func TestPackageManagerConfig_AdditionalConfigEmpty(t *testing.T) {
+	cfg := PackageManagerConfig{
 		Server: &PackageManagerServerConfig{
-			LauncherDir: "/test/path",
+			Address: "some-address.com",
 		},
-		Additional: map[string]string{
-			"InvalidKey": "some-value",
-		},
+		AdditionalConfig: "",
 	}
-	str, err = pmCfg.GenerateGcfg()
+	str, err := cfg.GenerateGcfg()
 	require.Nil(t, err)
-	require.NotContains(t, str, "InvalidKey")
-	require.Contains(t, str, "LauncherDir = /test/path")
-
-	// Test passthrough with multiple values
-	pmCfg = PackageManagerConfig{
-		Server: &PackageManagerServerConfig{
-			RVersion: []string{"/opt/R/4.2.0", "/opt/R/4.3.0"},
-		},
-		Additional: map[string]string{
-			"Server.RVersion": "/opt/R/custom",
-		},
-	}
-	str, err = pmCfg.GenerateGcfg()
-	require.Nil(t, err)
-	require.Contains(t, str, "RVersion = /opt/R/custom")
-	require.NotContains(t, str, "/opt/R/4.2.0")
-	require.NotContains(t, str, "/opt/R/4.3.0")
+	require.Contains(t, str, "Address = some-address.com")
 }

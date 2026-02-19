@@ -211,184 +211,46 @@ func TestConnectConfig_CustomScope(t *testing.T) {
 	require.NotContains(t, str, "CustomScope")
 }
 
-func TestConnectConfig_AdditionalPassthrough(t *testing.T) {
-	// Test passthrough-only values (new section and key via Additional)
+func TestConnectConfig_AdditionalConfig(t *testing.T) {
+	// Test basic string append
 	cfg := ConnectConfig{
-		Additional: map[string]string{
-			"NewSection.NewKey":        "custom-value",
-			"Server.CustomServerField": "server-custom",
-			"Database.Timeout":         "30",
+		Server: &ConnectServerConfig{
+			Address: "some-address.com",
 		},
+		AdditionalConfig: "\n[NewSection]\nNewKey = custom-value\n",
 	}
 	str, err := cfg.GenerateGcfg()
 	require.Nil(t, err)
-	t.Logf("Generated gcfg with passthrough-only:\n%s", str)
-
-	// Check that passthrough values are present
+	require.Contains(t, str, "[Server]")
+	require.Contains(t, str, "Address = some-address.com")
 	require.Contains(t, str, "[NewSection]")
 	require.Contains(t, str, "NewKey = custom-value")
-	require.Contains(t, str, "[Server]")
-	require.Contains(t, str, "CustomServerField = server-custom")
-	require.Contains(t, str, "[Database]")
-	require.Contains(t, str, "Timeout = 30")
 }
 
-func TestConnectConfig_AdditionalOverride(t *testing.T) {
-	// Test override behavior (typed field + same key in Additional, passthrough wins)
+func TestConnectConfig_AdditionalConfigOverride(t *testing.T) {
+	// gcfg last-write-wins: appended scalar overrides typed field
 	cfg := ConnectConfig{
 		Server: &ConnectServerConfig{
-			Address:                "typed-address.com",
-			HideEmailAddresses:     false,
-			DefaultContentListView: ContentListViewExpanded,
+			Address: "typed-address.com",
 		},
-		Additional: map[string]string{
-			"Server.Address":                "passthrough-address.com", // Should override typed
-			"Server.HideEmailAddresses":     "true",                    // Should override typed
-			"Server.DefaultContentListView": "card",                    // Should override typed
-			"Server.CustomField":            "custom-value",            // New field
-		},
+		AdditionalConfig: "\n[Server]\nAddress = passthrough-address.com\n",
 	}
 	str, err := cfg.GenerateGcfg()
 	require.Nil(t, err)
-	t.Logf("Generated gcfg with overrides:\n%s", str)
-
-	// Check that passthrough values override typed values
-	require.Contains(t, str, "[Server]")
+	// Both values appear in the output; gcfg uses last occurrence
+	require.Contains(t, str, "Address = typed-address.com")
 	require.Contains(t, str, "Address = passthrough-address.com")
-	require.Contains(t, str, "HideEmailAddresses = true")
-	require.Contains(t, str, "DefaultContentListView = card")
-	require.Contains(t, str, "CustomField = custom-value")
-
-	// Original typed values should not be present
-	require.NotContains(t, str, "Address = typed-address.com")
-	require.NotContains(t, str, "HideEmailAddresses = false")
-	require.NotContains(t, str, "DefaultContentListView = expanded")
 }
 
-func TestConnectConfig_AdditionalEmpty(t *testing.T) {
-	// Test empty Additional map (no effect on output)
+func TestConnectConfig_AdditionalConfigEmpty(t *testing.T) {
+	// Empty string has no effect
 	cfg := ConnectConfig{
 		Server: &ConnectServerConfig{
 			Address: "some-address.com",
 		},
-		Additional: map[string]string{}, // Empty map
+		AdditionalConfig: "",
 	}
 	str, err := cfg.GenerateGcfg()
 	require.Nil(t, err)
-	t.Logf("Generated gcfg with empty Additional:\n%s", str)
-
-	// Should contain normal typed fields
-	require.Contains(t, str, "[Server]")
 	require.Contains(t, str, "Address = some-address.com")
-
-	// Should not have any extra sections or fields
-	require.Equal(t, 1, countOccurrences(str, "[Server]"))
-}
-
-func TestConnectConfig_AdditionalNil(t *testing.T) {
-	// Test nil Additional map (no effect on output)
-	cfg := ConnectConfig{
-		Server: &ConnectServerConfig{
-			Address: "some-address.com",
-		},
-		Additional: nil, // Nil map
-	}
-	str, err := cfg.GenerateGcfg()
-	require.Nil(t, err)
-
-	// Should contain normal typed fields
-	require.Contains(t, str, "[Server]")
-	require.Contains(t, str, "Address = some-address.com")
-}
-
-func TestConnectConfig_AdditionalMalformedKey(t *testing.T) {
-	// Test malformed key in Additional (no "." separator — should be skipped)
-	cfg := ConnectConfig{
-		Additional: map[string]string{
-			"MalformedKey":     "should-be-skipped", // No section separator
-			"Server.ValidKey":  "should-be-included",
-			"AnotherBadKey":    "also-skipped",
-			"Good.Section.Key": "multi-dot-ok", // Multiple dots are OK (first is section separator)
-		},
-	}
-	str, err := cfg.GenerateGcfg()
-	require.Nil(t, err)
-	t.Logf("Generated gcfg with malformed keys:\n%s", str)
-
-	// Valid keys should be present
-	require.Contains(t, str, "[Server]")
-	require.Contains(t, str, "ValidKey = should-be-included")
-	require.Contains(t, str, "[Good]")
-	require.Contains(t, str, "Section.Key = multi-dot-ok")
-
-	// Malformed keys should be skipped
-	require.NotContains(t, str, "MalformedKey")
-	require.NotContains(t, str, "should-be-skipped")
-	require.NotContains(t, str, "AnotherBadKey")
-	require.NotContains(t, str, "also-skipped")
-}
-
-func TestConnectConfig_AdditionalComplexScenario(t *testing.T) {
-	// Test complex scenario with multiple sections, overrides, and new fields
-	cfg := ConnectConfig{
-		Server: &ConnectServerConfig{
-			Address: "original.com",
-		},
-		Http: &ConnectHttpConfig{
-			Listen: ":3939",
-		},
-		Applications: &ConnectApplicationsConfig{
-			ScheduleConcurrency: 2,
-		},
-		Additional: map[string]string{
-			// Override existing fields
-			"Server.Address":                   "override.com",
-			"Http.Listen":                      ":8080",
-			"Applications.ScheduleConcurrency": "10",
-
-			// Add new fields to existing sections
-			"Server.NewServerField": "server-new",
-			"Http.Timeout":          "60",
-
-			// Add entirely new sections
-			"CustomSection.Field1":   "value1",
-			"CustomSection.Field2":   "value2",
-			"AnotherSection.Setting": "some-setting",
-		},
-	}
-	str, err := cfg.GenerateGcfg()
-	require.Nil(t, err)
-	t.Logf("Generated complex gcfg:\n%s", str)
-
-	// Check overrides
-	require.Contains(t, str, "Address = override.com")
-	require.Contains(t, str, "Listen = :8080")
-	require.Contains(t, str, "ScheduleConcurrency = 10")
-
-	// Check new fields in existing sections
-	require.Contains(t, str, "NewServerField = server-new")
-	require.Contains(t, str, "Timeout = 60")
-
-	// Check new sections
-	require.Contains(t, str, "[CustomSection]")
-	require.Contains(t, str, "Field1 = value1")
-	require.Contains(t, str, "Field2 = value2")
-	require.Contains(t, str, "[AnotherSection]")
-	require.Contains(t, str, "Setting = some-setting")
-
-	// Original values should not be present (they were overridden)
-	require.NotContains(t, str, "Address = original.com")
-	require.NotContains(t, str, "Listen = :3939")
-	require.NotContains(t, str, "ScheduleConcurrency = 2")
-}
-
-// Helper function to count occurrences of a substring
-func countOccurrences(str, substr string) int {
-	count := 0
-	for i := 0; i+len(substr) <= len(str); i++ {
-		if str[i:i+len(substr)] == substr {
-			count++
-		}
-	}
-	return count
 }

@@ -115,9 +115,7 @@ func (r *SiteReconciler) reconcilePackageManager(
 		}
 
 		// Propagate additional config from Site to PackageManager
-		if site.Spec.PackageManager.AdditionalConfig != nil {
-			pm.Spec.Config.Additional = site.Spec.PackageManager.AdditionalConfig
-		}
+		pm.Spec.Config.AdditionalConfig = site.Spec.PackageManager.AdditionalConfig
 
 		return nil
 	}); err != nil {

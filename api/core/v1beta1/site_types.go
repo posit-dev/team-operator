@@ -222,11 +222,9 @@ type InternalPackageManagerSpec struct {
 	// +optional
 	AzureFiles *AzureFilesConfig `json:"azureFiles,omitempty"`
 
-	// AdditionalConfig allows setting arbitrary gcfg config values not covered by typed fields.
-	// Keys should be in "Section.Key" format (e.g., "Server.DataDir", "Storage.Default").
-	// Values set here take precedence over typed fields if both specify the same key.
+	// AdditionalConfig allows appending arbitrary gcfg config content to the generated config.
 	// +optional
-	AdditionalConfig map[string]string `json:"additionalConfig,omitempty"`
+	AdditionalConfig string `json:"additionalConfig,omitempty"`
 }
 
 type InternalConnectSpec struct {
@@ -278,11 +276,9 @@ type InternalConnectSpec struct {
 	// +optional
 	AdditionalRuntimeImages []ConnectRuntimeImageSpec `json:"additionalRuntimeImages,omitempty"`
 
-	// AdditionalConfig allows setting arbitrary gcfg config values not covered by typed fields.
-	// Keys should be in "Section.Key" format (e.g., "Server.DataDir", "Scheduler.MaxCPURequest").
-	// Values set here take precedence over typed fields if both specify the same key.
+	// AdditionalConfig allows appending arbitrary gcfg config content to the generated config.
 	// +optional
-	AdditionalConfig map[string]string `json:"additionalConfig,omitempty"`
+	AdditionalConfig string `json:"additionalConfig,omitempty"`
 }
 
 type DatabaseSettings struct {

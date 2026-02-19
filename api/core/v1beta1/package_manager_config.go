@@ -3,7 +3,6 @@ package v1beta1
 import (
 	"fmt"
 	"reflect"
-	"sort"
 	"strings"
 )
 
@@ -20,11 +19,11 @@ type PackageManagerConfig struct {
 	Cran      *PackageManagerCRANConfig      `json:"CRAN,omitempty"`
 	Debug     *PackageManagerDebugConfig     `json:"Debug,omitempty"`
 
-	// Additional allows setting arbitrary gcfg config values not covered by typed fields.
-	// Keys should be in "Section.Key" format (e.g., "Server.DataDir", "Storage.Default").
-	// Values set here take precedence over typed fields if both specify the same key.
+	// AdditionalConfig allows appending arbitrary gcfg config content not covered by typed fields.
+	// The value is appended verbatim after the generated config. gcfg parsing naturally handles
+	// conflicts: list values are combined, scalar values use the last occurrence.
 	// +optional
-	Additional map[string]string `json:"additional,omitempty"`
+	AdditionalConfig string `json:"additionalConfig,omitempty"`
 }
 
 func (configStruct *PackageManagerConfig) GenerateGcfg() (string, error) {
@@ -49,8 +48,8 @@ func (configStruct *PackageManagerConfig) GenerateGcfg() (string, error) {
 		fieldName := configStructVals.Type().Field(i).Name
 		fieldValue := configStructVals.Field(i)
 
-		// Skip the Additional map — we handle it after typed fields
-		if fieldName == "Additional" {
+		// Skip the AdditionalConfig string — we handle it at the end
+		if fieldName == "AdditionalConfig" {
 			continue
 		}
 
@@ -94,49 +93,6 @@ func (configStruct *PackageManagerConfig) GenerateGcfg() (string, error) {
 		sections = append(sections, entry)
 	}
 
-	// Apply Additional (passthrough) overrides
-	if configStruct.Additional != nil {
-		// Sort keys for deterministic output
-		additionalKeys := make([]string, 0, len(configStruct.Additional))
-		for key := range configStruct.Additional {
-			additionalKeys = append(additionalKeys, key)
-		}
-		sort.Strings(additionalKeys)
-
-		for _, key := range additionalKeys {
-			value := configStruct.Additional[key]
-			parts := strings.SplitN(key, ".", 2)
-			if len(parts) != 2 {
-				continue // skip malformed keys
-			}
-			sectionName := parts[0]
-			keyName := parts[1]
-
-			if idx, ok := sectionIndex[sectionName]; ok {
-				// Override or add to existing section
-				if _, exists := sections[idx].values[keyName]; !exists {
-					// Check if it's overriding a slice key
-					if _, sliceExists := sections[idx].slices[keyName]; !sliceExists {
-						sections[idx].keys = append(sections[idx].keys, keyName)
-					}
-				}
-				// Remove from slices if it was a multi-value key (passthrough replaces it)
-				delete(sections[idx].slices, keyName)
-				sections[idx].values[keyName] = value
-			} else {
-				// Create new section
-				entry := sectionEntry{
-					name:   sectionName,
-					keys:   []string{keyName},
-					values: map[string]string{keyName: value},
-					slices: map[string][]string{},
-				}
-				sectionIndex[sectionName] = len(sections)
-				sections = append(sections, entry)
-			}
-		}
-	}
-
 	// Render sections to gcfg format
 	for _, section := range sections {
 		builder.WriteString("\n[" + section.name + "]\n")
@@ -149,6 +105,10 @@ func (configStruct *PackageManagerConfig) GenerateGcfg() (string, error) {
 				builder.WriteString(key + " = " + val + "\n")
 			}
 		}
+	}
+
+	if configStruct.AdditionalConfig != "" {
+		builder.WriteString(configStruct.AdditionalConfig)
 	}
 
 	return builder.String(), nil
