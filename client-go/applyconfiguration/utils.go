@@ -49,6 +49,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &corev1beta1.ChronicleSpecApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ChronicleStatus"):
 		return &corev1beta1.ChronicleStatusApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("CommonProductStatus"):
+		return &corev1beta1.CommonProductStatusApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("Connect"):
 		return &corev1beta1.ConnectApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ConnectApplicationsConfig"):

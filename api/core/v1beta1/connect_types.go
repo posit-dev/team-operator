@@ -150,13 +150,17 @@ type ConnectSpec struct {
 
 // ConnectStatus defines the observed state of Connect
 type ConnectStatus struct {
-	KeySecretRef corev1.SecretReference `json:"keySecretRef,omitempty"`
-	Ready        bool                   `json:"ready"`
+	CommonProductStatus `json:",inline"`
+	KeySecretRef        corev1.SecretReference `json:"keySecretRef,omitempty"`
+	Ready               bool                   `json:"ready"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:shortName={con,cons},path=connects
+//+kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+//+kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.version"
+//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 //+genclient
 //+k8s:openapi-gen=true
 
