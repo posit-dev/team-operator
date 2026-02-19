@@ -177,6 +177,63 @@ func TestWorkbenchConfig_GenerateConfigmap(t *testing.T) {
 	require.Contains(t, res["logging.conf"], "[*]\nlog-level")
 }
 
+func TestWorkbenchConfig_AuditedJobs(t *testing.T) {
+	intPtr := func(i int) *int { return &i }
+	wb := WorkbenchConfig{
+		WorkbenchIniConfig: WorkbenchIniConfig{
+			RServer: &WorkbenchRServerConfig{
+				AuditedJobs:                   intPtr(1),
+				AuditedJobsStoragePath:        "/mnt/shared-storage/audited-jobs",
+				AuditedJobsPrivateKeyPath:     "/etc/rstudio/audited-jobs-private-key.pem",
+				AuditedJobsPublicKeyPaths:     "/etc/rstudio/audited-jobs-public-key.pem",
+				AuditedJobsLogLimit:           intPtr(5000),
+				AuditedJobsDeletionExpiry:     intPtr(60),
+				AuditedJobsVanillaRequired:    intPtr(1),
+				AuditedJobsDetailsEnvironment: intPtr(1),
+				AuditedJobsDetailsUserDefined: intPtr(0),
+			},
+		},
+	}
+
+	res, err := wb.GenerateConfigmap()
+	require.Nil(t, err)
+	require.Contains(t, res["rserver.conf"], "audited-jobs=1\n")
+	require.Contains(t, res["rserver.conf"], "audited-jobs-storage-path=/mnt/shared-storage/audited-jobs\n")
+	require.Contains(t, res["rserver.conf"], "audited-jobs-private-key-path=/etc/rstudio/audited-jobs-private-key.pem\n")
+	require.Contains(t, res["rserver.conf"], "audited-jobs-public-key-paths=/etc/rstudio/audited-jobs-public-key.pem\n")
+	require.Contains(t, res["rserver.conf"], "audited-jobs-log-limit=5000\n")
+	require.Contains(t, res["rserver.conf"], "audited-jobs-deletion-expiry=60\n")
+	require.Contains(t, res["rserver.conf"], "audited-jobs-vanilla-required=1\n")
+	require.Contains(t, res["rserver.conf"], "audited-jobs-details-environment=1\n")
+	require.Contains(t, res["rserver.conf"], "audited-jobs-details-user-defined=0\n")
+}
+
+func TestWorkbenchConfig_AuditedJobsPartial(t *testing.T) {
+	intPtr := func(i int) *int { return &i }
+	wb := WorkbenchConfig{
+		WorkbenchIniConfig: WorkbenchIniConfig{
+			RServer: &WorkbenchRServerConfig{
+				AuditedJobs:            intPtr(1),
+				AuditedJobsStoragePath: "/mnt/shared-storage/audited-jobs",
+			},
+		},
+	}
+
+	res, err := wb.GenerateConfigmap()
+	require.Nil(t, err)
+	require.Contains(t, res["rserver.conf"], "audited-jobs=1\n")
+	require.Contains(t, res["rserver.conf"], "audited-jobs-storage-path=/mnt/shared-storage/audited-jobs\n")
+	// Nil *int fields should NOT appear in the config (letting product use its defaults)
+	require.NotContains(t, res["rserver.conf"], "audited-jobs-log-limit")
+	require.NotContains(t, res["rserver.conf"], "audited-jobs-deletion-expiry")
+	require.NotContains(t, res["rserver.conf"], "audited-jobs-vanilla-required")
+	require.NotContains(t, res["rserver.conf"], "audited-jobs-details-environment")
+	require.NotContains(t, res["rserver.conf"], "audited-jobs-details-user-defined")
+	// Unset string fields should still be omitted
+	require.NotContains(t, res["rserver.conf"], "audited-jobs-private-key-path=")
+	require.NotContains(t, res["rserver.conf"], "audited-jobs-public-key-paths=")
+}
+
 func TestWorkbenchConfig_GenerateSupervisorConfigmap(t *testing.T) {
 	wbc := WorkbenchConfig{
 		SupervisordIniConfig: SupervisordIniConfig{

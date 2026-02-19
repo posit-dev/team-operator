@@ -397,6 +397,38 @@ func (r *SiteReconciler) reconcileWorkbench(
 		targetWorkbench.Spec.Config.WorkbenchIniConfig.Jupyter = site.Spec.Workbench.JupyterConfig
 	}
 
+	// Propagate audited jobs configuration
+	if site.Spec.Workbench.AuditedJobs != nil {
+		aj := site.Spec.Workbench.AuditedJobs
+		if aj.Enabled != nil {
+			targetWorkbench.Spec.Config.RServer.AuditedJobs = aj.Enabled
+		}
+		if aj.StoragePath != "" {
+			targetWorkbench.Spec.Config.RServer.AuditedJobsStoragePath = aj.StoragePath
+		}
+		if aj.PrivateKeyPath != "" {
+			targetWorkbench.Spec.Config.RServer.AuditedJobsPrivateKeyPath = aj.PrivateKeyPath
+		}
+		if aj.PublicKeyPaths != "" {
+			targetWorkbench.Spec.Config.RServer.AuditedJobsPublicKeyPaths = aj.PublicKeyPaths
+		}
+		if aj.LogLimit != nil {
+			targetWorkbench.Spec.Config.RServer.AuditedJobsLogLimit = aj.LogLimit
+		}
+		if aj.DeletionExpiry != nil {
+			targetWorkbench.Spec.Config.RServer.AuditedJobsDeletionExpiry = aj.DeletionExpiry
+		}
+		if aj.VanillaRequired != nil {
+			targetWorkbench.Spec.Config.RServer.AuditedJobsVanillaRequired = aj.VanillaRequired
+		}
+		if aj.DetailsEnvironment != nil {
+			targetWorkbench.Spec.Config.RServer.AuditedJobsDetailsEnvironment = aj.DetailsEnvironment
+		}
+		if aj.DetailsUserDefined != nil {
+			targetWorkbench.Spec.Config.RServer.AuditedJobsDetailsUserDefined = aj.DetailsUserDefined
+		}
+	}
+
 	// if landing/auth page is customized
 	if site.Spec.Workbench.AuthLoginPageHtml != "" {
 		targetWorkbench.Spec.AuthLoginPageHtml = site.Spec.Workbench.AuthLoginPageHtml
