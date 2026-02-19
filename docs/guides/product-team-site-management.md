@@ -243,8 +243,9 @@ spec:
 ```yaml
 spec:
   connect:
-    # Enable/disable Connect deployment (default: true)
-    # WARNING: Setting enabled: false permanently deletes all Connect data!
+    # Enable/disable Connect deployment (default: true).
+    # Setting enabled: false suspends Connect (preserves data).
+    # Use teardown: true to permanently delete all Connect data.
     # See the Connect Configuration Guide for details.
     enabled: true
 
