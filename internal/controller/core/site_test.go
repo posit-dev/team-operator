@@ -440,15 +440,15 @@ func TestSiteAuditedJobsConfiguration(t *testing.T) {
 
 	// Verify that the Audited Jobs configuration was applied to the RServer config
 	assert.NotNil(t, testWorkbench.Spec.Config.RServer)
-	assert.Equal(t, 1, testWorkbench.Spec.Config.RServer.AuditedJobs)
+	assert.Equal(t, intPtr(1), testWorkbench.Spec.Config.RServer.AuditedJobs)
 	assert.Equal(t, "/mnt/shared-storage/audited-jobs", testWorkbench.Spec.Config.RServer.AuditedJobsStoragePath)
 	assert.Equal(t, "/etc/rstudio/audited-jobs-private-key.pem", testWorkbench.Spec.Config.RServer.AuditedJobsPrivateKeyPath)
 	assert.Equal(t, "/etc/rstudio/audited-jobs-public-key.pem", testWorkbench.Spec.Config.RServer.AuditedJobsPublicKeyPaths)
-	assert.Equal(t, 5000, testWorkbench.Spec.Config.RServer.AuditedJobsLogLimit)
-	assert.Equal(t, 60, testWorkbench.Spec.Config.RServer.AuditedJobsDeletionExpiry)
-	assert.Equal(t, 1, testWorkbench.Spec.Config.RServer.AuditedJobsVanillaRequired)
-	assert.Equal(t, 1, testWorkbench.Spec.Config.RServer.AuditedJobsDetailsEnvironment)
-	assert.Equal(t, 0, testWorkbench.Spec.Config.RServer.AuditedJobsDetailsUserDefined)
+	assert.Equal(t, intPtr(5000), testWorkbench.Spec.Config.RServer.AuditedJobsLogLimit)
+	assert.Equal(t, intPtr(60), testWorkbench.Spec.Config.RServer.AuditedJobsDeletionExpiry)
+	assert.Equal(t, intPtr(1), testWorkbench.Spec.Config.RServer.AuditedJobsVanillaRequired)
+	assert.Equal(t, intPtr(1), testWorkbench.Spec.Config.RServer.AuditedJobsDetailsEnvironment)
+	assert.Equal(t, intPtr(0), testWorkbench.Spec.Config.RServer.AuditedJobsDetailsUserDefined)
 }
 
 func TestSiteAuditedJobsPartialConfiguration(t *testing.T) {
@@ -472,16 +472,17 @@ func TestSiteAuditedJobsPartialConfiguration(t *testing.T) {
 
 	assert.NotNil(t, testWorkbench.Spec.Config.RServer)
 	// Set fields should be propagated
-	assert.Equal(t, 1, testWorkbench.Spec.Config.RServer.AuditedJobs)
+	assert.Equal(t, intPtr(1), testWorkbench.Spec.Config.RServer.AuditedJobs)
 	assert.Equal(t, "/mnt/shared-storage/audited-jobs", testWorkbench.Spec.Config.RServer.AuditedJobsStoragePath)
-	// Unset fields should remain at zero values
+	// Unset string fields remain empty string
 	assert.Equal(t, "", testWorkbench.Spec.Config.RServer.AuditedJobsPrivateKeyPath)
 	assert.Equal(t, "", testWorkbench.Spec.Config.RServer.AuditedJobsPublicKeyPaths)
-	assert.Equal(t, 0, testWorkbench.Spec.Config.RServer.AuditedJobsLogLimit)
-	assert.Equal(t, 0, testWorkbench.Spec.Config.RServer.AuditedJobsDeletionExpiry)
-	assert.Equal(t, 0, testWorkbench.Spec.Config.RServer.AuditedJobsVanillaRequired)
-	assert.Equal(t, 0, testWorkbench.Spec.Config.RServer.AuditedJobsDetailsEnvironment)
-	assert.Equal(t, 0, testWorkbench.Spec.Config.RServer.AuditedJobsDetailsUserDefined)
+	// Unset *int fields should be nil
+	assert.Nil(t, testWorkbench.Spec.Config.RServer.AuditedJobsLogLimit)
+	assert.Nil(t, testWorkbench.Spec.Config.RServer.AuditedJobsDeletionExpiry)
+	assert.Nil(t, testWorkbench.Spec.Config.RServer.AuditedJobsVanillaRequired)
+	assert.Nil(t, testWorkbench.Spec.Config.RServer.AuditedJobsDetailsEnvironment)
+	assert.Nil(t, testWorkbench.Spec.Config.RServer.AuditedJobsDetailsUserDefined)
 }
 
 func TestSiteJupyterConfiguration(t *testing.T) {

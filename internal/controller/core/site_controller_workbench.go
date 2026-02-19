@@ -401,7 +401,7 @@ func (r *SiteReconciler) reconcileWorkbench(
 	if site.Spec.Workbench.AuditedJobs != nil {
 		aj := site.Spec.Workbench.AuditedJobs
 		if aj.Enabled != nil {
-			targetWorkbench.Spec.Config.RServer.AuditedJobs = *aj.Enabled
+			targetWorkbench.Spec.Config.RServer.AuditedJobs = aj.Enabled
 		}
 		if aj.StoragePath != "" {
 			targetWorkbench.Spec.Config.RServer.AuditedJobsStoragePath = aj.StoragePath
@@ -413,19 +413,19 @@ func (r *SiteReconciler) reconcileWorkbench(
 			targetWorkbench.Spec.Config.RServer.AuditedJobsPublicKeyPaths = aj.PublicKeyPaths
 		}
 		if aj.LogLimit != nil {
-			targetWorkbench.Spec.Config.RServer.AuditedJobsLogLimit = *aj.LogLimit
+			targetWorkbench.Spec.Config.RServer.AuditedJobsLogLimit = aj.LogLimit
 		}
 		if aj.DeletionExpiry != nil {
-			targetWorkbench.Spec.Config.RServer.AuditedJobsDeletionExpiry = *aj.DeletionExpiry
+			targetWorkbench.Spec.Config.RServer.AuditedJobsDeletionExpiry = aj.DeletionExpiry
 		}
 		if aj.VanillaRequired != nil {
-			targetWorkbench.Spec.Config.RServer.AuditedJobsVanillaRequired = *aj.VanillaRequired
+			targetWorkbench.Spec.Config.RServer.AuditedJobsVanillaRequired = aj.VanillaRequired
 		}
 		if aj.DetailsEnvironment != nil {
-			targetWorkbench.Spec.Config.RServer.AuditedJobsDetailsEnvironment = *aj.DetailsEnvironment
+			targetWorkbench.Spec.Config.RServer.AuditedJobsDetailsEnvironment = aj.DetailsEnvironment
 		}
 		if aj.DetailsUserDefined != nil {
-			targetWorkbench.Spec.Config.RServer.AuditedJobsDetailsUserDefined = *aj.DetailsUserDefined
+			targetWorkbench.Spec.Config.RServer.AuditedJobsDetailsUserDefined = aj.DetailsUserDefined
 		}
 	}
 

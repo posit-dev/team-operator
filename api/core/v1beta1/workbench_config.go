@@ -1033,15 +1033,15 @@ type WorkbenchRServerConfig struct {
 	ForceAdminUiEnabled                    int      `json:"force-admin-ui-enabled,omitempty"`
 	// Audited Jobs Configuration
 	// See: https://docs.posit.co/ide/server-pro/admin/auditing_and_monitoring/audited_workbench_jobs.html
-	AuditedJobs                   int    `json:"audited-jobs,omitempty"`
+	AuditedJobs                   *int   `json:"audited-jobs,omitempty"`
 	AuditedJobsStoragePath        string `json:"audited-jobs-storage-path,omitempty"`
 	AuditedJobsPrivateKeyPath     string `json:"audited-jobs-private-key-path,omitempty"`
 	AuditedJobsPublicKeyPaths     string `json:"audited-jobs-public-key-paths,omitempty"`
-	AuditedJobsLogLimit           int    `json:"audited-jobs-log-limit,omitempty"`
-	AuditedJobsDeletionExpiry     int    `json:"audited-jobs-deletion-expiry,omitempty"`
-	AuditedJobsVanillaRequired    int    `json:"audited-jobs-vanilla-required,omitempty"`
-	AuditedJobsDetailsEnvironment int    `json:"audited-jobs-details-environment,omitempty"`
-	AuditedJobsDetailsUserDefined int    `json:"audited-jobs-details-user-defined,omitempty"`
+	AuditedJobsLogLimit           *int   `json:"audited-jobs-log-limit,omitempty"`
+	AuditedJobsDeletionExpiry     *int   `json:"audited-jobs-deletion-expiry,omitempty"`
+	AuditedJobsVanillaRequired    *int   `json:"audited-jobs-vanilla-required,omitempty"`
+	AuditedJobsDetailsEnvironment *int   `json:"audited-jobs-details-environment,omitempty"`
+	AuditedJobsDetailsUserDefined *int   `json:"audited-jobs-details-user-defined,omitempty"`
 }
 
 type WorkbenchLauncherConfig struct {
