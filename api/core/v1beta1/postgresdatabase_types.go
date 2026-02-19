@@ -49,17 +49,7 @@ type PostgresDatabaseSpecTeardown struct {
 
 // PostgresDatabaseStatus defines the observed state of PostgresDatabase
 type PostgresDatabaseStatus struct {
-	// Conditions represent the latest available observations of the resource's current state.
-	// +optional
-	// +patchMergeKey=type
-	// +patchStrategy=merge
-	// +listType=map
-	// +listMapKey=type
-	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
-
-	// ObservedGeneration is the most recent generation observed for this resource.
-	// +optional
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+	CommonProductStatus `json:",inline"`
 }
 
 //+kubebuilder:object:root=true

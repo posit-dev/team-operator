@@ -12,8 +12,7 @@ import (
 // PostgresDatabaseStatusApplyConfiguration represents a declarative configuration of the PostgresDatabaseStatus type for use
 // with apply.
 type PostgresDatabaseStatusApplyConfiguration struct {
-	Conditions         []v1.ConditionApplyConfiguration `json:"conditions,omitempty"`
-	ObservedGeneration *int64                           `json:"observedGeneration,omitempty"`
+	CommonProductStatusApplyConfiguration `json:",inline"`
 }
 
 // PostgresDatabaseStatusApplyConfiguration constructs a declarative configuration of the PostgresDatabaseStatus type for use with
@@ -30,7 +29,7 @@ func (b *PostgresDatabaseStatusApplyConfiguration) WithConditions(values ...*v1.
 		if values[i] == nil {
 			panic("nil value passed to WithConditions")
 		}
-		b.Conditions = append(b.Conditions, *values[i])
+		b.CommonProductStatusApplyConfiguration.Conditions = append(b.CommonProductStatusApplyConfiguration.Conditions, *values[i])
 	}
 	return b
 }
@@ -39,6 +38,14 @@ func (b *PostgresDatabaseStatusApplyConfiguration) WithConditions(values ...*v1.
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ObservedGeneration field is set to the value of the last call.
 func (b *PostgresDatabaseStatusApplyConfiguration) WithObservedGeneration(value int64) *PostgresDatabaseStatusApplyConfiguration {
-	b.ObservedGeneration = &value
+	b.CommonProductStatusApplyConfiguration.ObservedGeneration = &value
+	return b
+}
+
+// WithVersion sets the Version field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Version field is set to the value of the last call.
+func (b *PostgresDatabaseStatusApplyConfiguration) WithVersion(value string) *PostgresDatabaseStatusApplyConfiguration {
+	b.CommonProductStatusApplyConfiguration.Version = &value
 	return b
 }

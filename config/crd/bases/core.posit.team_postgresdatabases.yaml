@@ -169,10 +169,14 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               observedGeneration:
-                description: ObservedGeneration is the most recent generation observed
-                  for this resource.
+                description: |-
+                  ObservedGeneration is the most recent generation observed for this resource.
+                  It corresponds to the resource's generation, which is updated on mutation by the API Server.
                 format: int64
                 type: integer
+              version:
+                description: Version is the version of the product image being deployed.
+                type: string
             type: object
         type: object
     served: true

@@ -127,7 +127,9 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 		l.Error(err, "error creating database", "database", pm.ComponentName())
 		status.SetReady(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
 		status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		_ = r.Status().Patch(ctx, pm, patchBase)
+		if patchErr := r.Status().Patch(ctx, pm, patchBase); patchErr != nil {
+			l.Error(patchErr, "Failed to patch error status")
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -140,7 +142,9 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 		l.Error(err, "error ensuring that provisioning key exists")
 		status.SetReady(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
 		status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		_ = r.Status().Patch(ctx, pm, patchBase)
+		if patchErr := r.Status().Patch(ctx, pm, patchBase); patchErr != nil {
+			l.Error(patchErr, "Failed to patch error status")
+		}
 		return ctrl.Result{}, err
 	} else {
 		l.Info("successfully created or retrieved provisioning key value")
@@ -181,7 +185,9 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 			l.Error(err, "error creating Azure Files PVC")
 			status.SetReady(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
 			status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-			_ = r.Status().Patch(ctx, pm, patchBase)
+			if patchErr := r.Status().Patch(ctx, pm, patchBase); patchErr != nil {
+				l.Error(patchErr, "Failed to patch error status")
+			}
 			return ctrl.Result{}, err
 		}
 	}
@@ -192,7 +198,9 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 		l.Error(err, "error deploying service")
 		status.SetReady(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
 		status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		_ = r.Status().Patch(ctx, pm, patchBase)
+		if patchErr := r.Status().Patch(ctx, pm, patchBase); patchErr != nil {
+			l.Error(patchErr, "Failed to patch error status")
+		}
 		return res, err
 	}
 
@@ -202,7 +210,9 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 		l.Error(err, "error fetching deployment for status")
 		status.SetReady(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, "Failed to fetch deployment")
 		status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		_ = r.Status().Patch(ctx, pm, patchBase)
+		if patchErr := r.Status().Patch(ctx, pm, patchBase); patchErr != nil {
+			l.Error(patchErr, "Failed to patch error status")
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -213,14 +223,14 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 
 	if deploy.Status.ReadyReplicas >= desiredReplicas {
 		status.SetReady(&pm.Status.Conditions, pm.Generation, metav1.ConditionTrue, status.ReasonDeploymentReady, "Deployment has minimum availability")
+		status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileComplete, "Reconciliation complete")
 	} else {
 		status.SetReady(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonDeploymentNotReady,
 			fmt.Sprintf("Deployment has %d/%d ready replicas", deploy.Status.ReadyReplicas, desiredReplicas))
+		status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Deployment rollout in progress")
 	}
-	status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconciling, "Reconciliation complete")
 
-	// Extract version from image (note: PM doesn't have a Spec.Image field typically, so this may need adjustment)
-	// TODO: Verify if PackageManager has an Image field
+	// Extract version from image
 	if pm.Spec.Image != "" {
 		pm.Status.Version = status.ExtractVersion(pm.Spec.Image)
 	}

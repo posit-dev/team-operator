@@ -67,7 +67,9 @@ func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Reque
 		l.Error(err, "error creating database", "database", c.ComponentName())
 		status.SetReady(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
 		status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		_ = r.Status().Patch(ctx, c, patchBase)
+		if patchErr := r.Status().Patch(ctx, c, patchBase); patchErr != nil {
+			l.Error(patchErr, "Failed to patch error status")
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -79,7 +81,9 @@ func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Reque
 			l.Error(err, "error ensuring that provisioning key exists")
 			status.SetReady(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
 			status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-			_ = r.Status().Patch(ctx, c, patchBase)
+			if patchErr := r.Status().Patch(ctx, c, patchBase); patchErr != nil {
+				l.Error(patchErr, "Failed to patch error status")
+			}
 			return ctrl.Result{}, err
 		} else {
 			l.Info("successfully created or retrieved provisioning key value")
@@ -119,7 +123,9 @@ func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Reque
 		l.Error(err, "error deploying service")
 		status.SetReady(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
 		status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		_ = r.Status().Patch(ctx, c, patchBase)
+		if patchErr := r.Status().Patch(ctx, c, patchBase); patchErr != nil {
+			l.Error(patchErr, "Failed to patch error status")
+		}
 		return res, err
 	}
 
@@ -129,7 +135,9 @@ func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Reque
 		l.Error(err, "error fetching deployment for status")
 		status.SetReady(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconcileError, "Failed to fetch deployment")
 		status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		_ = r.Status().Patch(ctx, c, patchBase)
+		if patchErr := r.Status().Patch(ctx, c, patchBase); patchErr != nil {
+			l.Error(patchErr, "Failed to patch error status")
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -140,11 +148,12 @@ func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Reque
 
 	if deploy.Status.ReadyReplicas >= desiredReplicas {
 		status.SetReady(&c.Status.Conditions, c.Generation, metav1.ConditionTrue, status.ReasonDeploymentReady, "Deployment has minimum availability")
+		status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconcileComplete, "Reconciliation complete")
 	} else {
 		status.SetReady(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonDeploymentNotReady,
 			fmt.Sprintf("Deployment has %d/%d ready replicas", deploy.Status.ReadyReplicas, desiredReplicas))
+		status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Deployment rollout in progress")
 	}
-	status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconciling, "Reconciliation complete")
 
 	// Extract version from image
 	c.Status.Version = status.ExtractVersion(c.Spec.Image)

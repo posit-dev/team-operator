@@ -80,7 +80,9 @@ func (r *FlightdeckReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		l.Error(err, "failed to reconcile flightdeck resources")
 		status.SetReady(&fd.Status.Conditions, fd.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
 		status.SetProgressing(&fd.Status.Conditions, fd.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		_ = r.Status().Patch(ctx, fd, patchBase)
+		if patchErr := r.Status().Patch(ctx, fd, patchBase); patchErr != nil {
+			l.Error(patchErr, "Failed to patch error status")
+		}
 		return res, err
 	}
 
@@ -90,7 +92,9 @@ func (r *FlightdeckReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		l.Error(err, "error fetching deployment for status")
 		status.SetReady(&fd.Status.Conditions, fd.Generation, metav1.ConditionFalse, status.ReasonReconcileError, "Failed to fetch deployment")
 		status.SetProgressing(&fd.Status.Conditions, fd.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		_ = r.Status().Patch(ctx, fd, patchBase)
+		if patchErr := r.Status().Patch(ctx, fd, patchBase); patchErr != nil {
+			l.Error(patchErr, "Failed to patch error status")
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -101,11 +105,12 @@ func (r *FlightdeckReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	if deploy.Status.ReadyReplicas >= desiredReplicas {
 		status.SetReady(&fd.Status.Conditions, fd.Generation, metav1.ConditionTrue, status.ReasonDeploymentReady, "Deployment has minimum availability")
+		status.SetProgressing(&fd.Status.Conditions, fd.Generation, metav1.ConditionFalse, status.ReasonReconcileComplete, "Reconciliation complete")
 	} else {
 		status.SetReady(&fd.Status.Conditions, fd.Generation, metav1.ConditionFalse, status.ReasonDeploymentNotReady,
 			fmt.Sprintf("Deployment has %d/%d ready replicas", deploy.Status.ReadyReplicas, desiredReplicas))
+		status.SetProgressing(&fd.Status.Conditions, fd.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Deployment rollout in progress")
 	}
-	status.SetProgressing(&fd.Status.Conditions, fd.Generation, metav1.ConditionFalse, status.ReasonReconciling, "Reconciliation complete")
 
 	// Extract version from image
 	fd.Status.Version = status.ExtractVersion(fd.Spec.Image)

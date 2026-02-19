@@ -18,10 +18,16 @@ const (
 
 // Reason constants
 const (
-	ReasonReconciling        = "Reconciling"
-	ReasonReconcileError     = "ReconcileError"
-	ReasonDeploymentReady    = "DeploymentReady"
-	ReasonDeploymentNotReady = "DeploymentNotReady"
+	ReasonReconciling         = "Reconciling"
+	ReasonReconcileComplete   = "ReconcileComplete"
+	ReasonReconcileError      = "ReconcileError"
+	ReasonDeploymentReady     = "DeploymentReady"
+	ReasonDeploymentNotReady  = "DeploymentNotReady"
+	ReasonStatefulSetReady    = "StatefulSetReady"
+	ReasonStatefulSetNotReady = "StatefulSetNotReady"
+	ReasonAllComponentsReady  = "AllComponentsReady"
+	ReasonComponentsNotReady  = "ComponentsNotReady"
+	ReasonDatabaseReady       = "DatabaseReady"
 )
 
 // SetReady sets the Ready condition on the given conditions slice.
@@ -60,8 +66,14 @@ func ExtractVersion(image string) string {
 	if idx := strings.LastIndex(image, "@"); idx != -1 {
 		image = image[:idx]
 	}
-	if idx := strings.LastIndex(image, ":"); idx != -1 {
-		tag := image[idx+1:]
+	// Isolate the last path segment to avoid matching registry port colons
+	lastSlash := strings.LastIndex(image, "/")
+	nameTag := image
+	if lastSlash != -1 {
+		nameTag = image[lastSlash+1:]
+	}
+	if idx := strings.LastIndex(nameTag, ":"); idx != -1 {
+		tag := nameTag[idx+1:]
 		// Skip "latest" as it's not a useful version
 		if tag == "latest" {
 			return ""

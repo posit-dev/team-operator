@@ -93,7 +93,9 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 		l.Error(err, "invalid workbench specification")
 		status.SetReady(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
 		status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		_ = r.Status().Patch(ctx, w, patchBase)
+		if patchErr := r.Status().Patch(ctx, w, patchBase); patchErr != nil {
+			l.Error(patchErr, "Failed to patch error status")
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -103,7 +105,9 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 		l.Error(err, "error creating database", "database", w.ComponentName())
 		status.SetReady(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
 		status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		_ = r.Status().Patch(ctx, w, patchBase)
+		if patchErr := r.Status().Patch(ctx, w, patchBase); patchErr != nil {
+			l.Error(patchErr, "Failed to patch error status")
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -113,7 +117,9 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 		l.Error(err, "error ensuring that provisioning key exists")
 		status.SetReady(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
 		status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		_ = r.Status().Patch(ctx, w, patchBase)
+		if patchErr := r.Status().Patch(ctx, w, patchBase); patchErr != nil {
+			l.Error(patchErr, "Failed to patch error status")
+		}
 		return ctrl.Result{}, err
 	} else {
 		l.Info("successfully created or retrieved provisioning key value")
@@ -153,7 +159,9 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 		l.Error(err, "error deploying service")
 		status.SetReady(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
 		status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		_ = r.Status().Patch(ctx, w, patchBase)
+		if patchErr := r.Status().Patch(ctx, w, patchBase); patchErr != nil {
+			l.Error(patchErr, "Failed to patch error status")
+		}
 		return res, err
 	}
 
@@ -163,7 +171,9 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 		l.Error(err, "error fetching deployment for status")
 		status.SetReady(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, "Failed to fetch deployment")
 		status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		_ = r.Status().Patch(ctx, w, patchBase)
+		if patchErr := r.Status().Patch(ctx, w, patchBase); patchErr != nil {
+			l.Error(patchErr, "Failed to patch error status")
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -174,11 +184,12 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 
 	if deploy.Status.ReadyReplicas >= desiredReplicas {
 		status.SetReady(&w.Status.Conditions, w.Generation, metav1.ConditionTrue, status.ReasonDeploymentReady, "Deployment has minimum availability")
+		status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileComplete, "Reconciliation complete")
 	} else {
 		status.SetReady(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonDeploymentNotReady,
 			fmt.Sprintf("Deployment has %d/%d ready replicas", deploy.Status.ReadyReplicas, desiredReplicas))
+		status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Deployment rollout in progress")
 	}
-	status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconciling, "Reconciliation complete")
 
 	// Extract version from image
 	w.Status.Version = status.ExtractVersion(w.Spec.Image)

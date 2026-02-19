@@ -96,8 +96,8 @@ func (r *PostgresDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		status.SetReady(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionFalse, status.ReasonReconcileError, createErr.Error())
 		status.SetProgressing(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionFalse, status.ReasonReconcileError, createErr.Error())
 	} else {
-		status.SetReady(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionTrue, "DatabaseReady", "Database provisioned successfully")
-		status.SetProgressing(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionFalse, status.ReasonReconciling, "Reconciliation complete")
+		status.SetReady(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionTrue, status.ReasonDatabaseReady, "Database provisioned successfully")
+		status.SetProgressing(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionFalse, status.ReasonReconcileComplete, "Reconciliation complete")
 	}
 
 	// Patch status regardless of createDatabase result

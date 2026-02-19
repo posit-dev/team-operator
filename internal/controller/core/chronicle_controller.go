@@ -117,7 +117,9 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 		l.Error(err, "error deploying service")
 		status.SetReady(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
 		status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		_ = r.Status().Patch(ctx, c, patchBase)
+		if patchErr := r.Status().Patch(ctx, c, patchBase); patchErr != nil {
+			l.Error(patchErr, "Failed to patch error status")
+		}
 		return res, err
 	}
 
@@ -127,7 +129,9 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 		l.Error(err, "error fetching statefulset for status")
 		status.SetReady(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconcileError, "Failed to fetch statefulset")
 		status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		_ = r.Status().Patch(ctx, c, patchBase)
+		if patchErr := r.Status().Patch(ctx, c, patchBase); patchErr != nil {
+			l.Error(patchErr, "Failed to patch error status")
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -137,12 +141,13 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 	}
 
 	if sts.Status.ReadyReplicas >= desiredReplicas {
-		status.SetReady(&c.Status.Conditions, c.Generation, metav1.ConditionTrue, status.ReasonDeploymentReady, "StatefulSet has minimum availability")
+		status.SetReady(&c.Status.Conditions, c.Generation, metav1.ConditionTrue, status.ReasonStatefulSetReady, "StatefulSet has minimum availability")
+		status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconcileComplete, "Reconciliation complete")
 	} else {
-		status.SetReady(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonDeploymentNotReady,
+		status.SetReady(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonStatefulSetNotReady,
 			fmt.Sprintf("StatefulSet has %d/%d ready replicas", sts.Status.ReadyReplicas, desiredReplicas))
+		status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionTrue, status.ReasonReconciling, "StatefulSet rollout in progress")
 	}
-	status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconciling, "Reconciliation complete")
 
 	// Extract version from image if available
 	c.Status.Version = status.ExtractVersion(c.Spec.Image)

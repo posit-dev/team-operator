@@ -96,11 +96,11 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		// Overall Ready is true only if all children are ready
 		allReady := s.Status.ConnectReady && s.Status.WorkbenchReady && s.Status.PackageManagerReady && s.Status.ChronicleReady && s.Status.FlightdeckReady
 		if allReady {
-			status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionTrue, "AllComponentsReady", "All child components are ready")
+			status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionTrue, status.ReasonAllComponentsReady, "All child components are ready")
 		} else {
-			status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, "ComponentsNotReady", "One or more child components are not ready")
+			status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonComponentsNotReady, "One or more child components are not ready")
 		}
-		status.SetProgressing(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconciling, "Reconciliation complete")
+		status.SetProgressing(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconcileComplete, "Reconciliation complete")
 	}
 
 	// Patch status
@@ -430,6 +430,8 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 
 // aggregateChildStatus fetches each child CR and populates per-component readiness bools on the Site status.
 func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Request, site *positcov1beta1.Site, l logr.Logger) {
+	// Child CRs (Connect, Workbench, etc.) are created by reconcileResources with the same
+	// name as the parent Site. See site_controller_connect.go, site_controller_workbench.go, etc.
 	key := client.ObjectKey{Name: site.Name, Namespace: req.Namespace}
 
 	// Connect
