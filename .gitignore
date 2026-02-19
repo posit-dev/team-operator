@@ -19,6 +19,7 @@ profile.cov
 
 # Build artifacts
 bin/
+dist/install.yaml
 
 # Dependency directories (remove the comment below to include it)
 # vendor/

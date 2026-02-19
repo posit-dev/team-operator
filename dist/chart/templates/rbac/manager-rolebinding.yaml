@@ -1,0 +1,42 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+    labels:
+        app.kubernetes.io/component: rbac
+        app.kubernetes.io/created-by: team-operator
+        app.kubernetes.io/instance: manager-rolebinding
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        app.kubernetes.io/name: clusterrolebinding
+        helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+        app.kubernetes.io/part-of: team-operator
+    name: {{ include "team-operator.resourceName" (dict "suffix" "manager-rolebinding" "context" $) }}
+roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: {{ include "team-operator.resourceName" (dict "suffix" "manager-role" "context" $) }}
+subjects:
+    - kind: ServiceAccount
+      name: {{ include "team-operator.resourceName" (dict "suffix" "controller-manager" "context" $) }}
+      namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+    labels:
+        app.kubernetes.io/component: rbac
+        app.kubernetes.io/created-by: team-operator
+        app.kubernetes.io/instance: manager-rolebinding
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        app.kubernetes.io/name: rolebinding
+        helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+        app.kubernetes.io/part-of: team-operator
+    name: {{ include "team-operator.resourceName" (dict "suffix" "manager-rolebinding" "context" $) }}
+    namespace: {{ .Values.watchNamespace }}
+roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: Role
+    name: {{ include "team-operator.resourceName" (dict "suffix" "manager-role" "context" $) }}
+subjects:
+    - kind: ServiceAccount
+      name: {{ include "team-operator.resourceName" (dict "suffix" "controller-manager" "context" $) }}
+      namespace: {{ .Release.Namespace }}

@@ -1,104 +1,115 @@
-# Namespace where the operator watches for Site CRs
-# This must match the WATCH_NAMESPACES environment variable
+## String to partially override chart.fullname template (will maintain the release name)
+##
+# nameOverride: ""
+
+## String to fully override chart.fullname template
+##
+# fullnameOverride: ""
+
+## Namespace where the operator watches for Site CRs
+## This must match the WATCH_NAMESPACES environment variable
 watchNamespace: posit-team
 
-# [MANAGER]: Manager Deployment Configurations
-controllerManager:
+## Configure the controller manager deployment
+##
+manager:
   replicas: 1
-  container:
-    image:
-      repository: posit/team-operator
-      tag: latest
-    args:
-      - "--leader-elect"
-      - "--metrics-bind-address=:8443"
-      - "--health-probe-bind-address=:8081"
-    env:
-      WATCH_NAMESPACES: "posit-team"
-      # AWS_REGION: "us-east-1"  # Set if deploying on AWS
-    resources:
-      limits:
-        cpu: 500m
-        memory: 128Mi
-      requests:
-        cpu: 10m
-        memory: 64Mi
-    livenessProbe:
-      initialDelaySeconds: 15
-      periodSeconds: 20
-      httpGet:
-        path: /healthz
-        port: 8081
-    readinessProbe:
-      initialDelaySeconds: 5
-      periodSeconds: 10
-      httpGet:
-        path: /readyz
-        port: 8081
-    securityContext:
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-          - "ALL"
-  securityContext:
-    runAsNonRoot: true
-    seccompProfile:
-      type: RuntimeDefault
-  terminationGracePeriodSeconds: 10
-  serviceAccountName: team-operator-controller-manager
+
+  image:
+    repository: posit/team-operator
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  ## Arguments passed to the manager binary (in addition to metrics and health-probe
+  ## bind addresses which are managed by the chart template directly)
+  ##
+  args:
+    - --leader-elect
+
+  ## Environment variables
+  ##
+  env:
+    - name: WATCH_NAMESPACES
+      value: "posit-team"
+
+  ## Image pull secrets
+  ##
+  imagePullSecrets: []
+
+  ## ServiceAccount configuration
+  ##
   serviceAccount:
     # Annotations to add to the service account (e.g., for EKS IAM roles)
     annotations: {}
-  # Tolerations for the controller manager pod
-  # Example: To run on GPU or specialized nodes:
-  # tolerations:
-  #   - key: "nvidia.com/gpu"
-  #     operator: "Exists"
-  #     effect: "NoSchedule"
-  #   - key: "workload-type"
-  #     operator: "Equal"
-  #     value: "session"
-  #     effect: "NoSchedule"
-  tolerations: []
-  # Node selector for the controller manager pod
-  # Example:
-  # nodeSelector:
-  #   kubernetes.io/os: linux
+
+  ## Pod-level security settings
+  ##
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+
+  ## Container-level security settings
+  ##
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+
+  ## Resource limits and requests
+  ##
+  resources:
+    limits:
+      cpu: 500m
+      memory: 128Mi
+    requests:
+      cpu: 10m
+      memory: 64Mi
+
+  ## Manager pod's affinity
+  ##
+  affinity: {}
+
+  ## Manager pod's node selector
+  ##
   nodeSelector: {}
 
-# [RBAC]: To enable RBAC (Permissions) configurations
-rbac:
-  enable: true
+  ## Manager pod's tolerations
+  ##
+  tolerations: []
 
-# [CRDs]: To enable the CRDs
+## Helper RBAC roles for managing custom resources
+##
+rbacHelpers:
+  # Install convenience admin/editor/viewer roles for CRDs
+  enable: false
+
+## Custom Resource Definitions
+##
 crd:
-  # This option determines whether the CRDs are included
-  # in the installation process.
+  # Install CRDs with the chart
   enable: true
-
-  # Enabling this option adds the "helm.sh/resource-policy": keep
-  # annotation to the CRD, ensuring it remains installed even when
-  # the Helm release is uninstalled.
+  # Keep CRDs when uninstalling
   keep: true
 
-# [METRICS]: Set to true to generate manifests for exporting metrics.
-# To disable metrics export set false, and ensure that the
-# ControllerManager argument "--metrics-bind-address=:8443" is removed.
+## Controller metrics endpoint.
+## Enable to expose /metrics endpoint with RBAC protection.
+##
 metrics:
   enable: true
+  # Metrics server port
+  port: 8443
 
-# [PROMETHEUS]: To enable a ServiceMonitor to export metrics to Prometheus set true
+## Cert-manager integration for TLS certificates.
+## Required for webhook certificates and metrics endpoint certificates.
+##
+certManager:
+  enable: false
+
+## Prometheus ServiceMonitor for metrics scraping.
+## Requires prometheus-operator to be installed in the cluster.
+##
 prometheus:
   enable: false
 
-# [WEBHOOK]: To enable webhooks set true
-webhook:
-  enable: false
-
-# [CERT-MANAGER]: To enable cert-manager injection to webhooks set true
-certmanager:
-  enable: false
-
-# [NETWORK POLICIES]: To enable NetworkPolicies set true
-networkPolicy:
-  enable: false

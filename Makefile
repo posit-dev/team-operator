@@ -168,25 +168,31 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 test-kustomize: manifests kustomize
 	$(KUSTOMIZE) build config/default
 
+.PHONY: build-installer
+build-installer: manifests kustomize ## Generate dist/install.yaml from kustomize
+	mkdir -p dist
+	$(KUSTOMIZE) build config/default > dist/install.yaml
+
 ##@ Helm
 
 CHART_DIR ?= dist/chart
 CHART_NAME ?= team-operator
 
 .PHONY: helm-generate
-helm-generate: manifests kubebuilder ## Regenerate Helm chart from kustomize
-	$(KUBEBUILDER) edit --plugins=helm.kubebuilder.io/v1-alpha
-	# Fix generated files that kubebuilder doesn't template correctly
-	$(SED) -i 's/team-operator-metrics-service/{{ .Values.controllerManager.serviceAccountName }}-metrics-service/g' dist/chart/templates/certmanager/certificate.yaml
-	$(SED) -i 's/team-operator-controller-manager-metrics-service/{{ .Values.controllerManager.serviceAccountName }}-metrics-service/g' dist/chart/templates/metrics/metrics-service.yaml
-	# Fix RoleBinding namespace to use watchNamespace value
-	$(SED) -i '/kind: RoleBinding/,/roleRef:/{s/namespace: posit-team/namespace: {{ .Values.watchNamespace }}/}' dist/chart/templates/rbac/role_binding.yaml
-	# Remove duplicate metrics service that kubebuilder generates - we already have one in dist/chart/templates/metrics/
-	# This was causing "services 'team-operator-controller-manager-metrics-service' already exists" errors
-	# The correct metrics service is gated on .Values.metrics.enable, not .Values.rbac.enable
-	rm -f dist/chart/templates/rbac/auth_proxy_service.yaml
+helm-generate: build-installer kubebuilder ## Regenerate Helm chart from kustomize
+	# Backup Chart.yaml and README.md from git (they will be overwritten by the plugin)
+	@git show HEAD:dist/chart/Chart.yaml > /tmp/Chart.yaml.bak 2>/dev/null || true
+	@git show HEAD:dist/chart/README.md > /tmp/README.md.bak 2>/dev/null || true
+	$(KUBEBUILDER) edit --plugins=helm/v2-alpha
+	# Restore backed up files
+	@if [ -f /tmp/Chart.yaml.bak ]; then mv /tmp/Chart.yaml.bak dist/chart/Chart.yaml; fi
+	@if [ -f /tmp/README.md.bak ]; then mv /tmp/README.md.bak dist/chart/README.md; fi
 	# Remove kubebuilder-generated test workflow - we use our own CI workflows
 	rm -f .github/workflows/test-chart.yml
+	# Remove build artifact that should not be committed
+	rm -f dist/install.yaml
+	# Apply customizations that v2-alpha plugin overwrites
+	SED=$(SED) ./hack/helm-post-generate.sh
 
 .PHONY: helm-lint
 helm-lint: ## Lint the Helm chart
@@ -200,10 +206,6 @@ helm-template: ## Render Helm templates locally
 helm-install: ## Install operator via Helm
 	helm upgrade --install $(CHART_NAME) $(CHART_DIR) \
 		--namespace posit-team-system --create-namespace
-
-.PHONY: helm-uninstall
-helm-uninstall: ## Uninstall the Helm release
-	helm uninstall $(CHART_NAME) --namespace posit-team-system
 
 .PHONY: helm-package
 helm-package: ## Package the Helm chart as .tar.gz
@@ -228,7 +230,7 @@ ENVTEST ?= $(LOCALBIN)/setup-envtest
 KUBE_CODEGEN ?= $(LOCALBIN)/kube_codegen.sh
 
 ## Tool Versions
-KUBEBUILDER_VERSION ?= v4.5.1
+KUBEBUILDER_VERSION ?= v4.12.0
 KUSTOMIZE_VERSION ?= v3.8.7
 CONTROLLER_TOOLS_VERSION ?= v0.17.0
 KUBE_CODEGEN_VERSION ?= v0.30.1
@@ -362,3 +364,50 @@ catalog-build: opm ## Build a catalog image.
 .PHONY: catalog-push
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
+
+##@ Helm Deployment
+
+## Helm binary to use for deploying the chart
+HELM ?= helm
+## Namespace to deploy the Helm release
+HELM_NAMESPACE ?= posit-team-system
+## Name of the Helm release
+HELM_RELEASE ?= team-operator
+## Path to the Helm chart directory
+HELM_CHART_DIR ?= dist/chart
+## Additional arguments to pass to helm commands
+HELM_EXTRA_ARGS ?=
+
+.PHONY: install-helm
+install-helm: ## Install the latest version of Helm.
+	@command -v $(HELM) >/dev/null 2>&1 || { \
+		echo "Installing Helm..." && \
+		curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4 | bash; \
+	}
+
+.PHONY: helm-deploy
+helm-deploy: install-helm ## Deploy manager to the K8s cluster via Helm. Specify an image with IMG.
+	$(HELM) upgrade --install $(HELM_RELEASE) $(HELM_CHART_DIR) \
+		--namespace $(HELM_NAMESPACE) \
+		--create-namespace \
+		--set manager.image.repository=$${IMG%:*} \
+		--set manager.image.tag=$${IMG##*:} \
+		--wait \
+		--timeout 5m \
+		$(HELM_EXTRA_ARGS)
+
+.PHONY: helm-uninstall
+helm-uninstall: ## Uninstall the Helm release from the K8s cluster.
+	$(HELM) uninstall $(HELM_RELEASE) --namespace $(HELM_NAMESPACE)
+
+.PHONY: helm-status
+helm-status: ## Show Helm release status.
+	$(HELM) status $(HELM_RELEASE) --namespace $(HELM_NAMESPACE)
+
+.PHONY: helm-history
+helm-history: ## Show Helm release history.
+	$(HELM) history $(HELM_RELEASE) --namespace $(HELM_NAMESPACE)
+
+.PHONY: helm-rollback
+helm-rollback: ## Rollback to previous Helm release.
+	$(HELM) rollback $(HELM_RELEASE) --namespace $(HELM_NAMESPACE)

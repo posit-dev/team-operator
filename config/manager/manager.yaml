@@ -70,6 +70,8 @@ spec:
         - /team-operator
         args:
         - --leader-elect
+        - --metrics-bind-address=:8443
+        - --health-probe-bind-address=:8081
         image: controller:latest
         imagePullPolicy: Always
         name: manager
