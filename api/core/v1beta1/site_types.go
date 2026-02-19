@@ -208,6 +208,11 @@ type InternalPackageManagerSpec struct {
 	// +kubebuilder:default=packagemanager
 	DomainPrefix string `json:"domainPrefix,omitempty"`
 
+	// BaseDomain overrides site.Spec.Domain for this product's URL construction.
+	// When set, the product URL will be: domainPrefix.baseDomain
+	// +optional
+	BaseDomain string `json:"baseDomain,omitempty"`
+
 	// GitSSHKeys defines SSH key configurations for Git authentication in Package Manager
 	// These SSH keys will be made available to Package Manager for Git Builders
 	// +optional
@@ -226,6 +231,10 @@ type InternalConnectSpec struct {
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
 	Auth AuthSpec `json:"auth,omitempty"`
+
+	// RegisterOnFirstLogin controls whether new users are automatically registered
+	// when they first log in via OAuth2/OIDC. Only applies when auth type is "oidc".
+	RegisterOnFirstLogin *bool `json:"registerOnFirstLogin,omitempty"`
 
 	AddEnv map[string]string `json:"addEnv,omitempty"`
 
@@ -248,6 +257,11 @@ type InternalConnectSpec struct {
 	// +kubebuilder:default=connect
 	DomainPrefix string `json:"domainPrefix,omitempty"`
 
+	// BaseDomain overrides site.Spec.Domain for this product's URL construction.
+	// When set, the product URL will be: domainPrefix.baseDomain
+	// +optional
+	BaseDomain string `json:"baseDomain,omitempty"`
+
 	// GPUSettings allows configuring GPU resource requests and limits
 	GPUSettings *GPUSettings `json:"gpuSettings,omitempty"`
 
@@ -256,6 +270,11 @@ type InternalConnectSpec struct {
 	// +kubebuilder:default=2
 	// +kubebuilder:validation:Minimum=0
 	ScheduleConcurrency int `json:"scheduleConcurrency,omitempty"`
+
+	// AdditionalRuntimeImages specifies additional runtime images to append to the defaults
+	// for Connect off-host execution
+	// +optional
+	AdditionalRuntimeImages []ConnectRuntimeImageSpec `json:"additionalRuntimeImages,omitempty"`
 }
 
 type DatabaseSettings struct {
@@ -366,8 +385,20 @@ type InternalWorkbenchSpec struct {
 	// +kubebuilder:default=workbench
 	DomainPrefix string `json:"domainPrefix,omitempty"`
 
+	// BaseDomain overrides site.Spec.Domain for this product's URL construction.
+	// When set, the product URL will be: domainPrefix.baseDomain
+	// +optional
+	BaseDomain string `json:"baseDomain,omitempty"`
+
 	// Workbench Auth/Login Landing Page Customization HTML
 	AuthLoginPageHtml string `json:"authLoginPageHtml,omitempty"`
+
+	// AuditedJobs configures Workbench Audited Jobs for tracking execution details
+	// alongside job output, including digital signatures and environment data.
+	// Requires the Advanced product tier.
+	// See: https://docs.posit.co/ide/server-pro/admin/auditing_and_monitoring/audited_workbench_jobs.html
+	// +optional
+	AuditedJobs *AuditedJobsConfig `json:"auditedJobs,omitempty"`
 
 	// JupyterConfig contains Jupyter configuration for Workbench
 	JupyterConfig *WorkbenchJupyterConfig `json:"jupyterConfig,omitempty"`

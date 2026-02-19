@@ -5,26 +5,21 @@
 
 package v1beta1
 
-import (
-	corev1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
-)
-
 // ConnectServerConfigApplyConfiguration represents a declarative configuration of the ConnectServerConfig type for use
 // with apply.
 type ConnectServerConfigApplyConfiguration struct {
-	Address                *string                      `json:"Address,omitempty"`
-	DataDir                *string                      `json:"DataDir,omitempty"`
-	FrameOptionsContent    *string                      `json:"FrameOptionsContent,omitempty"`
-	FrameOptionsDashboard  *string                      `json:"FrameOptionsDashboard,omitempty"`
-	DefaultContentListView *corev1beta1.ContentListView `json:"DefaultContentListView,omitempty"`
-	LoggedInWarning        *string                      `json:"LoggedInWarning,omitempty"`
-	PublicWarning          *string                      `json:"PublicWarning,omitempty"`
-	ProxyHeaderLogging     *bool                        `json:"ProxyHeaderLogging,omitempty"`
-	EmailProvider          *string                      `json:"EmailProvider,omitempty"`
-	SenderEmail            *string                      `json:"SenderEmail,omitempty"`
-	SenderEmailDisplayName *string                      `json:"SenderEmailDisplayName,omitempty"`
-	EmailTo                *string                      `json:"EmailTo,omitempty"`
-	HideEmailAddresses     *bool                        `json:"HideEmailAddresses,omitempty"`
+	Address                *string `json:"Address,omitempty"`
+	DataDir                *string `json:"DataDir,omitempty"`
+	FrameOptionsContent    *string `json:"FrameOptionsContent,omitempty"`
+	FrameOptionsDashboard  *string `json:"FrameOptionsDashboard,omitempty"`
+	LoggedInWarning        *string `json:"LoggedInWarning,omitempty"`
+	PublicWarning          *string `json:"PublicWarning,omitempty"`
+	ProxyHeaderLogging     *bool   `json:"ProxyHeaderLogging,omitempty"`
+	EmailProvider          *string `json:"EmailProvider,omitempty"`
+	SenderEmail            *string `json:"SenderEmail,omitempty"`
+	SenderEmailDisplayName *string `json:"SenderEmailDisplayName,omitempty"`
+	EmailTo                *string `json:"EmailTo,omitempty"`
+	HideEmailAddresses     *bool   `json:"HideEmailAddresses,omitempty"`
 }
 
 // ConnectServerConfigApplyConfiguration constructs a declarative configuration of the ConnectServerConfig type for use with
@@ -62,14 +57,6 @@ func (b *ConnectServerConfigApplyConfiguration) WithFrameOptionsContent(value st
 // If called multiple times, the FrameOptionsDashboard field is set to the value of the last call.
 func (b *ConnectServerConfigApplyConfiguration) WithFrameOptionsDashboard(value string) *ConnectServerConfigApplyConfiguration {
 	b.FrameOptionsDashboard = &value
-	return b
-}
-
-// WithDefaultContentListView sets the DefaultContentListView field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the DefaultContentListView field is set to the value of the last call.
-func (b *ConnectServerConfigApplyConfiguration) WithDefaultContentListView(value corev1beta1.ContentListView) *ConnectServerConfigApplyConfiguration {
-	b.DefaultContentListView = &value
 	return b
 }
 

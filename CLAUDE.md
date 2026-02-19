@@ -42,7 +42,9 @@ helm install team-operator ./dist/chart \
 
 ## Contributing
 
-- Use conventional commits (`feat:`, `fix:`, `docs:`, etc.)
+- **PR titles must follow conventional commit format** (`feat:`, `fix:`, `docs:`, etc.) - this is enforced by CI
+- The repo uses squash merge, so PR title becomes the commit message
+- semantic-release uses commit prefixes for version bumps: `feat:` = minor, `fix:` = patch, `feat!:` = major
 - Run `just test` before committing
 - See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines
 

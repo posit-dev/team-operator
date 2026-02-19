@@ -71,13 +71,12 @@ func (r *SiteReconciler) reconcileConnect(
 				},
 				Server: &v1beta1.ConnectServerConfig{
 					// This will be filled in by the controller... see "Url" below
-					Address:                "",
-					FrameOptionsDashboard:  "NONE",
-					FrameOptionsContent:    "NONE",
-					DefaultContentListView: v1beta1.ContentListViewCompact,
-					LoggedInWarning:        site.Spec.Connect.LoggedInWarning,
-					PublicWarning:          site.Spec.Connect.PublicWarning,
-					HideEmailAddresses:     true,
+					Address:               "",
+					FrameOptionsDashboard: "NONE",
+					FrameOptionsContent:   "NONE",
+					LoggedInWarning:       site.Spec.Connect.LoggedInWarning,
+					PublicWarning:         site.Spec.Connect.PublicWarning,
+					HideEmailAddresses:    true,
 				},
 				Http: &v1beta1.ConnectHttpConfig{
 					ForceSecure: true,
@@ -144,12 +143,14 @@ func (r *SiteReconciler) reconcileConnect(
 			NodeSelector:                 site.Spec.Connect.NodeSelector,
 			AddEnv:                       site.Spec.Connect.AddEnv,
 			// default to true...
-			OffHostExecution: true,
-			Auth:             site.Spec.Connect.Auth,
-			Secret:           site.Spec.Secret,
-			WorkloadSecret:   site.Spec.WorkloadSecret,
-			Debug:            connectDebugLog,
-			Replicas:         product.PassDefaultReplicas(site.Spec.Connect.Replicas, 1),
+			OffHostExecution:        true,
+			AdditionalRuntimeImages: site.Spec.Connect.AdditionalRuntimeImages,
+			Auth:                    site.Spec.Connect.Auth,
+			RegisterOnFirstLogin:    site.Spec.Connect.RegisterOnFirstLogin,
+			Secret:                  site.Spec.Secret,
+			WorkloadSecret:          site.Spec.WorkloadSecret,
+			Debug:                   connectDebugLog,
+			Replicas:                product.PassDefaultReplicas(site.Spec.Connect.Replicas, 1),
 		},
 	}
 

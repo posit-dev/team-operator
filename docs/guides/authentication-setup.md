@@ -53,8 +53,8 @@ Team Operator supports three authentication types:
 | Type | Value | Use Case |
 |------|-------|----------|
 | Password | `password` | Development, simple deployments |
-| OIDC | `oidc` | Enterprise SSO with OAuth2/OpenID Connect |
-| SAML | `saml` | Enterprise SSO with SAML 2.0 |
+| OpenID Connect (OIDC) | `oidc` | Enterprise SSO with OAuth2/OpenID Connect |
+| Security Assertion Markup Language (SAML) | `saml` | Enterprise SSO with SAML 2.0 |
 
 ## OIDC Configuration
 

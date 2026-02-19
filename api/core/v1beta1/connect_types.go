@@ -16,6 +16,48 @@ import (
 	v1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 )
 
+// DefaultRuntimeImageRepo is the default container image repository for Connect runtime images
+const DefaultRuntimeImageRepo = "ghcr.io/rstudio/content-pro"
+
+// ConnectRuntimeImageSpec defines a runtime image for Connect off-host execution
+type ConnectRuntimeImageSpec struct {
+	// RVersion is the R version (e.g., "4.5.2")
+	// +kubebuilder:validation:MinLength=1
+	RVersion string `json:"rVersion"`
+
+	// PyVersion is the Python version (e.g., "3.13.9")
+	// +kubebuilder:validation:MinLength=1
+	PyVersion string `json:"pyVersion"`
+
+	// OSVersion is the OS version (e.g., "ubuntu2204")
+	// +kubebuilder:validation:MinLength=1
+	OSVersion string `json:"osVersion"`
+
+	// QuartoVersion is the Quarto version (e.g., "1.8.25")
+	// +kubebuilder:validation:MinLength=1
+	QuartoVersion string `json:"quartoVersion"`
+
+	// Repo is the container image repository (e.g., "ghcr.io/rstudio/content-pro")
+	// +kubebuilder:default="ghcr.io/rstudio/content-pro"
+	// +optional
+	Repo string `json:"repo,omitempty"`
+}
+
+// ToProductDefinition converts a CRD spec to the internal product type
+func (s *ConnectRuntimeImageSpec) ToProductDefinition() product.ConnectRuntimeImageDefinition {
+	repo := s.Repo
+	if repo == "" {
+		repo = DefaultRuntimeImageRepo
+	}
+	return product.ConnectRuntimeImageDefinition{
+		PyVersion:     s.PyVersion,
+		RVersion:      s.RVersion,
+		OSVersion:     s.OSVersion,
+		QuartoVersion: s.QuartoVersion,
+		Repo:          repo,
+	}
+}
+
 // ConnectSpec defines the desired state of Connect
 type ConnectSpec struct {
 	License       product.LicenseSpec    `json:"license,omitempty"`
@@ -45,6 +87,11 @@ type ConnectSpec struct {
 	AddEnv map[string]string `json:"addEnv,omitempty"`
 
 	OffHostExecution bool `json:"offHostExecution,omitempty"`
+
+	// AdditionalRuntimeImages specifies additional runtime images to append to the defaults
+	// for Connect off-host execution. These are added after the built-in default images.
+	// +optional
+	AdditionalRuntimeImages []ConnectRuntimeImageSpec `json:"additionalRuntimeImages,omitempty"`
 
 	Image string `json:"image,omitempty"`
 
@@ -79,6 +126,10 @@ type ConnectSpec struct {
 
 	// MainDatabaseCredentialSecret configures the secret used for storing the main database credentials
 	MainDatabaseCredentialSecret SecretConfig `json:"mainDatabaseCredentialSecret,omitempty"`
+
+	// RegisterOnFirstLogin controls whether new users are automatically registered
+	// when they first log in via OAuth2/OIDC. Only applies when auth type is "oidc".
+	RegisterOnFirstLogin *bool `json:"registerOnFirstLogin,omitempty"`
 
 	// Debug sets whether to enable debug settings. This setting overrides specific "Config.Logging" sections globally
 	Debug bool `json:"debug,omitempty"`
@@ -231,18 +282,25 @@ func (c *Connect) DefaultRuntimeYAML() (string, error) {
 
 	for _, img := range []product.ConnectRuntimeImageDefinition{
 		{
+			PyVersion:     "3.13.9",
+			RVersion:      "4.5.2",
+			OSVersion:     "ubuntu2204",
+			QuartoVersion: "1.8.25",
+			Repo:          DefaultRuntimeImageRepo,
+		},
+		{
 			PyVersion:     "3.12.4",
 			RVersion:      "4.4.1",
 			OSVersion:     "ubuntu2204",
 			QuartoVersion: "1.4.557",
-			Repo:          "ghcr.io/rstudio/content-pro",
+			Repo:          DefaultRuntimeImageRepo,
 		},
 		{
 			PyVersion:     "3.11.3",
 			RVersion:      "4.2.2",
 			OSVersion:     "ubuntu2204",
 			QuartoVersion: "1.3.340",
-			Repo:          "ghcr.io/rstudio/content-pro",
+			Repo:          DefaultRuntimeImageRepo,
 		},
 	} {
 
@@ -251,6 +309,16 @@ func (c *Connect) DefaultRuntimeYAML() (string, error) {
 			return "", err
 		}
 
+		def.Images = append(def.Images, imgEntry)
+	}
+
+	// Append any additional runtime images from the spec
+	for _, additionalImg := range c.Spec.AdditionalRuntimeImages {
+		imgDef := additionalImg.ToProductDefinition()
+		imgEntry, err := imgDef.GenerateImageEntry()
+		if err != nil {
+			return "", err
+		}
 		def.Images = append(def.Images, imgEntry)
 	}
 
