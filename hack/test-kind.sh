@@ -213,6 +213,129 @@ EOF
     log_info "Site CR cleaned up"
 }
 
+# Test: Verify operator reconciled the Site
+test_reconciliation() {
+    log_info "Testing: Site reconciliation..."
+
+    local test_namespace="posit-team"
+    local site_name="test-site-reconcile"
+
+    # Create test namespace
+    kubectl create namespace "${test_namespace}" --dry-run=client -o yaml | kubectl apply -f -
+
+    # Create a Site CR
+    cat <<EOF | kubectl apply -f -
+apiVersion: core.posit.team/v1beta1
+kind: Site
+metadata:
+  name: ${site_name}
+  namespace: ${test_namespace}
+spec:
+  domain: "test.example.com"
+  flightdeck:
+    image: "nginx:latest"
+  workloadSecret:
+    vaultName: "test-workload-vault"
+    type: test
+  mainDatabaseCredentialSecret:
+    vaultName: "test-db-vault"
+    type: test
+EOF
+
+    log_info "Site CR created, waiting for reconciliation..."
+
+    # Wait for child CRs to be created by the controller.
+    # The Site controller creates Connect and Workbench CRs with the same name as the Site.
+    local timeout=60
+    local end_time=$((SECONDS + timeout))
+
+    while [[ $SECONDS -lt $end_time ]]; do
+        local connect_exists=false
+        local workbench_exists=false
+
+        if kubectl get connect "${site_name}" -n "${test_namespace}" &>/dev/null; then
+            connect_exists=true
+        fi
+
+        if kubectl get workbench "${site_name}" -n "${test_namespace}" &>/dev/null; then
+            workbench_exists=true
+        fi
+
+        if [[ "$connect_exists" == true ]] && [[ "$workbench_exists" == true ]]; then
+            log_info "Child CRs created successfully"
+            break
+        fi
+
+        sleep 2
+    done
+
+    # Assert child CRs exist — fail if reconciliation did not produce them
+    local failed=false
+
+    if kubectl get connect "${site_name}" -n "${test_namespace}" &>/dev/null; then
+        log_info "  Connect CR found: ${site_name}"
+        kubectl get connect "${site_name}" -n "${test_namespace}" -o jsonpath='{.status}' || true
+    else
+        log_error "  Connect CR not found: ${site_name} (reconciliation may not have run)"
+        failed=true
+    fi
+
+    if kubectl get workbench "${site_name}" -n "${test_namespace}" &>/dev/null; then
+        log_info "  Workbench CR found: ${site_name}"
+        kubectl get workbench "${site_name}" -n "${test_namespace}" -o jsonpath='{.status}' || true
+    else
+        log_error "  Workbench CR not found: ${site_name} (reconciliation may not have run)"
+        failed=true
+    fi
+
+    if [[ "$failed" == true ]]; then
+        log_error "Test failed: Site reconciliation did not produce expected child CRs"
+        return 1
+    fi
+
+    log_info "Test passed: Site reconciliation verified"
+
+    # Cleanup
+    kubectl delete site "${site_name}" -n "${test_namespace}" --ignore-not-found
+    log_info "Site CR cleaned up"
+}
+
+# Test: Check operator logs for errors
+test_operator_logs() {
+    log_info "Testing: Operator logs..."
+
+    local pod_name
+    pod_name=$(kubectl get pods -n "${NAMESPACE}" -l "app.kubernetes.io/name=team-operator" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+
+    if [[ -z "$pod_name" ]]; then
+        log_warn "Operator pod not found, skipping log check"
+        return 0
+    fi
+
+    log_info "Operator pod: ${pod_name}"
+
+    # Get logs and check for common error patterns
+    local logs
+    logs=$(kubectl logs -n "${NAMESPACE}" "${pod_name}" --tail=100 2>&1 || echo "")
+
+    # Check for panic
+    if echo "$logs" | grep -i "panic:" &>/dev/null; then
+        log_error "Found panic in operator logs"
+        echo "$logs" | grep -A 10 -i "panic:"
+        return 1
+    fi
+
+    # Check for reconciliation activity
+    if echo "$logs" | grep -i "reconcil" &>/dev/null; then
+        log_info "Operator is reconciling resources"
+    fi
+
+    # Show recent reconciliation messages
+    echo "$logs" | grep -E "Site found|Site not found|reconcil" | tail -10 || true
+
+    log_info "Test passed: Operator logs look healthy"
+}
+
 # Cleanup function
 cleanup() {
     log_info "Cleaning up..."
@@ -244,11 +367,13 @@ main() {
     if [[ -d "${CHART_DIR}" ]]; then
         deploy_operator
         wait_for_operator
+        test_operator_logs
     else
         log_warn "Helm chart not found at ${CHART_DIR}, skipping operator deployment tests"
     fi
 
     test_create_site
+    test_reconciliation
 
     log_info ""
     log_info "=========================================="

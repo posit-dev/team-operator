@@ -119,7 +119,7 @@ test: manifests generate-all fmt vet go-test cov ## Run generation and test comm
 .PHONY: go-test
 go-test: envtest ## Run only the go tests.
 	KUBEBUILDER_ASSETS="$(shell "$(ENVTEST)" use "$(ENVTEST_K8S_VERSION)" --bin-dir "$(LOCALBIN)" -p path)" \
-		go test -v ./... -race -covermode=atomic -coverprofile coverage.out
+		sh -c 'go test -buildvcs=false -v $$(go list -buildvcs=false -f '\''{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}'\'' ./...) -race -covermode=atomic -coverprofile coverage.out'
 
 .PHONY: cov
 cov: ## Show the coverage report at the function level.
@@ -149,7 +149,7 @@ kind-load-image: docker-build ## Load the operator image into kind cluster.
 	kind load docker-image $(IMG) --name $(KIND_CLUSTER_NAME)
 
 .PHONY: test-kind
-test-kind: kind-create ## Run integration tests on a kind cluster.
+test-kind: kind-create docker-build kind-load-image ## Run integration tests on a kind cluster.
 	@echo "Running integration tests on kind cluster '$(KIND_CLUSTER_NAME)'..."
 	./hack/test-kind.sh $(KIND_CLUSTER_NAME)
 
