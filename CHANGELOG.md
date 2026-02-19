@@ -1,3 +1,10 @@
+# [1.12.0](https://github.com/posit-dev/team-operator/compare/v1.11.2...v1.12.0) (2026-02-19)
+
+
+### Features
+
+* migrate from aws-sdk-go v1 to v2 ([#50](https://github.com/posit-dev/team-operator/issues/50)) ([55708e7](https://github.com/posit-dev/team-operator/commit/55708e7526ebd9da56b70de30d2a302b29fb417c))
+
 ## [1.11.2](https://github.com/posit-dev/team-operator/compare/v1.11.1...v1.11.2) (2026-02-19)
 
 
