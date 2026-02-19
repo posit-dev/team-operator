@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
+	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -90,6 +91,7 @@ func (r *ChronicleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 func (r *ChronicleReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&positcov1beta1.Chronicle{}).
+		Owns(&v1.StatefulSet{}).
 		Complete(r)
 }
 
@@ -99,6 +101,13 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 		"product", "chronicle",
 	)
 
+	// Save a copy for status patching
+	patchBase := client.MergeFrom(c.DeepCopy())
+
+	// Set observed generation and progressing condition
+	c.Status.ObservedGeneration = c.Generation
+	status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Reconciliation in progress")
+
 	// default config settings not in the original object
 	// ...
 
@@ -106,16 +115,46 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 	res, err := r.ensureDeployedService(ctx, req, c)
 	if err != nil {
 		l.Error(err, "error deploying service")
+		status.SetReady(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
+		status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
+		_ = r.Status().Patch(ctx, c, patchBase)
 		return res, err
 	}
 
-	// set to ready if it is not set yet...
-	if !c.Status.Ready {
-		c.Status.Ready = true
-		if err := r.Status().Update(ctx, c); err != nil {
-			l.Error(err, "Error setting ready status")
-			return ctrl.Result{}, err
-		}
+	// Check StatefulSet health
+	sts := &v1.StatefulSet{}
+	if err := r.Get(ctx, client.ObjectKey{Name: c.ComponentName(), Namespace: req.Namespace}, sts); err != nil {
+		l.Error(err, "error fetching statefulset for status")
+		status.SetReady(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconcileError, "Failed to fetch statefulset")
+		status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
+		_ = r.Status().Patch(ctx, c, patchBase)
+		return ctrl.Result{}, err
+	}
+
+	desiredReplicas := int32(1)
+	if sts.Spec.Replicas != nil {
+		desiredReplicas = *sts.Spec.Replicas
+	}
+
+	if sts.Status.ReadyReplicas >= desiredReplicas {
+		status.SetReady(&c.Status.Conditions, c.Generation, metav1.ConditionTrue, status.ReasonDeploymentReady, "StatefulSet has minimum availability")
+	} else {
+		status.SetReady(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonDeploymentNotReady,
+			fmt.Sprintf("StatefulSet has %d/%d ready replicas", sts.Status.ReadyReplicas, desiredReplicas))
+	}
+	status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconciling, "Reconciliation complete")
+
+	// Chronicle typically doesn't have a tagged version, but we include the field for consistency
+	// If Chronicle gets a Spec.Image field in the future, extract version from it
+	c.Status.Version = ""
+
+	// Derive Ready bool from condition
+	c.Status.Ready = status.IsReady(c.Status.Conditions)
+
+	// Patch status
+	if err := r.Status().Patch(ctx, c, patchBase); err != nil {
+		l.Error(err, "Error patching status")
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil

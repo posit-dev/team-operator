@@ -38,12 +38,16 @@ type ChronicleSpec struct {
 
 // ChronicleStatus defines the observed state of Chronicle
 type ChronicleStatus struct {
-	Ready bool `json:"ready"`
+	CommonProductStatus `json:",inline"`
+	Ready               bool `json:"ready"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName={pcr,chr},path=chronicles
+// +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
+// +kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.status.version`
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 // +genclient
 // +k8s:openapi-gen=true
 
