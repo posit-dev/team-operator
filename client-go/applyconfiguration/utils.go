@@ -165,6 +165,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &corev1beta1.PostgresDatabaseSpecApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("PostgresDatabaseSpecTeardown"):
 		return &corev1beta1.PostgresDatabaseSpecTeardownApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("PostgresDatabaseStatus"):
+		return &corev1beta1.PostgresDatabaseStatusApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("RPackageRepositoryConfig"):
 		return &corev1beta1.RPackageRepositoryConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("SecretConfig"):
