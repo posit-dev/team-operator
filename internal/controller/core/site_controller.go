@@ -159,7 +159,7 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 	connectEnabled := site.Spec.Connect.Enabled == nil || *site.Spec.Connect.Enabled
 	connectTeardown := site.Spec.Connect.Teardown != nil && *site.Spec.Connect.Teardown
 	if connectTeardown && connectEnabled {
-		l.Info("WARNING: connect.teardown=true has no effect while connect.enabled is true; set enabled=false to trigger teardown")
+		l.Info("connect.teardown is set but connect.enabled is not false; teardown has no effect until enabled=false")
 	}
 
 	connectVolumeName := fmt.Sprintf("%s-connect", site.Name)
