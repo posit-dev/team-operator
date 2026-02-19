@@ -154,14 +154,12 @@ spec:
                       Default:
                         type: string
                     type: object
-                  additional:
-                    additionalProperties:
-                      type: string
+                  additionalConfig:
                     description: |-
-                      Additional allows setting arbitrary gcfg config values not covered by typed fields.
-                      Keys should be in "Section.Key" format (e.g., "Server.DataDir", "Storage.Default").
-                      Values set here take precedence over typed fields if both specify the same key.
-                    type: object
+                      AdditionalConfig allows appending arbitrary gcfg config content not covered by typed fields.
+                      The value is appended verbatim after the generated config. gcfg parsing naturally handles
+                      conflicts: list values are combined, scalar values use the last occurrence.
+                    type: string
                 type: object
               databaseConfig:
                 properties:

@@ -25,7 +25,7 @@ type InternalPackageManagerSpecApplyConfiguration struct {
 	BaseDomain       *string                             `json:"baseDomain,omitempty"`
 	GitSSHKeys       []SSHKeyConfigApplyConfiguration    `json:"gitSSHKeys,omitempty"`
 	AzureFiles       *AzureFilesConfigApplyConfiguration `json:"azureFiles,omitempty"`
-	AdditionalConfig map[string]string                   `json:"additionalConfig,omitempty"`
+	AdditionalConfig *string                             `json:"additionalConfig,omitempty"`
 }
 
 // InternalPackageManagerSpecApplyConfiguration constructs a declarative configuration of the InternalPackageManagerSpec type for use with
@@ -147,16 +147,10 @@ func (b *InternalPackageManagerSpecApplyConfiguration) WithAzureFiles(value *Azu
 	return b
 }
 
-// WithAdditionalConfig puts the entries into the AdditionalConfig field in the declarative configuration
-// and returns the receiver, so that objects can be build by chaining "With" function invocations.
-// If called multiple times, the entries provided by each call will be put on the AdditionalConfig field,
-// overwriting an existing map entries in AdditionalConfig field with the same key.
-func (b *InternalPackageManagerSpecApplyConfiguration) WithAdditionalConfig(entries map[string]string) *InternalPackageManagerSpecApplyConfiguration {
-	if b.AdditionalConfig == nil && len(entries) > 0 {
-		b.AdditionalConfig = make(map[string]string, len(entries))
-	}
-	for k, v := range entries {
-		b.AdditionalConfig[k] = v
-	}
+// WithAdditionalConfig sets the AdditionalConfig field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the AdditionalConfig field is set to the value of the last call.
+func (b *InternalPackageManagerSpecApplyConfiguration) WithAdditionalConfig(value string) *InternalPackageManagerSpecApplyConfiguration {
+	b.AdditionalConfig = &value
 	return b
 }

@@ -98,13 +98,9 @@ spec:
                       type: string
                     type: object
                   additionalConfig:
-                    additionalProperties:
-                      type: string
-                    description: |-
-                      AdditionalConfig allows setting arbitrary gcfg config values not covered by typed fields.
-                      Keys should be in "Section.Key" format (e.g., "Server.DataDir", "Scheduler.MaxCPURequest").
-                      Values set here take precedence over typed fields if both specify the same key.
-                    type: object
+                    description: AdditionalConfig allows appending arbitrary gcfg
+                      config content to the generated config.
+                    type: string
                   additionalRuntimeImages:
                     description: |-
                       AdditionalRuntimeImages specifies additional runtime images to append to the defaults
@@ -640,13 +636,9 @@ spec:
                       type: string
                     type: object
                   additionalConfig:
-                    additionalProperties:
-                      type: string
-                    description: |-
-                      AdditionalConfig allows setting arbitrary gcfg config values not covered by typed fields.
-                      Keys should be in "Section.Key" format (e.g., "Server.DataDir", "Storage.Default").
-                      Values set here take precedence over typed fields if both specify the same key.
-                    type: object
+                    description: AdditionalConfig allows appending arbitrary gcfg
+                      config content to the generated config.
+                    type: string
                   azureFiles:
                     description: AzureFiles configures Azure Files integration for
                       persistent storage
