@@ -84,7 +84,7 @@ type PackageManagerSpec struct {
 // PackageManagerStatus defines the observed state of PackageManager
 type PackageManagerStatus struct {
 	CommonProductStatus `json:",inline"`
-	KeySecretRef v1.SecretReference `json:"keySecretRef,omitempty"`
+	KeySecretRef        v1.SecretReference `json:"keySecretRef,omitempty"`
 	// +optional
 	Ready bool `json:"ready"`
 }

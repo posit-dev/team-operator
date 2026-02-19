@@ -151,7 +151,7 @@ type ConnectSpec struct {
 // ConnectStatus defines the observed state of Connect
 type ConnectStatus struct {
 	CommonProductStatus `json:",inline"`
-	KeySecretRef corev1.SecretReference `json:"keySecretRef,omitempty"`
+	KeySecretRef        corev1.SecretReference `json:"keySecretRef,omitempty"`
 	// +optional
 	Ready bool `json:"ready"`
 }
