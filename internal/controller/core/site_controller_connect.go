@@ -277,9 +277,10 @@ func (r *SiteReconciler) disableConnect(ctx context.Context, req controllerrunti
 		return nil
 	}
 
+	patch := client.MergeFrom(connect.DeepCopy())
 	suspended := true
 	connect.Spec.Suspended = &suspended
-	if err := r.Update(ctx, connect); err != nil {
+	if err := r.Patch(ctx, connect, patch); err != nil {
 		l.Error(err, "error suspending Connect CR")
 		return err
 	}

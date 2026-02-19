@@ -158,6 +158,9 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 	// Determine if Connect is enabled (used for volume provisioning and later for reconciliation)
 	connectEnabled := site.Spec.Connect.Enabled == nil || *site.Spec.Connect.Enabled
 	connectTeardown := site.Spec.Connect.Teardown != nil && *site.Spec.Connect.Teardown
+	if connectTeardown && connectEnabled {
+		l.Info("WARNING: connect.teardown=true has no effect while connect.enabled is true; set enabled=false to trigger teardown")
+	}
 
 	connectVolumeName := fmt.Sprintf("%s-connect", site.Name)
 	connectStorageClassName := connectVolumeName
