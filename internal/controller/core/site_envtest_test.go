@@ -25,7 +25,7 @@ var _ = Describe("Site Controller (envtest)", func() {
 	)
 
 	Context("When creating a Site CR", func() {
-		It("Should create child resources (Connect, Workbench, etc.)", func() {
+		It("Should be able to create and retrieve a Site CR", func() {
 			By("Creating a test namespace")
 			testNamespace := "envtest-site-ns"
 			ns := &corev1.Namespace{
@@ -65,6 +65,9 @@ var _ = Describe("Site Controller (envtest)", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, site)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(k8sClient.Delete(ctx, site)).To(Succeed())
+			})
 
 			By("Verifying the Site CR was created")
 			siteKey := types.NamespacedName{Name: siteName, Namespace: testNamespace}
@@ -76,33 +79,6 @@ var _ = Describe("Site Controller (envtest)", func() {
 
 			Expect(createdSite.Name).To(Equal(siteName))
 			Expect(createdSite.Namespace).To(Equal(testNamespace))
-		})
-	})
-
-	Context("When validating Site CRD schema", func() {
-		It("Should reject invalid Site specs", func() {
-			By("Creating a Site with missing required fields")
-			testNamespace := "posit-team"
-			invalidSite := &corev1beta1.Site{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "core.posit.team/v1beta1",
-					Kind:       "Site",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "invalid-site",
-					Namespace: testNamespace,
-				},
-				// Empty spec - the CRD should still accept this as fields are optional
-				Spec: corev1beta1.SiteSpec{},
-			}
-			// This should succeed because the CRD doesn't require most fields
-			err := k8sClient.Create(ctx, invalidSite)
-			// The create might succeed or fail depending on CRD validation
-			// We just want to verify the API server is working
-			if err == nil {
-				// Clean up
-				Expect(k8sClient.Delete(ctx, invalidSite)).To(Succeed())
-			}
 		})
 	})
 

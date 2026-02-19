@@ -38,7 +38,6 @@ permissions:
   contents: read
 
 env:
-  GO_VERSION: '1.22'
   KIND_VERSION: 'v0.23.0'
   KIND_CLUSTER_NAME: 'team-operator-test'
 
