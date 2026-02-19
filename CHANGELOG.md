@@ -1,3 +1,10 @@
+## [1.11.1](https://github.com/posit-dev/team-operator/compare/v1.11.0...v1.11.1) (2026-02-19)
+
+
+### Bug Fixes
+
+* use *bool for RegisterOnFirstLogin to preserve Connect default ([#91](https://github.com/posit-dev/team-operator/issues/91)) ([ba13701](https://github.com/posit-dev/team-operator/commit/ba137014799790b9dd6a0e2b658d751ca6512a4b))
+
 # [1.11.0](https://github.com/posit-dev/team-operator/compare/v1.10.1...v1.11.0) (2026-02-18)
 
 
