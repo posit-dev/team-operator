@@ -14,6 +14,7 @@ import (
 // with apply.
 type InternalConnectSpecApplyConfiguration struct {
 	Enabled                 *bool                                                  `json:"enabled,omitempty"`
+	Teardown                *bool                                                  `json:"teardown,omitempty"`
 	License                 *product.LicenseSpec                                   `json:"license,omitempty"`
 	Volume                  *product.VolumeSpec                                    `json:"volume,omitempty"`
 	NodeSelector            map[string]string                                      `json:"nodeSelector,omitempty"`
@@ -47,6 +48,14 @@ func InternalConnectSpec() *InternalConnectSpecApplyConfiguration {
 // If called multiple times, the Enabled field is set to the value of the last call.
 func (b *InternalConnectSpecApplyConfiguration) WithEnabled(value bool) *InternalConnectSpecApplyConfiguration {
 	b.Enabled = &value
+	return b
+}
+
+// WithTeardown sets the Teardown field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Teardown field is set to the value of the last call.
+func (b *InternalConnectSpecApplyConfiguration) WithTeardown(value bool) *InternalConnectSpecApplyConfiguration {
+	b.Teardown = &value
 	return b
 }
 

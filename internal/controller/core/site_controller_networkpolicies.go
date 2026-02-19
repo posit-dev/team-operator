@@ -44,7 +44,8 @@ func (r *SiteReconciler) reconcileNetworkPolicies(ctx context.Context, req ctrl.
 	}
 
 	// Connect network policies
-	if site.Spec.Connect.Enabled == nil || *site.Spec.Connect.Enabled == true {
+	connectEnabled := site.Spec.Connect.Enabled == nil || *site.Spec.Connect.Enabled
+	if connectEnabled {
 		if err := r.reconcileConnectNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
 			l.Error(err, "error ensuring connect network policy")
 			return err
@@ -54,7 +55,7 @@ func (r *SiteReconciler) reconcileNetworkPolicies(ctx context.Context, req ctrl.
 			return err
 		}
 	} else {
-		// Clean up Connect network policies
+		// Clean up Connect network policies when disabled (regardless of teardown)
 		if err := r.cleanupConnectNetworkPolicies(ctx, req, l); err != nil {
 			l.Error(err, "error cleaning up connect network policies")
 			return err

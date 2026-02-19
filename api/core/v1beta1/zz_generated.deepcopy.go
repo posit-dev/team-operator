@@ -872,6 +872,11 @@ func (in *ConnectSpec) DeepCopyInto(out *ConnectSpec) {
 		*out = make([]ConnectRuntimeImageSpec, len(*in))
 		copy(*out, *in)
 	}
+	if in.Suspended != nil {
+		in, out := &in.Suspended, &out.Suspended
+		*out = new(bool)
+		**out = **in
+	}
 	if in.AdditionalVolumes != nil {
 		in, out := &in.AdditionalVolumes, &out.AdditionalVolumes
 		*out = make([]product.VolumeSpec, len(*in))
@@ -1148,6 +1153,11 @@ func (in *InternalConnectSpec) DeepCopyInto(out *InternalConnectSpec) {
 	*out = *in
 	if in.Enabled != nil {
 		in, out := &in.Enabled, &out.Enabled
+		*out = new(bool)
+		**out = **in
+	}
+	if in.Teardown != nil {
+		in, out := &in.Teardown, &out.Teardown
 		*out = new(bool)
 		**out = **in
 	}

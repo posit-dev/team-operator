@@ -224,25 +224,19 @@ type InternalPackageManagerSpec struct {
 }
 
 type InternalConnectSpec struct {
-	// Enabled controls whether Connect is deployed. Defaults to true if not specified.
-	// Set to false to explicitly disable Connect deployment.
-	//
-	// WARNING: Disabling Connect (setting Enabled=false) is a DESTRUCTIVE operation that
-	// permanently deletes all Connect resources including:
-	//   - The Connect database and all its data
-	//   - All secrets (database credentials, provisioning keys, etc.)
-	//   - Persistent volumes and claims
-	//   - All deployed Kubernetes resources (deployments, services, ingress, etc.)
-	//
-	// Re-enabling Connect after disabling it will start completely fresh with:
-	//   - A new, empty database
-	//   - New secrets and credentials
-	//   - No content or configuration from the previous deployment
-	//
-	// This is intentional behavior, not a bug. Only disable Connect if you intend to
-	// permanently destroy the Connect instance and all its data.
+	// Enabled controls whether Connect is running. Defaults to true.
+	// Setting to false suspends Connect: stops pods and removes ingress/service,
+	// but preserves PVC, database, and secrets so data is retained.
+	// Re-enabling restores full service without data loss.
 	// +optional
 	Enabled *bool `json:"enabled,omitempty"`
+
+	// Teardown permanently destroys all Connect resources including the database,
+	// secrets, and persistent volume claim. Only takes effect when Enabled is false.
+	// Re-enabling after teardown starts fresh with a new empty database.
+	// Defaults to false.
+	// +optional
+	Teardown *bool `json:"teardown,omitempty"`
 
 	License product.LicenseSpec `json:"license,omitempty"`
 

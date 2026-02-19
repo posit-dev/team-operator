@@ -1151,8 +1151,10 @@ func TestSiteReconciler_BaseDomainWithCustomPrefix(t *testing.T) {
 	assert.Equal(t, "https://rsc.custom-domain.com", testWorkbench.Spec.Config.RSession.DefaultRSConnectServer)
 }
 
-func TestSiteConnectSkippedWhenDisabled(t *testing.T) {
-	siteName := "disabled-connect"
+// TestSiteConnectDisableNeverEnabled verifies that setting enabled=false when Connect was
+// never enabled is a no-op: no Connect CR is created.
+func TestSiteConnectDisableNeverEnabled(t *testing.T) {
+	siteName := "never-enabled-connect"
 	siteNamespace := "posit-team"
 	site := defaultSite(siteName)
 	enabled := false
@@ -1161,8 +1163,62 @@ func TestSiteConnectSkippedWhenDisabled(t *testing.T) {
 	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
 	assert.NoError(t, err)
 
-	// Connect CRD should NOT be created when explicitly disabled
+	// Connect CR should NOT exist — disable with no prior enablement is a no-op
 	connect := &v1beta1.Connect{}
 	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, connect)
-	assert.Error(t, err) // Should error because it doesn't exist
+	assert.Error(t, err, "expected Connect CR to not exist when disabled without ever being enabled")
+}
+
+// TestSiteConnectSuspendAfterEnable verifies that setting enabled=false after Connect was running
+// suspends the Connect CR (Suspended=true) rather than deleting it, preserving data.
+func TestSiteConnectSuspendAfterEnable(t *testing.T) {
+	siteName := "suspend-connect"
+	siteNamespace := "posit-team"
+
+	// Share a single fake environment for both reconcile passes.
+	fakeClient := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeClient.Start(loadSchemes)
+	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
+
+	// First pass: Connect enabled (default)
+	site := defaultSite(siteName)
+	_, err := rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	connect := &v1beta1.Connect{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, connect)
+	assert.NoError(t, err, "Connect CR should exist after first reconcile")
+
+	// Second pass: disable Connect without teardown
+	enabled := false
+	site.Spec.Connect.Enabled = &enabled
+	_, err = rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	// Connect CR must still exist and be marked suspended
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, connect)
+	assert.NoError(t, err, "Connect CR should still exist when disabled without teardown")
+	assert.NotNil(t, connect.Spec.Suspended)
+	assert.True(t, *connect.Spec.Suspended)
+}
+
+// TestSiteConnectTeardown verifies that setting enabled=false + teardown=true causes the
+// Connect CR to be deleted (triggering the destructive finalizer path).
+func TestSiteConnectTeardown(t *testing.T) {
+	siteName := "teardown-connect"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	enabled := false
+	teardown := true
+	site.Spec.Connect.Enabled = &enabled
+	site.Spec.Connect.Teardown = &teardown
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.NoError(t, err)
+
+	// Connect CR should NOT exist when teardown is true
+	connect := &v1beta1.Connect{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, connect)
+	assert.Error(t, err, "Connect CR should not exist when teardown=true")
 }
