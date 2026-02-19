@@ -12,6 +12,7 @@ import (
 	"github.com/posit-dev/team-operator/api/templates"
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/posit-dev/team-operator/internal/db"
+	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	"github.com/traefik/traefik/v3/pkg/config/dynamic"
 	"github.com/traefik/traefik/v3/pkg/provider/kubernetes/crd/traefikio/v1alpha1"
@@ -76,6 +77,13 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 		"product", "workbench",
 	)
 
+	// Save a copy for status patching
+	patchBase := client.MergeFrom(w.DeepCopy())
+
+	// Set observed generation and progressing condition
+	w.Status.ObservedGeneration = w.Generation
+	status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Reconciliation in progress")
+
 	// TODO: should do formal spec validation / correction...
 
 	// check for deprecated databricks location (we did not remove this yet for backwards compat and to allow an upgrade path)
@@ -83,6 +91,9 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 	if w.Spec.Config.Databricks != nil && len(w.Spec.Config.Databricks) > 0 {
 		err := errors.New("the Databricks configuration should be in SecretConfig, not Config")
 		l.Error(err, "invalid workbench specification")
+		status.SetReady(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
+		status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
+		_ = r.Status().Patch(ctx, w, patchBase)
 		return ctrl.Result{}, err
 	}
 
@@ -90,6 +101,9 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 	secretKey := "dev-db-password"
 	if err := db.EnsureDatabaseExists(ctx, r, req, w, w.Spec.DatabaseConfig, w.ComponentName(), "", []string{}, w.Spec.Secret, w.Spec.WorkloadSecret, w.Spec.MainDatabaseCredentialSecret, secretKey); err != nil {
 		l.Error(err, "error creating database", "database", w.ComponentName())
+		status.SetReady(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
+		status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
+		_ = r.Status().Patch(ctx, w, patchBase)
 		return ctrl.Result{}, err
 	}
 
@@ -97,6 +111,9 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 	// TODO: we probably do not need to create this... it goes in a provisioning secret intentionally now...?
 	if _, err := internal.EnsureWorkbenchSecretKey(ctx, w, r, req, w); err != nil {
 		l.Error(err, "error ensuring that provisioning key exists")
+		status.SetReady(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
+		status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
+		_ = r.Status().Patch(ctx, w, patchBase)
 		return ctrl.Result{}, err
 	} else {
 		l.Info("successfully created or retrieved provisioning key value")
@@ -106,10 +123,6 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 	w.Status.KeySecretRef = corev1.SecretReference{
 		Name:      w.KeySecretName(),
 		Namespace: req.Namespace,
-	}
-	if err := r.Status().Update(ctx, w); err != nil {
-		l.Error(err, "Error updating status")
-		return ctrl.Result{}, err
 	}
 
 	// define database stuff
@@ -138,18 +151,45 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 	res, err := r.ensureDeployedService(ctx, req, w)
 	if err != nil {
 		l.Error(err, "error deploying service")
+		status.SetReady(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
+		status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
+		_ = r.Status().Patch(ctx, w, patchBase)
 		return res, err
 	}
 
-	// TODO: should we watch for happy pods?
+	// Check deployment health
+	deploy := &appsv1.Deployment{}
+	if err := r.Get(ctx, client.ObjectKey{Name: w.ComponentName(), Namespace: req.Namespace}, deploy); err != nil {
+		l.Error(err, "error fetching deployment for status")
+		status.SetReady(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, "Failed to fetch deployment")
+		status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
+		_ = r.Status().Patch(ctx, w, patchBase)
+		return ctrl.Result{}, err
+	}
 
-	// set to ready if it is not set yet...
-	if !w.Status.Ready {
-		w.Status.Ready = true
-		if err := r.Status().Update(ctx, w); err != nil {
-			l.Error(err, "Error updating status")
-			return ctrl.Result{}, err
-		}
+	desiredReplicas := int32(1)
+	if deploy.Spec.Replicas != nil {
+		desiredReplicas = *deploy.Spec.Replicas
+	}
+
+	if deploy.Status.ReadyReplicas >= desiredReplicas {
+		status.SetReady(&w.Status.Conditions, w.Generation, metav1.ConditionTrue, status.ReasonDeploymentReady, "Deployment has minimum availability")
+	} else {
+		status.SetReady(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonDeploymentNotReady,
+			fmt.Sprintf("Deployment has %d/%d ready replicas", deploy.Status.ReadyReplicas, desiredReplicas))
+	}
+	status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconciling, "Reconciliation complete")
+
+	// Extract version from image
+	w.Status.Version = status.ExtractVersion(w.Spec.Image)
+
+	// Derive Ready bool from condition
+	w.Status.Ready = status.IsReady(w.Status.Conditions)
+
+	// Patch status
+	if err := r.Status().Patch(ctx, w, patchBase); err != nil {
+		l.Error(err, "Error patching status")
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil

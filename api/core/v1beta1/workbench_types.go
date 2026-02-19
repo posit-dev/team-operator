@@ -115,13 +115,17 @@ type WorkbenchSpec struct {
 
 // WorkbenchStatus defines the observed state of Workbench
 type WorkbenchStatus struct {
-	Ready        bool                   `json:"ready"`
-	KeySecretRef corev1.SecretReference `json:"keySecretRef,omitempty"`
+	CommonProductStatus `json:",inline"`
+	Ready               bool                   `json:"ready"`
+	KeySecretRef        corev1.SecretReference `json:"keySecretRef,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:shortName={wb,wbs},path=workbenches,singular=workbench
+//+kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
+//+kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.status.version`
+//+kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 //+genclient
 //+k8s:openapi-gen=true
 
