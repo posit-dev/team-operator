@@ -62,56 +62,52 @@ When using a Site resource, the Site controller generates and manages the Connec
 
 ### Enabling/Disabling Connect
 
-By default, Connect is enabled when specified in a Site configuration. You can explicitly control whether Connect is deployed:
+Connect can be suspended or permanently torn down using the `enabled` and `teardown` fields.
+
+#### Suspending Connect (non-destructive)
+
+Setting `enabled: false` suspends Connect: the Deployment, Service, and Ingress are removed, but the PVC, database, and secrets are preserved. Re-enabling restores full service with all existing data intact.
 
 ```yaml
 spec:
   connect:
-    # Enable Connect deployment (default: true)
-    enabled: true
+    enabled: false   # suspend — data is preserved
 ```
-
-#### WARNING: Disabling Connect is Destructive
-
-**Setting `enabled: false` is a PERMANENT, DESTRUCTIVE operation that cannot be reversed without complete data loss.**
-
-When you disable Connect by setting `enabled: false`, the Team Operator:
-
-1. **Deletes the Connect Custom Resource (CR)** from Kubernetes
-2. **Triggers finalizers** that destroy all Connect resources, including:
-   - The Connect PostgreSQL database and **all its data** (published content, users, settings, schedules, etc.)
-   - All Kubernetes secrets (database credentials, provisioning keys, OAuth secrets)
-   - Persistent volumes and all stored content
-   - All Kubernetes deployments, services, ingress routes, and jobs
-
-**This means:**
-
-- All published content, applications, reports, and APIs are **permanently deleted**
-- All user accounts, permissions, and settings are **permanently deleted**
-- All content schedules, email subscriptions, and integrations are **permanently deleted**
-- **Re-enabling Connect later will start with a completely fresh, empty instance** with no data from the previous deployment
 
 **When to use `enabled: false`:**
 
-- During initial cluster setup when you don't want Connect deployed yet
-- When permanently decommissioning Connect and migrating to a different instance
-- When you explicitly want to destroy all Connect data and start fresh
+- Customer does not have a Connect license yet — deploy the site without Connect and enable it once a license is purchased
+- Temporarily pause Connect during a maintenance window or cost-saving period
+- Stop Connect while retaining all content and user data for a possible return
 
-**Never use `enabled: false` for:**
-
-- Temporarily stopping Connect (use `replicas: 0` instead to scale down without data loss)
-- Maintenance windows (scale down replicas instead)
-- Troubleshooting (use debug mode or check logs instead)
-
-**Example of safely scaling down Connect temporarily:**
+**Re-enabling Connect** after a suspend is as simple as removing the field or setting it back to `true`:
 
 ```yaml
 spec:
   connect:
-    # Scale down Connect pods without deleting data
-    replicas: 0
-    # Keep enabled: true (or omit it, as true is the default)
+    enabled: true   # or omit the field entirely — defaults to true
 ```
+
+#### Tearing down Connect (destructive)
+
+To permanently destroy all Connect resources — including the database, secrets, and PVC — set both `enabled: false` and `teardown: true`:
+
+```yaml
+spec:
+  connect:
+    enabled: false
+    teardown: true   # DESTRUCTIVE: deletes database, secrets, and PVC
+```
+
+**This is irreversible.** Re-enabling Connect after a teardown starts completely fresh with a new empty database and no prior content or configuration.
+
+**When to use `teardown: true`:**
+
+- Permanently decommissioning Connect with no intent to restore data
+- Reclaiming cluster storage after migrating to a different Connect instance
+- Explicitly wiping Connect to start fresh
+
+> **Note:** `teardown: true` has no effect while `enabled` is `true` or unset. You must set `enabled: false` first.
 
 ---
 
