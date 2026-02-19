@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Post-processing script for helm chart generation
 # Applies customizations that are lost when kubebuilder helm/v2-alpha regenerates templates
-
+#
 # Track upstream kubebuilder issues:
 # - #5486: replicas hardcoded (not templated from values)
 # - #5489: env var list format not ergonomic
@@ -359,7 +359,8 @@ subjects:
       namespace: {{ .Release.Namespace }}
 EOF
 
-# Issue 8: Add migration guide to README.md
+# Issue 8: Add migration guide to README.md (skip if already present)
+if ! grep -q "Upgrading from helm/v1-alpha" "$CHART_DIR/README.md" 2>/dev/null; then
 echo "  - Adding migration guide to README.md..."
 $SED -i '/^> ```$/a\
 \
@@ -413,5 +414,8 @@ manager:\
 \
 - **RBAC helper roles**: Convenience ClusterRoles for CRD access (e.g., `site-editor-role`, `connect-viewer-role`) are no longer generated. Create custom RBAC rules if needed.\
 - **Digest-based image tags**: The `@sha256:` image tag format is no longer supported. Use standard `repository:tag` format.' "$CHART_DIR/README.md"
+else
+echo "  - Migration guide already present in README.md, skipping..."
+fi
 
 echo "Post-generation customizations complete!"
