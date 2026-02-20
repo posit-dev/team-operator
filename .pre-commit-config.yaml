@@ -9,9 +9,9 @@ repos:
 
       - id: vet
         name: Go vet
-        entry: go vet
+        entry: just vet
         language: system
-        pass_filenames: true
+        pass_filenames: false
         files: \.go$
 
       - id: mgenerate
@@ -33,11 +33,11 @@ repos:
         entry: just helm-lint
         language: system
         pass_filenames: false
-        files: ^dist/chart/
+        files: ^(dist/chart/|config/)
 
       - id: helm-template
         name: Render Helm templates
         entry: just helm-template
         language: system
         pass_filenames: false
-        files: ^dist/chart/
+        files: ^(dist/chart/|config/)

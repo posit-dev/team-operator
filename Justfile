@@ -18,9 +18,9 @@ default: build test
 deps: install-git-hooks
   go get -t ./...
 
-# Install git hooks via pre-commit
+# Install git hooks via pre-commit (fails silently in CI)
 install-git-hooks:
-  uvx pre-commit install
+  -uvx pre-commit install
 
 # Update dependencies
 deps-up:

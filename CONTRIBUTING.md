@@ -77,8 +77,8 @@ uvx pre-commit run --all-files
 git commit --no-verify -m "message"
 
 # Skip specific hooks only
-SKIP=test git commit -m "message"
-SKIP=test,mgenerate git commit -m "message"
+SKIP=vet git commit -m "message"
+SKIP=vet,mgenerate git commit -m "message"
 ```
 
 ### Building the Operator
