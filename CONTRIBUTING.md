@@ -52,6 +52,28 @@ cd team-operator
 just deps
 ```
 
+This also installs git hooks that run automatically on commit.
+
+### Git Hooks
+
+Pre-commit hooks run automatically when you commit. They will:
+- Format your code
+- Run tests (only if you changed `.go` files)
+- Lint Helm chart (only if you changed files in `dist/chart/`)
+
+If a hook fails, the commit is blocked. Fix the issue, stage the fix, and commit again.
+
+```bash
+# Run hooks manually on all files
+uvx pre-commit run --all-files
+
+# Skip all hooks
+git commit --no-verify -m "message"
+
+# Skip specific hooks only
+SKIP=test git commit -m "message"
+```
+
 ### Building the Operator
 
 ```bash
