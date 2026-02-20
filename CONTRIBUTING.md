@@ -62,7 +62,6 @@ Pre-commit hooks run automatically when you commit:
 |------|-------------|--------------|
 | `format` | All commits | Formats Go code |
 | `vet` | `.go` files | Static analysis |
-| `test` | `.go` files | Runs Go tests |
 | `mgenerate` | `api/**/*.go` | Regenerates CRDs and manifests |
 | `helm-generate` | `config/**` | Regenerates Helm chart from kustomize |
 | `helm-lint` | `dist/chart/**` | Lints Helm chart |

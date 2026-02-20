@@ -9,16 +9,9 @@ repos:
 
       - id: vet
         name: Go vet
-        entry: just vet
+        entry: go vet
         language: system
-        pass_filenames: false
-        files: \.go$
-
-      - id: test
-        name: Test Go
-        entry: just test
-        language: system
-        pass_filenames: false
+        pass_filenames: true
         files: \.go$
 
       - id: mgenerate
