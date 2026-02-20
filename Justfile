@@ -50,6 +50,10 @@ mbuild:
 format:
   go fmt ./...
 
+# Static analysis
+vet:
+  go vet ./...
+
 create-db-url-secret:
   #!/bin/bash
   set -xe
