@@ -219,6 +219,14 @@ spec:
                     type: object
                   workbench-ini-config:
                     properties:
+                      additionalConfigs:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          AdditionalConfigs allows appending arbitrary content to server config files.
+                          Keys are config file names (e.g., "rserver.conf", "launcher.conf").
+                          Values are raw config content that gets appended after the generated config.
+                        type: object
                       databricks.conf:
                         additionalProperties:
                           properties:
@@ -524,6 +532,14 @@ spec:
                     type: object
                   workbench-session-ini-config:
                     properties:
+                      additionalConfigs:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          AdditionalConfigs allows appending arbitrary content to session config files.
+                          Keys are config file names (e.g., "rsession.conf", "repos.conf").
+                          Values are raw config content that gets appended after the generated config.
+                        type: object
                       positron.conf:
                         properties:
                           allow-file-downloads:

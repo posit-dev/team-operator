@@ -13,26 +13,26 @@ import (
 // InternalWorkbenchExperimentalFeaturesApplyConfiguration represents a declarative configuration of the InternalWorkbenchExperimentalFeatures type for use
 // with apply.
 type InternalWorkbenchExperimentalFeaturesApplyConfiguration struct {
-	EnableManagedCredentialJobs          *bool                                                                      `json:"enableManagedCredentialJobs,omitempty"`
-	NonRoot                              *bool                                                                      `json:"nonRoot,omitempty"`
-	SessionServiceAccountName            *string                                                                    `json:"sessionServiceAccountName,omitempty"`
-	SessionEnvVars                       []v1.EnvVar                                                                `json:"sessionEnvVars,omitempty"`
-	SessionImagePullPolicy               *v1.PullPolicy                                                             `json:"sessionImagePullPolicy,omitempty"`
-	PrivilegedSessions                   *bool                                                                      `json:"privilegedSessions,omitempty"`
-	DatabricksForceEnabled               *bool                                                                      `json:"databricksForceEnabled,omitempty"`
-	DsnSecret                            *string                                                                    `json:"dsnSecret,omitempty"`
-	WwwThreadPoolSize                    *int                                                                       `json:"wwwThreadPoolSize,omitempty"`
-	FirstProjectTemplatePath             *string                                                                    `json:"firstProjectTemplatePath,omitempty"`
-	LauncherSessionsProxyTimeoutSeconds  *int                                                                       `json:"launcherSessionsProxyTimeoutSecs,omitempty"`
-	VsCodeExtensionsDir                  *string                                                                    `json:"vsCodeExtensionsDir,omitempty"`
-	ResourceProfiles                     map[string]*corev1beta1.WorkbenchLauncherKubnernetesResourcesConfigSection `json:"resourceProfiles,omitempty"`
-	CpuRequestRatio                      *string                                                                    `json:"cpuRequestRatio,omitempty"`
-	MemoryRequestRatio                   *string                                                                    `json:"memoryRequestRatio,omitempty"`
-	SessionSaveActionDefault             *corev1beta1.SessionSaveAction                                             `json:"sessionSaveActionDefault,omitempty"`
-	VsCodePath                           *string                                                                    `json:"vsCodePath,omitempty"`
-	LauncherEnvPath                      *string                                                                    `json:"launcherEnvPath,omitempty"`
-	ChronicleSidecarProductApiKeyEnabled *bool                                                                      `json:"chronicleSidecarProductApiKeyEnabled,omitempty"`
-	ForceAdminUiEnabled                  *bool                                                                      `json:"forceAdminUiEnabled,omitempty"`
+	EnableManagedCredentialJobs          *bool                                                                     `json:"enableManagedCredentialJobs,omitempty"`
+	NonRoot                              *bool                                                                     `json:"nonRoot,omitempty"`
+	SessionServiceAccountName            *string                                                                   `json:"sessionServiceAccountName,omitempty"`
+	SessionEnvVars                       []v1.EnvVar                                                               `json:"sessionEnvVars,omitempty"`
+	SessionImagePullPolicy               *v1.PullPolicy                                                            `json:"sessionImagePullPolicy,omitempty"`
+	PrivilegedSessions                   *bool                                                                     `json:"privilegedSessions,omitempty"`
+	DatabricksForceEnabled               *bool                                                                     `json:"databricksForceEnabled,omitempty"`
+	DsnSecret                            *string                                                                   `json:"dsnSecret,omitempty"`
+	WwwThreadPoolSize                    *int                                                                      `json:"wwwThreadPoolSize,omitempty"`
+	FirstProjectTemplatePath             *string                                                                   `json:"firstProjectTemplatePath,omitempty"`
+	LauncherSessionsProxyTimeoutSeconds  *int                                                                      `json:"launcherSessionsProxyTimeoutSecs,omitempty"`
+	VsCodeExtensionsDir                  *string                                                                   `json:"vsCodeExtensionsDir,omitempty"`
+	ResourceProfiles                     map[string]*corev1beta1.WorkbenchLauncherKubernetesResourcesConfigSection `json:"resourceProfiles,omitempty"`
+	CpuRequestRatio                      *string                                                                   `json:"cpuRequestRatio,omitempty"`
+	MemoryRequestRatio                   *string                                                                   `json:"memoryRequestRatio,omitempty"`
+	SessionSaveActionDefault             *corev1beta1.SessionSaveAction                                            `json:"sessionSaveActionDefault,omitempty"`
+	VsCodePath                           *string                                                                   `json:"vsCodePath,omitempty"`
+	LauncherEnvPath                      *string                                                                   `json:"launcherEnvPath,omitempty"`
+	ChronicleSidecarProductApiKeyEnabled *bool                                                                     `json:"chronicleSidecarProductApiKeyEnabled,omitempty"`
+	ForceAdminUiEnabled                  *bool                                                                     `json:"forceAdminUiEnabled,omitempty"`
 }
 
 // InternalWorkbenchExperimentalFeaturesApplyConfiguration constructs a declarative configuration of the InternalWorkbenchExperimentalFeatures type for use with
@@ -143,9 +143,9 @@ func (b *InternalWorkbenchExperimentalFeaturesApplyConfiguration) WithVsCodeExte
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, the entries provided by each call will be put on the ResourceProfiles field,
 // overwriting an existing map entries in ResourceProfiles field with the same key.
-func (b *InternalWorkbenchExperimentalFeaturesApplyConfiguration) WithResourceProfiles(entries map[string]*corev1beta1.WorkbenchLauncherKubnernetesResourcesConfigSection) *InternalWorkbenchExperimentalFeaturesApplyConfiguration {
+func (b *InternalWorkbenchExperimentalFeaturesApplyConfiguration) WithResourceProfiles(entries map[string]*corev1beta1.WorkbenchLauncherKubernetesResourcesConfigSection) *InternalWorkbenchExperimentalFeaturesApplyConfiguration {
 	if b.ResourceProfiles == nil && len(entries) > 0 {
-		b.ResourceProfiles = make(map[string]*corev1beta1.WorkbenchLauncherKubnernetesResourcesConfigSection, len(entries))
+		b.ResourceProfiles = make(map[string]*corev1beta1.WorkbenchLauncherKubernetesResourcesConfigSection, len(entries))
 	}
 	for k, v := range entries {
 		b.ResourceProfiles[k] = v
