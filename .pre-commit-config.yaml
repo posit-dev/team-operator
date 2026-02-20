@@ -1,0 +1,22 @@
+repos:
+  - repo: local
+    hooks:
+      - id: format
+        name: Format code
+        entry: just format
+        language: system
+        pass_filenames: false
+
+      - id: test
+        name: Test Go
+        entry: just test
+        language: system
+        pass_filenames: false
+        files: \.go$
+
+      - id: helm-lint
+        name: Lint Helm chart
+        entry: just helm-lint
+        language: system
+        pass_filenames: false
+        files: ^dist/chart/
