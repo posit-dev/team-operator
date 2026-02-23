@@ -94,6 +94,10 @@ help: ## Display this help.
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
+.PHONY: copy-crds
+copy-crds: manifests ## Copy generated CRDs to internal/crdapply/bases for embedding.
+	cp config/crd/bases/*.yaml internal/crdapply/bases/
+
 .PHONY: generate-all
 generate-all: generate generate-client generate-openapi
 
@@ -129,7 +133,7 @@ cov: ## Show the coverage report at the function level.
 ##@ Build
 
 .PHONY: build
-build: manifests generate-all fmt vet ## Build manager binary.
+build: copy-crds generate-all fmt vet ## Build manager binary.
 	go build -o bin/team-operator ./cmd/team-operator/main.go
 
 .PHONY: distclean

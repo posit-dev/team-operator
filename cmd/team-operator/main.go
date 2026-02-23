@@ -29,6 +29,7 @@ import (
 
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/internal"
+	"github.com/posit-dev/team-operator/internal/crdapply"
 
 	corecontroller "github.com/posit-dev/team-operator/internal/controller/core"
 
@@ -78,6 +79,7 @@ func main() {
 		metricsAddr          string
 		enableLeaderElection bool
 		probeAddr            string
+		manageCRDs           bool
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
@@ -86,6 +88,9 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for team-operator. "+
 			"Enabling this will ensure there is only one active team-operator.")
+
+	flag.BoolVar(&manageCRDs, "manage-crds", true,
+		"Apply CRDs on startup to ensure schema is in sync with operator version")
 
 	opts := zap.Options{Development: true}
 
@@ -130,6 +135,14 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "unable to start team-operator")
 		os.Exit(1)
+	}
+
+	if manageCRDs {
+		setupLog.Info("applying CRDs at startup")
+		if err := crdapply.ApplyCRDs(mgr.GetConfig(), setupLog); err != nil {
+			setupLog.Error(err, "unable to apply CRDs")
+			os.Exit(1)
+		}
 	}
 
 	if err = (&corecontroller.SiteReconciler{

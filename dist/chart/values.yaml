@@ -13,6 +13,7 @@ controllerManager:
       - "--leader-elect"
       - "--metrics-bind-address=:8443"
       - "--health-probe-bind-address=:8081"
+      - "--manage-crds=true"
     env:
       WATCH_NAMESPACES: "posit-team"
       # AWS_REGION: "us-east-1"  # Set if deploying on AWS
