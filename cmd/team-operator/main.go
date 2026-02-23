@@ -76,6 +76,11 @@ func init() {
 	LoadSchemes(scheme)
 }
 
+func registerManageCRDsFlag(fs *flag.FlagSet, dest *bool) {
+	fs.BoolVar(dest, "manage-crds", true,
+		"Apply CRDs on startup to ensure schema is in sync with operator version")
+}
+
 func main() {
 	var (
 		metricsAddr          string
@@ -91,8 +96,7 @@ func main() {
 		"Enable leader election for team-operator. "+
 			"Enabling this will ensure there is only one active team-operator.")
 
-	flag.BoolVar(&manageCRDs, "manage-crds", true,
-		"Apply CRDs on startup to ensure schema is in sync with operator version")
+	registerManageCRDsFlag(flag.CommandLine, &manageCRDs)
 
 	opts := zap.Options{Development: true}
 

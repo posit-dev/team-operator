@@ -10,12 +10,14 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"time"
 
 	"github.com/go-logr/logr"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -48,7 +50,22 @@ func ApplyCRDs(ctx context.Context, cfg *rest.Config, log logr.Logger) error {
 		return fmt.Errorf("creating client: %w", err)
 	}
 
-	return applyCRDs(ctx, c, log)
+	var lastErr error
+	pollErr := wait.PollUntilContextCancel(ctx, 5*time.Second, true, func(ctx context.Context) (bool, error) {
+		if err := applyCRDs(ctx, c, log); err != nil {
+			log.Info("retrying CRD apply after transient error", "error", err)
+			lastErr = err
+			return false, nil
+		}
+		return true, nil
+	})
+	if pollErr != nil {
+		if lastErr != nil {
+			return lastErr
+		}
+		return pollErr
+	}
+	return nil
 }
 
 // applyCRDs applies all embedded CRD manifests using the provided client.
@@ -62,7 +79,7 @@ func applyCRDs(ctx context.Context, c client.Client, log logr.Logger) error {
 		return fmt.Errorf("no CRDs found in embedded bases/; binary may have been built without running 'make copy-crds'")
 	}
 
-	log.Info("applying CRDs with ForceOwnership; if GitOps tooling (Flux, ArgoCD) manages your CRDs, set --manage-crds=false to avoid field-ownership conflicts")
+	log.Info("applying CRDs with ForceOwnership", "hint", "if GitOps tooling (Flux, ArgoCD) manages your CRDs, set --manage-crds=false to avoid field-ownership conflicts")
 
 	for _, crd := range crds {
 		// Explicitly set TypeMeta for SSA
