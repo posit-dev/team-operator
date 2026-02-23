@@ -87,6 +87,7 @@ func main() {
 		enableLeaderElection bool
 		probeAddr            string
 		manageCRDs           bool
+		crdApplyTimeout      time.Duration
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
@@ -97,6 +98,8 @@ func main() {
 			"Enabling this will ensure there is only one active team-operator.")
 
 	registerManageCRDsFlag(flag.CommandLine, &manageCRDs)
+	flag.DurationVar(&crdApplyTimeout, "crd-apply-timeout", 60*time.Second,
+		"Timeout for applying CRDs at startup")
 
 	opts := zap.Options{Development: true}
 
@@ -144,9 +147,11 @@ func main() {
 	}
 
 	if manageCRDs {
-		crdCtx, crdCancel := context.WithTimeout(context.Background(), 60*time.Second)
-		defer crdCancel()
-		if err := crdapply.ApplyCRDs(crdCtx, mgr.GetConfig(), setupLog); err != nil {
+		if err := func() error {
+			crdCtx, crdCancel := context.WithTimeout(context.Background(), crdApplyTimeout)
+			defer crdCancel()
+			return crdapply.ApplyCRDs(crdCtx, mgr.GetConfig(), setupLog)
+		}(); err != nil {
 			setupLog.Error(err, "unable to apply CRDs")
 			os.Exit(1)
 		}
