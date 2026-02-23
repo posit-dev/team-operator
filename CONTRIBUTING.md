@@ -52,6 +52,35 @@ cd team-operator
 just deps
 ```
 
+This also installs git hooks that run automatically on commit.
+
+### Git Hooks
+
+Pre-commit hooks run automatically when you commit:
+
+| Hook | Triggers On | What It Does |
+|------|-------------|--------------|
+| `format` | All commits | Formats Go code |
+| `vet` | `.go` files | Static analysis |
+| `mgenerate` | `api/**/*.go` | Regenerates CRDs and manifests |
+| `helm-generate` | `config/**` | Regenerates Helm chart from kustomize |
+| `helm-lint` | `dist/chart/**` | Lints Helm chart |
+| `helm-template` | `dist/chart/**` | Verifies templates render |
+
+If a hook fails, the commit is blocked. Fix the issue, stage any generated files, and commit again.
+
+```bash
+# Run hooks manually on all files
+uvx pre-commit run --all-files
+
+# Skip all hooks
+git commit --no-verify -m "message"
+
+# Skip specific hooks only
+SKIP=vet git commit -m "message"
+SKIP=vet,mgenerate git commit -m "message"
+```
+
 ### Building the Operator
 
 ```bash
