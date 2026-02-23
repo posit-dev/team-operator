@@ -6,7 +6,6 @@ package crdapply
 import (
 	"context"
 	"embed"
-	"errors"
 	"fmt"
 	"io/fs"
 
@@ -39,6 +38,17 @@ func ApplyCRDs(ctx context.Context, cfg *rest.Config, log logr.Logger) error {
 		return fmt.Errorf("creating client: %w", err)
 	}
 
+	return applyCRDs(ctx, c, log)
+}
+
+// applyCRDs applies all embedded CRD manifests using the provided client.
+// It fails fast on the first error to avoid leaving the cluster in a partially-updated state.
+func applyCRDs(ctx context.Context, c client.Client, log logr.Logger) error {
+	scheme := runtime.NewScheme()
+	if err := apiextensionsv1.AddToScheme(scheme); err != nil {
+		return fmt.Errorf("registering apiextensions scheme: %w", err)
+	}
+
 	codec := serializer.NewCodecFactory(scheme)
 	entries, err := fs.ReadDir(crdFiles, "bases")
 	if err != nil {
@@ -47,31 +57,23 @@ func ApplyCRDs(ctx context.Context, cfg *rest.Config, log logr.Logger) error {
 
 	log.Info("applying CRDs with ForceOwnership; if GitOps tooling (Flux, ArgoCD) manages your CRDs, set --manage-crds=false to avoid field-ownership conflicts")
 
-	var errs []error
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
 		}
 		data, err := crdFiles.ReadFile("bases/" + entry.Name())
 		if err != nil {
-			log.Error(err, "failed to read embedded CRD", "file", entry.Name())
-			errs = append(errs, err)
-			continue
+			return fmt.Errorf("reading embedded CRD %s: %w", entry.Name(), err)
 		}
 
 		obj, _, err := codec.UniversalDeserializer().Decode(data, nil, nil)
 		if err != nil {
-			log.Error(err, "failed to decode CRD", "file", entry.Name())
-			errs = append(errs, err)
-			continue
+			return fmt.Errorf("decoding CRD %s: %w", entry.Name(), err)
 		}
 
 		crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
 		if !ok {
-			err := fmt.Errorf("unexpected type %T in %s", obj, entry.Name())
-			log.Error(err, "not a CRD", "file", entry.Name())
-			errs = append(errs, err)
-			continue
+			return fmt.Errorf("unexpected type %T in %s", obj, entry.Name())
 		}
 
 		// Explicitly set TypeMeta for SSA
@@ -81,19 +83,16 @@ func ApplyCRDs(ctx context.Context, cfg *rest.Config, log logr.Logger) error {
 		}
 
 		// Server-side apply — idempotent, only patches what changed
-		patch := client.Apply
-		if err := c.Patch(ctx, crd, patch,
+		if err := c.Patch(ctx, crd, client.Apply,
 			client.ForceOwnership,
 			client.FieldOwner("team-operator"),
 		); err != nil {
-			log.Error(err, "failed to apply CRD", "name", crd.Name)
-			errs = append(errs, err)
-		} else {
-			log.Info("applied CRD", "name", crd.Name)
+			return fmt.Errorf("applying CRD %s: %w", crd.Name, err)
 		}
+		log.Info("applied CRD", "name", crd.Name)
 	}
 
-	return errors.Join(errs...)
+	return nil
 }
 
 // ParseCRDs parses all embedded CRD manifests and returns them.

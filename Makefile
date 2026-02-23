@@ -96,6 +96,7 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 
 .PHONY: copy-crds
 copy-crds: manifests ## Copy generated CRDs to internal/crdapply/bases for embedding.
+	rm -f internal/crdapply/bases/*.yaml
 	cp config/crd/bases/*.yaml internal/crdapply/bases/
 
 .PHONY: verify-crds
