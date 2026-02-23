@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/product"
@@ -1033,8 +1034,7 @@ func (r *WorkbenchReconciler) CleanupWorkbench(ctx context.Context, req ctrl.Req
 
 // deleteServingResources removes Ingress, Service, and Deployment for Workbench.
 // Called by both suspendDeployedService (data preserved) and cleanupDeployedService (full teardown).
-func (r *WorkbenchReconciler) deleteServingResources(ctx context.Context, req ctrl.Request, w *positcov1beta1.Workbench) error {
-	l := r.GetLogger(ctx).WithValues("product", "workbench")
+func (r *WorkbenchReconciler) deleteServingResources(ctx context.Context, req ctrl.Request, w *positcov1beta1.Workbench, l logr.Logger) error {
 	key := client.ObjectKey{Name: w.ComponentName(), Namespace: req.Namespace}
 
 	// INGRESS
@@ -1060,7 +1060,7 @@ func (r *WorkbenchReconciler) deleteServingResources(ctx context.Context, req ct
 func (r *WorkbenchReconciler) suspendDeployedService(ctx context.Context, req ctrl.Request, w *positcov1beta1.Workbench) (ctrl.Result, error) {
 	l := r.GetLogger(ctx).WithValues("event", "suspend-service", "product", "workbench")
 
-	if err := r.deleteServingResources(ctx, req, w); err != nil {
+	if err := r.deleteServingResources(ctx, req, w, l); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -1074,7 +1074,7 @@ func (r *WorkbenchReconciler) cleanupDeployedService(ctx context.Context, req ct
 		"product", "workbench",
 	)
 
-	if err := r.deleteServingResources(ctx, req, w); err != nil {
+	if err := r.deleteServingResources(ctx, req, w, l); err != nil {
 		return err
 	}
 

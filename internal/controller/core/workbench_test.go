@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -413,10 +414,18 @@ func TestWorkbenchReconciler_Suspended(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
-	// No Deployment should be created when suspended
+	// No serving resources should be created when suspended
 	dep := &appsv1.Deployment{}
 	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, dep)
 	assert.Error(t, err, "Deployment should not exist when Workbench is suspended")
+
+	svc := &corev1.Service{}
+	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, svc)
+	assert.Error(t, err, "Service should not exist when Workbench is suspended")
+
+	ing := &networkingv1.Ingress{}
+	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, ing)
+	assert.Error(t, err, "Ingress should not exist when Workbench is suspended")
 }
 
 // TestWorkbenchReconciler_SuspendRemovesDeployment verifies that when Workbench transitions
@@ -459,4 +468,12 @@ func TestWorkbenchReconciler_SuspendRemovesDeployment(t *testing.T) {
 	dep = &appsv1.Deployment{}
 	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, dep)
 	assert.Error(t, err, "Deployment should be removed when Workbench is suspended")
+
+	svc := &corev1.Service{}
+	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, svc)
+	assert.Error(t, err, "Service should be removed when Workbench is suspended")
+
+	ing := &networkingv1.Ingress{}
+	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, ing)
+	assert.Error(t, err, "Ingress should be removed when Workbench is suspended")
 }
