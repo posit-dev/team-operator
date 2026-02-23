@@ -54,38 +54,14 @@ func ApplyCRDs(ctx context.Context, cfg *rest.Config, log logr.Logger) error {
 // applyCRDs applies all embedded CRD manifests using the provided client.
 // It fails fast on the first error to avoid leaving the cluster in a partially-updated state.
 func applyCRDs(ctx context.Context, c client.Client, log logr.Logger) error {
-	scheme, err := newScheme()
+	crds, err := ParseCRDs()
 	if err != nil {
 		return err
 	}
 
-	codec := serializer.NewCodecFactory(scheme)
-	entries, err := fs.ReadDir(crdFiles, "bases")
-	if err != nil {
-		return fmt.Errorf("reading embedded CRD directory: %w", err)
-	}
-
 	log.Info("applying CRDs with ForceOwnership; if GitOps tooling (Flux, ArgoCD) manages your CRDs, set --manage-crds=false to avoid field-ownership conflicts")
 
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		data, err := crdFiles.ReadFile("bases/" + entry.Name())
-		if err != nil {
-			return fmt.Errorf("reading embedded CRD %s: %w", entry.Name(), err)
-		}
-
-		obj, _, err := codec.UniversalDeserializer().Decode(data, nil, nil)
-		if err != nil {
-			return fmt.Errorf("decoding CRD %s: %w", entry.Name(), err)
-		}
-
-		crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
-		if !ok {
-			return fmt.Errorf("unexpected type %T in %s", obj, entry.Name())
-		}
-
+	for _, crd := range crds {
 		// Explicitly set TypeMeta for SSA
 		crd.TypeMeta = metav1.TypeMeta{
 			APIVersion: "apiextensions.k8s.io/v1",

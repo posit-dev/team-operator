@@ -141,12 +141,11 @@ func main() {
 
 	if manageCRDs {
 		crdCtx, crdCancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer crdCancel()
 		if err := crdapply.ApplyCRDs(crdCtx, mgr.GetConfig(), setupLog); err != nil {
-			crdCancel()
 			setupLog.Error(err, "unable to apply CRDs")
 			os.Exit(1)
 		}
-		crdCancel()
 	}
 
 	if err = (&corecontroller.SiteReconciler{
