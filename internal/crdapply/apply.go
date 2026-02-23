@@ -6,6 +6,7 @@ package crdapply
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"io/fs"
 
@@ -24,7 +25,10 @@ var crdFiles embed.FS
 // ApplyCRDs applies all embedded CRD manifests to the cluster using server-side apply.
 // It is safe to call on every startup — SSA is idempotent and only updates when
 // the schema actually differs from what is already in the cluster.
-func ApplyCRDs(cfg *rest.Config, log logr.Logger) error {
+//
+// ctx should carry a deadline; without one, a slow or unreachable API server will
+// block the operator from starting indefinitely.
+func ApplyCRDs(ctx context.Context, cfg *rest.Config, log logr.Logger) error {
 	scheme := runtime.NewScheme()
 	if err := apiextensionsv1.AddToScheme(scheme); err != nil {
 		return fmt.Errorf("registering apiextensions scheme: %w", err)
@@ -41,7 +45,9 @@ func ApplyCRDs(cfg *rest.Config, log logr.Logger) error {
 		return fmt.Errorf("reading embedded CRD directory: %w", err)
 	}
 
-	var firstErr error
+	log.Info("applying CRDs with ForceOwnership; if GitOps tooling (Flux, ArgoCD) manages your CRDs, set --manage-crds=false to avoid field-ownership conflicts")
+
+	var errs []error
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -49,24 +55,22 @@ func ApplyCRDs(cfg *rest.Config, log logr.Logger) error {
 		data, err := crdFiles.ReadFile("bases/" + entry.Name())
 		if err != nil {
 			log.Error(err, "failed to read embedded CRD", "file", entry.Name())
-			if firstErr == nil {
-				firstErr = err
-			}
+			errs = append(errs, err)
 			continue
 		}
 
 		obj, _, err := codec.UniversalDeserializer().Decode(data, nil, nil)
 		if err != nil {
 			log.Error(err, "failed to decode CRD", "file", entry.Name())
-			if firstErr == nil {
-				firstErr = err
-			}
+			errs = append(errs, err)
 			continue
 		}
 
 		crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
 		if !ok {
-			log.Error(fmt.Errorf("unexpected type %T", obj), "not a CRD", "file", entry.Name())
+			err := fmt.Errorf("unexpected type %T in %s", obj, entry.Name())
+			log.Error(err, "not a CRD", "file", entry.Name())
+			errs = append(errs, err)
 			continue
 		}
 
@@ -78,20 +82,18 @@ func ApplyCRDs(cfg *rest.Config, log logr.Logger) error {
 
 		// Server-side apply — idempotent, only patches what changed
 		patch := client.Apply
-		if err := c.Patch(context.Background(), crd, patch,
+		if err := c.Patch(ctx, crd, patch,
 			client.ForceOwnership,
 			client.FieldOwner("team-operator"),
 		); err != nil {
 			log.Error(err, "failed to apply CRD", "name", crd.Name)
-			if firstErr == nil {
-				firstErr = err
-			}
+			errs = append(errs, err)
 		} else {
 			log.Info("applied CRD", "name", crd.Name)
 		}
 	}
 
-	return firstErr
+	return errors.Join(errs...)
 }
 
 // ParseCRDs parses all embedded CRD manifests and returns them.

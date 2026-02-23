@@ -98,6 +98,10 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 copy-crds: manifests ## Copy generated CRDs to internal/crdapply/bases for embedding.
 	cp config/crd/bases/*.yaml internal/crdapply/bases/
 
+.PHONY: verify-crds
+verify-crds: ## Verify that internal/crdapply/bases is in sync with config/crd/bases (fails if stale).
+	diff -r config/crd/bases/ internal/crdapply/bases/
+
 .PHONY: generate-all
 generate-all: generate generate-client generate-openapi
 

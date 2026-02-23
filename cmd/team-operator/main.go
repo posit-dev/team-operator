@@ -4,9 +4,11 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/posit-dev/team-operator/api/keycloak/v2alpha1"
 	"github.com/posit-dev/team-operator/api/product"
@@ -138,8 +140,9 @@ func main() {
 	}
 
 	if manageCRDs {
-		setupLog.Info("applying CRDs at startup")
-		if err := crdapply.ApplyCRDs(mgr.GetConfig(), setupLog); err != nil {
+		crdCtx, crdCancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer crdCancel()
+		if err := crdapply.ApplyCRDs(crdCtx, mgr.GetConfig(), setupLog); err != nil {
 			setupLog.Error(err, "unable to apply CRDs")
 			os.Exit(1)
 		}
