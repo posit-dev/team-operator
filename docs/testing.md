@@ -8,17 +8,17 @@ The Team Operator uses a two-tier local integration testing strategy:
 
 ### Tier 1: Envtest (Fast API Tests)
 
-**What it is:** Envtest uses a lightweight, embedded Kubernetes API server (etcd + kube-apiserver) to test controller logic without a full cluster.
+**What it is:** Envtest uses a lightweight, embedded Kubernetes API server (etcd + kube-apiserver) to test CRD schema and API storage without a full cluster or running controller.
 
-**When to use:** For testing controller reconciliation logic, CRD validation, and API interactions.
+**When to use:** For testing CRD schema validation and API storage (no controller reconciler is started in the test environment).
 
 **Execution time:** Seconds
 
 **What it tests:**
 - CRD schema validation
-- Controller reconciliation logic
-- Resource creation and updates
-- Status updates
+- API object creation and storage
+- Resource serialization/deserialization
+- Basic CRUD operations via the API
 
 ### Tier 2: Kind Cluster (Full Stack Tests)
 
@@ -141,7 +141,7 @@ Example test file: `internal/controller/core/site_envtest_test.go`
 ```go
 var _ = Describe("Site Controller (envtest)", func() {
     Context("When creating a Site CR", func() {
-        It("Should create child resources", func() {
+        It("Should be able to create and retrieve a Site CR", func() {
             // Test code using k8sClient from suite_test.go
         })
     })

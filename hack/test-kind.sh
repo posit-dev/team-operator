@@ -310,7 +310,9 @@ EOF
 
     # Cleanup
     kubectl delete site "${site_name}" -n "${test_namespace}" --ignore-not-found
-    log_info "Site CR cleaned up"
+    kubectl delete connect "${site_name}" -n "${test_namespace}" --ignore-not-found
+    kubectl delete workbench "${site_name}" -n "${test_namespace}" --ignore-not-found
+    log_info "Site and child CRs cleaned up"
 }
 
 # Test: Check operator logs for errors
@@ -380,6 +382,7 @@ main() {
         wait_for_operator
         test_crds_installed
         test_operator_logs
+        test_reconciliation
     else
         # No Helm chart: install CRDs directly and skip operator deployment
         install_crds
@@ -388,7 +391,6 @@ main() {
     fi
 
     test_create_site
-    test_reconciliation
 
     log_info ""
     log_info "=========================================="

@@ -129,7 +129,6 @@ cov: ## Show the coverage report at the function level.
 ##@ Integration Testing
 
 KIND_CLUSTER_NAME ?= team-operator-test
-KIND_VERSION ?= 1.29.x
 
 .PHONY: kind-create
 kind-create: ## Create a kind cluster for integration testing.

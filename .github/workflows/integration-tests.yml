@@ -97,7 +97,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: coverage.out
           flags: envtest
@@ -137,15 +137,6 @@ jobs:
 
       - name: Create kind cluster
         run: make kind-create KIND_CLUSTER_NAME=${{ env.KIND_CLUSTER_NAME }}
-
-      - name: Build operator image
-        run: |
-          make build
-          docker build -t controller:latest .
-
-      - name: Load image into kind
-        run: |
-          kind load docker-image controller:latest --name ${{ env.KIND_CLUSTER_NAME }}
 
       - name: Run integration tests
         run: |

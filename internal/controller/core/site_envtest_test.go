@@ -4,8 +4,6 @@
 package core
 
 import (
-	"time"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -19,10 +17,6 @@ import (
 )
 
 var _ = Describe("Site Controller (envtest)", func() {
-	const (
-		timeout  = time.Second * 30
-		interval = time.Millisecond * 250
-	)
 
 	Context("When creating a Site CR", func() {
 		It("Should be able to create and retrieve a Site CR", func() {
@@ -72,10 +66,7 @@ var _ = Describe("Site Controller (envtest)", func() {
 			By("Verifying the Site CR was created")
 			siteKey := types.NamespacedName{Name: siteName, Namespace: testNamespace}
 			createdSite := &corev1beta1.Site{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, siteKey, createdSite)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			Expect(k8sClient.Get(ctx, siteKey, createdSite)).To(Succeed())
 
 			Expect(createdSite.Name).To(Equal(siteName))
 			Expect(createdSite.Namespace).To(Equal(testNamespace))
@@ -102,20 +93,17 @@ var _ = Describe("Site Controller (envtest)", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, connect)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(k8sClient.Delete(ctx, connect)).To(Succeed())
+			})
 
 			By("Verifying the Connect CR was created")
 			connectKey := types.NamespacedName{Name: connectName, Namespace: testNamespace}
 			createdConnect := &corev1beta1.Connect{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, connectKey, createdConnect)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			Expect(k8sClient.Get(ctx, connectKey, createdConnect)).To(Succeed())
 
 			Expect(createdConnect.Name).To(Equal(connectName))
 			Expect(createdConnect.Spec.Replicas).To(Equal(1))
-
-			By("Cleaning up")
-			Expect(k8sClient.Delete(ctx, connect)).To(Succeed())
 		})
 	})
 
@@ -138,20 +126,17 @@ var _ = Describe("Site Controller (envtest)", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, workbench)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(k8sClient.Delete(ctx, workbench)).To(Succeed())
+			})
 
 			By("Verifying the Workbench CR was created")
 			workbenchKey := types.NamespacedName{Name: workbenchName, Namespace: testNamespace}
 			createdWorkbench := &corev1beta1.Workbench{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, workbenchKey, createdWorkbench)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			Expect(k8sClient.Get(ctx, workbenchKey, createdWorkbench)).To(Succeed())
 
 			Expect(createdWorkbench.Name).To(Equal(workbenchName))
 			Expect(createdWorkbench.Spec.Replicas).To(Equal(1))
-
-			By("Cleaning up")
-			Expect(k8sClient.Delete(ctx, workbench)).To(Succeed())
 		})
 	})
 
@@ -174,20 +159,17 @@ var _ = Describe("Site Controller (envtest)", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, pm)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(k8sClient.Delete(ctx, pm)).To(Succeed())
+			})
 
 			By("Verifying the PackageManager CR was created")
 			pmKey := types.NamespacedName{Name: pmName, Namespace: testNamespace}
 			createdPM := &corev1beta1.PackageManager{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, pmKey, createdPM)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			Expect(k8sClient.Get(ctx, pmKey, createdPM)).To(Succeed())
 
 			Expect(createdPM.Name).To(Equal(pmName))
 			Expect(createdPM.Spec.Replicas).To(Equal(1))
-
-			By("Cleaning up")
-			Expect(k8sClient.Delete(ctx, pm)).To(Succeed())
 		})
 	})
 })
