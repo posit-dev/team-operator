@@ -18,6 +18,9 @@ CLUSTER_NAME="${1:-team-operator-test}"
 NAMESPACE="posit-team-system"
 RELEASE_NAME="team-operator"
 CHART_DIR="dist/chart"
+# Use a non-latest tag so Kubernetes defaults to imagePullPolicy=IfNotPresent,
+# which uses the locally loaded image instead of pulling from a registry.
+LOCAL_IMAGE="controller:kind-test"
 TIMEOUT="120s"
 
 # Colors for output
@@ -109,15 +112,24 @@ install_crds() {
 deploy_operator() {
     log_info "Deploying team-operator via Helm..."
 
-    # Create namespace if it doesn't exist
+    # Create both namespaces: operator system namespace and the watched namespace
     kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
+    kubectl create namespace posit-team --dry-run=client -o yaml | kubectl apply -f -
 
-    # Install or upgrade the operator
+    # Load the locally built image into kind with a non-latest tag.
+    # Using a non-latest tag causes Kubernetes to default to imagePullPolicy=IfNotPresent,
+    # so it uses the locally loaded image instead of attempting to pull from a registry.
+    docker tag controller:latest "${LOCAL_IMAGE}"
+    kind load docker-image "${LOCAL_IMAGE}" --name "${CLUSTER_NAME}"
+
+    local image_repo="${LOCAL_IMAGE%%:*}"
+    local image_tag="${LOCAL_IMAGE##*:}"
+
+    # Install or upgrade the operator using the chart's value path
     helm upgrade --install "${RELEASE_NAME}" "${CHART_DIR}" \
         --namespace "${NAMESPACE}" \
-        --set image.repository=controller \
-        --set image.tag=latest \
-        --set image.pullPolicy=Never \
+        --set "controllerManager.container.image.repository=${image_repo}" \
+        --set "controllerManager.container.image.tag=${image_tag}" \
         --wait \
         --timeout "${TIMEOUT}" || {
             log_warn "Helm install failed, checking pod status..."
@@ -134,7 +146,7 @@ wait_for_operator() {
     log_info "Waiting for operator to be ready..."
 
     wait_for "operator deployment ready" "${TIMEOUT}" \
-        kubectl rollout status deployment/"${RELEASE_NAME}" -n "${NAMESPACE}"
+        kubectl rollout status deployment/"${RELEASE_NAME}-controller-manager" -n "${NAMESPACE}"
 
     # Additional check for pod readiness
     local pod_name
@@ -187,6 +199,7 @@ metadata:
   name: ${site_name}
   namespace: ${test_namespace}
 spec:
+  domain: "test.example.com"
   flightdeck:
     image: "nginx:latest"
   workloadSecret:
@@ -360,15 +373,17 @@ main() {
     # Run tests with cleanup on exit
     trap cleanup EXIT
 
-    install_crds
-    test_crds_installed
-
     # Only run operator deployment tests if chart exists
     if [[ -d "${CHART_DIR}" ]]; then
+        # Let Helm manage CRD installation — pre-installing via kubectl causes ownership conflicts
         deploy_operator
         wait_for_operator
+        test_crds_installed
         test_operator_logs
     else
+        # No Helm chart: install CRDs directly and skip operator deployment
+        install_crds
+        test_crds_installed
         log_warn "Helm chart not found at ${CHART_DIR}, skipping operator deployment tests"
     fi
 
