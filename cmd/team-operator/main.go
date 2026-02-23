@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -147,6 +148,10 @@ func main() {
 	}
 
 	if manageCRDs {
+		if crdApplyTimeout <= 0 {
+			setupLog.Error(fmt.Errorf("--crd-apply-timeout must be positive, got %v", crdApplyTimeout), "invalid flag value")
+			os.Exit(1)
+		}
 		if err := func() error {
 			crdCtx, crdCancel := context.WithTimeout(context.Background(), crdApplyTimeout)
 			defer crdCancel()
