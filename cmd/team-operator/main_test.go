@@ -19,6 +19,9 @@ func TestThings(t *testing.T) {
 }
 
 func TestManageCRDsFlag(t *testing.T) {
+	// Note: this test uses an isolated FlagSet with a hardcoded default rather than
+	// probing flag.CommandLine directly. If the default in main.go changes, this test
+	// will not catch it. The tradeoff is accepted to keep the test simple.
 	fs := flag.NewFlagSet("test", flag.ContinueOnError)
 	var manageCRDs bool
 	fs.BoolVar(&manageCRDs, "manage-crds", true,

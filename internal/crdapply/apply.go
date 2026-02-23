@@ -58,6 +58,9 @@ func applyCRDs(ctx context.Context, c client.Client, log logr.Logger) error {
 	if err != nil {
 		return err
 	}
+	if len(crds) == 0 {
+		return fmt.Errorf("no CRDs found in embedded bases/; binary may have been built without running 'make copy-crds'")
+	}
 
 	log.Info("applying CRDs with ForceOwnership; if GitOps tooling (Flux, ArgoCD) manages your CRDs, set --manage-crds=false to avoid field-ownership conflicts")
 

@@ -13,7 +13,8 @@ controllerManager:
       - "--leader-elect"
       - "--metrics-bind-address=:8443"
       - "--health-probe-bind-address=:8081"
-      - "--manage-crds=true"
+      # Default is true; set to false for GitOps environments (Flux, ArgoCD)
+      # - "--manage-crds=false"
     env:
       WATCH_NAMESPACES: "posit-team"
       # AWS_REGION: "us-east-1"  # Set if deploying on AWS
