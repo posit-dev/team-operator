@@ -5,13 +5,17 @@ package crdapply
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/require"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -27,6 +31,76 @@ func TestParseCRDs(t *testing.T) {
 		require.NotEmpty(t, crd.Spec.Names.Kind, "CRD %s should have a kind", crd.Name)
 	}
 	t.Logf("embedded CRDs: %v", names)
+}
+
+func TestPermanentErrorType(t *testing.T) {
+	sentinel := errors.New("config failure")
+	pe := permanentError{sentinel}
+	require.Equal(t, "config failure", pe.Error())
+	require.True(t, errors.Is(pe, sentinel), "permanentError should unwrap to inner error")
+	var target permanentError
+	require.True(t, errors.As(pe, &target), "errors.As should match permanentError")
+}
+
+func newFakeClient(t *testing.T) client.Client {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	require.NoError(t, apiextensionsv1.AddToScheme(scheme))
+	return fake.NewClientBuilder().WithScheme(scheme).Build()
+}
+
+// TestPollApplyCRDsPermanentErrorStopsPoll verifies that a permanentError causes the
+// poll loop to stop after the first attempt, without waiting for the context to expire.
+func TestPollApplyCRDsPermanentErrorStopsPoll(t *testing.T) {
+	callCount := 0
+	fn := func(_ context.Context, _ client.Client, _ logr.Logger) error {
+		callCount++
+		return permanentError{fmt.Errorf("no CRDs found")}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := pollApplyCRDs(ctx, newFakeClient(t), logr.Discard(), 5*time.Second, fn)
+	require.Error(t, err)
+	require.Equal(t, 1, callCount, "permanent error should stop the poll after one attempt")
+	require.Contains(t, err.Error(), "no CRDs found")
+}
+
+// TestPollApplyCRDsTransientErrorRetried verifies that transient errors cause the poll
+// loop to retry until the function succeeds.
+func TestPollApplyCRDsTransientErrorRetried(t *testing.T) {
+	callCount := 0
+	fn := func(_ context.Context, _ client.Client, _ logr.Logger) error {
+		callCount++
+		if callCount < 3 {
+			return fmt.Errorf("transient error %d", callCount)
+		}
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := pollApplyCRDs(ctx, newFakeClient(t), logr.Discard(), 10*time.Millisecond, fn)
+	require.NoError(t, err)
+	require.Equal(t, 3, callCount, "should retry until success")
+}
+
+// TestPollApplyCRDsContextCancelWrapsErrors verifies that when the context is cancelled
+// after transient errors, the returned error includes both the poll error and the last
+// apply error.
+func TestPollApplyCRDsContextCancelWrapsErrors(t *testing.T) {
+	fn := func(_ context.Context, _ client.Client, _ logr.Logger) error {
+		return fmt.Errorf("transient patch error")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	err := pollApplyCRDs(ctx, newFakeClient(t), logr.Discard(), 5*time.Second, fn)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "transient patch error", "last apply error should be included in returned error")
 }
 
 // TestApplyCRDs is a structural test that verifies all embedded CRDs are stored after

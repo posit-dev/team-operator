@@ -57,11 +57,19 @@ func ApplyCRDs(ctx context.Context, cfg *rest.Config, log logr.Logger) error {
 		return fmt.Errorf("creating client: %w", err)
 	}
 
+	return pollApplyCRDs(ctx, c, log, 5*time.Second, applyCRDs)
+}
+
+// pollApplyCRDs runs fn in a poll loop until it succeeds, fn returns a permanentError,
+// or ctx is cancelled. Extracted for testability.
+func pollApplyCRDs(ctx context.Context, c client.Client, log logr.Logger, interval time.Duration, fn func(context.Context, client.Client, logr.Logger) error) error {
 	var lastErr error
-	pollErr := wait.PollUntilContextCancel(ctx, 5*time.Second, true, func(ctx context.Context) (bool, error) {
-		if err := applyCRDs(ctx, c, log); err != nil {
+	var isPermanent bool
+	pollErr := wait.PollUntilContextCancel(ctx, interval, true, func(ctx context.Context) (bool, error) {
+		if err := fn(ctx, c, log); err != nil {
 			var pe permanentError
 			if errors.As(err, &pe) {
+				isPermanent = true
 				return false, pe.err
 			}
 			log.Info("retrying CRD apply after transient error", "error", err)
@@ -71,7 +79,7 @@ func ApplyCRDs(ctx context.Context, cfg *rest.Config, log logr.Logger) error {
 		return true, nil
 	})
 	if pollErr != nil {
-		if lastErr != nil {
+		if lastErr != nil && !isPermanent {
 			return fmt.Errorf("%w; last apply error: %w", pollErr, lastErr)
 		}
 		return pollErr
