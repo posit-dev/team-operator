@@ -1,0 +1,43 @@
+repos:
+  - repo: local
+    hooks:
+      - id: format
+        name: Format code
+        entry: just format
+        language: system
+        pass_filenames: false
+
+      - id: vet
+        name: Go vet
+        entry: just vet
+        language: system
+        pass_filenames: false
+        files: \.go$
+
+      - id: mgenerate
+        name: Generate manifests
+        entry: just mgenerate
+        language: system
+        pass_filenames: false
+        files: ^api/.*\.go$
+
+      - id: helm-generate
+        name: Generate Helm chart
+        entry: just helm-generate
+        language: system
+        pass_filenames: false
+        files: ^config/
+
+      - id: helm-lint
+        name: Lint Helm chart
+        entry: just helm-lint
+        language: system
+        pass_filenames: false
+        files: ^(dist/chart/|config/)
+
+      - id: helm-template
+        name: Render Helm templates
+        entry: just helm-template
+        language: system
+        pass_filenames: false
+        files: ^(dist/chart/|config/)

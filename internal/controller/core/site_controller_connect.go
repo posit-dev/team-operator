@@ -218,6 +218,9 @@ func (r *SiteReconciler) reconcileConnect(
 		}
 	}
 
+	// Propagate additional config if configured
+	targetConnect.Spec.Config.AdditionalConfig = site.Spec.Connect.AdditionalConfig
+
 	// if volumeSource.type is set, then force volume creation for Connect
 	if site.Spec.VolumeSource.Type != v1beta1.VolumeSourceTypeNone {
 		if targetConnect.Spec.Volume == nil {

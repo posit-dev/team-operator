@@ -12,15 +12,16 @@ import (
 // WorkbenchIniConfigApplyConfiguration represents a declarative configuration of the WorkbenchIniConfig type for use
 // with apply.
 type WorkbenchIniConfigApplyConfiguration struct {
-	Launcher           *WorkbenchLauncherConfigApplyConfiguration                                 `json:"launcher.conf,omitempty"`
-	VsCode             *WorkbenchVsCodeConfigApplyConfiguration                                   `json:"vscode.conf,omitempty"`
-	Logging            *WorkbenchLoggingConfigApplyConfiguration                                  `json:"logging.conf,omitempty"`
-	Jupyter            *WorkbenchJupyterConfigApplyConfiguration                                  `json:"jupyter.conf,omitempty"`
-	RServer            *WorkbenchRServerConfigApplyConfiguration                                  `json:"rserver.conf,omitempty"`
-	LauncherKubernetes *WorkbenchLauncherKubernetesConfigApplyConfiguration                       `json:"launcher.kubernetes.conf,omitempty"`
-	LauncherLocal      *WorkbenchLauncherLocalConfigApplyConfiguration                            `json:"launcher.local.conf,omitempty"`
-	Databricks         map[string]*corev1beta1.WorkbenchDatabricksConfig                          `json:"databricks.conf,omitempty"`
-	Resources          map[string]*corev1beta1.WorkbenchLauncherKubnernetesResourcesConfigSection `json:"launcher.kubernetes.resources.conf,omitempty"`
+	Launcher           *WorkbenchLauncherConfigApplyConfiguration                                `json:"launcher.conf,omitempty"`
+	VsCode             *WorkbenchVsCodeConfigApplyConfiguration                                  `json:"vscode.conf,omitempty"`
+	Logging            *WorkbenchLoggingConfigApplyConfiguration                                 `json:"logging.conf,omitempty"`
+	Jupyter            *WorkbenchJupyterConfigApplyConfiguration                                 `json:"jupyter.conf,omitempty"`
+	RServer            *WorkbenchRServerConfigApplyConfiguration                                 `json:"rserver.conf,omitempty"`
+	LauncherKubernetes *WorkbenchLauncherKubernetesConfigApplyConfiguration                      `json:"launcher.kubernetes.conf,omitempty"`
+	LauncherLocal      *WorkbenchLauncherLocalConfigApplyConfiguration                           `json:"launcher.local.conf,omitempty"`
+	Databricks         map[string]*corev1beta1.WorkbenchDatabricksConfig                         `json:"databricks.conf,omitempty"`
+	Resources          map[string]*corev1beta1.WorkbenchLauncherKubernetesResourcesConfigSection `json:"launcher.kubernetes.resources.conf,omitempty"`
+	AdditionalConfigs  map[string]string                                                         `json:"additionalConfigs,omitempty"`
 }
 
 // WorkbenchIniConfigApplyConfiguration constructs a declarative configuration of the WorkbenchIniConfig type for use with
@@ -103,12 +104,26 @@ func (b *WorkbenchIniConfigApplyConfiguration) WithDatabricks(entries map[string
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, the entries provided by each call will be put on the Resources field,
 // overwriting an existing map entries in Resources field with the same key.
-func (b *WorkbenchIniConfigApplyConfiguration) WithResources(entries map[string]*corev1beta1.WorkbenchLauncherKubnernetesResourcesConfigSection) *WorkbenchIniConfigApplyConfiguration {
+func (b *WorkbenchIniConfigApplyConfiguration) WithResources(entries map[string]*corev1beta1.WorkbenchLauncherKubernetesResourcesConfigSection) *WorkbenchIniConfigApplyConfiguration {
 	if b.Resources == nil && len(entries) > 0 {
-		b.Resources = make(map[string]*corev1beta1.WorkbenchLauncherKubnernetesResourcesConfigSection, len(entries))
+		b.Resources = make(map[string]*corev1beta1.WorkbenchLauncherKubernetesResourcesConfigSection, len(entries))
 	}
 	for k, v := range entries {
 		b.Resources[k] = v
+	}
+	return b
+}
+
+// WithAdditionalConfigs puts the entries into the AdditionalConfigs field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, the entries provided by each call will be put on the AdditionalConfigs field,
+// overwriting an existing map entries in AdditionalConfigs field with the same key.
+func (b *WorkbenchIniConfigApplyConfiguration) WithAdditionalConfigs(entries map[string]string) *WorkbenchIniConfigApplyConfiguration {
+	if b.AdditionalConfigs == nil && len(entries) > 0 {
+		b.AdditionalConfigs = make(map[string]string, len(entries))
+	}
+	for k, v := range entries {
+		b.AdditionalConfigs[k] = v
 	}
 	return b
 }

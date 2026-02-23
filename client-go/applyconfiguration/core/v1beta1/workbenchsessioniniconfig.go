@@ -8,10 +8,11 @@ package v1beta1
 // WorkbenchSessionIniConfigApplyConfiguration represents a declarative configuration of the WorkbenchSessionIniConfig type for use
 // with apply.
 type WorkbenchSessionIniConfigApplyConfiguration struct {
-	RSession     *WorkbenchRSessionConfigApplyConfiguration `json:"rsession.conf,omitempty"`
-	Repos        *WorkbenchRepoConfigApplyConfiguration     `json:"repos.conf,omitempty"`
-	WorkbenchNss *WorkbenchNssConfigApplyConfiguration      `json:"workbench_nss.conf,omitempty"`
-	Positron     *WorkbenchPositronConfigApplyConfiguration `json:"positron.conf,omitempty"`
+	RSession          *WorkbenchRSessionConfigApplyConfiguration `json:"rsession.conf,omitempty"`
+	Repos             *WorkbenchRepoConfigApplyConfiguration     `json:"repos.conf,omitempty"`
+	WorkbenchNss      *WorkbenchNssConfigApplyConfiguration      `json:"workbench_nss.conf,omitempty"`
+	Positron          *WorkbenchPositronConfigApplyConfiguration `json:"positron.conf,omitempty"`
+	AdditionalConfigs map[string]string                          `json:"additionalConfigs,omitempty"`
 }
 
 // WorkbenchSessionIniConfigApplyConfiguration constructs a declarative configuration of the WorkbenchSessionIniConfig type for use with
@@ -49,5 +50,19 @@ func (b *WorkbenchSessionIniConfigApplyConfiguration) WithWorkbenchNss(value *Wo
 // If called multiple times, the Positron field is set to the value of the last call.
 func (b *WorkbenchSessionIniConfigApplyConfiguration) WithPositron(value *WorkbenchPositronConfigApplyConfiguration) *WorkbenchSessionIniConfigApplyConfiguration {
 	b.Positron = value
+	return b
+}
+
+// WithAdditionalConfigs puts the entries into the AdditionalConfigs field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, the entries provided by each call will be put on the AdditionalConfigs field,
+// overwriting an existing map entries in AdditionalConfigs field with the same key.
+func (b *WorkbenchSessionIniConfigApplyConfiguration) WithAdditionalConfigs(entries map[string]string) *WorkbenchSessionIniConfigApplyConfiguration {
+	if b.AdditionalConfigs == nil && len(entries) > 0 {
+		b.AdditionalConfigs = make(map[string]string, len(entries))
+	}
+	for k, v := range entries {
+		b.AdditionalConfigs[k] = v
+	}
 	return b
 }

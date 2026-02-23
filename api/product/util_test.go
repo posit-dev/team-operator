@@ -4,7 +4,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -93,7 +92,7 @@ func TestGetAWSRegion(t *testing.T) {
 		{"AWS_REGION set", "us-west-2", "", "us-west-2"},
 		{"AWS_DEFAULT_REGION set", "", "eu-west-1", "eu-west-1"},
 		{"Both set, AWS_REGION wins", "us-west-2", "eu-west-1", "us-west-2"},
-		{"Neither set, defaults", "", "", endpoints.UsEast2RegionID},
+		{"Neither set, defaults", "", "", "us-east-2"},
 	}
 
 	for _, tt := range tests {

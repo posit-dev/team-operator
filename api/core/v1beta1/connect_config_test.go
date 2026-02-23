@@ -249,3 +249,47 @@ func TestConnectConfig_CustomScope(t *testing.T) {
 	require.Contains(t, str, "OpenIDConnectIssuer = https://example.com")
 	require.NotContains(t, str, "CustomScope")
 }
+
+func TestConnectConfig_AdditionalConfig(t *testing.T) {
+	// Test basic string append
+	cfg := ConnectConfig{
+		Server: &ConnectServerConfig{
+			Address: "some-address.com",
+		},
+		AdditionalConfig: "\n[NewSection]\nNewKey = custom-value\n",
+	}
+	str, err := cfg.GenerateGcfg()
+	require.Nil(t, err)
+	require.Contains(t, str, "[Server]")
+	require.Contains(t, str, "Address = some-address.com")
+	require.Contains(t, str, "[NewSection]")
+	require.Contains(t, str, "NewKey = custom-value")
+}
+
+func TestConnectConfig_AdditionalConfigOverride(t *testing.T) {
+	// gcfg last-write-wins: appended scalar overrides typed field
+	cfg := ConnectConfig{
+		Server: &ConnectServerConfig{
+			Address: "typed-address.com",
+		},
+		AdditionalConfig: "\n[Server]\nAddress = passthrough-address.com\n",
+	}
+	str, err := cfg.GenerateGcfg()
+	require.Nil(t, err)
+	// Both values appear in the output; gcfg uses last occurrence
+	require.Contains(t, str, "Address = typed-address.com")
+	require.Contains(t, str, "Address = passthrough-address.com")
+}
+
+func TestConnectConfig_AdditionalConfigEmpty(t *testing.T) {
+	// Empty string has no effect
+	cfg := ConnectConfig{
+		Server: &ConnectServerConfig{
+			Address: "some-address.com",
+		},
+		AdditionalConfig: "",
+	}
+	str, err := cfg.GenerateGcfg()
+	require.Nil(t, err)
+	require.Contains(t, str, "Address = some-address.com")
+}
