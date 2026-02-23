@@ -321,6 +321,11 @@ spec:
                   Sleep puts the service to sleep... so you can debug a crash looping container / etc. It is an ugly escape hatch,
                   but can also be useful on occasion
                 type: boolean
+              suspended:
+                description: |-
+                  Suspended indicates Package Manager should not run serving resources (Deployment, Service, Ingress)
+                  but should preserve data resources (PVC, database, secrets). Set by the Site controller.
+                type: boolean
               url:
                 type: string
               volume:

@@ -45,6 +45,32 @@ func (r *PackageManagerReconciler) CleanupPackageManager(ctx context.Context, re
 	return ctrl.Result{}, nil
 }
 
+// suspendDeployedService removes serving resources (Deployment, Service, Ingress)
+// while preserving data resources (PVC, database, secrets) when Package Manager is suspended.
+func (r *PackageManagerReconciler) suspendDeployedService(ctx context.Context, req ctrl.Request, pm *positcov1beta1.PackageManager) (ctrl.Result, error) {
+	l := r.GetLogger(ctx).WithValues("event", "suspend-service", "product", "package-manager")
+
+	key := client.ObjectKey{Name: pm.ComponentName(), Namespace: req.Namespace}
+
+	// INGRESS
+	if err := internal.BasicDelete(ctx, r, l, key, &networkingv1.Ingress{}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// SERVICE
+	if err := internal.BasicDelete(ctx, r, l, key, &corev1.Service{}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// DEPLOYMENT
+	if err := internal.BasicDelete(ctx, r, l, key, &v1.Deployment{}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	l.Info("Package Manager serving resources suspended")
+	return ctrl.Result{}, nil
+}
+
 func (r *PackageManagerReconciler) cleanupDeployedService(ctx context.Context, req ctrl.Request, pm *positcov1beta1.PackageManager) error {
 	l := r.GetLogger(ctx).WithValues(
 		"event", "cleanup-service",
@@ -112,6 +138,11 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 		"event", "reconcile-package-manager-service",
 		"product", "package-manager",
 	)
+
+	// If suspended, clean up serving resources but preserve data
+	if pm.Spec.Suspended != nil && *pm.Spec.Suspended {
+		return r.suspendDeployedService(ctx, req, pm)
+	}
 
 	// create database
 	secretKey := "pkg-db-password"

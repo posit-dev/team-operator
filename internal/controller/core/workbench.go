@@ -18,6 +18,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -75,6 +76,11 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 		"event", "reconcile-workbench",
 		"product", "workbench",
 	)
+
+	// If suspended, clean up serving resources but preserve data
+	if w.Spec.Suspended != nil && *w.Spec.Suspended {
+		return r.suspendDeployedService(ctx, req, w)
+	}
 
 	// TODO: should do formal spec validation / correction...
 
@@ -1025,14 +1031,194 @@ func (r *WorkbenchReconciler) CleanupWorkbench(ctx context.Context, req ctrl.Req
 	return ctrl.Result{}, nil
 }
 
+// suspendDeployedService removes serving resources (Deployment, Service, Ingress)
+// while preserving data resources (PVC, database, secrets) when Workbench is suspended.
+func (r *WorkbenchReconciler) suspendDeployedService(ctx context.Context, req ctrl.Request, w *positcov1beta1.Workbench) (ctrl.Result, error) {
+	l := r.GetLogger(ctx).WithValues("event", "suspend-service", "product", "workbench")
+
+	key := client.ObjectKey{Name: w.ComponentName(), Namespace: req.Namespace}
+
+	// INGRESS
+	if err := internal.BasicDelete(ctx, r, l, key, &networkingv1.Ingress{}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// SERVICE
+	if err := internal.BasicDelete(ctx, r, l, key, &corev1.Service{}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// DEPLOYMENT
+	if err := internal.BasicDelete(ctx, r, l, key, &appsv1.Deployment{}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	l.Info("Workbench serving resources suspended")
+	return ctrl.Result{}, nil
+}
+
 func (r *WorkbenchReconciler) cleanupDeployedService(ctx context.Context, req ctrl.Request, w *positcov1beta1.Workbench) error {
 	l := r.GetLogger(ctx).WithValues(
 		"event", "cleanup-service",
-		"product", "connect",
+		"product", "workbench",
 	)
 
-	l.Info("starting")
+	key := client.ObjectKey{Name: w.ComponentName(), Namespace: req.Namespace}
 
+	// INGRESS
+	if err := internal.BasicDelete(ctx, r, l, key, &networkingv1.Ingress{}); err != nil {
+		return err
+	}
+
+	// SERVICE
+	if err := internal.BasicDelete(ctx, r, l, key, &corev1.Service{}); err != nil {
+		return err
+	}
+
+	// DEPLOYMENT
+	if err := internal.BasicDelete(ctx, r, l, key, &appsv1.Deployment{}); err != nil {
+		return err
+	}
+
+	// PVCS
+	// Main volume
+	if err := internal.BasicDelete(ctx, r, l, key, &corev1.PersistentVolumeClaim{}); err != nil {
+		return err
+	}
+
+	// Shared storage PVC (if load balancing is enabled)
+	sharedStorageKey := client.ObjectKey{
+		Name:      fmt.Sprintf("%s-shared-storage", w.ComponentName()),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, sharedStorageKey, &corev1.PersistentVolumeClaim{}); err != nil {
+		return err
+	}
+
+	// Additional volumes
+	for _, v := range w.Spec.AdditionalVolumes {
+		additionalKey := client.ObjectKey{
+			Name:      v.PvcName,
+			Namespace: req.Namespace,
+		}
+		if err := internal.BasicDelete(ctx, r, l, additionalKey, &corev1.PersistentVolumeClaim{}); err != nil {
+			return err
+		}
+	}
+
+	// SERVICE ACCOUNTS
+	// Main service account (for off-host execution)
+	if err := internal.BasicDelete(ctx, r, l, key, &corev1.ServiceAccount{}); err != nil {
+		return err
+	}
+
+	// Session service account
+	sessionSaKey := client.ObjectKey{
+		Name:      w.SessionServiceAccountName(),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, sessionSaKey, &corev1.ServiceAccount{}); err != nil {
+		return err
+	}
+
+	// RBAC (Role and RoleBinding for off-host execution)
+	if err := internal.BasicDelete(ctx, r, l, key, &rbacv1.Role{}); err != nil {
+		return err
+	}
+
+	if err := internal.BasicDelete(ctx, r, l, key, &rbacv1.RoleBinding{}); err != nil {
+		return err
+	}
+
+	// CONFIGMAPS
+	if err := internal.BasicDelete(ctx, r, l, key, &corev1.ConfigMap{}); err != nil {
+		return err
+	}
+
+	loginCmKey := client.ObjectKey{
+		Name:      w.LoginConfigmapName(),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, loginCmKey, &corev1.ConfigMap{}); err != nil {
+		return err
+	}
+
+	sessionCmKey := client.ObjectKey{
+		Name:      w.SessionConfigMapName(),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, sessionCmKey, &corev1.ConfigMap{}); err != nil {
+		return err
+	}
+
+	supervisorCmKey := client.ObjectKey{
+		Name:      w.SupervisorConfigmapName(),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, supervisorCmKey, &corev1.ConfigMap{}); err != nil {
+		return err
+	}
+
+	templateCmKey := client.ObjectKey{
+		Name:      w.TemplateConfigMapName(),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, templateCmKey, &corev1.ConfigMap{}); err != nil {
+		return err
+	}
+
+	authLoginHtmlCmKey := client.ObjectKey{
+		Name:      w.AuthLoginPageHtmlConfigmapName(),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, authLoginHtmlCmKey, &corev1.ConfigMap{}); err != nil {
+		return err
+	}
+
+	// SECRETS
+	secretConfigKey := client.ObjectKey{
+		Name:      fmt.Sprintf("%s-config", w.ComponentName()),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, secretConfigKey, &corev1.Secret{}); err != nil {
+		return err
+	}
+
+	// TRAEFIK MIDDLEWARES
+	cspMiddlewareKey := client.ObjectKey{
+		Name:      r.CspMiddleware(w),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, cspMiddlewareKey, &v1alpha1.Middleware{}); err != nil {
+		return err
+	}
+
+	forwardMiddlewareKey := client.ObjectKey{
+		Name:      r.ForwardMiddleware(w),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, forwardMiddlewareKey, &v1alpha1.Middleware{}); err != nil {
+		return err
+	}
+
+	headersMiddlewareKey := client.ObjectKey{
+		Name:      r.HeadersMiddleware(w),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, headersMiddlewareKey, &v1alpha1.Middleware{}); err != nil {
+		return err
+	}
+
+	// SECRET PROVIDER CLASS
+	spcKey := client.ObjectKey{
+		Name:      w.SecretProviderClassName(),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, spcKey, &secretstorev1.SecretProviderClass{}); err != nil {
+		return err
+	}
+
+	l.Info("Workbench service cleanup complete")
 	return nil
 }
 

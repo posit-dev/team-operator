@@ -13,6 +13,11 @@ import (
 
 // ChronicleSpec defines the desired state of Chronicle
 type ChronicleSpec struct {
+	// Suspended indicates Chronicle should not run serving resources (StatefulSet, Service)
+	// but should preserve configuration. Set by the Site controller.
+	// +optional
+	Suspended *bool `json:"suspended,omitempty"`
+
 	Config ChronicleConfig `json:"config,omitempty"`
 
 	// ImagePullSecrets is a set of image pull secrets to use for all image pulls. These names / secrets
