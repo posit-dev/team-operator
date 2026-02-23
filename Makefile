@@ -149,7 +149,7 @@ kind-load-image: docker-build ## Load the operator image into kind cluster.
 	kind load docker-image $(IMG) --name $(KIND_CLUSTER_NAME)
 
 .PHONY: test-kind
-test-kind: kind-create docker-build ## Build operator image and run integration tests on a kind cluster.
+test-kind: kind-create docker-build helm-generate ## Build operator image and run integration tests on a kind cluster.
 	@echo "Running integration tests on kind cluster '$(KIND_CLUSTER_NAME)'..."
 	./hack/test-kind.sh $(KIND_CLUSTER_NAME)
 
