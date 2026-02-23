@@ -453,6 +453,16 @@ func TestWorkbenchReconciler_SuspendRemovesDeployment(t *testing.T) {
 	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, dep)
 	require.NoError(t, err, "Deployment should exist after normal reconcile")
 
+	// Pre-create DB password secret to verify it is preserved during suspension
+	pwSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      wb.ComponentName(),
+			Namespace: ns,
+		},
+	}
+	err = cli.Create(ctx, pwSecret)
+	require.NoError(t, err)
+
 	// Pass 2: suspend — Deployment should be removed
 	wb = getWorkbench(t, cli, ns, name)
 	suspended := true
@@ -481,4 +491,49 @@ func TestWorkbenchReconciler_SuspendRemovesDeployment(t *testing.T) {
 	loginCm := &corev1.ConfigMap{}
 	err = cli.Get(ctx, client.ObjectKey{Name: wb.LoginConfigmapName(), Namespace: ns}, loginCm)
 	assert.NoError(t, err, "Login ConfigMap should be preserved when Workbench is suspended")
+
+	// DB password secret must also be preserved during suspension
+	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, pwSecret)
+	assert.NoError(t, err, "DB password secret should be preserved when Workbench is suspended")
+}
+
+// TestWorkbenchReconciler_CleanupDeletesDatabasePasswordSecret verifies that CleanupWorkbench
+// deletes the DB password secret.
+func TestWorkbenchReconciler_CleanupDeletesDatabasePasswordSecret(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-cleanup-db-secret"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	wb := defineDefaultWorkbench(t, ns, name)
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	// Pre-create the DB password secret
+	pwSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      wb.ComponentName(),
+			Namespace: ns,
+		},
+	}
+	err = cli.Create(ctx, pwSecret)
+	require.NoError(t, err)
+
+	// Verify it exists before cleanup
+	existing := &corev1.Secret{}
+	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, existing)
+	require.NoError(t, err, "DB password secret should exist before cleanup")
+
+	// Run CleanupWorkbench
+	_, err = r.CleanupWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+
+	// Assert the secret is gone
+	deleted := &corev1.Secret{}
+	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, deleted)
+	assert.Error(t, err, "DB password secret should be deleted after CleanupWorkbench")
 }
