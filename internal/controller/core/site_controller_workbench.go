@@ -568,9 +568,9 @@ func (r *SiteReconciler) disableWorkbench(ctx context.Context, req controllerrun
 	return nil
 }
 
-// cleanupWorkbench deletes the Workbench CRD when teardown=true.
+// cleanupWorkbench deletes the Workbench CR when teardown=true.
 //
-// WARNING: This is a DESTRUCTIVE operation. Deleting the Workbench CRD triggers the Workbench
+// WARNING: This is a DESTRUCTIVE operation. Deleting the Workbench CR triggers the Workbench
 // finalizer which permanently destroys:
 //   - The Workbench database and all its data
 //   - All secrets (database credentials, provisioning keys, etc.)

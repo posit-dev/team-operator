@@ -323,13 +323,6 @@ func getPackageManager(t *testing.T, cli client.Client, siteNamespace, siteName 
 	return pm
 }
 
-func getChronicle(t *testing.T, cli client.Client, siteNamespace, siteName string) *v1beta1.Chronicle {
-	chronicle := &v1beta1.Chronicle{}
-	err := cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, chronicle, &client.GetOptions{})
-	assert.Nil(t, err)
-	return chronicle
-}
-
 func getFlightdeck(t *testing.T, cli client.Client, siteNamespace, siteName string) *v1beta1.Flightdeck {
 	fd := &v1beta1.Flightdeck{}
 	err := cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, fd, &client.GetOptions{})

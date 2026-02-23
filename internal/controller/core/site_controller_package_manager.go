@@ -165,9 +165,9 @@ func (r *SiteReconciler) disablePackageManager(ctx context.Context, req controll
 	return nil
 }
 
-// cleanupPackageManager deletes the PackageManager CRD when teardown=true.
+// cleanupPackageManager deletes the PackageManager CR when teardown=true.
 //
-// WARNING: This is a DESTRUCTIVE operation. Deleting the PackageManager CRD triggers the PackageManager
+// WARNING: This is a DESTRUCTIVE operation. Deleting the PackageManager CR triggers the PackageManager
 // finalizer which permanently destroys:
 //   - The Package Manager database and all its data
 //   - All secrets (database credentials, provisioning keys, etc.)

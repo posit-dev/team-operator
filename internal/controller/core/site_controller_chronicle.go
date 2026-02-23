@@ -133,9 +133,9 @@ func (r *SiteReconciler) disableChronicle(ctx context.Context, req controllerrun
 	return nil
 }
 
-// cleanupChronicle deletes the Chronicle CRD when teardown=true.
+// cleanupChronicle deletes the Chronicle CR when teardown=true.
 //
-// WARNING: This is a DESTRUCTIVE operation. Deleting the Chronicle CRD triggers the Chronicle
+// WARNING: This is a DESTRUCTIVE operation. Deleting the Chronicle CR triggers the Chronicle
 // finalizer which permanently destroys:
 //   - All deployed Kubernetes resources
 //   - Chronicle storage (S3 data or local volumes)

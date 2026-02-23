@@ -468,7 +468,6 @@ spec:
     # Use teardown: true to permanently delete all Chronicle data.
     enabled: true
 
-
     image: "ghcr.io/posit-dev/chronicle:2024.11.0"
     imagePullPolicy: IfNotPresent
 
