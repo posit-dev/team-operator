@@ -20,14 +20,6 @@ rules:
   - apiextensions.k8s.io
   resources:
   - customresourcedefinitions
-  resourceNames:
-  - chronicles.core.posit.team
-  - connects.core.posit.team
-  - flightdecks.core.posit.team
-  - packagemanagers.core.posit.team
-  - postgresdatabases.core.posit.team
-  - sites.core.posit.team
-  - workbenches.core.posit.team
   verbs:
   - create
   - get
