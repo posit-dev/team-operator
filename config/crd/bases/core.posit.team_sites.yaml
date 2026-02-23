@@ -194,6 +194,14 @@ spec:
                   domainPrefix:
                     default: connect
                     type: string
+                  enabled:
+                    default: true
+                    description: |-
+                      Enabled controls whether Connect is running. Defaults to true.
+                      Setting to false suspends Connect: stops pods and removes ingress/service,
+                      but preserves PVC, database, and secrets so data is retained.
+                      Re-enabling restores full service without data loss.
+                    type: boolean
                   experimentalFeatures:
                     properties:
                       chronicleSidecarProductApiKeyEnabled:
@@ -437,6 +445,13 @@ spec:
                     type: integer
                   sessionImage:
                     type: string
+                  teardown:
+                    default: false
+                    description: |-
+                      Teardown permanently destroys all Connect resources including the database,
+                      secrets, and persistent volume claim. Only takes effect when Enabled is false.
+                      Re-enabling after teardown starts fresh with a new empty database.
+                    type: boolean
                   volume:
                     description: VolumeSpec is a specification for a PersistentVolumeClaim
                       to be created (and/or mounted)

@@ -228,6 +228,21 @@ type InternalPackageManagerSpec struct {
 }
 
 type InternalConnectSpec struct {
+	// Enabled controls whether Connect is running. Defaults to true.
+	// Setting to false suspends Connect: stops pods and removes ingress/service,
+	// but preserves PVC, database, and secrets so data is retained.
+	// Re-enabling restores full service without data loss.
+	// +kubebuilder:default=true
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Teardown permanently destroys all Connect resources including the database,
+	// secrets, and persistent volume claim. Only takes effect when Enabled is false.
+	// Re-enabling after teardown starts fresh with a new empty database.
+	// +kubebuilder:default=false
+	// +optional
+	Teardown *bool `json:"teardown,omitempty"`
+
 	License product.LicenseSpec `json:"license,omitempty"`
 
 	Volume *product.VolumeSpec `json:"volume,omitempty"`
