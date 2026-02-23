@@ -48,6 +48,9 @@ func (r *SiteReconciler) reconcilePackageManager(
 		pm.Labels = map[string]string{
 			v1beta1.ManagedByLabelKey: v1beta1.ManagedByLabelValue,
 		}
+		// Suspended is intentionally absent: CreateOrUpdate does a full spec
+		// replacement (regular Update, not SSA), so any prior Suspended=true is
+		// cleared when Package Manager is re-enabled.
 		pm.Spec = v1beta1.PackageManagerSpec{
 			AwsAccountId:         site.Spec.AwsAccountId,
 			ClusterDate:          site.Spec.ClusterDate,

@@ -24,6 +24,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+// isProductEnabled returns true if the product is enabled (nil defaults to enabled).
+func isProductEnabled(b *bool) bool {
+	return b == nil || *b
+}
+
 // SiteReconciler reconciles a Site object
 type SiteReconciler struct {
 	client.Client
@@ -162,19 +167,19 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 		l.Info("connect.teardown is set but connect.enabled is not false; teardown has no effect until enabled=false")
 	}
 
-	workbenchEnabled := site.Spec.Workbench.Enabled == nil || *site.Spec.Workbench.Enabled
+	workbenchEnabled := isProductEnabled(site.Spec.Workbench.Enabled)
 	workbenchTeardown := site.Spec.Workbench.Teardown != nil && *site.Spec.Workbench.Teardown
 	if workbenchTeardown && workbenchEnabled {
 		l.Info("workbench.teardown is set but workbench.enabled is not false; teardown has no effect until enabled=false")
 	}
 
-	pmEnabled := site.Spec.PackageManager.Enabled == nil || *site.Spec.PackageManager.Enabled
+	pmEnabled := isProductEnabled(site.Spec.PackageManager.Enabled)
 	pmTeardown := site.Spec.PackageManager.Teardown != nil && *site.Spec.PackageManager.Teardown
 	if pmTeardown && pmEnabled {
 		l.Info("packageManager.teardown is set but packageManager.enabled is not false; teardown has no effect until enabled=false")
 	}
 
-	chronicleEnabled := site.Spec.Chronicle.Enabled == nil || *site.Spec.Chronicle.Enabled
+	chronicleEnabled := isProductEnabled(site.Spec.Chronicle.Enabled)
 	chronicleTeardown := site.Spec.Chronicle.Teardown != nil && *site.Spec.Chronicle.Teardown
 	if chronicleTeardown && chronicleEnabled {
 		l.Info("chronicle.teardown is set but chronicle.enabled is not false; teardown has no effect until enabled=false")

@@ -477,6 +477,9 @@ func (r *SiteReconciler) reconcileWorkbench(
 
 	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, workbench, site, func() error {
 		workbench.Labels = targetWorkbench.Labels
+		// Suspended is intentionally absent from targetWorkbench.Spec: CreateOrUpdate
+		// does a full spec replacement (regular Update, not SSA), so any prior
+		// Suspended=true is cleared when Workbench is re-enabled.
 		workbench.Spec = targetWorkbench.Spec
 		return nil
 	}); err != nil {

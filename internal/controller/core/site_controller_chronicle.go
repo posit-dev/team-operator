@@ -43,6 +43,9 @@ func (r *SiteReconciler) reconcileChronicle(ctx context.Context, req controllerr
 		chronicle.Labels = map[string]string{
 			v1beta1.ManagedByLabelKey: LabelManagedByValue,
 		}
+		// Suspended is intentionally absent: CreateOrUpdate does a full spec
+		// replacement (regular Update, not SSA), so any prior Suspended=true is
+		// cleared when Chronicle is re-enabled.
 		chronicle.Spec = v1beta1.ChronicleSpec{
 			AwsAccountId:         site.Spec.AwsAccountId,
 			ClusterDate:          site.Spec.ClusterDate,

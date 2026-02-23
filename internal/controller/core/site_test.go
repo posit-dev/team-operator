@@ -1534,3 +1534,51 @@ func TestSiteChronicleTeardown(t *testing.T) {
 	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, chronicle)
 	assert.Error(t, err, "Chronicle CR should not exist after teardown=true")
 }
+
+// TestSiteTeardownIgnoredWhileEnabled verifies that setting teardown=true while a product is
+// still enabled (or defaults to enabled) is a no-op: no CRs are deleted.
+// This guards the warning-path guard in reconcileResources against accidental removal.
+func TestSiteTeardownIgnoredWhileEnabled(t *testing.T) {
+	siteName := "teardown-while-enabled"
+	siteNamespace := "posit-team"
+
+	fakeClient := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeClient.Start(loadSchemes)
+	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
+
+	// Pass 1: establish running CRs for all three products
+	site := defaultSite(siteName)
+	_, err := rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	workbench := &v1beta1.Workbench{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, workbench)
+	assert.NoError(t, err, "Workbench CR should exist after first reconcile")
+
+	pm := &v1beta1.PackageManager{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, pm)
+	assert.NoError(t, err, "PackageManager CR should exist after first reconcile")
+
+	chronicle := &v1beta1.Chronicle{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, chronicle)
+	assert.NoError(t, err, "Chronicle CR should exist after first reconcile")
+
+	// Pass 2: set teardown=true but leave enabled=true (default) — should be a no-op
+	teardown := true
+	site.Spec.Workbench.Teardown = &teardown
+	site.Spec.PackageManager.Teardown = &teardown
+	site.Spec.Chronicle.Teardown = &teardown
+	_, err = rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	// All CRs should still exist — teardown while enabled is a no-op
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, workbench)
+	assert.NoError(t, err, "Workbench CR should still exist: teardown has no effect while enabled=true")
+
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, pm)
+	assert.NoError(t, err, "PackageManager CR should still exist: teardown has no effect while enabled=true")
+
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, chronicle)
+	assert.NoError(t, err, "Chronicle CR should still exist: teardown has no effect while enabled=true")
+}

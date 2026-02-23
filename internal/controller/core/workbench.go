@@ -1031,25 +1031,36 @@ func (r *WorkbenchReconciler) CleanupWorkbench(ctx context.Context, req ctrl.Req
 	return ctrl.Result{}, nil
 }
 
+// deleteServingResources removes Ingress, Service, and Deployment for Workbench.
+// Called by both suspendDeployedService (data preserved) and cleanupDeployedService (full teardown).
+func (r *WorkbenchReconciler) deleteServingResources(ctx context.Context, req ctrl.Request, w *positcov1beta1.Workbench) error {
+	l := r.GetLogger(ctx).WithValues("product", "workbench")
+	key := client.ObjectKey{Name: w.ComponentName(), Namespace: req.Namespace}
+
+	// INGRESS
+	if err := internal.BasicDelete(ctx, r, l, key, &networkingv1.Ingress{}); err != nil {
+		return err
+	}
+
+	// SERVICE
+	if err := internal.BasicDelete(ctx, r, l, key, &corev1.Service{}); err != nil {
+		return err
+	}
+
+	// DEPLOYMENT
+	if err := internal.BasicDelete(ctx, r, l, key, &appsv1.Deployment{}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // suspendDeployedService removes serving resources (Deployment, Service, Ingress)
 // while preserving data resources (PVC, database, secrets) when Workbench is suspended.
 func (r *WorkbenchReconciler) suspendDeployedService(ctx context.Context, req ctrl.Request, w *positcov1beta1.Workbench) (ctrl.Result, error) {
 	l := r.GetLogger(ctx).WithValues("event", "suspend-service", "product", "workbench")
 
-	key := client.ObjectKey{Name: w.ComponentName(), Namespace: req.Namespace}
-
-	// INGRESS
-	if err := internal.BasicDelete(ctx, r, l, key, &networkingv1.Ingress{}); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	// SERVICE
-	if err := internal.BasicDelete(ctx, r, l, key, &corev1.Service{}); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	// DEPLOYMENT
-	if err := internal.BasicDelete(ctx, r, l, key, &appsv1.Deployment{}); err != nil {
+	if err := r.deleteServingResources(ctx, req, w); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -1063,22 +1074,11 @@ func (r *WorkbenchReconciler) cleanupDeployedService(ctx context.Context, req ct
 		"product", "workbench",
 	)
 
+	if err := r.deleteServingResources(ctx, req, w); err != nil {
+		return err
+	}
+
 	key := client.ObjectKey{Name: w.ComponentName(), Namespace: req.Namespace}
-
-	// INGRESS
-	if err := internal.BasicDelete(ctx, r, l, key, &networkingv1.Ingress{}); err != nil {
-		return err
-	}
-
-	// SERVICE
-	if err := internal.BasicDelete(ctx, r, l, key, &corev1.Service{}); err != nil {
-		return err
-	}
-
-	// DEPLOYMENT
-	if err := internal.BasicDelete(ctx, r, l, key, &appsv1.Deployment{}); err != nil {
-		return err
-	}
 
 	// PVCS
 	// Main volume
