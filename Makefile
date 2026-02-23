@@ -100,13 +100,14 @@ copy-crds: manifests ## Copy generated CRDs to internal/crdapply/bases for embed
 
 .PHONY: verify-crds
 verify-crds: ## Verify that internal/crdapply/bases is in sync with config/crd/bases (fails if stale).
-	diff -r config/crd/bases/ internal/crdapply/bases/
+	@diff -r config/crd/bases/ internal/crdapply/bases/ || \
+		(echo "internal/crdapply/bases/ is out of sync — run 'make copy-crds'" && exit 1)
 
 .PHONY: generate-all
 generate-all: generate generate-client generate-openapi
 
 .PHONY: verify-all
-verify-all: verify-apply verify-list verify-inform verify-client
+verify-all: verify-apply verify-list verify-inform verify-client verify-crds
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
