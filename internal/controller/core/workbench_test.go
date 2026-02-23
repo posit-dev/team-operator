@@ -9,6 +9,7 @@ import (
 	localtest "github.com/posit-dev/team-operator/api/localtest"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
+	"github.com/posit-dev/team-operator/internal/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
@@ -457,7 +458,7 @@ func TestWorkbenchReconciler_SuspendRemovesDeployment(t *testing.T) {
 	// Pre-create DB password secret to verify it is preserved during suspension
 	pwSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      wb.ComponentName(),
+			Name:      db.PasswordSecretName(wb.ComponentName()),
 			Namespace: ns,
 		},
 	}
@@ -494,7 +495,7 @@ func TestWorkbenchReconciler_SuspendRemovesDeployment(t *testing.T) {
 	assert.NoError(t, err, "Login ConfigMap should be preserved when Workbench is suspended")
 
 	// DB password secret must also be preserved during suspension
-	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, pwSecret)
+	err = cli.Get(ctx, client.ObjectKey{Name: db.PasswordSecretName(wb.ComponentName()), Namespace: ns}, pwSecret)
 	assert.NoError(t, err, "DB password secret should be preserved when Workbench is suspended")
 }
 
@@ -515,9 +516,10 @@ func TestWorkbenchReconciler_CleanupDeletesDatabasePasswordSecret(t *testing.T) 
 	wb = getWorkbench(t, cli, ns, name)
 
 	// Pre-create the DB password secret
+	secretName := db.PasswordSecretName(wb.ComponentName())
 	pwSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      wb.ComponentName(),
+			Name:      secretName,
 			Namespace: ns,
 		},
 	}
@@ -526,7 +528,7 @@ func TestWorkbenchReconciler_CleanupDeletesDatabasePasswordSecret(t *testing.T) 
 
 	// Verify it exists before cleanup
 	existing := &corev1.Secret{}
-	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, existing)
+	err = cli.Get(ctx, client.ObjectKey{Name: secretName, Namespace: ns}, existing)
 	require.NoError(t, err, "DB password secret should exist before cleanup")
 
 	// Run CleanupWorkbench
@@ -535,6 +537,6 @@ func TestWorkbenchReconciler_CleanupDeletesDatabasePasswordSecret(t *testing.T) 
 
 	// Assert the secret is gone
 	deleted := &corev1.Secret{}
-	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, deleted)
+	err = cli.Get(ctx, client.ObjectKey{Name: secretName, Namespace: ns}, deleted)
 	assert.True(t, apierrors.IsNotFound(err), "DB password secret should be deleted after CleanupWorkbench")
 }
