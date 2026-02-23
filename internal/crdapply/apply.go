@@ -8,6 +8,7 @@ package crdapply
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"io/fs"
 	"time"
@@ -21,6 +22,12 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// permanentError wraps an error that should not be retried.
+type permanentError struct{ err error }
+
+func (e permanentError) Error() string { return e.err.Error() }
+func (e permanentError) Unwrap() error { return e.err }
 
 //go:embed bases/*.yaml
 var crdFiles embed.FS
@@ -53,6 +60,10 @@ func ApplyCRDs(ctx context.Context, cfg *rest.Config, log logr.Logger) error {
 	var lastErr error
 	pollErr := wait.PollUntilContextCancel(ctx, 5*time.Second, true, func(ctx context.Context) (bool, error) {
 		if err := applyCRDs(ctx, c, log); err != nil {
+			var pe permanentError
+			if errors.As(err, &pe) {
+				return false, pe.err
+			}
 			log.Info("retrying CRD apply after transient error", "error", err)
 			lastErr = err
 			return false, nil
@@ -61,7 +72,7 @@ func ApplyCRDs(ctx context.Context, cfg *rest.Config, log logr.Logger) error {
 	})
 	if pollErr != nil {
 		if lastErr != nil {
-			return lastErr
+			return fmt.Errorf("%w; last apply error: %w", pollErr, lastErr)
 		}
 		return pollErr
 	}
@@ -73,10 +84,10 @@ func ApplyCRDs(ctx context.Context, cfg *rest.Config, log logr.Logger) error {
 func applyCRDs(ctx context.Context, c client.Client, log logr.Logger) error {
 	crds, err := ParseCRDs()
 	if err != nil {
-		return err
+		return permanentError{err}
 	}
 	if len(crds) == 0 {
-		return fmt.Errorf("no CRDs found in embedded bases/; binary may have been built without running 'make copy-crds'")
+		return permanentError{fmt.Errorf("no CRDs found in embedded bases/; binary may have been built without running 'make copy-crds'")}
 	}
 
 	log.Info("applying CRDs with ForceOwnership", "hint", "if GitOps tooling (Flux, ArgoCD) manages your CRDs, set --manage-crds=false to avoid field-ownership conflicts")
