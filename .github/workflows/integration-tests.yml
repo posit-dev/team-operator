@@ -4,7 +4,9 @@
 # - envtest (API-level tests, fast)
 # - kind cluster (full stack tests, slower)
 #
-# Envtest runs on every PR, kind tests run on PRs to main or nightly.
+# Envtest runs on every PR. Kind tests run on every PR that touches
+# relevant paths (api/, internal/, Dockerfile, etc.), on push to main,
+# nightly, and on manual dispatch.
 
 name: Integration Tests
 
@@ -42,6 +44,28 @@ env:
   KIND_CLUSTER_NAME: 'team-operator-test'
 
 jobs:
+  check-changes:
+    name: Detect relevant changes
+    runs-on: ubuntu-latest
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            relevant:
+              - 'api/**'
+              - 'internal/**'
+              - 'cmd/**'
+              - 'hack/test-kind.sh'
+              - 'dist/chart/**'
+              - 'Dockerfile'
+              - 'Makefile'
+              - 'go.mod'
+              - 'go.sum'
+
   envtest:
     name: Envtest (API-level tests)
     runs-on: ubuntu-latest
@@ -82,12 +106,13 @@ jobs:
   kind:
     name: Kind (full stack tests)
     runs-on: ubuntu-latest
-    # Run on main branch, nightly, or manual trigger
+    needs: [envtest, check-changes]
+    # Run on PRs touching relevant paths, push to main, nightly, or manual trigger
     if: |
+      (github.event_name == 'pull_request' && needs.check-changes.outputs.relevant == 'true') ||
       github.ref == 'refs/heads/main' ||
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.run_kind_tests == 'true')
-    needs: envtest  # Only run if envtest passes
     steps:
       - name: Checkout
         uses: actions/checkout@v4
