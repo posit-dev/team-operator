@@ -1055,10 +1055,15 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	// POD DISRUPTION BUDGET
-	if err := CreateOrUpdateDisruptionBudget(
-		ctx, req, r.Client, r.Scheme, w, w, ptr.To(product.DetermineMinAvailableReplicas(w.Spec.Replicas)), nil,
-	); err != nil {
+	// POD DISRUPTION BUDGET for server pods
+	serverPdb := product.DefineDisruptionBudget(w, req, ptr.To(product.DetermineMinAvailableReplicas(w.Spec.Replicas)), nil)
+	if err := CreateOrUpdateDisruptionBudget(ctx, r.Client, r.Scheme, w, serverPdb); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// POD DISRUPTION BUDGET for session pods (prevents eviction during node drains)
+	sessionPdb := product.DefineSessionDisruptionBudget(w, req)
+	if err := CreateOrUpdateDisruptionBudget(ctx, r.Client, r.Scheme, w, sessionPdb); err != nil {
 		return ctrl.Result{}, err
 	}
 

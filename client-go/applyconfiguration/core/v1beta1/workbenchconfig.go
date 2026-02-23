@@ -110,13 +110,28 @@ func (b *WorkbenchConfigApplyConfiguration) WithDatabricks(entries map[string]*c
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, the entries provided by each call will be put on the Resources field,
 // overwriting an existing map entries in Resources field with the same key.
-func (b *WorkbenchConfigApplyConfiguration) WithResources(entries map[string]*corev1beta1.WorkbenchLauncherKubnernetesResourcesConfigSection) *WorkbenchConfigApplyConfiguration {
+func (b *WorkbenchConfigApplyConfiguration) WithResources(entries map[string]*corev1beta1.WorkbenchLauncherKubernetesResourcesConfigSection) *WorkbenchConfigApplyConfiguration {
 	b.ensureWorkbenchIniConfigApplyConfigurationExists()
 	if b.WorkbenchIniConfigApplyConfiguration.Resources == nil && len(entries) > 0 {
-		b.WorkbenchIniConfigApplyConfiguration.Resources = make(map[string]*corev1beta1.WorkbenchLauncherKubnernetesResourcesConfigSection, len(entries))
+		b.WorkbenchIniConfigApplyConfiguration.Resources = make(map[string]*corev1beta1.WorkbenchLauncherKubernetesResourcesConfigSection, len(entries))
 	}
 	for k, v := range entries {
 		b.WorkbenchIniConfigApplyConfiguration.Resources[k] = v
+	}
+	return b
+}
+
+// WithAdditionalConfigs puts the entries into the AdditionalConfigs field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, the entries provided by each call will be put on the AdditionalConfigs field,
+// overwriting an existing map entries in AdditionalConfigs field with the same key.
+func (b *WorkbenchConfigApplyConfiguration) WithAdditionalConfigs(entries map[string]string) *WorkbenchConfigApplyConfiguration {
+	b.ensureWorkbenchIniConfigApplyConfigurationExists()
+	if b.WorkbenchIniConfigApplyConfiguration.AdditionalConfigs == nil && len(entries) > 0 {
+		b.WorkbenchIniConfigApplyConfiguration.AdditionalConfigs = make(map[string]string, len(entries))
+	}
+	for k, v := range entries {
+		b.WorkbenchIniConfigApplyConfiguration.AdditionalConfigs[k] = v
 	}
 	return b
 }

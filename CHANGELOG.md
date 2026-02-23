@@ -1,3 +1,52 @@
+# [1.13.0](https://github.com/posit-dev/team-operator/compare/v1.12.0...v1.13.0) (2026-02-20)
+
+
+### Features
+
+* add passthrough config mechanism for Connect, Package Manager, and Workbench ([#75](https://github.com/posit-dev/team-operator/issues/75)) ([e42c2b9](https://github.com/posit-dev/team-operator/commit/e42c2b91468a891b994fa1304497ed0098fab12f))
+
+# [1.12.0](https://github.com/posit-dev/team-operator/compare/v1.11.2...v1.12.0) (2026-02-19)
+
+
+### Features
+
+* migrate from aws-sdk-go v1 to v2 ([#50](https://github.com/posit-dev/team-operator/issues/50)) ([55708e7](https://github.com/posit-dev/team-operator/commit/55708e7526ebd9da56b70de30d2a302b29fb417c))
+
+## [1.11.2](https://github.com/posit-dev/team-operator/compare/v1.11.1...v1.11.2) (2026-02-19)
+
+
+### Bug Fixes
+
+* use *int for audited jobs fields to preserve product defaults ([#89](https://github.com/posit-dev/team-operator/issues/89)) ([709e580](https://github.com/posit-dev/team-operator/commit/709e5800a364c0f676f4b1df443a2b4601efb66d))
+
+## [1.11.1](https://github.com/posit-dev/team-operator/compare/v1.11.0...v1.11.1) (2026-02-19)
+
+
+### Bug Fixes
+
+* use *bool for RegisterOnFirstLogin to preserve Connect default ([#91](https://github.com/posit-dev/team-operator/issues/91)) ([ba13701](https://github.com/posit-dev/team-operator/commit/ba137014799790b9dd6a0e2b658d751ca6512a4b))
+
+# [1.11.0](https://github.com/posit-dev/team-operator/compare/v1.10.1...v1.11.0) (2026-02-18)
+
+
+### Features
+
+* add support for disabling Connect OAuth2.RegisterOnFirstLogin ([#87](https://github.com/posit-dev/team-operator/issues/87)) ([32277d7](https://github.com/posit-dev/team-operator/commit/32277d7cc3773ddbfb9bb80309edd8524c4aa1a7))
+
+## [1.10.1](https://github.com/posit-dev/team-operator/compare/v1.10.0...v1.10.1) (2026-02-18)
+
+
+### Bug Fixes
+
+* remove deprecated DefaultContentListView ([#84](https://github.com/posit-dev/team-operator/issues/84)) ([68f4ea5](https://github.com/posit-dev/team-operator/commit/68f4ea5c1bc3a43892e65495ad09cff5df91419b))
+
+# [1.10.0](https://github.com/posit-dev/team-operator/compare/v1.9.0...v1.10.0) (2026-02-13)
+
+
+### Features
+
+* adds pdbs to workbench sessions ([#67](https://github.com/posit-dev/team-operator/issues/67)) ([a21e10e](https://github.com/posit-dev/team-operator/commit/a21e10ee0aea164fb35af3bba487ab186c16e332))
+
 # [1.9.0](https://github.com/posit-dev/team-operator/compare/v1.8.1...v1.9.0) (2026-02-12)
 
 

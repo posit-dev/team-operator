@@ -176,6 +176,45 @@ func TestConnectConfig_GroupsClaim(t *testing.T) {
 	require.Contains(t, str, "GroupsClaim = ", "Explicitly empty GroupsClaim should be written to config")
 }
 
+func TestConnectConfig_RegisterOnFirstLogin(t *testing.T) {
+	// Test with RegisterOnFirstLogin set to true
+	cfgTrue := ConnectConfig{
+		OAuth2: &ConnectOAuth2Config{
+			ClientId:             "test-client",
+			OpenIDConnectIssuer:  "https://example.com",
+			RegisterOnFirstLogin: ptr.To(true),
+		},
+	}
+	str, err := cfgTrue.GenerateGcfg()
+	require.Nil(t, err)
+	t.Logf("Generated gcfg:\n%s", str)
+	require.Contains(t, str, "[OAuth2]")
+	require.Contains(t, str, "RegisterOnFirstLogin = true")
+
+	// Test with RegisterOnFirstLogin not set (nil) - should not be written
+	cfgDefault := ConnectConfig{
+		OAuth2: &ConnectOAuth2Config{
+			ClientId:            "test-client",
+			OpenIDConnectIssuer: "https://example.com",
+		},
+	}
+	str, err = cfgDefault.GenerateGcfg()
+	require.Nil(t, err)
+	require.NotContains(t, str, "RegisterOnFirstLogin")
+
+	// Test with RegisterOnFirstLogin explicitly set to false - should be written
+	cfgFalse := ConnectConfig{
+		OAuth2: &ConnectOAuth2Config{
+			ClientId:             "test-client",
+			OpenIDConnectIssuer:  "https://example.com",
+			RegisterOnFirstLogin: ptr.To(false),
+		},
+	}
+	str, err = cfgFalse.GenerateGcfg()
+	require.Nil(t, err)
+	require.Contains(t, str, "RegisterOnFirstLogin = false")
+}
+
 func TestConnectConfig_CustomScope(t *testing.T) {
 	// Test with CustomScope
 	cfg := ConnectConfig{
@@ -209,4 +248,48 @@ func TestConnectConfig_CustomScope(t *testing.T) {
 	require.Contains(t, str, "ClientId = test-client")
 	require.Contains(t, str, "OpenIDConnectIssuer = https://example.com")
 	require.NotContains(t, str, "CustomScope")
+}
+
+func TestConnectConfig_AdditionalConfig(t *testing.T) {
+	// Test basic string append
+	cfg := ConnectConfig{
+		Server: &ConnectServerConfig{
+			Address: "some-address.com",
+		},
+		AdditionalConfig: "\n[NewSection]\nNewKey = custom-value\n",
+	}
+	str, err := cfg.GenerateGcfg()
+	require.Nil(t, err)
+	require.Contains(t, str, "[Server]")
+	require.Contains(t, str, "Address = some-address.com")
+	require.Contains(t, str, "[NewSection]")
+	require.Contains(t, str, "NewKey = custom-value")
+}
+
+func TestConnectConfig_AdditionalConfigOverride(t *testing.T) {
+	// gcfg last-write-wins: appended scalar overrides typed field
+	cfg := ConnectConfig{
+		Server: &ConnectServerConfig{
+			Address: "typed-address.com",
+		},
+		AdditionalConfig: "\n[Server]\nAddress = passthrough-address.com\n",
+	}
+	str, err := cfg.GenerateGcfg()
+	require.Nil(t, err)
+	// Both values appear in the output; gcfg uses last occurrence
+	require.Contains(t, str, "Address = typed-address.com")
+	require.Contains(t, str, "Address = passthrough-address.com")
+}
+
+func TestConnectConfig_AdditionalConfigEmpty(t *testing.T) {
+	// Empty string has no effect
+	cfg := ConnectConfig{
+		Server: &ConnectServerConfig{
+			Address: "some-address.com",
+		},
+		AdditionalConfig: "",
+	}
+	str, err := cfg.GenerateGcfg()
+	require.Nil(t, err)
+	require.Contains(t, str, "Address = some-address.com")
 }

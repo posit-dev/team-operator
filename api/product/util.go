@@ -6,10 +6,12 @@ import (
 	"os"
 	"sort"
 
-	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 )
+
+// defaultAWSRegion is the fallback region for backwards compatibility
+const defaultAWSRegion = "us-east-2"
 
 func ConcatLists[T any](slices ...[]T) []T {
 	out := []T{}
@@ -103,5 +105,5 @@ func GetAWSRegion() string {
 		return region
 	}
 	// Fallback to the original hardcoded region for backwards compatibility
-	return endpoints.UsEast2RegionID
+	return defaultAWSRegion
 }

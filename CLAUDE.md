@@ -56,6 +56,59 @@ After changing CRD types in `api/`, run these in order:
 1. **`just mgenerate`** — regenerates deepcopy, client-go, CRD manifests in `config/crd/`, and OpenAPI specs.
 2. **`make helm-generate`** — copies CRDs and RBAC from `config/` into `dist/chart/templates/`. The Helm chart is not updated automatically by `mgenerate`, so this step is required or the chart will drift.
 
+## Git Worktrees
+
+**Always use git worktrees instead of plain branches.** This enables concurrent Claude sessions in the same repo.
+
+### Creating a Worktree
+
+This repo is expected to live at `ptd-workspace/team-operator/`. The `../../.worktrees/` relative path resolves to `ptd-workspace/.worktrees/` in that layout.
+
+```bash
+# New branch
+git worktree add ../../.worktrees/team-operator-<branch-name> -b <branch-name>
+
+# Existing remote branch
+git worktree add ../../.worktrees/team-operator-<branch-name> <branch-name>
+```
+
+Always prefix worktree directories with `team-operator-` to avoid collisions with other repos.
+
+### After Creating a Worktree
+
+No special setup needed. The `Justfile` and `Makefile` use relative paths, so they work in worktrees out of the box:
+
+```bash
+cd ../../.worktrees/team-operator-<branch-name>
+just build    # builds to ./bin/team-operator
+just test     # runs tests
+```
+
+### Cleaning Up
+
+```bash
+# From the main checkout
+git worktree remove ../../.worktrees/team-operator-<branch-name>
+# Prune stale worktree references
+git worktree prune
+```
+
+### Rules
+
+- **NEVER** use `git checkout -b` for new work — always `git worktree add`
+- **NEVER** put worktrees inside the repo directory — always use `../../.worktrees/team-operator-<name>`
+- Branch names: kebab-case, no slashes, no usernames (slashes break worktree directory paths)
+
+## roborev Code Review
+
+This repo uses [roborev](https://www.roborev.io/) for AI-assisted code review. If you haven't already, install the commit hook:
+
+```bash
+roborev install-hook
+```
+
+This enables automatic review submissions after each commit.
+
 ## Contributing
 
 - **PR titles must follow conventional commit format** (`feat:`, `fix:`, `docs:`, etc.) - this is enforced by CI

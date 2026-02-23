@@ -524,3 +524,37 @@ func TestWorkbenchLoadBalancingDisabled(t *testing.T) {
 		assert.NotEqual(t, "load-balancer-config", v.Name, "Should not have load-balancer-config volume when load balancing is disabled")
 	}
 }
+
+func TestWorkbenchPodDisruptionBudgets(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-pdb"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	wb := defineDefaultWorkbench(t, ns, name)
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	// Verify session PDB is created
+	sessionPdb := getPodDisruptionBudget(t, cli, ns, name+"-workbench-sessions")
+	require.NotNil(t, sessionPdb, "Session PDB should be created")
+	assert.Equal(t, name+"-workbench-sessions", sessionPdb.Name)
+
+	// Verify session PDB has correct selector to target session pods
+	require.NotNil(t, sessionPdb.Spec.Selector, "Session PDB should have a selector")
+	assert.Equal(t, wb.ComponentName(), sessionPdb.Spec.Selector.MatchLabels["launcher-instance-id"],
+		"Session PDB should select pods with launcher-instance-id label matching workbench component name")
+
+	// Verify session PDB has maxUnavailable=0 to prevent any evictions
+	require.NotNil(t, sessionPdb.Spec.MaxUnavailable, "Session PDB should have maxUnavailable set")
+	assert.Equal(t, int32(0), sessionPdb.Spec.MaxUnavailable.IntVal,
+		"Session PDB should have maxUnavailable=0 to prevent session evictions")
+}

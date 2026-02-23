@@ -112,6 +112,12 @@ type WorkbenchSessionIniConfig struct {
 	Repos        *WorkbenchRepoConfig     `json:"repos.conf,omitempty"`
 	WorkbenchNss *WorkbenchNssConfig      `json:"workbench_nss.conf,omitempty"`
 	Positron     *WorkbenchPositronConfig `json:"positron.conf,omitempty"`
+
+	// AdditionalConfigs allows appending arbitrary content to session config files.
+	// Keys are config file names (e.g., "rsession.conf", "repos.conf").
+	// Values are raw config content that gets appended after the generated config.
+	// +optional
+	AdditionalConfigs map[string]string `json:"additionalConfigs,omitempty"`
 }
 
 func (w *WorkbenchSessionIniConfig) GenerateConfigMap() map[string]string {
@@ -124,6 +130,12 @@ func (w *WorkbenchSessionIniConfig) GenerateConfigMap() map[string]string {
 		var builder strings.Builder
 
 		fieldName := configStructVals.Type().Field(i).Name
+
+		// Skip AdditionalConfigs field in reflection loop
+		if fieldName == "AdditionalConfigs" {
+			continue
+		}
+
 		field, _ := reflect.TypeOf(w).Elem().FieldByName(fieldName)
 		fieldTag := string(field.Tag)
 		fieldTag = strings.ReplaceAll(fieldTag, "json:\"", "")
@@ -161,6 +173,23 @@ func (w *WorkbenchSessionIniConfig) GenerateConfigMap() map[string]string {
 		}
 		configMap[fieldTag] = finalString
 	}
+
+	// Append additional configs
+	if w.AdditionalConfigs != nil {
+		for filename, content := range w.AdditionalConfigs {
+			if existing, ok := configMap[filename]; ok {
+				// Append to existing config file, ensure newline separation
+				if !strings.HasSuffix(existing, "\n") {
+					existing += "\n"
+				}
+				configMap[filename] = existing + content
+			} else {
+				// New config file
+				configMap[filename] = content
+			}
+		}
+	}
+
 	return configMap
 }
 
@@ -379,7 +408,7 @@ const (
 	SessionSaveActionEmpty                   = ""
 )
 
-type WorkbenchLauncherKubnernetesResourcesConfigSection struct {
+type WorkbenchLauncherKubernetesResourcesConfigSection struct {
 	Name                 string `json:"name,omitempty"`
 	Cpus                 string `json:"cpus,omitempty"`
 	CpusRequest          string `json:"cpus-request,omitempty"`
@@ -499,15 +528,21 @@ type SupervisordProgramConfig struct {
 }
 
 type WorkbenchIniConfig struct {
-	Launcher           *WorkbenchLauncherConfig                                       `json:"launcher.conf,omitempty"`
-	VsCode             *WorkbenchVsCodeConfig                                         `json:"vscode.conf,omitempty"`
-	Logging            *WorkbenchLoggingConfig                                        `json:"logging.conf,omitempty"`
-	Jupyter            *WorkbenchJupyterConfig                                        `json:"jupyter.conf,omitempty"`
-	RServer            *WorkbenchRServerConfig                                        `json:"rserver.conf,omitempty"`
-	LauncherKubernetes *WorkbenchLauncherKubernetesConfig                             `json:"launcher.kubernetes.conf,omitempty"`
-	LauncherLocal      *WorkbenchLauncherLocalConfig                                  `json:"launcher.local.conf,omitempty"`
-	Databricks         map[string]*WorkbenchDatabricksConfig                          `json:"databricks.conf,omitempty"` // TODO: DEPRECATED
-	Resources          map[string]*WorkbenchLauncherKubnernetesResourcesConfigSection `json:"launcher.kubernetes.resources.conf,omitempty"`
+	Launcher           *WorkbenchLauncherConfig                                      `json:"launcher.conf,omitempty"`
+	VsCode             *WorkbenchVsCodeConfig                                        `json:"vscode.conf,omitempty"`
+	Logging            *WorkbenchLoggingConfig                                       `json:"logging.conf,omitempty"`
+	Jupyter            *WorkbenchJupyterConfig                                       `json:"jupyter.conf,omitempty"`
+	RServer            *WorkbenchRServerConfig                                       `json:"rserver.conf,omitempty"`
+	LauncherKubernetes *WorkbenchLauncherKubernetesConfig                            `json:"launcher.kubernetes.conf,omitempty"`
+	LauncherLocal      *WorkbenchLauncherLocalConfig                                 `json:"launcher.local.conf,omitempty"`
+	Databricks         map[string]*WorkbenchDatabricksConfig                         `json:"databricks.conf,omitempty"` // TODO: DEPRECATED
+	Resources          map[string]*WorkbenchLauncherKubernetesResourcesConfigSection `json:"launcher.kubernetes.resources.conf,omitempty"`
+
+	// AdditionalConfigs allows appending arbitrary content to server config files.
+	// Keys are config file names (e.g., "rserver.conf", "launcher.conf").
+	// Values are raw config content that gets appended after the generated config.
+	// +optional
+	AdditionalConfigs map[string]string `json:"additionalConfigs,omitempty"`
 }
 
 type WorkbenchDatabricksConfig struct {
@@ -527,6 +562,12 @@ func (w *WorkbenchIniConfig) GenerateConfigMap() map[string]string {
 		var builder strings.Builder
 
 		fieldName := configStructVals.Type().Field(i).Name
+
+		// Skip AdditionalConfigs field in reflection loop
+		if fieldName == "AdditionalConfigs" {
+			continue
+		}
+
 		field, _ := reflect.TypeOf(w).Elem().FieldByName(fieldName)
 		fieldTag := string(field.Tag)
 		fieldTag = strings.ReplaceAll(fieldTag, "json:\"", "")
@@ -545,14 +586,14 @@ func (w *WorkbenchIniConfig) GenerateConfigMap() map[string]string {
 				// Collect all resource profiles
 				type resourceProfile struct {
 					key   string
-					value *WorkbenchLauncherKubnernetesResourcesConfigSection
+					value *WorkbenchLauncherKubernetesResourcesConfigSection
 				}
 				var profiles []resourceProfile
 
 				iter := sectionStructVals.MapRange()
 				for iter.Next() {
 					key := iter.Key().String()
-					value, ok := iter.Value().Interface().(*WorkbenchLauncherKubnernetesResourcesConfigSection)
+					value, ok := iter.Value().Interface().(*WorkbenchLauncherKubernetesResourcesConfigSection)
 					if !ok {
 						// Skip invalid entries
 						continue
@@ -653,6 +694,22 @@ func (w *WorkbenchIniConfig) GenerateConfigMap() map[string]string {
 			finalString += "\n"
 		}
 		configMap[fieldTag] = finalString
+	}
+
+	// Append additional configs
+	if w.AdditionalConfigs != nil {
+		for filename, content := range w.AdditionalConfigs {
+			if existing, ok := configMap[filename]; ok {
+				// Append to existing config file, ensure newline separation
+				if !strings.HasSuffix(existing, "\n") {
+					existing += "\n"
+				}
+				configMap[filename] = existing + content
+			} else {
+				// New config file
+				configMap[filename] = content
+			}
+		}
 	}
 
 	return configMap
@@ -1081,15 +1138,15 @@ type WorkbenchRServerConfig struct {
 	ForceAdminUiEnabled                    int      `json:"force-admin-ui-enabled,omitempty"`
 	// Audited Jobs Configuration
 	// See: https://docs.posit.co/ide/server-pro/admin/auditing_and_monitoring/audited_workbench_jobs.html
-	AuditedJobs                   int    `json:"audited-jobs,omitempty"`
+	AuditedJobs                   *int   `json:"audited-jobs,omitempty"`
 	AuditedJobsStoragePath        string `json:"audited-jobs-storage-path,omitempty"`
 	AuditedJobsPrivateKeyPath     string `json:"audited-jobs-private-key-path,omitempty"`
 	AuditedJobsPublicKeyPaths     string `json:"audited-jobs-public-key-paths,omitempty"`
-	AuditedJobsLogLimit           int    `json:"audited-jobs-log-limit,omitempty"`
-	AuditedJobsDeletionExpiry     int    `json:"audited-jobs-deletion-expiry,omitempty"`
-	AuditedJobsVanillaRequired    int    `json:"audited-jobs-vanilla-required,omitempty"`
-	AuditedJobsDetailsEnvironment int    `json:"audited-jobs-details-environment,omitempty"`
-	AuditedJobsDetailsUserDefined int    `json:"audited-jobs-details-user-defined,omitempty"`
+	AuditedJobsLogLimit           *int   `json:"audited-jobs-log-limit,omitempty"`
+	AuditedJobsDeletionExpiry     *int   `json:"audited-jobs-deletion-expiry,omitempty"`
+	AuditedJobsVanillaRequired    *int   `json:"audited-jobs-vanilla-required,omitempty"`
+	AuditedJobsDetailsEnvironment *int   `json:"audited-jobs-details-environment,omitempty"`
+	AuditedJobsDetailsUserDefined *int   `json:"audited-jobs-details-user-defined,omitempty"`
 }
 
 type WorkbenchLauncherConfig struct {
@@ -1210,7 +1267,7 @@ func getEffectiveResource(limit, request string) resource.Quantity {
 // Returns true if profile i should come before profile j.
 // Sorting is done by CPU first (using the higher of Cpus or CpusRequest),
 // then by memory (using the higher of MemMb or MemMbRequest).
-func compareResourceProfiles(i, j *WorkbenchLauncherKubnernetesResourcesConfigSection, iKey, jKey string) bool {
+func compareResourceProfiles(i, j *WorkbenchLauncherKubernetesResourcesConfigSection, iKey, jKey string) bool {
 	// Get effective CPU values
 	iEffectiveCpu := getEffectiveResource(i.Cpus, i.CpusRequest)
 	jEffectiveCpu := getEffectiveResource(j.Cpus, j.CpusRequest)
