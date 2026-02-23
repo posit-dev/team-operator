@@ -158,6 +158,39 @@ The kind test script:
 5. Validates reconciliation
 6. Cleans up
 
+#### Development Loop
+
+For iterative development, keep the kind cluster running between test runs instead of recreating it each time.
+
+**Initial setup** (run once):
+
+```bash
+make kind-setup
+```
+
+This creates the cluster, builds the operator image, loads it into kind, and deploys it via Helm.
+
+**After making code changes**, rebuild and redeploy:
+
+```bash
+make kind-setup   # rebuilds image, reloads into kind, helm upgrade
+```
+
+**Run tests** against the live cluster:
+
+```bash
+make kind-test
+```
+
+**Tear down** when done:
+
+```bash
+make kind-teardown   # removes Helm release and namespaces
+                     # (also deletes the kind cluster)
+```
+
+This workflow is significantly faster than `make test-kind` for iterative development because it skips cluster creation and deletion on every run.
+
 ## CI Integration
 
 Integration tests run automatically via GitHub Actions:

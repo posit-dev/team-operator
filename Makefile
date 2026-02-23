@@ -147,6 +147,20 @@ kind-delete: ## Delete the kind cluster.
 kind-load-image: docker-build ## Load the operator image into kind cluster.
 	kind load docker-image $(IMG) --name $(KIND_CLUSTER_NAME)
 
+.PHONY: kind-setup
+kind-setup: kind-create docker-build helm-generate ## Set up kind cluster and deploy operator (run once, or after code changes to reload).
+	@echo "Setting up kind cluster '$(KIND_CLUSTER_NAME)'..."
+	./hack/test-kind.sh $(KIND_CLUSTER_NAME) setup
+
+.PHONY: kind-test
+kind-test: ## Run integration tests against an existing kind cluster (requires kind-setup first).
+	./hack/test-kind.sh $(KIND_CLUSTER_NAME) test
+
+.PHONY: kind-teardown
+kind-teardown: ## Tear down the kind cluster and remove all test resources.
+	./hack/test-kind.sh $(KIND_CLUSTER_NAME) teardown
+	kind delete cluster --name $(KIND_CLUSTER_NAME) || true
+
 .PHONY: test-kind
 test-kind: kind-create docker-build helm-generate ## Build operator image and run integration tests on a kind cluster.
 	@echo "Running integration tests on kind cluster '$(KIND_CLUSTER_NAME)'..."

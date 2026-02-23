@@ -123,6 +123,41 @@ just helm-install    # Install via Helm
 just helm-uninstall  # Uninstall via Helm
 ```
 
+### Testing
+
+**Unit tests** (fast, no cluster required):
+
+```bash
+make go-test
+```
+
+**Integration tests** — two workflows:
+
+*One-shot (CI-style):* creates a cluster, runs all tests, and tears everything down.
+
+```bash
+make test-kind       # create → deploy → test → destroy
+make test-kind-full  # same, but forces a clean cluster first
+```
+
+*Dev loop (recommended for iterative development):* keep the cluster running between test runs.
+
+```bash
+# One-time setup: create cluster and deploy operator
+make kind-setup
+
+# After making code changes, reload the image and re-deploy
+make kind-setup
+
+# Run tests against the running cluster
+make kind-test
+
+# When done for the day
+make kind-teardown
+```
+
+See [docs/testing.md](docs/testing.md) for full details.
+
 ## Configuration
 
 The Site CR defines a complete Posit Team deployment. Secrets and licenses are managed automatically through cloud provider integration (AWS Secrets Manager or Azure Key Vault) - configured during PTD bootstrap.

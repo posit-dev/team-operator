@@ -10,11 +10,23 @@
 # 2. Create and reconcile Site CRs
 # 3. Clean up properly
 #
-# Usage: ./hack/test-kind.sh [CLUSTER_NAME]
+# Usage:
+#   ./hack/test-kind.sh <cluster-name> [mode]
+#
+# Modes:
+#   full      (default) Create cluster, deploy, test, and clean up
+#   setup     Deploy operator to an existing cluster (or create if needed)
+#   test      Run tests against an already-deployed cluster
+#   teardown  Clean up namespaces and Helm release (cluster remains)
 
 set -euo pipefail
 
 CLUSTER_NAME="${1:-team-operator-test}"
+MODE="${2:-full}"
+# Strip --mode= prefix if provided as --mode=setup
+if [[ "${MODE}" == --mode=* ]]; then
+    MODE="${MODE#--mode=}"
+fi
 NAMESPACE="posit-team-system"
 RELEASE_NAME="team-operator"
 CHART_DIR="dist/chart"
@@ -367,35 +379,61 @@ cleanup() {
 
 # Main test runner
 main() {
-    log_info "Starting integration tests on kind cluster '${CLUSTER_NAME}'..."
+    log_info "Starting integration tests on kind cluster '${CLUSTER_NAME}' (mode: ${MODE})..."
 
     check_prerequisites
     ensure_context
 
-    # Run tests with cleanup on exit
-    trap cleanup EXIT
-
-    # Only run operator deployment tests if chart exists
-    if [[ -d "${CHART_DIR}" ]]; then
-        # Let Helm manage CRD installation — pre-installing via kubectl causes ownership conflicts
-        deploy_operator
-        wait_for_operator
-        test_crds_installed
-        test_operator_logs
-        test_reconciliation
-    else
-        # No Helm chart: install CRDs directly and skip operator deployment
-        install_crds
-        test_crds_installed
-        log_warn "Helm chart not found at ${CHART_DIR}, skipping operator deployment tests"
-    fi
-
-    test_create_site
-
-    log_info ""
-    log_info "=========================================="
-    log_info "All integration tests passed!"
-    log_info "=========================================="
+    case "${MODE}" in
+        setup)
+            if [[ -d "${CHART_DIR}" ]]; then
+                deploy_operator
+                wait_for_operator
+            else
+                install_crds
+                log_warn "Helm chart not found at ${CHART_DIR}, skipping operator deployment"
+            fi
+            log_info "Kind cluster is ready. Run 'make kind-test' to execute tests."
+            ;;
+        test)
+            test_crds_installed
+            if [[ -d "${CHART_DIR}" ]]; then
+                test_operator_logs
+                test_reconciliation
+            fi
+            test_create_site
+            log_info ""
+            log_info "=========================================="
+            log_info "All integration tests passed!"
+            log_info "=========================================="
+            ;;
+        teardown)
+            cleanup
+            ;;
+        full)
+            trap cleanup EXIT
+            if [[ -d "${CHART_DIR}" ]]; then
+                deploy_operator
+                wait_for_operator
+                test_crds_installed
+                test_operator_logs
+                test_reconciliation
+            else
+                install_crds
+                test_crds_installed
+                log_warn "Helm chart not found at ${CHART_DIR}, skipping operator deployment tests"
+            fi
+            test_create_site
+            log_info ""
+            log_info "=========================================="
+            log_info "All integration tests passed!"
+            log_info "=========================================="
+            ;;
+        *)
+            log_error "Unknown mode: ${MODE}. Valid modes: setup, test, teardown, full"
+            exit 1
+            ;;
+    esac
 }
 
 main "$@"
