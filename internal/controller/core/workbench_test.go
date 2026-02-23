@@ -14,6 +14,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -535,5 +536,5 @@ func TestWorkbenchReconciler_CleanupDeletesDatabasePasswordSecret(t *testing.T) 
 	// Assert the secret is gone
 	deleted := &corev1.Secret{}
 	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, deleted)
-	assert.Error(t, err, "DB password secret should be deleted after CleanupWorkbench")
+	assert.True(t, apierrors.IsNotFound(err), "DB password secret should be deleted after CleanupWorkbench")
 }
