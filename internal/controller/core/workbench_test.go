@@ -476,4 +476,9 @@ func TestWorkbenchReconciler_SuspendRemovesDeployment(t *testing.T) {
 	ing := &networkingv1.Ingress{}
 	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, ing)
 	assert.Error(t, err, "Ingress should be removed when Workbench is suspended")
+
+	// Data resources must be preserved during suspension
+	loginCm := &corev1.ConfigMap{}
+	err = cli.Get(ctx, client.ObjectKey{Name: wb.LoginConfigmapName(), Namespace: ns}, loginCm)
+	assert.NoError(t, err, "Login ConfigMap should be preserved when Workbench is suspended")
 }

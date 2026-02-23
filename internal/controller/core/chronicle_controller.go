@@ -349,6 +349,9 @@ func (r *ChronicleReconciler) CleanupChronicle(ctx context.Context, req ctrl.Req
 	if err := internal.BasicDelete(ctx, r, l, key, &v1.StatefulSet{}); err != nil {
 		return ctrl.Result{}, err
 	}
+	// NOTE: Chronicle's StatefulSet does not use VolumeClaimTemplates (it uses EmptyDir or S3).
+	// If VolumeClaimTemplates are added in the future, their PVCs must be deleted explicitly
+	// here because Kubernetes does not garbage-collect StatefulSet PVCs automatically.
 
 	// CONFIGMAP
 	if err := internal.BasicDelete(ctx, r, l, key, &corev1.ConfigMap{}); err != nil {

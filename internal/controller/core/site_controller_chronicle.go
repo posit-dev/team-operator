@@ -141,9 +141,10 @@ func (r *SiteReconciler) disableChronicle(ctx context.Context, req controllerrun
 // WARNING: This is a DESTRUCTIVE operation. Deleting the Chronicle CR triggers the Chronicle
 // finalizer which permanently destroys:
 //   - All deployed Kubernetes resources
-//   - Chronicle storage (S3 data or local volumes)
+//   - Local EmptyDir volumes (if configured)
 //
-// Note: Chronicle does not use a database or persistent volumes like other products.
+// Note: S3 data is NOT deleted by the operator; the S3 bucket must be cleaned up separately.
+// Chronicle does not use a database or persistent volumes like other products.
 //
 // This is triggered by Site.Spec.Chronicle.Teardown=true (when Enabled=false).
 // Re-enabling Chronicle after teardown will start fresh.

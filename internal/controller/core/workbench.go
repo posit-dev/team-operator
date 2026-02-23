@@ -1023,9 +1023,6 @@ func (r *WorkbenchReconciler) CleanupWorkbench(ctx context.Context, req ctrl.Req
 	if err := r.cleanupDeployedService(ctx, req, w); err != nil {
 		return ctrl.Result{}, err
 	}
-	if err := db.CleanupDatabasePasswordSecret(ctx, r, req, w.ComponentName()); err != nil {
-		return ctrl.Result{}, err
-	}
 	if err := db.CleanupDatabase(ctx, r, req, w.ComponentName()); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -1181,6 +1178,11 @@ func (r *WorkbenchReconciler) cleanupDeployedService(ctx context.Context, req ct
 		Namespace: req.Namespace,
 	}
 	if err := internal.BasicDelete(ctx, r, l, secretConfigKey, &corev1.Secret{}); err != nil {
+		return err
+	}
+
+	// Database password secret (created by EnsureDatabaseExists)
+	if err := db.CleanupDatabasePasswordSecret(ctx, r, req, w.ComponentName()); err != nil {
 		return err
 	}
 
