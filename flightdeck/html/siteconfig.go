@@ -21,7 +21,8 @@ func SiteConfigTable(site positcov1beta1.Site) Node {
 			TBody(
 				If(!internal.IsEmptyStruct(site.Spec.Workbench),
 					SiteConfigTableRow("Workbench Image", site.Spec.Workbench.Image)),
-				If(!internal.IsEmptyStruct(site.Spec.Connect),
+				// Check Enabled field explicitly for Connect - when Enabled=false, Connect should not appear
+				If((site.Spec.Connect.Enabled == nil || *site.Spec.Connect.Enabled == true) && !internal.IsEmptyStruct(site.Spec.Connect),
 					SiteConfigTableRow("Connect Image", site.Spec.Connect.Image)),
 				If(!internal.IsEmptyStruct(site.Spec.PackageManager),
 					SiteConfigTableRow("Package Manager Image", site.Spec.PackageManager.Image)),
@@ -45,7 +46,8 @@ func SiteConfigBlock(site positcov1beta1.Site) Node {
 	if !internal.IsEmptyStruct(site.Spec.Workbench) {
 		productConfigs["Workbench"] = site.Spec.Workbench
 	}
-	if !internal.IsEmptyStruct(site.Spec.Connect) {
+	// Check Enabled field explicitly for Connect - when Enabled=false, Connect config should not appear
+	if (site.Spec.Connect.Enabled == nil || *site.Spec.Connect.Enabled == true) && !internal.IsEmptyStruct(site.Spec.Connect) {
 		productConfigs["Connect"] = site.Spec.Connect
 	}
 	if !internal.IsEmptyStruct(site.Spec.PackageManager) {

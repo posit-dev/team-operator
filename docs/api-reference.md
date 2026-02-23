@@ -743,6 +743,8 @@ These types are used within the Site CRD for product configuration.
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `.enabled` | `*bool` | Controls whether Connect is running (default: true). Setting to `false` suspends Connect: stops pods and removes ingress/service, but preserves PVC, database, and secrets. Re-enabling restores full service without data loss. See [Connect Configuration Guide](guides/connect-configuration.md#enablingdisabling-connect). |
+| `.teardown` | `*bool` | When `true` and `enabled` is `false`, permanently destroys all Connect resources including the database, secrets, and PVC. Re-enabling after teardown starts fresh with an empty database. Defaults to `false`. |
 | `.license` | `LicenseSpec` | License configuration |
 | `.volume` | `*VolumeSpec` | Data volume |
 | `.nodeSelector` | `map[string]string` | Node selector |

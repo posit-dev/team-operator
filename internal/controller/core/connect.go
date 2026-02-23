@@ -37,6 +37,11 @@ func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Reque
 		"product", "connect",
 	)
 
+	// If suspended, clean up serving resources (Deployment/Service/Ingress) but preserve data
+	if c.Spec.Suspended != nil && *c.Spec.Suspended {
+		return r.suspendDeployedService(ctx, req, c)
+	}
+
 	// create database
 	secretKey := "pub-db-password"
 
@@ -840,6 +845,22 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 	return ctrl.Result{}, nil
 }
 
+// CleanupConnect is the finalizer that runs when a Connect CRD is deleted.
+//
+// WARNING: This function performs DESTRUCTIVE cleanup operations that permanently destroy:
+//   - The Connect database via db.CleanupDatabase (drops the database if configured to do so)
+//   - All secrets: provisioning keys, database password secrets, etc.
+//   - All Kubernetes resources: deployments, services, ingress, PVCs, configmaps, etc.
+//
+// This finalizer is automatically triggered when:
+//  1. The Site CR is deleted (complete teardown)
+//  2. Connect teardown is requested via Site.Spec.Connect.Teardown=true (when Enabled=false)
+//
+// When a user sets Teardown=true, the site controller calls cleanupConnect() which deletes
+// the Connect CRD, triggering this finalizer. This results in complete data loss.
+//
+// Re-enabling Connect after teardown will start fresh with a new database, new secrets,
+// and no previous content. This is intentional behavior to ensure clean resource teardown.
 func (r *ConnectReconciler) CleanupConnect(ctx context.Context, req ctrl.Request, c *positcov1beta1.Connect) (ctrl.Result, error) {
 	if err := r.cleanupDeployedService(ctx, req, c); err != nil {
 		return ctrl.Result{}, err
@@ -854,6 +875,28 @@ func (r *ConnectReconciler) CleanupConnect(ctx context.Context, req ctrl.Request
 	if err := db.CleanupDatabase(ctx, r, req, c.ComponentName()); err != nil {
 		return ctrl.Result{}, err
 	}
+	return ctrl.Result{}, nil
+}
+
+func (r *ConnectReconciler) suspendDeployedService(ctx context.Context, req ctrl.Request, c *positcov1beta1.Connect) (ctrl.Result, error) {
+	l := r.GetLogger(ctx).WithValues(
+		"event", "suspend-service",
+		"product", "connect",
+	)
+
+	key := client.ObjectKey{Name: c.ComponentName(), Namespace: req.Namespace}
+
+	if err := internal.BasicDelete(ctx, r, l, key, &networkingv1.Ingress{}); err != nil {
+		return ctrl.Result{}, err
+	}
+	if err := internal.BasicDelete(ctx, r, l, key, &corev1.Service{}); err != nil {
+		return ctrl.Result{}, err
+	}
+	if err := internal.BasicDelete(ctx, r, l, key, &v1.Deployment{}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	l.Info("Connect service suspended successfully")
 	return ctrl.Result{}, nil
 }
 

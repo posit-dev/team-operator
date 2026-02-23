@@ -6,6 +6,10 @@ This comprehensive guide covers all configuration options for Posit Connect when
 
 1. [Overview](#overview)
 2. [Basic Configuration](#basic-configuration)
+   - [Enabling/Disabling Connect](#enablingdisabling-connect)
+   - [Image Configuration](#image-configuration)
+   - [Resource Scaling](#resource-scaling)
+   - [Domain and Ingress](#domain-and-ingress)
 3. [Authentication Configuration](#authentication-configuration)
 4. [Database Configuration](#database-configuration)
 5. [Off-Host Execution / Kubernetes Launcher](#off-host-execution--kubernetes-launcher)
@@ -55,6 +59,57 @@ When using a Site resource, the Site controller generates and manages the Connec
 ---
 
 ## Basic Configuration
+
+### Enabling/Disabling Connect
+
+Connect can be suspended or permanently torn down using the `enabled` and `teardown` fields.
+
+#### Suspending Connect (non-destructive)
+
+Setting `enabled: false` suspends Connect: the Deployment, Service, and Ingress are removed, but the PVC, database, and secrets are preserved. Re-enabling restores full service with all existing data intact.
+
+```yaml
+spec:
+  connect:
+    enabled: false   # suspend — data is preserved
+```
+
+**When to use `enabled: false`:**
+
+- Customer does not have a Connect license yet — deploy the site without Connect and enable it once a license is purchased
+- Temporarily pause Connect during a maintenance window or cost-saving period
+- Stop Connect while retaining all content and user data for a possible return
+
+**Re-enabling Connect** after a suspend is as simple as removing the field or setting it back to `true`:
+
+```yaml
+spec:
+  connect:
+    enabled: true   # or omit the field entirely — defaults to true
+```
+
+#### Tearing down Connect (destructive)
+
+To permanently destroy all Connect resources — including the database, secrets, and PVC — set both `enabled: false` and `teardown: true`:
+
+```yaml
+spec:
+  connect:
+    enabled: false
+    teardown: true   # DESTRUCTIVE: deletes database, secrets, and PVC
+```
+
+**This is irreversible.** Re-enabling Connect after a teardown starts completely fresh with a new empty database and no prior content or configuration.
+
+**When to use `teardown: true`:**
+
+- Permanently decommissioning Connect with no intent to restore data
+- Reclaiming cluster storage after migrating to a different Connect instance
+- Explicitly wiping Connect to start fresh
+
+> **Note:** `teardown: true` has no effect while `enabled` is `true` or unset. You must set `enabled: false` first.
+
+---
 
 ### Image Configuration
 

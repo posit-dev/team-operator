@@ -101,6 +101,11 @@ type ConnectSpec struct {
 	// but can also be useful on occasion
 	Sleep bool `json:"sleep,omitempty"`
 
+	// Suspended indicates Connect should not run serving resources (Deployment, Service, Ingress)
+	// but should preserve data resources (PVC, database, secrets). Set by the Site controller.
+	// +optional
+	Suspended *bool `json:"suspended,omitempty"`
+
 	SessionImage string `json:"sessionImage,omitempty"`
 
 	// AwsAccountId is the account Id for this AWS Account. It is used to create EKS-to-IAM annotations
