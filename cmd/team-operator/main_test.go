@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,4 +16,19 @@ func RandomRunNameSystem() string {
 func TestThings(t *testing.T) {
 	// this should probably include a comment...
 	require.Contains(t, gengo.StdGeneratedBy, "//")
+}
+
+func TestManageCRDsFlag(t *testing.T) {
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	var manageCRDs bool
+	fs.BoolVar(&manageCRDs, "manage-crds", true,
+		"Apply CRDs on startup to ensure schema is in sync with operator version")
+
+	// Default is true: CRD management is enabled out of the box.
+	require.NoError(t, fs.Parse([]string{}))
+	require.True(t, manageCRDs)
+
+	// --manage-crds=false opts out of CRD management (e.g. for GitOps environments).
+	require.NoError(t, fs.Parse([]string{"--manage-crds=false"}))
+	require.False(t, manageCRDs)
 }

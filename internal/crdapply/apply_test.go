@@ -29,6 +29,11 @@ func TestParseCRDs(t *testing.T) {
 	t.Logf("embedded CRDs: %v", names)
 }
 
+// TestApplyCRDs is a structural test that verifies all embedded CRDs are stored after
+// applyCRDs is called. It uses the controller-runtime fake client, which implements
+// Patch(Apply) as a simplified create-or-update and does not enforce SSA field-manager
+// ownership or conflict detection. Real SSA semantics are only exercised in integration
+// or e2e tests against a live API server.
 func TestApplyCRDs(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, apiextensionsv1.AddToScheme(scheme))

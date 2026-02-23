@@ -21,6 +21,14 @@ import (
 //go:embed bases/*.yaml
 var crdFiles embed.FS
 
+func newScheme() (*runtime.Scheme, error) {
+	scheme := runtime.NewScheme()
+	if err := apiextensionsv1.AddToScheme(scheme); err != nil {
+		return nil, fmt.Errorf("registering apiextensions scheme: %w", err)
+	}
+	return scheme, nil
+}
+
 // ApplyCRDs applies all embedded CRD manifests to the cluster using server-side apply.
 // It is safe to call on every startup — SSA is idempotent and only updates when
 // the schema actually differs from what is already in the cluster.
@@ -28,9 +36,9 @@ var crdFiles embed.FS
 // ctx should carry a deadline; without one, a slow or unreachable API server will
 // block the operator from starting indefinitely.
 func ApplyCRDs(ctx context.Context, cfg *rest.Config, log logr.Logger) error {
-	scheme := runtime.NewScheme()
-	if err := apiextensionsv1.AddToScheme(scheme); err != nil {
-		return fmt.Errorf("registering apiextensions scheme: %w", err)
+	scheme, err := newScheme()
+	if err != nil {
+		return err
 	}
 
 	c, err := client.New(cfg, client.Options{Scheme: scheme})
@@ -44,9 +52,9 @@ func ApplyCRDs(ctx context.Context, cfg *rest.Config, log logr.Logger) error {
 // applyCRDs applies all embedded CRD manifests using the provided client.
 // It fails fast on the first error to avoid leaving the cluster in a partially-updated state.
 func applyCRDs(ctx context.Context, c client.Client, log logr.Logger) error {
-	scheme := runtime.NewScheme()
-	if err := apiextensionsv1.AddToScheme(scheme); err != nil {
-		return fmt.Errorf("registering apiextensions scheme: %w", err)
+	scheme, err := newScheme()
+	if err != nil {
+		return err
 	}
 
 	codec := serializer.NewCodecFactory(scheme)
@@ -98,9 +106,9 @@ func applyCRDs(ctx context.Context, c client.Client, log logr.Logger) error {
 // ParseCRDs parses all embedded CRD manifests and returns them.
 // Useful for testing that the embedded files are valid.
 func ParseCRDs() ([]*apiextensionsv1.CustomResourceDefinition, error) {
-	scheme := runtime.NewScheme()
-	if err := apiextensionsv1.AddToScheme(scheme); err != nil {
-		return nil, fmt.Errorf("registering apiextensions scheme: %w", err)
+	scheme, err := newScheme()
+	if err != nil {
+		return nil, err
 	}
 
 	codec := serializer.NewCodecFactory(scheme)
