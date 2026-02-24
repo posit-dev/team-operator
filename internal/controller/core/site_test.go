@@ -1664,3 +1664,94 @@ func TestSiteNilEnabledMissingCR(t *testing.T) {
 	assert.False(t, site.Status.WorkbenchReady, "WorkbenchReady should be false when Enabled=nil and Workbench CR does not exist")
 	assert.False(t, site.Status.PackageManagerReady, "PackageManagerReady should be false when Enabled=nil and PackageManager CR does not exist")
 }
+
+// TestSiteReadyWithDisabledFlightdeck verifies that FlightdeckReady=true when Flightdeck is
+// explicitly disabled (Enabled=false), analogous to the disabled product tests for Connect/Workbench.
+func TestSiteReadyWithDisabledFlightdeck(t *testing.T) {
+	siteName := "disabled-flightdeck"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+
+	// Disable all required products and Flightdeck
+	connectEnabled := false
+	workbenchEnabled := false
+	pmEnabled := false
+	flightdeckEnabled := false
+	site.Spec.Connect.Enabled = &connectEnabled
+	site.Spec.Workbench.Enabled = &workbenchEnabled
+	site.Spec.PackageManager.Enabled = &pmEnabled
+	site.Spec.Flightdeck.Enabled = &flightdeckEnabled
+
+	fakeClient := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeClient.Start(loadSchemes)
+	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
+
+	err := cli.Create(context.TODO(), site)
+	assert.NoError(t, err)
+
+	_, err = rec.Reconcile(context.TODO(), req)
+	assert.NoError(t, err)
+
+	fetchedSite := &v1beta1.Site{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, fetchedSite)
+	assert.NoError(t, err)
+
+	assert.True(t, fetchedSite.Status.FlightdeckReady, "FlightdeckReady should be true when Flightdeck is disabled")
+	assert.True(t, status.IsReady(fetchedSite.Status.Conditions), "site should be Ready when all products are disabled")
+}
+
+// errorGetClient wraps a client.Client and injects a fixed error for Get calls on a specific type.
+type errorGetClient struct {
+	client.Client
+	errForType func(obj client.Object) error
+}
+
+func (c *errorGetClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	if c.errForType != nil {
+		if err := c.errForType(obj); err != nil {
+			return err
+		}
+	}
+	return c.Client.Get(ctx, key, obj, opts...)
+}
+
+// TestAggregateChildStatusContinuesOnTransientError verifies that when one product returns a
+// transient API error, aggregateChildStatus still evaluates all remaining products and returns
+// the error at the end (rather than returning early with stale status for the other products).
+func TestAggregateChildStatusContinuesOnTransientError(t *testing.T) {
+	siteName := "transient-error-site"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+
+	transientErr := fmt.Errorf("transient server error")
+
+	fakeClient := localtest.FakeTestEnv{}
+	baseCli, scheme, log := fakeClient.Start(loadSchemes)
+
+	// Inject a transient error for Connect Get calls only
+	errCli := &errorGetClient{
+		Client: baseCli,
+		errForType: func(obj client.Object) error {
+			if _, ok := obj.(*v1beta1.Connect); ok {
+				return transientErr
+			}
+			return nil
+		},
+	}
+
+	rec := SiteReconciler{Client: errCli, Scheme: scheme, Log: log}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
+
+	err := rec.aggregateChildStatus(context.TODO(), req, site, log)
+
+	// Error should be propagated
+	assert.Error(t, err, "transient API error should be returned")
+	assert.ErrorContains(t, err, "fetching Connect for status aggregation")
+
+	// All products should have been evaluated (not left stale): remaining products have no CRs
+	// so they fall into the NotFound path and are set to false (Enabled=nil means expected but missing).
+	assert.False(t, site.Status.ConnectReady, "ConnectReady should be false on transient error")
+	assert.False(t, site.Status.WorkbenchReady, "WorkbenchReady should be false when CR missing")
+	assert.False(t, site.Status.PackageManagerReady, "PackageManagerReady should be false when CR missing")
+}
