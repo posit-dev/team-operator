@@ -1,11 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2023-2026 Posit Software, PBC
 
-// The operator needs get/update/patch on all CRDs (not scoped to resourceNames) because
-// controller-gen does not support resourceNames in kubebuilder:rbac markers; any manually
-// added resourceNames field in the generated YAML will be overwritten by `just mgenerate`.
-// This broad scope is intentional: the operator is designed to touch only its own CRDs via
-// server-side apply, but the permission is cluster-wide because controller-gen cannot scope it further.
 // +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;update;patch
 
 package crdapply
