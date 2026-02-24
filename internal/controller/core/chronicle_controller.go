@@ -108,6 +108,11 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 	c.Status.ObservedGeneration = c.Generation
 	status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Reconciliation in progress")
 
+	// If suspended, clean up serving resources but preserve configuration
+	if c.Spec.Suspended != nil && *c.Spec.Suspended {
+		return r.suspendDeployedService(ctx, req, c)
+	}
+
 	// default config settings not in the original object
 	// ...
 
@@ -371,7 +376,64 @@ func (r *ChronicleReconciler) ensureDeployedService(ctx context.Context, req ctr
 }
 
 func (r *ChronicleReconciler) CleanupChronicle(ctx context.Context, req ctrl.Request, c *positcov1beta1.Chronicle) (ctrl.Result, error) {
-	// TODO: some cleanup...?
+	l := r.GetLogger(ctx).WithValues(
+		"event", "cleanup-chronicle",
+		"product", "chronicle",
+	)
+
+	key := client.ObjectKey{Name: c.ComponentName(), Namespace: req.Namespace}
+
+	// SERVICE
+	if err := internal.BasicDelete(ctx, r, l, key, &corev1.Service{}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// STATEFULSET
+	if err := internal.BasicDelete(ctx, r, l, key, &v1.StatefulSet{}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// CONFIGMAP
+	if err := internal.BasicDelete(ctx, r, l, key, &corev1.ConfigMap{}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// SERVICE ACCOUNTS
+	if err := internal.BasicDelete(ctx, r, l, key, &corev1.ServiceAccount{}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Read-only service account
+	readOnlyKey := client.ObjectKey{
+		Name:      fmt.Sprintf("%s-read-only", c.ComponentName()),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, readOnlyKey, &corev1.ServiceAccount{}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	l.Info("Chronicle cleanup complete")
+	return ctrl.Result{}, nil
+}
+
+// suspendDeployedService removes serving resources (StatefulSet, Service)
+// when Chronicle is suspended.
+func (r *ChronicleReconciler) suspendDeployedService(ctx context.Context, req ctrl.Request, c *positcov1beta1.Chronicle) (ctrl.Result, error) {
+	l := r.GetLogger(ctx).WithValues("event", "suspend-service", "product", "chronicle")
+
+	key := client.ObjectKey{Name: c.ComponentName(), Namespace: req.Namespace}
+
+	// SERVICE
+	if err := internal.BasicDelete(ctx, r, l, key, &corev1.Service{}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// STATEFULSET (Chronicle uses StatefulSet, not Deployment)
+	if err := internal.BasicDelete(ctx, r, l, key, &v1.StatefulSet{}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	l.Info("Chronicle serving resources suspended")
 	return ctrl.Result{}, nil
 }
 

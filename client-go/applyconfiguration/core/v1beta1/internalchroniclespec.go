@@ -12,6 +12,8 @@ import (
 // InternalChronicleSpecApplyConfiguration represents a declarative configuration of the InternalChronicleSpec type for use
 // with apply.
 type InternalChronicleSpecApplyConfiguration struct {
+	Enabled         *bool             `json:"enabled,omitempty"`
+	Teardown        *bool             `json:"teardown,omitempty"`
 	NodeSelector    map[string]string `json:"nodeSelector,omitempty"`
 	Image           *string           `json:"image,omitempty"`
 	AddEnv          map[string]string `json:"addEnv,omitempty"`
@@ -24,6 +26,22 @@ type InternalChronicleSpecApplyConfiguration struct {
 // apply.
 func InternalChronicleSpec() *InternalChronicleSpecApplyConfiguration {
 	return &InternalChronicleSpecApplyConfiguration{}
+}
+
+// WithEnabled sets the Enabled field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Enabled field is set to the value of the last call.
+func (b *InternalChronicleSpecApplyConfiguration) WithEnabled(value bool) *InternalChronicleSpecApplyConfiguration {
+	b.Enabled = &value
+	return b
+}
+
+// WithTeardown sets the Teardown field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Teardown field is set to the value of the last call.
+func (b *InternalChronicleSpecApplyConfiguration) WithTeardown(value bool) *InternalChronicleSpecApplyConfiguration {
+	b.Teardown = &value
+	return b
 }
 
 // WithNodeSelector puts the entries into the NodeSelector field in the declarative configuration

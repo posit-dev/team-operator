@@ -11,6 +11,7 @@ import (
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -388,4 +389,74 @@ func TestWorkbenchPodDisruptionBudgets(t *testing.T) {
 	require.NotNil(t, sessionPdb.Spec.MaxUnavailable, "Session PDB should have maxUnavailable set")
 	assert.Equal(t, int32(0), sessionPdb.Spec.MaxUnavailable.IntVal,
 		"Session PDB should have maxUnavailable=0 to prevent session evictions")
+}
+
+// TestWorkbenchReconciler_Suspended verifies that when Workbench has Suspended=true,
+// ReconcileWorkbench does not create serving resources (Deployment, Service, Ingress).
+func TestWorkbenchReconciler_Suspended(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-suspended"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	wb := defineDefaultWorkbench(t, ns, name)
+	suspended := true
+	wb.Spec.Suspended = &suspended
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	// No Deployment should be created when suspended
+	dep := &appsv1.Deployment{}
+	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, dep)
+	assert.Error(t, err, "Deployment should not exist when Workbench is suspended")
+}
+
+// TestWorkbenchReconciler_SuspendRemovesDeployment verifies that when Workbench transitions
+// to Suspended=true, the Deployment is removed while data resources are preserved.
+func TestWorkbenchReconciler_SuspendRemovesDeployment(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-suspend-removes"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	wb := defineDefaultWorkbench(t, ns, name)
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	// Pass 1: normal reconcile — Deployment should be created
+	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	dep := &appsv1.Deployment{}
+	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, dep)
+	require.NoError(t, err, "Deployment should exist after normal reconcile")
+
+	// Pass 2: suspend — Deployment should be removed
+	wb = getWorkbench(t, cli, ns, name)
+	suspended := true
+	wb.Spec.Suspended = &suspended
+	err = cli.Update(ctx, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+	res, err = r.ReconcileWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	dep = &appsv1.Deployment{}
+	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, dep)
+	assert.Error(t, err, "Deployment should be removed when Workbench is suspended")
 }

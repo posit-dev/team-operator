@@ -3,11 +3,14 @@ package core
 import (
 	"context"
 
+	"github.com/go-logr/logr"
 	"github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	controllerruntime "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (r *SiteReconciler) reconcileChronicle(ctx context.Context, req controllerruntime.Request, site *v1beta1.Site) error {
@@ -40,6 +43,9 @@ func (r *SiteReconciler) reconcileChronicle(ctx context.Context, req controllerr
 		chronicle.Labels = map[string]string{
 			v1beta1.ManagedByLabelKey: LabelManagedByValue,
 		}
+		// Suspended is intentionally absent: CreateOrUpdate does a full spec
+		// replacement (regular Update, not SSA), so any prior Suspended=true is
+		// cleared when Chronicle is re-enabled.
 		chronicle.Spec = v1beta1.ChronicleSpec{
 			AwsAccountId:         site.Spec.AwsAccountId,
 			ClusterDate:          site.Spec.ClusterDate,
@@ -91,5 +97,63 @@ func (r *SiteReconciler) reconcileChronicle(ctx context.Context, req controllerr
 		l.Error(err, "error creating chronicle")
 		return err
 	}
+	return nil
+}
+
+// disableChronicle suspends Chronicle by marking the existing Chronicle CR with Suspended=true.
+// The Chronicle controller then removes serving resources (Deployment/Service/Ingress) while
+// preserving any configuration.
+//
+// If no Chronicle CR exists yet (Chronicle was never enabled), this is a no-op.
+// When Chronicle is re-enabled, reconcileChronicle overwrites Suspended back to nil and
+// performs a full reconcile.
+func (r *SiteReconciler) disableChronicle(ctx context.Context, req controllerruntime.Request, l logr.Logger) error {
+	l = l.WithValues("event", "disable-chronicle")
+
+	chronicle := &v1beta1.Chronicle{}
+	if err := r.Get(ctx, client.ObjectKey{Name: req.Name, Namespace: req.Namespace}, chronicle); err != nil {
+		if apierrors.IsNotFound(err) {
+			l.Info("Chronicle CR not found, nothing to suspend")
+			return nil
+		}
+		return err
+	}
+
+	if chronicle.Spec.Suspended != nil && *chronicle.Spec.Suspended {
+		l.Info("Chronicle already suspended")
+		return nil
+	}
+
+	patch := client.MergeFrom(chronicle.DeepCopy())
+	suspended := true
+	chronicle.Spec.Suspended = &suspended
+	if err := r.Patch(ctx, chronicle, patch); err != nil {
+		l.Error(err, "error suspending Chronicle CR")
+		return err
+	}
+
+	l.Info("Chronicle CR suspended")
+	return nil
+}
+
+// cleanupChronicle deletes the Chronicle CR when teardown=true.
+//
+// WARNING: This is a DESTRUCTIVE operation. Deleting the Chronicle CR triggers the Chronicle
+// finalizer which permanently destroys:
+//   - All deployed Kubernetes resources
+//   - Chronicle storage (S3 data or local volumes)
+//
+// Note: Chronicle does not use a database or persistent volumes like other products.
+//
+// This is triggered by Site.Spec.Chronicle.Teardown=true (when Enabled=false).
+// Re-enabling Chronicle after teardown will start fresh.
+func (r *SiteReconciler) cleanupChronicle(ctx context.Context, req controllerruntime.Request, l logr.Logger) error {
+	l = l.WithValues("event", "cleanup-chronicle")
+
+	chronicleKey := client.ObjectKey{Name: req.Name, Namespace: req.Namespace}
+	if err := internal.BasicDelete(ctx, r, l, chronicleKey, &v1beta1.Chronicle{}); err != nil {
+		return err
+	}
+
 	return nil
 }

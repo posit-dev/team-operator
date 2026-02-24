@@ -30,6 +30,57 @@ When configured via a Site resource, Workbench:
 
 ## Basic Configuration
 
+### Enabling/Disabling Workbench
+
+Workbench can be suspended or permanently torn down using the `enabled` and `teardown` fields.
+
+#### Suspending Workbench (non-destructive)
+
+Setting `enabled: false` suspends Workbench: the Deployment, Service, and Ingress are removed, but the PVC, database, and secrets are preserved. Re-enabling restores full service with all existing data intact.
+
+```yaml
+spec:
+  workbench:
+    enabled: false   # suspend — data is preserved
+```
+
+**When to use `enabled: false`:**
+
+- Customer does not have a Workbench license yet — deploy the site without Workbench and enable it once a license is purchased
+- Temporarily pause Workbench during a maintenance window or cost-saving period
+- Stop Workbench while retaining all user home directories and configuration for a possible return
+
+**Re-enabling Workbench** after a suspend is as simple as removing the field or setting it back to `true`:
+
+```yaml
+spec:
+  workbench:
+    enabled: true   # or omit the field entirely — defaults to true
+```
+
+#### Tearing down Workbench (destructive)
+
+To permanently destroy all Workbench resources — including the database, secrets, and PVC — set both `enabled: false` and `teardown: true`:
+
+```yaml
+spec:
+  workbench:
+    enabled: false
+    teardown: true   # DESTRUCTIVE: deletes database, secrets, and PVC
+```
+
+**This is irreversible.** Re-enabling Workbench after a teardown starts completely fresh with a new empty database and no prior user home directories or configuration.
+
+**When to use `teardown: true`:**
+
+- Permanently decommissioning Workbench with no intent to restore data
+- Reclaiming cluster storage after migrating to a different Workbench instance
+- Explicitly wiping Workbench to start fresh
+
+> **Note:** `teardown: true` has no effect while `enabled` is `true` or unset. You must set `enabled: false` first.
+
+---
+
 ### Image and Resources
 
 Configure the Workbench server image and basic settings:

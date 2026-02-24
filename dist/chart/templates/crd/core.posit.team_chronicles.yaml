@@ -149,6 +149,11 @@ spec:
                 additionalProperties:
                   type: string
                 type: object
+              suspended:
+                description: |-
+                  Suspended indicates Chronicle should not run serving resources (StatefulSet, Service)
+                  but should preserve configuration. Set by the Site controller.
+                type: boolean
               workloadCompoundName:
                 description: WorkloadCompoundName is the name for the workload
                 type: string

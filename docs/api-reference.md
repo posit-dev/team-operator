@@ -727,6 +727,8 @@ These types are used within the Site CRD for product configuration.
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `.enabled` | `*bool` | Controls whether Package Manager is running (default: `true`). Setting to `false` suspends Package Manager: stops pods and removes ingress/service, but preserves PVC, database, and secrets. |
+| `.teardown` | `*bool` | Permanently destroys all Package Manager resources including database and PVC. Only takes effect when `enabled` is `false` (default: `false`). |
 | `.license` | `LicenseSpec` | License configuration |
 | `.volume` | `*VolumeSpec` | Data volume |
 | `.nodeSelector` | `map[string]string` | Node selector |
@@ -767,6 +769,8 @@ These types are used within the Site CRD for product configuration.
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `.enabled` | `*bool` | Controls whether Workbench is running (default: `true`). Setting to `false` suspends Workbench: stops pods and removes ingress/service, but preserves PVC, database, and secrets. |
+| `.teardown` | `*bool` | Permanently destroys all Workbench resources including database and PVC. Only takes effect when `enabled` is `false` (default: `false`). |
 | `.databricks` | `map[string]DatabricksConfig` | Databricks configurations |
 | `.snowflake` | `SnowflakeConfig` | Snowflake configuration |
 | `.license` | `LicenseSpec` | License configuration |
@@ -801,6 +805,8 @@ These types are used within the Site CRD for product configuration.
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `.enabled` | `*bool` | Controls whether Chronicle is running (default: `true`). Setting to `false` suspends Chronicle: stops the StatefulSet and removes the service. |
+| `.teardown` | `*bool` | Permanently destroys all Chronicle resources. Only takes effect when `enabled` is `false` (default: `false`). |
 | `.nodeSelector` | `map[string]string` | Node selector |
 | `.image` | `string` | Container image |
 | `.addEnv` | `map[string]string` | Environment variables |

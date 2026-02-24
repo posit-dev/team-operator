@@ -8,6 +8,7 @@ package v1beta1
 // ChronicleSpecApplyConfiguration represents a declarative configuration of the ChronicleSpec type for use
 // with apply.
 type ChronicleSpecApplyConfiguration struct {
+	Suspended            *bool                              `json:"suspended,omitempty"`
 	Config               *ChronicleConfigApplyConfiguration `json:"config,omitempty"`
 	ImagePullSecrets     []string                           `json:"imagePullSecrets,omitempty"`
 	NodeSelector         map[string]string                  `json:"nodeSelector,omitempty"`
@@ -22,6 +23,14 @@ type ChronicleSpecApplyConfiguration struct {
 // apply.
 func ChronicleSpec() *ChronicleSpecApplyConfiguration {
 	return &ChronicleSpecApplyConfiguration{}
+}
+
+// WithSuspended sets the Suspended field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Suspended field is set to the value of the last call.
+func (b *ChronicleSpecApplyConfiguration) WithSuspended(value bool) *ChronicleSpecApplyConfiguration {
+	b.Suspended = &value
+	return b
 }
 
 // WithConfig sets the Config field in the declarative configuration to the given value

@@ -7605,6 +7605,11 @@ spec:
                   clientId:
                     type: string
                 type: object
+              suspended:
+                description: |-
+                  Suspended indicates Workbench should not run serving resources (Deployment, Service, Ingress)
+                  but should preserve data resources (PVC, database, secrets). Set by the Site controller.
+                type: boolean
               tolerations:
                 items:
                   description: |-

@@ -1249,3 +1249,336 @@ func TestSiteConnectTeardown(t *testing.T) {
 	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, connect)
 	assert.Error(t, err, "Connect CR should not exist after teardown=true")
 }
+
+// TestSiteWorkbenchDisableNeverEnabled verifies that setting enabled=false when Workbench was
+// never enabled is a no-op: no Workbench CR is created.
+func TestSiteWorkbenchDisableNeverEnabled(t *testing.T) {
+	siteName := "never-enabled-workbench"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	enabled := false
+	site.Spec.Workbench.Enabled = &enabled
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.NoError(t, err)
+
+	// Workbench CR should NOT exist — disable with no prior enablement is a no-op
+	workbench := &v1beta1.Workbench{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, workbench)
+	assert.Error(t, err, "expected Workbench CR to not exist when disabled without ever being enabled")
+}
+
+// TestSiteWorkbenchSuspendAfterEnable verifies that setting enabled=false after Workbench was running
+// suspends the Workbench CR (Suspended=true) rather than deleting it, preserving data.
+// It also verifies that re-enabling clears Suspended and restores full reconciliation.
+func TestSiteWorkbenchSuspendAfterEnable(t *testing.T) {
+	siteName := "suspend-workbench"
+	siteNamespace := "posit-team"
+
+	// Share a single fake environment across all reconcile passes.
+	fakeClient := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeClient.Start(loadSchemes)
+	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
+
+	// Pass 1: Workbench enabled (default)
+	site := defaultSite(siteName)
+	_, err := rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	workbench := &v1beta1.Workbench{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, workbench)
+	assert.NoError(t, err, "Workbench CR should exist after first reconcile")
+	assert.Nil(t, workbench.Spec.Suspended)
+
+	// Pass 2: disable Workbench without teardown — Suspended should be true
+	enabled := false
+	site.Spec.Workbench.Enabled = &enabled
+	_, err = rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, workbench)
+	assert.NoError(t, err, "Workbench CR should still exist when disabled without teardown")
+	assert.NotNil(t, workbench.Spec.Suspended)
+	assert.True(t, *workbench.Spec.Suspended)
+
+	// Pass 3: re-enable Workbench — Suspended should be cleared
+	site.Spec.Workbench.Enabled = nil
+	_, err = rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, workbench)
+	assert.NoError(t, err, "Workbench CR should still exist after re-enable")
+	assert.Nil(t, workbench.Spec.Suspended, "Suspended should be cleared after re-enable")
+}
+
+// TestSiteWorkbenchTeardown verifies that setting enabled=false + teardown=true causes the
+// Workbench CR to be deleted (triggering the destructive finalizer path).
+func TestSiteWorkbenchTeardown(t *testing.T) {
+	siteName := "teardown-workbench"
+	siteNamespace := "posit-team"
+
+	fakeClient := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeClient.Start(loadSchemes)
+	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
+
+	// Pass 1: establish a running Workbench CR
+	site := defaultSite(siteName)
+	_, err := rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	workbench := &v1beta1.Workbench{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, workbench)
+	assert.NoError(t, err, "Workbench CR should exist before teardown")
+
+	// Pass 2: teardown
+	enabled := false
+	teardown := true
+	site.Spec.Workbench.Enabled = &enabled
+	site.Spec.Workbench.Teardown = &teardown
+	_, err = rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	// Workbench CR should NOT exist after teardown
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, workbench)
+	assert.Error(t, err, "Workbench CR should not exist after teardown=true")
+}
+
+// TestSitePackageManagerDisableNeverEnabled verifies that setting enabled=false when Package Manager was
+// never enabled is a no-op: no PackageManager CR is created.
+func TestSitePackageManagerDisableNeverEnabled(t *testing.T) {
+	siteName := "never-enabled-pm"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	enabled := false
+	site.Spec.PackageManager.Enabled = &enabled
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.NoError(t, err)
+
+	// PackageManager CR should NOT exist — disable with no prior enablement is a no-op
+	pm := &v1beta1.PackageManager{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, pm)
+	assert.Error(t, err, "expected PackageManager CR to not exist when disabled without ever being enabled")
+}
+
+// TestSitePackageManagerSuspendAfterEnable verifies that setting enabled=false after Package Manager was running
+// suspends the PackageManager CR (Suspended=true) rather than deleting it, preserving data.
+// It also verifies that re-enabling clears Suspended and restores full reconciliation.
+func TestSitePackageManagerSuspendAfterEnable(t *testing.T) {
+	siteName := "suspend-pm"
+	siteNamespace := "posit-team"
+
+	// Share a single fake environment across all reconcile passes.
+	fakeClient := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeClient.Start(loadSchemes)
+	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
+
+	// Pass 1: PackageManager enabled (default)
+	site := defaultSite(siteName)
+	_, err := rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	pm := &v1beta1.PackageManager{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, pm)
+	assert.NoError(t, err, "PackageManager CR should exist after first reconcile")
+	assert.Nil(t, pm.Spec.Suspended)
+
+	// Pass 2: disable PackageManager without teardown — Suspended should be true
+	enabled := false
+	site.Spec.PackageManager.Enabled = &enabled
+	_, err = rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, pm)
+	assert.NoError(t, err, "PackageManager CR should still exist when disabled without teardown")
+	assert.NotNil(t, pm.Spec.Suspended)
+	assert.True(t, *pm.Spec.Suspended)
+
+	// Pass 3: re-enable PackageManager — Suspended should be cleared
+	site.Spec.PackageManager.Enabled = nil
+	_, err = rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, pm)
+	assert.NoError(t, err, "PackageManager CR should still exist after re-enable")
+	assert.Nil(t, pm.Spec.Suspended, "Suspended should be cleared after re-enable")
+}
+
+// TestSitePackageManagerTeardown verifies that setting enabled=false + teardown=true causes the
+// PackageManager CR to be deleted (triggering the destructive finalizer path).
+func TestSitePackageManagerTeardown(t *testing.T) {
+	siteName := "teardown-pm"
+	siteNamespace := "posit-team"
+
+	fakeClient := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeClient.Start(loadSchemes)
+	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
+
+	// Pass 1: establish a running PackageManager CR
+	site := defaultSite(siteName)
+	_, err := rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	pm := &v1beta1.PackageManager{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, pm)
+	assert.NoError(t, err, "PackageManager CR should exist before teardown")
+
+	// Pass 2: teardown
+	enabled := false
+	teardown := true
+	site.Spec.PackageManager.Enabled = &enabled
+	site.Spec.PackageManager.Teardown = &teardown
+	_, err = rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	// PackageManager CR should NOT exist after teardown
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, pm)
+	assert.Error(t, err, "PackageManager CR should not exist after teardown=true")
+}
+
+// TestSiteChronicleDisableNeverEnabled verifies that setting enabled=false when Chronicle was
+// never enabled is a no-op: no Chronicle CR is created.
+func TestSiteChronicleDisableNeverEnabled(t *testing.T) {
+	siteName := "never-enabled-chronicle"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	enabled := false
+	site.Spec.Chronicle.Enabled = &enabled
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.NoError(t, err)
+
+	// Chronicle CR should NOT exist — disable with no prior enablement is a no-op
+	chronicle := &v1beta1.Chronicle{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, chronicle)
+	assert.Error(t, err, "expected Chronicle CR to not exist when disabled without ever being enabled")
+}
+
+// TestSiteChronicleSuspendAfterEnable verifies that setting enabled=false after Chronicle was running
+// suspends the Chronicle CR (Suspended=true) rather than deleting it, preserving data.
+// It also verifies that re-enabling clears Suspended and restores full reconciliation.
+func TestSiteChronicleSuspendAfterEnable(t *testing.T) {
+	siteName := "suspend-chronicle"
+	siteNamespace := "posit-team"
+
+	// Share a single fake environment across all reconcile passes.
+	fakeClient := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeClient.Start(loadSchemes)
+	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
+
+	// Pass 1: Chronicle enabled (default)
+	site := defaultSite(siteName)
+	_, err := rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	chronicle := &v1beta1.Chronicle{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, chronicle)
+	assert.NoError(t, err, "Chronicle CR should exist after first reconcile")
+	assert.Nil(t, chronicle.Spec.Suspended)
+
+	// Pass 2: disable Chronicle without teardown — Suspended should be true
+	enabled := false
+	site.Spec.Chronicle.Enabled = &enabled
+	_, err = rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, chronicle)
+	assert.NoError(t, err, "Chronicle CR should still exist when disabled without teardown")
+	assert.NotNil(t, chronicle.Spec.Suspended)
+	assert.True(t, *chronicle.Spec.Suspended)
+
+	// Pass 3: re-enable Chronicle — Suspended should be cleared
+	site.Spec.Chronicle.Enabled = nil
+	_, err = rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, chronicle)
+	assert.NoError(t, err, "Chronicle CR should still exist after re-enable")
+	assert.Nil(t, chronicle.Spec.Suspended, "Suspended should be cleared after re-enable")
+}
+
+// TestSiteChronicleTeardown verifies that setting enabled=false + teardown=true causes the
+// Chronicle CR to be deleted (triggering the destructive finalizer path).
+func TestSiteChronicleTeardown(t *testing.T) {
+	siteName := "teardown-chronicle"
+	siteNamespace := "posit-team"
+
+	fakeClient := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeClient.Start(loadSchemes)
+	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
+
+	// Pass 1: establish a running Chronicle CR
+	site := defaultSite(siteName)
+	_, err := rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	chronicle := &v1beta1.Chronicle{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, chronicle)
+	assert.NoError(t, err, "Chronicle CR should exist before teardown")
+
+	// Pass 2: teardown
+	enabled := false
+	teardown := true
+	site.Spec.Chronicle.Enabled = &enabled
+	site.Spec.Chronicle.Teardown = &teardown
+	_, err = rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	// Chronicle CR should NOT exist after teardown
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, chronicle)
+	assert.Error(t, err, "Chronicle CR should not exist after teardown=true")
+}
+
+// TestSiteTeardownIgnoredWhileEnabled verifies that setting teardown=true while a product is
+// still enabled (or defaults to enabled) is a no-op: no CRs are deleted.
+// This guards the warning-path guard in reconcileResources against accidental removal.
+func TestSiteTeardownIgnoredWhileEnabled(t *testing.T) {
+	siteName := "teardown-while-enabled"
+	siteNamespace := "posit-team"
+
+	fakeClient := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeClient.Start(loadSchemes)
+	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
+
+	// Pass 1: establish running CRs for all three products
+	site := defaultSite(siteName)
+	_, err := rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	workbench := &v1beta1.Workbench{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, workbench)
+	assert.NoError(t, err, "Workbench CR should exist after first reconcile")
+
+	pm := &v1beta1.PackageManager{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, pm)
+	assert.NoError(t, err, "PackageManager CR should exist after first reconcile")
+
+	chronicle := &v1beta1.Chronicle{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, chronicle)
+	assert.NoError(t, err, "Chronicle CR should exist after first reconcile")
+
+	// Pass 2: set teardown=true but leave enabled=true (default) — should be a no-op
+	teardown := true
+	site.Spec.Workbench.Teardown = &teardown
+	site.Spec.PackageManager.Teardown = &teardown
+	site.Spec.Chronicle.Teardown = &teardown
+	_, err = rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	// All CRs should still exist — teardown while enabled is a no-op
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, workbench)
+	assert.NoError(t, err, "Workbench CR should still exist: teardown has no effect while enabled=true")
+
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, pm)
+	assert.NoError(t, err, "PackageManager CR should still exist: teardown has no effect while enabled=true")
+
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, chronicle)
+	assert.NoError(t, err, "Chronicle CR should still exist: teardown has no effect while enabled=true")
+}
