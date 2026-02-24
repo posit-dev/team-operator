@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -20,7 +21,7 @@ import (
 )
 
 // TestPackageManagerReconciler_Suspended verifies that when PackageManager has Suspended=true,
-// ReconcilePackageManager does not create serving resources (Deployment, Service, Ingress).
+// ReconcilePackageManager does not create a Deployment and does not apply SetProgressing.
 func TestPackageManagerReconciler_Suspended(t *testing.T) {
 	ctx := context.Background()
 	ns := "posit-team"
@@ -60,5 +61,13 @@ func TestPackageManagerReconciler_Suspended(t *testing.T) {
 	// No Deployment should be created when suspended
 	dep := &appsv1.Deployment{}
 	err = cli.Get(ctx, client.ObjectKey{Name: pm.ComponentName(), Namespace: ns}, dep)
-	assert.Error(t, err, "Deployment should not exist when PackageManager is suspended")
+	assert.True(t, apierrors.IsNotFound(err), "expected not-found error, got: %v", err)
+
+	// SetProgressing should not be applied when suspended
+	updated := &positcov1beta1.PackageManager{}
+	require.NoError(t, cli.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, updated))
+	for _, cond := range updated.Status.Conditions {
+		assert.NotEqual(t, "Progressing", string(cond.Type),
+			"SetProgressing should not be applied when suspended")
+	}
 }

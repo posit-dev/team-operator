@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -20,7 +21,7 @@ import (
 )
 
 // TestChronicleReconciler_Suspended verifies that when Chronicle has Suspended=true,
-// ReconcileChronicle does not create serving resources (StatefulSet, Service).
+// ReconcileChronicle does not create a StatefulSet and does not apply SetProgressing.
 func TestChronicleReconciler_Suspended(t *testing.T) {
 	ctx := context.Background()
 	ns := "posit-team"
@@ -60,5 +61,13 @@ func TestChronicleReconciler_Suspended(t *testing.T) {
 	// No StatefulSet should be created when suspended
 	sts := &appsv1.StatefulSet{}
 	err = cli.Get(ctx, client.ObjectKey{Name: c.ComponentName(), Namespace: ns}, sts)
-	assert.Error(t, err, "StatefulSet should not exist when Chronicle is suspended")
+	assert.True(t, apierrors.IsNotFound(err), "expected not-found error, got: %v", err)
+
+	// SetProgressing should not be applied when suspended
+	updated := &positcov1beta1.Chronicle{}
+	require.NoError(t, cli.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, updated))
+	for _, cond := range updated.Status.Conditions {
+		assert.NotEqual(t, "Progressing", string(cond.Type),
+			"SetProgressing should not be applied when suspended")
+	}
 }
