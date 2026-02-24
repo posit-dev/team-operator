@@ -580,8 +580,9 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	}
 
 	// Chronicle
-	// If disabled (Enabled = false), treat as ready since it won't have a CR
-	if site.Spec.Chronicle.Enabled != nil && !*site.Spec.Chronicle.Enabled {
+	// If not explicitly enabled (nil or false), treat as ready: Chronicle is optional and
+	// should not block site readiness unless the user has explicitly opted in (Enabled=true).
+	if site.Spec.Chronicle.Enabled == nil || !*site.Spec.Chronicle.Enabled {
 		site.Status.ChronicleReady = true
 	} else {
 		chronicle := &positcov1beta1.Chronicle{}
@@ -596,8 +597,9 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	}
 
 	// Flightdeck
-	// If disabled (Enabled = false), treat as ready since it won't have a CR
-	if site.Spec.Flightdeck.Enabled != nil && !*site.Spec.Flightdeck.Enabled {
+	// If not explicitly enabled (nil or false), treat as ready: Flightdeck is optional and
+	// should not block site readiness unless the user has explicitly opted in (Enabled=true).
+	if site.Spec.Flightdeck.Enabled == nil || !*site.Spec.Flightdeck.Enabled {
 		site.Status.FlightdeckReady = true
 	} else {
 		flightdeck := &positcov1beta1.Flightdeck{}
