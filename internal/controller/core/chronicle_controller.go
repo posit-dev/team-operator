@@ -120,11 +120,7 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 	res, err := r.ensureDeployedService(ctx, req, c)
 	if err != nil {
 		l.Error(err, "error deploying service")
-		status.SetReady(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		if patchErr := r.Status().Patch(ctx, c, patchBase); patchErr != nil {
-			l.Error(patchErr, "Failed to patch error status")
-		}
+		status.PatchErrorStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, err)
 		return res, err
 	}
 
@@ -132,11 +128,7 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 	sts := &v1.StatefulSet{}
 	if err := r.Get(ctx, client.ObjectKey{Name: c.ComponentName(), Namespace: req.Namespace}, sts); err != nil {
 		l.Error(err, "error fetching statefulset for status")
-		status.SetReady(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconcileError, "Failed to fetch statefulset")
-		status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		if patchErr := r.Status().Patch(ctx, c, patchBase); patchErr != nil {
-			l.Error(patchErr, "Failed to patch error status")
-		}
+		status.PatchErrorStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, err)
 		return ctrl.Result{}, err
 	}
 

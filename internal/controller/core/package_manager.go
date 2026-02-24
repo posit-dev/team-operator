@@ -156,11 +156,7 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 	secretKey := "pkg-db-password"
 	if err := db.EnsureDatabaseExists(ctx, r, req, pm, pm.Spec.DatabaseConfig, pm.ComponentName(), "", []string{"pm", "metrics"}, pm.Spec.Secret, pm.Spec.WorkloadSecret, pm.Spec.MainDatabaseCredentialSecret, secretKey); err != nil {
 		l.Error(err, "error creating database", "database", pm.ComponentName())
-		status.SetReady(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		if patchErr := r.Status().Patch(ctx, pm, patchBase); patchErr != nil {
-			l.Error(patchErr, "Failed to patch error status")
-		}
+		status.PatchErrorStatus(ctx, r.Status(), pm, patchBase, &pm.Status.Conditions, pm.Generation, err)
 		return ctrl.Result{}, err
 	}
 
@@ -171,11 +167,7 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 	//   For now, we just use it to give to Package Manager
 	if _, err := internal.EnsureProvisioningKey(ctx, pm, r, req, pm); err != nil {
 		l.Error(err, "error ensuring that provisioning key exists")
-		status.SetReady(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		if patchErr := r.Status().Patch(ctx, pm, patchBase); patchErr != nil {
-			l.Error(patchErr, "Failed to patch error status")
-		}
+		status.PatchErrorStatus(ctx, r.Status(), pm, patchBase, &pm.Status.Conditions, pm.Generation, err)
 		return ctrl.Result{}, err
 	} else {
 		l.Info("successfully created or retrieved provisioning key value")
@@ -214,11 +206,7 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 
 		if err := r.createAzureFilesStoragePVC(ctx, pm); err != nil {
 			l.Error(err, "error creating Azure Files PVC")
-			status.SetReady(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-			status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-			if patchErr := r.Status().Patch(ctx, pm, patchBase); patchErr != nil {
-				l.Error(patchErr, "Failed to patch error status")
-			}
+			status.PatchErrorStatus(ctx, r.Status(), pm, patchBase, &pm.Status.Conditions, pm.Generation, err)
 			return ctrl.Result{}, err
 		}
 	}
@@ -227,11 +215,7 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 	res, err := r.ensureDeployedService(ctx, req, pm)
 	if err != nil {
 		l.Error(err, "error deploying service")
-		status.SetReady(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		if patchErr := r.Status().Patch(ctx, pm, patchBase); patchErr != nil {
-			l.Error(patchErr, "Failed to patch error status")
-		}
+		status.PatchErrorStatus(ctx, r.Status(), pm, patchBase, &pm.Status.Conditions, pm.Generation, err)
 		return res, err
 	}
 
@@ -239,11 +223,7 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 	deploy := &v1.Deployment{}
 	if err := r.Get(ctx, client.ObjectKey{Name: pm.ComponentName(), Namespace: req.Namespace}, deploy); err != nil {
 		l.Error(err, "error fetching deployment for status")
-		status.SetReady(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, "Failed to fetch deployment")
-		status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		if patchErr := r.Status().Patch(ctx, pm, patchBase); patchErr != nil {
-			l.Error(patchErr, "Failed to patch error status")
-		}
+		status.PatchErrorStatus(ctx, r.Status(), pm, patchBase, &pm.Status.Conditions, pm.Generation, err)
 		return ctrl.Result{}, err
 	}
 

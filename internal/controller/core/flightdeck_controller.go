@@ -78,11 +78,7 @@ func (r *FlightdeckReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	if res, err := r.reconcileFlightdeckResources(ctx, req, fd, l); err != nil {
 		l.Error(err, "failed to reconcile flightdeck resources")
-		status.SetReady(&fd.Status.Conditions, fd.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		status.SetProgressing(&fd.Status.Conditions, fd.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		if patchErr := r.Status().Patch(ctx, fd, patchBase); patchErr != nil {
-			l.Error(patchErr, "Failed to patch error status")
-		}
+		status.PatchErrorStatus(ctx, r.Status(), fd, patchBase, &fd.Status.Conditions, fd.Generation, err)
 		return res, err
 	}
 
@@ -90,11 +86,7 @@ func (r *FlightdeckReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	deploy := &appsv1.Deployment{}
 	if err := r.Get(ctx, client.ObjectKey{Name: fd.ComponentName(), Namespace: req.Namespace}, deploy); err != nil {
 		l.Error(err, "error fetching deployment for status")
-		status.SetReady(&fd.Status.Conditions, fd.Generation, metav1.ConditionFalse, status.ReasonReconcileError, "Failed to fetch deployment")
-		status.SetProgressing(&fd.Status.Conditions, fd.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		if patchErr := r.Status().Patch(ctx, fd, patchBase); patchErr != nil {
-			l.Error(patchErr, "Failed to patch error status")
-		}
+		status.PatchErrorStatus(ctx, r.Status(), fd, patchBase, &fd.Status.Conditions, fd.Generation, err)
 		return ctrl.Result{}, err
 	}
 

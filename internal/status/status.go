@@ -4,10 +4,12 @@
 package status
 
 import (
+	"context"
 	"strings"
 
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Condition type constants
@@ -81,4 +83,13 @@ func ExtractVersion(image string) string {
 		return tag
 	}
 	return ""
+}
+
+// PatchErrorStatus sets Ready and Progressing to False with ReasonReconcileError,
+// then patches the status subresource. The patch error is intentionally discarded
+// so the original reconcile error is returned to the caller.
+func PatchErrorStatus(ctx context.Context, statusWriter client.StatusWriter, obj client.Object, patchBase client.Patch, conditions *[]metav1.Condition, generation int64, reconcileErr error) {
+	SetReady(conditions, generation, metav1.ConditionFalse, ReasonReconcileError, reconcileErr.Error())
+	SetProgressing(conditions, generation, metav1.ConditionFalse, ReasonReconcileError, reconcileErr.Error())
+	_ = statusWriter.Patch(ctx, obj, patchBase)
 }

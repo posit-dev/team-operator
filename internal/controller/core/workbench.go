@@ -97,11 +97,7 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 	if w.Spec.Config.Databricks != nil && len(w.Spec.Config.Databricks) > 0 {
 		err := errors.New("the Databricks configuration should be in SecretConfig, not Config")
 		l.Error(err, "invalid workbench specification")
-		status.SetReady(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		if patchErr := r.Status().Patch(ctx, w, patchBase); patchErr != nil {
-			l.Error(patchErr, "Failed to patch error status")
-		}
+		status.PatchErrorStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, err)
 		return ctrl.Result{}, err
 	}
 
@@ -109,11 +105,7 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 	secretKey := "dev-db-password"
 	if err := db.EnsureDatabaseExists(ctx, r, req, w, w.Spec.DatabaseConfig, w.ComponentName(), "", []string{}, w.Spec.Secret, w.Spec.WorkloadSecret, w.Spec.MainDatabaseCredentialSecret, secretKey); err != nil {
 		l.Error(err, "error creating database", "database", w.ComponentName())
-		status.SetReady(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		if patchErr := r.Status().Patch(ctx, w, patchBase); patchErr != nil {
-			l.Error(patchErr, "Failed to patch error status")
-		}
+		status.PatchErrorStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, err)
 		return ctrl.Result{}, err
 	}
 
@@ -121,11 +113,7 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 	// TODO: we probably do not need to create this... it goes in a provisioning secret intentionally now...?
 	if _, err := internal.EnsureWorkbenchSecretKey(ctx, w, r, req, w); err != nil {
 		l.Error(err, "error ensuring that provisioning key exists")
-		status.SetReady(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		if patchErr := r.Status().Patch(ctx, w, patchBase); patchErr != nil {
-			l.Error(patchErr, "Failed to patch error status")
-		}
+		status.PatchErrorStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, err)
 		return ctrl.Result{}, err
 	} else {
 		l.Info("successfully created or retrieved provisioning key value")
@@ -163,11 +151,7 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 	res, err := r.ensureDeployedService(ctx, req, w)
 	if err != nil {
 		l.Error(err, "error deploying service")
-		status.SetReady(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		if patchErr := r.Status().Patch(ctx, w, patchBase); patchErr != nil {
-			l.Error(patchErr, "Failed to patch error status")
-		}
+		status.PatchErrorStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, err)
 		return res, err
 	}
 
@@ -175,11 +159,7 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 	deploy := &appsv1.Deployment{}
 	if err := r.Get(ctx, client.ObjectKey{Name: w.ComponentName(), Namespace: req.Namespace}, deploy); err != nil {
 		l.Error(err, "error fetching deployment for status")
-		status.SetReady(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, "Failed to fetch deployment")
-		status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonReconcileError, err.Error())
-		if patchErr := r.Status().Patch(ctx, w, patchBase); patchErr != nil {
-			l.Error(patchErr, "Failed to patch error status")
-		}
+		status.PatchErrorStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, err)
 		return ctrl.Result{}, err
 	}
 
