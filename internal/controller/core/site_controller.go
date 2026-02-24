@@ -91,7 +91,7 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	result, reconcileErr := r.reconcileResources(ctx, req, s)
 
 	// Aggregate child component status
-	r.aggregateChildStatus(ctx, req, s, l)
+	aggregateErr := r.aggregateChildStatus(ctx, req, s, l)
 
 	// Update status based on reconciliation result
 	if reconcileErr != nil {
@@ -117,7 +117,10 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, patchErr
 	}
 
-	return result, reconcileErr
+	if reconcileErr != nil {
+		return result, reconcileErr
+	}
+	return result, aggregateErr
 }
 
 var rootVolumeSize = resource.MustParse("1Gi")
@@ -522,7 +525,8 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 }
 
 // aggregateChildStatus fetches each child CR and populates per-component readiness bools on the Site status.
-func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Request, site *positcov1beta1.Site, l logr.Logger) {
+// Returns a non-nil error only for transient API errors (not NotFound), so the reconciler can requeue.
+func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Request, site *positcov1beta1.Site, l logr.Logger) error {
 	// Child CRs (Connect, Workbench, etc.) are created by reconcileResources with the same
 	// name as the parent Site. See site_controller_connect.go, site_controller_workbench.go, etc.
 	key := client.ObjectKey{Name: site.Name, Namespace: req.Namespace}
@@ -535,11 +539,11 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 		connect := &positcov1beta1.Connect{}
 		if err := r.Get(ctx, key, connect); err == nil {
 			site.Status.ConnectReady = status.IsReady(connect.Status.Conditions)
-		} else {
-			if !apierrors.IsNotFound(err) {
-				l.Error(err, "error fetching Connect for status aggregation")
-			}
+		} else if apierrors.IsNotFound(err) {
 			site.Status.ConnectReady = false
+		} else {
+			l.Error(err, "error fetching Connect for status aggregation")
+			return err
 		}
 	}
 
@@ -551,11 +555,11 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 		workbench := &positcov1beta1.Workbench{}
 		if err := r.Get(ctx, key, workbench); err == nil {
 			site.Status.WorkbenchReady = status.IsReady(workbench.Status.Conditions)
-		} else {
-			if !apierrors.IsNotFound(err) {
-				l.Error(err, "error fetching Workbench for status aggregation")
-			}
+		} else if apierrors.IsNotFound(err) {
 			site.Status.WorkbenchReady = false
+		} else {
+			l.Error(err, "error fetching Workbench for status aggregation")
+			return err
 		}
 	}
 
@@ -567,11 +571,11 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 		pm := &positcov1beta1.PackageManager{}
 		if err := r.Get(ctx, key, pm); err == nil {
 			site.Status.PackageManagerReady = status.IsReady(pm.Status.Conditions)
-		} else {
-			if !apierrors.IsNotFound(err) {
-				l.Error(err, "error fetching PackageManager for status aggregation")
-			}
+		} else if apierrors.IsNotFound(err) {
 			site.Status.PackageManagerReady = false
+		} else {
+			l.Error(err, "error fetching PackageManager for status aggregation")
+			return err
 		}
 	}
 
@@ -583,24 +587,31 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 		chronicle := &positcov1beta1.Chronicle{}
 		if err := r.Get(ctx, key, chronicle); err == nil {
 			site.Status.ChronicleReady = status.IsReady(chronicle.Status.Conditions)
-		} else {
-			if !apierrors.IsNotFound(err) {
-				l.Error(err, "error fetching Chronicle for status aggregation")
-			}
+		} else if apierrors.IsNotFound(err) {
 			site.Status.ChronicleReady = false
+		} else {
+			l.Error(err, "error fetching Chronicle for status aggregation")
+			return err
 		}
 	}
 
 	// Flightdeck
-	flightdeck := &positcov1beta1.Flightdeck{}
-	if err := r.Get(ctx, key, flightdeck); err == nil {
-		site.Status.FlightdeckReady = status.IsReady(flightdeck.Status.Conditions)
+	// If disabled (Enabled = false), treat as ready since it won't have a CR
+	if site.Spec.Flightdeck.Enabled != nil && !*site.Spec.Flightdeck.Enabled {
+		site.Status.FlightdeckReady = true
 	} else {
-		if !apierrors.IsNotFound(err) {
+		flightdeck := &positcov1beta1.Flightdeck{}
+		if err := r.Get(ctx, key, flightdeck); err == nil {
+			site.Status.FlightdeckReady = status.IsReady(flightdeck.Status.Conditions)
+		} else if apierrors.IsNotFound(err) {
+			site.Status.FlightdeckReady = false
+		} else {
 			l.Error(err, "error fetching Flightdeck for status aggregation")
+			return err
 		}
-		site.Status.FlightdeckReady = false
 	}
+
+	return nil
 }
 
 func (r *SiteReconciler) GetLogger(ctx context.Context) logr.Logger {

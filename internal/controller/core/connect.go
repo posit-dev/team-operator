@@ -53,7 +53,6 @@ func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Reque
 	// create database
 	secretKey := "pub-db-password"
 
-
 	schema := "connect"
 	if c.Spec.DatabaseConfig.Schema != "" {
 		schema = c.Spec.DatabaseConfig.Schema

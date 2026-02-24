@@ -1590,7 +1590,7 @@ func TestSiteReadyWithDisabledProducts(t *testing.T) {
 	siteName := "ready-with-disabled-products"
 	siteNamespace := "posit-team"
 	site := defaultSite(siteName)
-	
+
 	// Disable Connect and Workbench
 	connectEnabled := false
 	workbenchEnabled := false
