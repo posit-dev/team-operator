@@ -118,7 +118,7 @@ func TestPollApplyCRDsContextCancelUnwrapsErrors(t *testing.T) {
 	err := pollApplyCRDs(ctx, newFakeClient(t), logr.Discard(), 5*time.Second, fn)
 	require.Error(t, err)
 	require.True(t, errors.Is(err, context.DeadlineExceeded), "poll error (context deadline) should be unwrappable via errors.Is")
-	require.True(t, errors.Is(err, sentinel), "last apply error should be unwrappable via errors.Is (requires Go 1.20+ dual %%w)")
+	require.True(t, errors.Is(err, sentinel), "last apply error should be unwrappable via errors.Is (requires Go 1.20+ dual %w)")
 }
 
 // TestApplyCRDs is a structural test that verifies all embedded CRDs are stored after
