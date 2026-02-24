@@ -66,8 +66,10 @@ func TestChronicleReconciler_Suspended(t *testing.T) {
 	// SetProgressing should not be applied when suspended
 	updated := &positcov1beta1.Chronicle{}
 	require.NoError(t, cli.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, updated))
+	assert.Empty(t, updated.Status.Conditions,
+		"no status conditions should be set when suspended")
 	for _, cond := range updated.Status.Conditions {
-		assert.NotEqual(t, "Progressing", string(cond.Type),
+		assert.NotEqual(t, "Progressing", cond.Type,
 			"SetProgressing should not be applied when suspended")
 	}
 }
