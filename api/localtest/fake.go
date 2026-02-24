@@ -15,6 +15,12 @@ func (fte *FakeTestEnv) Start(loadSchemes func(scheme *runtime.Scheme)) (client.
 	scheme := runtime.NewScheme()
 	loadSchemes(scheme)
 
+	// WithStatusSubresource must list every v1beta1 type that carries a
+	// +kubebuilder:subresource:status marker. Without this registration,
+	// Status().Update() silently mutates the main object body instead of
+	// the status subresource, producing test false-positives.
+	// When adding a new v1beta1 type with +kubebuilder:subresource:status,
+	// add it here as well.
 	cli := fakectrl.NewClientBuilder().
 		WithScheme(scheme).
 		WithStatusSubresource(
