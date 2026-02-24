@@ -32,12 +32,13 @@ func (e permanentError) Unwrap() error { return e.err }
 //go:embed bases/*.yaml
 var crdFiles embed.FS
 
-func newScheme() (*runtime.Scheme, error) {
-	scheme := runtime.NewScheme()
+var scheme *runtime.Scheme
+
+func init() {
+	scheme = runtime.NewScheme()
 	if err := apiextensionsv1.AddToScheme(scheme); err != nil {
-		return nil, fmt.Errorf("registering apiextensions scheme: %w", err)
+		panic(fmt.Errorf("registering apiextensions scheme: %w", err))
 	}
-	return scheme, nil
 }
 
 // ApplyCRDs applies all embedded CRD manifests to the cluster using server-side apply.
@@ -47,11 +48,6 @@ func newScheme() (*runtime.Scheme, error) {
 // ctx should carry a deadline; without one, a slow or unreachable API server will
 // block the operator from starting indefinitely.
 func ApplyCRDs(ctx context.Context, cfg *rest.Config, log logr.Logger) error {
-	scheme, err := newScheme()
-	if err != nil {
-		return err
-	}
-
 	c, err := client.New(cfg, client.Options{Scheme: scheme})
 	if err != nil {
 		return fmt.Errorf("creating client: %w", err)
@@ -88,7 +84,9 @@ func pollApplyCRDs(ctx context.Context, c client.Client, log logr.Logger, interv
 }
 
 // applyCRDs applies all embedded CRD manifests using the provided client.
-// It fails fast on the first error to avoid leaving the cluster in a partially-updated state.
+// It collects all errors and returns them together to maximize the number of CRDs
+// that get applied even if some fail transiently. SSA is atomic per-resource, so
+// partial application is safe.
 func applyCRDs(ctx context.Context, c client.Client, log logr.Logger) error {
 	crds, err := ParseCRDs()
 	if err != nil {
@@ -100,6 +98,7 @@ func applyCRDs(ctx context.Context, c client.Client, log logr.Logger) error {
 
 	log.Info("applying CRDs with ForceOwnership", "hint", "if GitOps tooling (Flux, ArgoCD) manages your CRDs, set --manage-crds=false to avoid field-ownership conflicts")
 
+	var errs []error
 	for _, crd := range crds {
 		// Explicitly set TypeMeta for SSA
 		crd.TypeMeta = metav1.TypeMeta{
@@ -112,22 +111,18 @@ func applyCRDs(ctx context.Context, c client.Client, log logr.Logger) error {
 			client.ForceOwnership,
 			client.FieldOwner("team-operator"),
 		); err != nil {
-			return fmt.Errorf("applying CRD %s: %w", crd.Name, err)
+			errs = append(errs, fmt.Errorf("applying CRD %s: %w", crd.Name, err))
+		} else {
+			log.Info("applied CRD", "name", crd.Name)
 		}
-		log.Info("applied CRD", "name", crd.Name)
 	}
 
-	return nil
+	return errors.Join(errs...)
 }
 
 // ParseCRDs parses all embedded CRD manifests and returns them.
 // Useful for testing that the embedded files are valid.
 func ParseCRDs() ([]*apiextensionsv1.CustomResourceDefinition, error) {
-	scheme, err := newScheme()
-	if err != nil {
-		return nil, err
-	}
-
 	codec := serializer.NewCodecFactory(scheme)
 	entries, err := fs.ReadDir(crdFiles, "bases")
 	if err != nil {

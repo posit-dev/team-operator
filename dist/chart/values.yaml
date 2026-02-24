@@ -13,7 +13,9 @@ controllerManager:
       - "--leader-elect"
       - "--metrics-bind-address=:8443"
       - "--health-probe-bind-address=:8081"
-      # Default is true; set to false for GitOps environments (Flux, ArgoCD)
+      # Operator applies its own CRDs at startup to ensure schema matches the binary version.
+      # This solves CRD drift when using adhoc images or emergency patches.
+      # Set to false if you manage CRDs externally (Flux, ArgoCD, or Helm with GitOps).
       # - "--manage-crds=false"
     env:
       WATCH_NAMESPACES: "posit-team"

@@ -28,7 +28,15 @@ When `--manage-crds=false`, the operator starts without touching CRDs, and you a
 - Security policies requiring explicit CRD review before application
 - Multi-tenant clusters where CRD updates require approval
 
-**Note on CRD deletion:** The operator's RBAC intentionally omits the `delete` verb for CRDs to prevent accidental data loss. This means that if a future operator version removes a resource type, the now-orphaned CRD will remain in the cluster and must be removed manually:
+**RBAC Permissions:**
+The operator requires the following RBAC permissions on its own CRDs:
+- `get` - to check if CRDs exist
+- `patch` - to apply schema updates via server-side apply
+- `update` - to modify CRD metadata
+
+The Helm chart automatically grants these permissions. The operator intentionally omits the `delete` verb to prevent accidental data loss.
+
+**Note on CRD deletion:** Because the operator's RBAC omits the `delete` verb for CRDs, if a future operator version removes a resource type, the now-orphaned CRD will remain in the cluster and must be removed manually:
 
 ```bash
 kubectl delete crd <crd-name>.core.posit.team

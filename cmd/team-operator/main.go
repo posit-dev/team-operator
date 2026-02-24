@@ -153,7 +153,7 @@ func main() {
 			os.Exit(1)
 		}
 		if err := func() error {
-			crdCtx, crdCancel := context.WithTimeout(context.Background(), crdApplyTimeout)
+			crdCtx, crdCancel := context.WithTimeout(ctrl.SetupSignalHandler(), crdApplyTimeout)
 			defer crdCancel()
 			return crdapply.ApplyCRDs(crdCtx, mgr.GetConfig(), setupLog)
 		}(); err != nil {
