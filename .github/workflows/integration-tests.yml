@@ -1,0 +1,179 @@
+# Team Operator Integration Tests
+#
+# This workflow runs integration tests using both:
+# - envtest (API-level tests, fast)
+# - kind cluster (full stack tests, slower)
+#
+# Envtest runs on every PR. Kind tests run on every PR that touches
+# relevant paths (api/, internal/, Dockerfile, etc.), on push to main,
+# nightly, and on manual dispatch.
+
+name: Integration Tests
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.claude/**'
+      - 'LICENSE'
+  pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.claude/**'
+      - 'LICENSE'
+  schedule:
+    # Run nightly at 2:00 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      run_kind_tests:
+        description: 'Run kind integration tests'
+        required: false
+        default: 'true'
+        type: boolean
+
+permissions:
+  contents: read
+
+env:
+  KIND_VERSION: 'v0.23.0'
+  KIND_CLUSTER_NAME: 'team-operator-test'
+
+jobs:
+  check-changes:
+    name: Detect relevant changes
+    runs-on: ubuntu-latest
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            relevant:
+              - 'api/**'
+              - 'internal/**'
+              - 'cmd/**'
+              - 'hack/test-kind.sh'
+              - 'dist/chart/**'
+              - 'Dockerfile'
+              - 'Makefile'
+              - 'go.mod'
+              - 'go.sum'
+
+  envtest:
+    name: Envtest (API-level tests)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Cache envtest binaries
+        uses: actions/cache@v4
+        with:
+          path: bin/
+          key: ${{ runner.os }}-envtest-${{ hashFiles('Makefile') }}
+          restore-keys: |
+            ${{ runner.os }}-envtest-
+
+      - name: Install envtest
+        run: make envtest
+
+      - name: Run envtest suite
+        run: make go-test
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.out
+          flags: envtest
+          fail_ci_if_error: false
+
+  kind:
+    name: Kind (full stack tests)
+    runs-on: ubuntu-latest
+    needs: [envtest, check-changes]
+    # Run on PRs touching relevant paths, push to main, nightly, or manual trigger
+    if: |
+      (github.event_name == 'pull_request' && needs.check-changes.outputs.relevant == 'true') ||
+      github.ref == 'refs/heads/main' ||
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_kind_tests == 'true')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Install kind
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
+
+      - name: Create kind cluster
+        run: make kind-create KIND_CLUSTER_NAME=${{ env.KIND_CLUSTER_NAME }}
+
+      - name: Run integration tests
+        run: |
+          make test-kind KIND_CLUSTER_NAME=${{ env.KIND_CLUSTER_NAME }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Collect cluster logs on failure
+        if: failure()
+        run: |
+          echo "=== Cluster Info ==="
+          kubectl cluster-info --context kind-${{ env.KIND_CLUSTER_NAME }}
+          echo ""
+          echo "=== All Pods ==="
+          kubectl get pods -A
+          echo ""
+          echo "=== Events ==="
+          kubectl get events -A --sort-by='.lastTimestamp'
+          echo ""
+          echo "=== Operator Logs ==="
+          kubectl logs -n posit-team-system -l app.kubernetes.io/name=team-operator --tail=100 || true
+
+      - name: Delete kind cluster
+        if: always()
+        run: make kind-delete KIND_CLUSTER_NAME=${{ env.KIND_CLUSTER_NAME }}
+
+  # Summary job for branch protection
+  integration-tests-complete:
+    name: Integration Tests Complete
+    runs-on: ubuntu-latest
+    needs: [envtest]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.envtest.result }}" != "success" ]]; then
+            echo "Envtest failed"
+            exit 1
+          fi
+          echo "All required tests passed!"

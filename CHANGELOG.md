@@ -1,3 +1,10 @@
+# [1.15.0](https://github.com/posit-dev/team-operator/compare/v1.14.0...v1.15.0) (2026-02-24)
+
+
+### Features
+
+* add local integration testing infrastructure (envtest + kind) ([#54](https://github.com/posit-dev/team-operator/issues/54)) ([a5b5751](https://github.com/posit-dev/team-operator/commit/a5b5751fec092a3d830d159b37ae557214902c89))
+
 # [1.14.0](https://github.com/posit-dev/team-operator/compare/v1.13.0...v1.14.0) (2026-02-23)
 
 

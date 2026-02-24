@@ -129,18 +129,70 @@ test: manifests generate-all fmt vet go-test cov ## Run generation and test comm
 .PHONY: go-test
 go-test: envtest ## Run only the go tests.
 	KUBEBUILDER_ASSETS="$(shell "$(ENVTEST)" use "$(ENVTEST_K8S_VERSION)" --bin-dir "$(LOCALBIN)" -p path)" \
-		go test -v ./... -race -covermode=atomic -coverprofile coverage.out
+		sh -c 'go test -buildvcs=false -v $$(go list -buildvcs=false -f '\''{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}'\'' ./...) -race -covermode=atomic -coverprofile coverage.out'
 
 .PHONY: cov
 cov: ## Show the coverage report at the function level.
 	$(SED) -i '/team-operator\/client-go/d' coverage.out
 	go tool cover -func coverage.out
 
+##@ Integration Testing
+
+KIND_CLUSTER_NAME ?= team-operator-test
+
+.PHONY: kind-create
+kind-create: ## Create a kind cluster for integration testing.
+	@if kind get clusters | grep -q "^$(KIND_CLUSTER_NAME)$$"; then \
+		echo "Kind cluster '$(KIND_CLUSTER_NAME)' already exists"; \
+	else \
+		echo "Creating kind cluster '$(KIND_CLUSTER_NAME)'..."; \
+		kind create cluster --name $(KIND_CLUSTER_NAME) --wait 60s; \
+	fi
+
+.PHONY: kind-delete
+kind-delete: ## Delete the kind cluster.
+	kind delete cluster --name $(KIND_CLUSTER_NAME) || true
+
+.PHONY: kind-load-image
+kind-load-image: docker-build ## Load the operator image into kind cluster.
+	kind load docker-image $(IMG) --name $(KIND_CLUSTER_NAME)
+
+.PHONY: kind-setup
+kind-setup: kind-create docker-build helm-generate ## Set up kind cluster and deploy operator (run once, or after code changes to reload).
+	@echo "Setting up kind cluster '$(KIND_CLUSTER_NAME)'..."
+	./hack/test-kind.sh $(KIND_CLUSTER_NAME) setup
+
+.PHONY: kind-test
+kind-test: ## Run integration tests against an existing kind cluster (requires kind-setup first).
+	./hack/test-kind.sh $(KIND_CLUSTER_NAME) test
+
+.PHONY: kind-teardown
+kind-teardown: ## Tear down the kind cluster and remove all test resources.
+	./hack/test-kind.sh $(KIND_CLUSTER_NAME) teardown
+	kind delete cluster --name $(KIND_CLUSTER_NAME) || true
+
+.PHONY: test-kind
+test-kind: kind-create docker-build helm-generate ## Build operator image and run integration tests on a kind cluster.
+	@echo "Running integration tests on kind cluster '$(KIND_CLUSTER_NAME)'..."
+	./hack/test-kind.sh $(KIND_CLUSTER_NAME)
+
+.PHONY: test-kind-full
+test-kind-full: kind-delete kind-create test-kind ## Run full integration tests (clean cluster).
+	@echo "Full integration test completed."
+
+.PHONY: test-integration
+test-integration: go-test test-kind ## Run all tests (unit + integration).
+	@echo "All tests completed."
+
 ##@ Build
 
 .PHONY: build
 build: copy-crds generate-all fmt vet ## Build manager binary.
 	go build -o bin/team-operator ./cmd/team-operator/main.go
+
+.PHONY: docker-build
+docker-build: build ## Build the operator Docker image.
+	docker build -t $(IMG) .
 
 .PHONY: distclean
 distclean:
