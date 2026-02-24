@@ -1584,21 +1584,25 @@ func TestSiteTeardownIgnoredWhileEnabled(t *testing.T) {
 	assert.NoError(t, err, "Chronicle CR should still exist: teardown has no effect while enabled=true")
 }
 
-// TestSiteReadyWithDisabledProducts verifies that a Site can be Ready even when
-// some products are disabled (enabled: false), since disabled products don't create CRs
-// and therefore shouldn't block site readiness.
+// TestSiteReadyWithDisabledProducts verifies that a Site can be Ready when all
+// products are explicitly disabled (enabled: false), since disabled products don't
+// create CRs and therefore shouldn't block site readiness.
 func TestSiteReadyWithDisabledProducts(t *testing.T) {
 	siteName := "ready-with-disabled-products"
 	siteNamespace := "posit-team"
 	site := defaultSite(siteName)
 
-	// Disable Connect, Workbench, and PackageManager so all required products are off
+	// Disable all products so none create CRs that would block readiness
 	connectEnabled := false
 	workbenchEnabled := false
 	pmEnabled := false
+	chronicleEnabled := false
+	flightdeckEnabled := false
 	site.Spec.Connect.Enabled = &connectEnabled
 	site.Spec.Workbench.Enabled = &workbenchEnabled
 	site.Spec.PackageManager.Enabled = &pmEnabled
+	site.Spec.Chronicle.Enabled = &chronicleEnabled
+	site.Spec.Flightdeck.Enabled = &flightdeckEnabled
 
 	// Use shared fake client to run multiple reconcile passes
 	fakeClient := localtest.FakeTestEnv{}
@@ -1666,20 +1670,23 @@ func TestSiteNilEnabledMissingCR(t *testing.T) {
 }
 
 // TestSiteReadyWithDisabledFlightdeck verifies that FlightdeckReady=true when Flightdeck is
-// explicitly disabled (Enabled=false), analogous to the disabled product tests for Connect/Workbench.
+// explicitly disabled (Enabled=false), and that the site is Ready when all products including
+// Chronicle are also disabled.
 func TestSiteReadyWithDisabledFlightdeck(t *testing.T) {
 	siteName := "disabled-flightdeck"
 	siteNamespace := "posit-team"
 	site := defaultSite(siteName)
 
-	// Disable all required products and Flightdeck
+	// Disable all products so none create CRs that would block readiness
 	connectEnabled := false
 	workbenchEnabled := false
 	pmEnabled := false
+	chronicleEnabled := false
 	flightdeckEnabled := false
 	site.Spec.Connect.Enabled = &connectEnabled
 	site.Spec.Workbench.Enabled = &workbenchEnabled
 	site.Spec.PackageManager.Enabled = &pmEnabled
+	site.Spec.Chronicle.Enabled = &chronicleEnabled
 	site.Spec.Flightdeck.Enabled = &flightdeckEnabled
 
 	fakeClient := localtest.FakeTestEnv{}
@@ -1754,4 +1761,63 @@ func TestAggregateChildStatusContinuesOnTransientError(t *testing.T) {
 	assert.False(t, site.Status.ConnectReady, "ConnectReady should be false on transient error")
 	assert.False(t, site.Status.WorkbenchReady, "WorkbenchReady should be false when CR missing")
 	assert.False(t, site.Status.PackageManagerReady, "PackageManagerReady should be false when CR missing")
+}
+
+// TestSiteOptionalComponentsNilEnabledNoCR verifies that Chronicle and Flightdeck with Enabled=nil
+// and no CR present are treated as ready (not opted in + absent CR = ready).
+func TestSiteOptionalComponentsNilEnabledNoCR(t *testing.T) {
+	siteName := "optional-nil-no-cr"
+	siteNamespace := "posit-team"
+
+	fakeClient := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeClient.Start(loadSchemes)
+	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
+
+	// Enabled=nil (default) — no Chronicle or Flightdeck CRs pre-created
+	site := defaultSite(siteName)
+	// Chronicle.Enabled and Flightdeck.Enabled are nil by default
+
+	err := rec.aggregateChildStatus(context.TODO(), req, site, log)
+	assert.NoError(t, err)
+
+	assert.True(t, site.Status.ChronicleReady, "ChronicleReady should be true when Enabled=nil and no CR exists")
+	assert.True(t, site.Status.FlightdeckReady, "FlightdeckReady should be true when Enabled=nil and no CR exists")
+}
+
+// TestSiteOptionalComponentsNilEnabledWithCR verifies that when Enabled=nil but a CR already
+// exists (e.g., mid-teardown after disabling), readiness is derived from the CR conditions rather
+// than unconditionally set to true.
+func TestSiteOptionalComponentsNilEnabledWithCR(t *testing.T) {
+	siteName := "optional-nil-with-cr"
+	siteNamespace := "posit-team"
+
+	fakeClient := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeClient.Start(loadSchemes)
+	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
+
+	// Pre-create Chronicle CR (not ready — no Ready condition set)
+	chronicle := &v1beta1.Chronicle{
+		ObjectMeta: metav1.ObjectMeta{Namespace: siteNamespace, Name: siteName},
+	}
+	err := cli.Create(context.TODO(), chronicle)
+	require.NoError(t, err)
+
+	// Pre-create Flightdeck CR (not ready — no Ready condition set)
+	flightdeck := &v1beta1.Flightdeck{
+		ObjectMeta: metav1.ObjectMeta{Namespace: siteNamespace, Name: siteName},
+	}
+	err = cli.Create(context.TODO(), flightdeck)
+	require.NoError(t, err)
+
+	// Enabled=nil — CRs exist (simulating transition/teardown)
+	site := defaultSite(siteName)
+
+	err = rec.aggregateChildStatus(context.TODO(), req, site, log)
+	assert.NoError(t, err)
+
+	// CRs exist but have no Ready condition → IsReady returns false
+	assert.False(t, site.Status.ChronicleReady, "ChronicleReady should reflect CR conditions, not be unconditionally true when CR exists")
+	assert.False(t, site.Status.FlightdeckReady, "FlightdeckReady should reflect CR conditions, not be unconditionally true when CR exists")
 }

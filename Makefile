@@ -93,6 +93,8 @@ help: ## Display this help.
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	# Normalize jsonPath filter quoting: controller-gen emits single quotes, kubectl prefers double
+	$(SED) -i "s/@.type=='Ready'/@.type==\"Ready\"/g" config/crd/bases/core.posit.team_connects.yaml config/crd/bases/core.posit.team_postgresdatabases.yaml config/crd/bases/core.posit.team_sites.yaml
 
 .PHONY: generate-all
 generate-all: generate generate-client generate-openapi
@@ -239,6 +241,8 @@ helm-generate: manifests kubebuilder ## Regenerate Helm chart from kustomize
 	rm -f dist/chart/templates/rbac/auth_proxy_service.yaml
 	# Remove kubebuilder-generated test workflow - we use our own CI workflows
 	rm -f .github/workflows/test-chart.yml
+	# Normalize jsonPath filter quoting in Helm chart CRDs (matches config/crd/bases fixup above)
+	$(SED) -i "s/@.type=='Ready'/@.type==\"Ready\"/g" dist/chart/templates/crd/core.posit.team_connects.yaml dist/chart/templates/crd/core.posit.team_postgresdatabases.yaml dist/chart/templates/crd/core.posit.team_sites.yaml
 
 .PHONY: helm-lint
 helm-lint: ## Lint the Helm chart

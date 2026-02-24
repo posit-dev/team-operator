@@ -577,41 +577,37 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	}
 
 	// Chronicle
-	// If not explicitly enabled (nil or false), treat as ready: Chronicle is optional and
-	// should not block site readiness unless the user has explicitly opted in (Enabled=true).
-	if site.Spec.Chronicle.Enabled == nil || !*site.Spec.Chronicle.Enabled {
-		site.Status.ChronicleReady = true
+	// Optional: if the CR exists (even mid-teardown), derive readiness from its conditions.
+	// Only if the CR is absent and the user has not opted in (Enabled=nil or false) is the
+	// component considered ready without a CR.
+	chronicle := &positcov1beta1.Chronicle{}
+	if err := r.Get(ctx, key, chronicle); err == nil {
+		site.Status.ChronicleReady = status.IsReady(chronicle.Status.Conditions)
+	} else if apierrors.IsNotFound(err) {
+		// CR absent: ready only if not opted in
+		site.Status.ChronicleReady = site.Spec.Chronicle.Enabled == nil || !*site.Spec.Chronicle.Enabled
 	} else {
-		chronicle := &positcov1beta1.Chronicle{}
-		if err := r.Get(ctx, key, chronicle); err == nil {
-			site.Status.ChronicleReady = status.IsReady(chronicle.Status.Conditions)
-		} else if apierrors.IsNotFound(err) {
-			site.Status.ChronicleReady = false
-		} else {
-			if firstErr == nil {
-				firstErr = fmt.Errorf("fetching Chronicle for status aggregation: %w", err)
-			}
-			site.Status.ChronicleReady = false
+		if firstErr == nil {
+			firstErr = fmt.Errorf("fetching Chronicle for status aggregation: %w", err)
 		}
+		site.Status.ChronicleReady = false
 	}
 
 	// Flightdeck
-	// If not explicitly enabled (nil or false), treat as ready: Flightdeck is optional and
-	// should not block site readiness unless the user has explicitly opted in (Enabled=true).
-	if site.Spec.Flightdeck.Enabled == nil || !*site.Spec.Flightdeck.Enabled {
-		site.Status.FlightdeckReady = true
+	// Optional: if the CR exists (even mid-teardown), derive readiness from its conditions.
+	// Only if the CR is absent and the user has not opted in (Enabled=nil or false) is the
+	// component considered ready without a CR.
+	flightdeck := &positcov1beta1.Flightdeck{}
+	if err := r.Get(ctx, key, flightdeck); err == nil {
+		site.Status.FlightdeckReady = status.IsReady(flightdeck.Status.Conditions)
+	} else if apierrors.IsNotFound(err) {
+		// CR absent: ready only if not opted in
+		site.Status.FlightdeckReady = site.Spec.Flightdeck.Enabled == nil || !*site.Spec.Flightdeck.Enabled
 	} else {
-		flightdeck := &positcov1beta1.Flightdeck{}
-		if err := r.Get(ctx, key, flightdeck); err == nil {
-			site.Status.FlightdeckReady = status.IsReady(flightdeck.Status.Conditions)
-		} else if apierrors.IsNotFound(err) {
-			site.Status.FlightdeckReady = false
-		} else {
-			if firstErr == nil {
-				firstErr = fmt.Errorf("fetching Flightdeck for status aggregation: %w", err)
-			}
-			site.Status.FlightdeckReady = false
+		if firstErr == nil {
+			firstErr = fmt.Errorf("fetching Flightdeck for status aggregation: %w", err)
 		}
+		site.Status.FlightdeckReady = false
 	}
 
 	return firstErr
