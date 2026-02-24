@@ -23,6 +23,10 @@ rules:
   - apiextensions.k8s.io
   resources:
   - customresourcedefinitions
+  # Broad scope (no resourceNames) is intentional: controller-gen cannot express resourceNames
+  # in kubebuilder:rbac markers, so any manually added list would be silently overwritten by
+  # `just mgenerate`. The operator only touches its own CRDs via server-side apply, but the
+  # permission is cluster-wide because the generator cannot scope it further.
   verbs:
   - get
   - patch
