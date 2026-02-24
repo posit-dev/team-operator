@@ -4,7 +4,8 @@
 // The operator needs get/update/patch on all CRDs (not scoped to resourceNames) because
 // controller-gen does not support resourceNames in kubebuilder:rbac markers; any manually
 // added resourceNames field in the generated YAML will be overwritten by `just mgenerate`.
-// This broad scope is intentional: the operator only touches its own CRDs via server-side apply.
+// This broad scope is intentional: the operator is designed to touch only its own CRDs via
+// server-side apply, but the permission is cluster-wide because controller-gen cannot scope it further.
 // +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;update;patch
 
 package crdapply
@@ -36,13 +37,12 @@ func (e permanentError) Unwrap() error { return e.err }
 //go:embed bases/*.yaml
 var crdFiles embed.FS
 
-var scheme *runtime.Scheme
-
-func init() {
-	scheme = runtime.NewScheme()
-	if err := apiextensionsv1.AddToScheme(scheme); err != nil {
-		panic(fmt.Errorf("registering apiextensions scheme: %w", err))
+func newScheme() (*runtime.Scheme, error) {
+	s := runtime.NewScheme()
+	if err := apiextensionsv1.AddToScheme(s); err != nil {
+		return nil, fmt.Errorf("registering apiextensions scheme: %w", err)
 	}
+	return s, nil
 }
 
 // ApplyCRDs applies all embedded CRD manifests to the cluster using server-side apply.
@@ -52,6 +52,10 @@ func init() {
 // ctx should carry a deadline; without one, a slow or unreachable API server will
 // block the operator from starting indefinitely.
 func ApplyCRDs(ctx context.Context, cfg *rest.Config, log logr.Logger) error {
+	scheme, err := newScheme()
+	if err != nil {
+		return err
+	}
 	c, err := client.New(cfg, client.Options{Scheme: scheme})
 	if err != nil {
 		return fmt.Errorf("creating client: %w", err)
@@ -127,6 +131,10 @@ func applyCRDs(ctx context.Context, c client.Client, log logr.Logger) error {
 // ParseCRDs parses all embedded CRD manifests and returns them.
 // Useful for testing that the embedded files are valid.
 func ParseCRDs() ([]*apiextensionsv1.CustomResourceDefinition, error) {
+	scheme, err := newScheme()
+	if err != nil {
+		return nil, err
+	}
 	codec := serializer.NewCodecFactory(scheme)
 	entries, err := fs.ReadDir(crdFiles, "bases")
 	if err != nil {
