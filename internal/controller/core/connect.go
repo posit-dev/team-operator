@@ -38,17 +38,17 @@ func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Reque
 		"product", "connect",
 	)
 
+	// If suspended, clean up serving resources (Deployment/Service/Ingress) but preserve data
+	if c.Spec.Suspended != nil && *c.Spec.Suspended {
+		return r.suspendDeployedService(ctx, req, c)
+	}
+
 	// Save a copy for status patching
 	patchBase := client.MergeFrom(c.DeepCopy())
 
 	// Set observed generation and progressing condition
 	c.Status.ObservedGeneration = c.Generation
 	status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Reconciliation in progress")
-
-	// If suspended, clean up serving resources (Deployment/Service/Ingress) but preserve data
-	if c.Spec.Suspended != nil && *c.Spec.Suspended {
-		return r.suspendDeployedService(ctx, req, c)
-	}
 
 	// create database
 	secretKey := "pub-db-password"
