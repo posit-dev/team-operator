@@ -140,17 +140,17 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 		"product", "package-manager",
 	)
 
+	// If suspended, clean up serving resources but preserve data
+	if pm.Spec.Suspended != nil && *pm.Spec.Suspended {
+		return r.suspendDeployedService(ctx, req, pm)
+	}
+
 	// Save a copy for status patching
 	patchBase := client.MergeFrom(pm.DeepCopy())
 
 	// Set observed generation and progressing condition
 	pm.Status.ObservedGeneration = pm.Generation
 	status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Reconciliation in progress")
-
-	// If suspended, clean up serving resources but preserve data
-	if pm.Spec.Suspended != nil && *pm.Spec.Suspended {
-		return r.suspendDeployedService(ctx, req, pm)
-	}
 
 	// create database
 	secretKey := "pkg-db-password"

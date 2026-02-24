@@ -78,17 +78,17 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 		"product", "workbench",
 	)
 
+	// If suspended, clean up serving resources but preserve data
+	if w.Spec.Suspended != nil && *w.Spec.Suspended {
+		return r.suspendDeployedService(ctx, req, w)
+	}
+
 	// Save a copy for status patching
 	patchBase := client.MergeFrom(w.DeepCopy())
 
 	// Set observed generation and progressing condition
 	w.Status.ObservedGeneration = w.Generation
 	status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Reconciliation in progress")
-
-	// If suspended, clean up serving resources but preserve data
-	if w.Spec.Suspended != nil && *w.Spec.Suspended {
-		return r.suspendDeployedService(ctx, req, w)
-	}
 
 	// TODO: should do formal spec validation / correction...
 

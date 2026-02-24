@@ -101,17 +101,17 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 		"product", "chronicle",
 	)
 
+	// If suspended, clean up serving resources but preserve configuration
+	if c.Spec.Suspended != nil && *c.Spec.Suspended {
+		return r.suspendDeployedService(ctx, req, c)
+	}
+
 	// Save a copy for status patching
 	patchBase := client.MergeFrom(c.DeepCopy())
 
 	// Set observed generation and progressing condition
 	c.Status.ObservedGeneration = c.Generation
 	status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Reconciliation in progress")
-
-	// If suspended, clean up serving resources but preserve configuration
-	if c.Spec.Suspended != nil && *c.Spec.Suspended {
-		return r.suspendDeployedService(ctx, req, c)
-	}
 
 	// default config settings not in the original object
 	// ...
