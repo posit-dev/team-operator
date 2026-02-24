@@ -4,11 +4,14 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	"github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	controllerruntime "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (r *SiteReconciler) reconcileConnect(
@@ -218,6 +221,9 @@ func (r *SiteReconciler) reconcileConnect(
 		}
 	}
 
+	// Propagate additional config if configured
+	targetConnect.Spec.Config.AdditionalConfig = site.Spec.Connect.AdditionalConfig
+
 	// if volumeSource.type is set, then force volume creation for Connect
 	if site.Spec.VolumeSource.Type != v1beta1.VolumeSourceTypeNone {
 		if targetConnect.Spec.Volume == nil {
@@ -247,5 +253,64 @@ func (r *SiteReconciler) reconcileConnect(
 		l.Error(err, "error creating connect instance")
 		return err
 	}
+	return nil
+}
+
+// disableConnect suspends Connect by marking the existing Connect CR with Suspended=true.
+// The Connect controller then removes serving resources (Deployment/Service/Ingress) while
+// preserving data resources (PVC, database, secrets).
+//
+// If no Connect CR exists yet (Connect was never enabled), this is a no-op.
+// When Connect is re-enabled, reconcileConnect overwrites Suspended back to nil and
+// performs a full reconcile.
+func (r *SiteReconciler) disableConnect(ctx context.Context, req controllerruntime.Request, l logr.Logger) error {
+	l = l.WithValues("event", "disable-connect")
+
+	connect := &v1beta1.Connect{}
+	if err := r.Get(ctx, client.ObjectKey{Name: req.Name, Namespace: req.Namespace}, connect); err != nil {
+		if apierrors.IsNotFound(err) {
+			l.Info("Connect CR not found, nothing to suspend")
+			return nil
+		}
+		return err
+	}
+
+	if connect.Spec.Suspended != nil && *connect.Spec.Suspended {
+		l.Info("Connect already suspended")
+		return nil
+	}
+
+	patch := client.MergeFrom(connect.DeepCopy())
+	suspended := true
+	connect.Spec.Suspended = &suspended
+	if err := r.Patch(ctx, connect, patch); err != nil {
+		l.Error(err, "error suspending Connect CR")
+		return err
+	}
+
+	l.Info("Connect CR suspended")
+	return nil
+}
+
+// cleanupConnect deletes the Connect CRD when teardown=true.
+//
+// WARNING: This is a DESTRUCTIVE operation. Deleting the Connect CRD triggers the Connect
+// finalizer (CleanupConnect in connect_controller.go) which permanently destroys:
+//   - The Connect database and all its data
+//   - All secrets (database credentials, provisioning keys, etc.)
+//   - Persistent volumes and claims
+//   - All deployed Kubernetes resources
+//
+// This is triggered by Site.Spec.Connect.Teardown=true (when Enabled=false).
+// Re-enabling Connect after teardown will start fresh with a new database.
+func (r *SiteReconciler) cleanupConnect(ctx context.Context, req controllerruntime.Request, l logr.Logger) error {
+	l = l.WithValues("event", "cleanup-connect")
+
+	// Delete Connect CRD if it exists
+	connectKey := client.ObjectKey{Name: req.Name, Namespace: req.Namespace}
+	if err := internal.BasicDelete(ctx, r, l, connectKey, &v1beta1.Connect{}); err != nil {
+		return err
+	}
+
 	return nil
 }

@@ -1,3 +1,24 @@
+# [1.15.0](https://github.com/posit-dev/team-operator/compare/v1.14.0...v1.15.0) (2026-02-24)
+
+
+### Features
+
+* add local integration testing infrastructure (envtest + kind) ([#54](https://github.com/posit-dev/team-operator/issues/54)) ([a5b5751](https://github.com/posit-dev/team-operator/commit/a5b5751fec092a3d830d159b37ae557214902c89))
+
+# [1.14.0](https://github.com/posit-dev/team-operator/compare/v1.13.0...v1.14.0) (2026-02-23)
+
+
+### Features
+
+* allow disabling Connect without data loss, add explicit teardown field ([#93](https://github.com/posit-dev/team-operator/issues/93)) ([5fab352](https://github.com/posit-dev/team-operator/commit/5fab35203c93835404e8dd8f67d455baad092ee9))
+
+# [1.13.0](https://github.com/posit-dev/team-operator/compare/v1.12.0...v1.13.0) (2026-02-20)
+
+
+### Features
+
+* add passthrough config mechanism for Connect, Package Manager, and Workbench ([#75](https://github.com/posit-dev/team-operator/issues/75)) ([e42c2b9](https://github.com/posit-dev/team-operator/commit/e42c2b91468a891b994fa1304497ed0098fab12f))
+
 # [1.12.0](https://github.com/posit-dev/team-operator/compare/v1.11.2...v1.12.0) (2026-02-19)
 
 

@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 
 	"github.com/posit-dev/team-operator/internal"
 	v1 "k8s.io/api/apps/v1"
@@ -61,8 +62,10 @@ func (r *SiteReconciler) cleanupLegacyHomeApp(
 	}
 	existingSpc := &secretsstorev1.SecretProviderClass{}
 	if err := internal.BasicDelete(ctx, r, l, spcKey, existingSpc); err != nil {
-		// Check if the error is because the CRD doesn't exist
-		if _, isNoKindMatch := err.(*meta.NoKindMatchError); isNoKindMatch {
+		// Check if the error is because the CRD doesn't exist.
+		// Use errors.As to handle wrapped errors (direct type assertion misses wrapping).
+		var noKindMatch *meta.NoKindMatchError
+		if errors.As(err, &noKindMatch) {
 			l.V(1).Info("SecretProviderClass CRD not available, skipping cleanup")
 		} else {
 			l.Error(err, "error deleting legacy home SecretProviderClass")

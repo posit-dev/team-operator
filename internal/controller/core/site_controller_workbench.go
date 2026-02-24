@@ -160,12 +160,19 @@ func (r *SiteReconciler) reconcileWorkbench(
 				},
 				WorkbenchSessionIniConfig: v1beta1.WorkbenchSessionIniConfig{
 					RSession: &v1beta1.WorkbenchRSessionConfig{
-						// TODO: need TLS to be configurable... for plaintext sites...
-						DefaultRSConnectServer: "https://" + prefixDomain(
-							site.Spec.Connect.DomainPrefix,
-							getEffectiveBaseDomain(site.Spec.Connect.BaseDomain, site.Spec.Domain),
-							v1beta1.SiteSubDomain,
-						),
+						// Only set DefaultRSConnectServer if Connect is enabled
+						// When Connect is disabled (Enabled=false), leave this empty so Workbench
+						// doesn't have a config entry pointing to a non-existent service
+						DefaultRSConnectServer: func() string {
+							if site.Spec.Connect.Enabled != nil && *site.Spec.Connect.Enabled == false {
+								return ""
+							}
+							return "https://" + prefixDomain(
+								site.Spec.Connect.DomainPrefix,
+								getEffectiveBaseDomain(site.Spec.Connect.BaseDomain, site.Spec.Domain),
+								v1beta1.SiteSubDomain,
+							)
+						}(),
 						CopilotEnabled: 1,
 					},
 					// TODO: configure the expected package manager repositories...?
@@ -397,6 +404,16 @@ func (r *SiteReconciler) reconcileWorkbench(
 		targetWorkbench.Spec.Config.WorkbenchIniConfig.Jupyter = site.Spec.Workbench.JupyterConfig
 	}
 
+	// Propagate additional configs for server config files
+	if site.Spec.Workbench.AdditionalConfigs != nil {
+		targetWorkbench.Spec.Config.WorkbenchIniConfig.AdditionalConfigs = site.Spec.Workbench.AdditionalConfigs
+	}
+
+	// Propagate additional configs for session config files
+	if site.Spec.Workbench.AdditionalSessionConfigs != nil {
+		targetWorkbench.Spec.Config.WorkbenchSessionIniConfig.AdditionalConfigs = site.Spec.Workbench.AdditionalSessionConfigs
+	}
+
 	// Propagate audited jobs configuration
 	if site.Spec.Workbench.AuditedJobs != nil {
 		aj := site.Spec.Workbench.AuditedJobs
@@ -467,8 +484,8 @@ func (r *SiteReconciler) reconcileWorkbench(
 	return nil
 }
 
-func defaultWorkbenchResourceProfiles() map[string]*v1beta1.WorkbenchLauncherKubnernetesResourcesConfigSection {
-	return map[string]*v1beta1.WorkbenchLauncherKubnernetesResourcesConfigSection{
+func defaultWorkbenchResourceProfiles() map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection {
+	return map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection{
 		"default": {
 			Name:  "Small",
 			Cpus:  "1",
@@ -488,7 +505,7 @@ func defaultWorkbenchResourceProfiles() map[string]*v1beta1.WorkbenchLauncherKub
 }
 
 // getResourceProfileKeys extracts the keys from a resource profiles map
-func getResourceProfileKeys(resourceProfiles map[string]*v1beta1.WorkbenchLauncherKubnernetesResourcesConfigSection) []string {
+func getResourceProfileKeys(resourceProfiles map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection) []string {
 	keys := make([]string, 0, len(resourceProfiles))
 	for key := range resourceProfiles {
 		keys = append(keys, key)

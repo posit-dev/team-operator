@@ -2,7 +2,6 @@ package v1beta1
 
 import (
 	"fmt"
-
 	"reflect"
 	"strings"
 )
@@ -31,6 +30,12 @@ type ConnectConfig struct {
 	// see the GenerateGcfg method for our custom handling
 	RPackageRepository map[string]RPackageRepositoryConfig `json:"RPackageRepositories,omitempty"`
 	TableauIntegration *ConnectTableauIntegrationConfig    `json:"TableauIntegration,omitempty"`
+
+	// AdditionalConfig allows appending arbitrary gcfg config content not covered by typed fields.
+	// The value is appended verbatim after the generated config. gcfg parsing naturally handles
+	// conflicts: list values are combined, scalar values use the last occurrence.
+	// +optional
+	AdditionalConfig string `json:"additionalConfig,omitempty"`
 }
 
 type RPackageRepositoryConfig struct {
@@ -197,6 +202,17 @@ func (configStruct *ConnectConfig) GenerateGcfg() (string, error) {
 
 	var builder strings.Builder
 
+	// Build an intermediate representation: ordered sections with key-value pairs.
+	// We use ordered slices to preserve the deterministic output order from reflection.
+	type sectionEntry struct {
+		name   string
+		keys   []string            // ordered key names (for non-slice values)
+		values map[string]string   // key → value
+		slices map[string][]string // key → multiple values (for gcfg multi-value keys)
+	}
+	sections := []sectionEntry{}
+	sectionIndex := map[string]int{} // section name → index in sections slice
+
 	configStructValsPtr := reflect.ValueOf(configStruct)
 	configStructVals := reflect.Indirect(configStructValsPtr)
 
@@ -204,28 +220,43 @@ func (configStruct *ConnectConfig) GenerateGcfg() (string, error) {
 		fieldName := configStructVals.Type().Field(i).Name
 		fieldValue := configStructVals.Field(i)
 
+		// Skip the AdditionalConfig string — we handle it at the end
+		if fieldName == "AdditionalConfig" {
+			continue
+		}
+
 		if fieldValue.IsNil() {
 			continue
 		}
 
 		sectionStructVals := reflect.Indirect(fieldValue)
 
-		// This is to handle the case of the RPackageRepositories
+		// Handle the RPackageRepositories map (named sections)
 		if fieldValue.Kind() == reflect.Map {
 			iter := sectionStructVals.MapRange()
-
 			for iter.Next() {
 				repoName := iter.Key()
 				repoValue := iter.Value()
-
-				builder.WriteString("\n[" + fieldName + " \"" + fmt.Sprintf("%v", repoName) + "\"" + "]\n")
-
-				if repoValue.Kind() == reflect.Struct {
-					builder.WriteString("Url = " + fmt.Sprintf("%v", repoValue.FieldByName("Url")) + "\n")
+				qualifiedName := fieldName + " \"" + fmt.Sprintf("%v", repoName) + "\""
+				entry := sectionEntry{
+					name:   qualifiedName,
+					values: map[string]string{},
+					slices: map[string][]string{},
 				}
+				if repoValue.Kind() == reflect.Struct {
+					url := fmt.Sprintf("%v", repoValue.FieldByName("Url"))
+					entry.keys = append(entry.keys, "Url")
+					entry.values["Url"] = url
+				}
+				sections = append(sections, entry)
+				// Named sections are not indexed for override — passthrough uses "Section.Key" format
 			}
 		} else {
-			builder.WriteString("\n[" + fieldName + "]\n")
+			entry := sectionEntry{
+				name:   fieldName,
+				values: map[string]string{},
+				slices: map[string][]string{},
+			}
 
 			for j := 0; j < sectionStructVals.NumField(); j++ {
 				sectionFieldName := sectionStructVals.Type().Field(j).Name
@@ -235,29 +266,54 @@ func (configStruct *ConnectConfig) GenerateGcfg() (string, error) {
 				if sectionFieldValue.Kind() == reflect.Ptr {
 					if !sectionFieldValue.IsNil() {
 						derefValue := sectionFieldValue.Elem()
-						// Always write pointer fields when they're not nil, even if empty string
-						builder.WriteString(fmt.Sprintf("%v", sectionFieldName) + " = " + fmt.Sprintf("%v", derefValue) + "\n")
+						entry.keys = append(entry.keys, sectionFieldName)
+						entry.values[sectionFieldName] = fmt.Sprintf("%v", derefValue)
 					}
-					// Skip nil pointers entirely
 					continue
 				}
 
 				if sectionStructVals.Field(j).String() != "" {
 					if sectionFieldValue.Kind() == reflect.Slice {
+						var vals []string
 						for k := 0; k < sectionFieldValue.Len(); k++ {
 							arrayValue := sectionFieldValue.Index(k).String()
 							if arrayValue != "" {
-								builder.WriteString(fmt.Sprintf("%v", sectionFieldName) + " = " + fmt.Sprintf("%v", arrayValue) + "\n")
+								vals = append(vals, arrayValue)
 							}
 						}
-
+						if len(vals) > 0 {
+							entry.keys = append(entry.keys, sectionFieldName)
+							entry.slices[sectionFieldName] = vals
+						}
 					} else {
-						builder.WriteString(fmt.Sprintf("%v", sectionFieldName) + " = " + fmt.Sprintf("%v", sectionFieldValue) + "\n")
+						entry.keys = append(entry.keys, sectionFieldName)
+						entry.values[sectionFieldName] = fmt.Sprintf("%v", sectionFieldValue)
 					}
 				}
 			}
-		}
 
+			sectionIndex[fieldName] = len(sections)
+			sections = append(sections, entry)
+		}
 	}
+
+	// Render sections to gcfg format
+	for _, section := range sections {
+		builder.WriteString("\n[" + section.name + "]\n")
+		for _, key := range section.keys {
+			if vals, isSlice := section.slices[key]; isSlice {
+				for _, v := range vals {
+					builder.WriteString(key + " = " + v + "\n")
+				}
+			} else if val, ok := section.values[key]; ok {
+				builder.WriteString(key + " = " + val + "\n")
+			}
+		}
+	}
+
+	if configStruct.AdditionalConfig != "" {
+		builder.WriteString(configStruct.AdditionalConfig)
+	}
+
 	return builder.String(), nil
 }
