@@ -9,6 +9,7 @@ import (
 	"github.com/posit-dev/team-operator/api/keycloak/v2alpha1"
 	"github.com/posit-dev/team-operator/api/localtest"
 	"github.com/posit-dev/team-operator/api/product"
+	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1591,11 +1592,13 @@ func TestSiteReadyWithDisabledProducts(t *testing.T) {
 	siteNamespace := "posit-team"
 	site := defaultSite(siteName)
 
-	// Disable Connect and Workbench
+	// Disable Connect, Workbench, and PackageManager so all required products are off
 	connectEnabled := false
 	workbenchEnabled := false
+	pmEnabled := false
 	site.Spec.Connect.Enabled = &connectEnabled
 	site.Spec.Workbench.Enabled = &workbenchEnabled
+	site.Spec.PackageManager.Enabled = &pmEnabled
 
 	// Use shared fake client to run multiple reconcile passes
 	fakeClient := localtest.FakeTestEnv{}
@@ -1616,11 +1619,15 @@ func TestSiteReadyWithDisabledProducts(t *testing.T) {
 	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, fetchedSite)
 	assert.NoError(t, err)
 
-	// Verify that ConnectReady and WorkbenchReady are true even though CRs don't exist
+	// Verify per-product readiness for disabled products
 	assert.True(t, fetchedSite.Status.ConnectReady, "ConnectReady should be true when Connect is disabled")
 	assert.True(t, fetchedSite.Status.WorkbenchReady, "WorkbenchReady should be true when Workbench is disabled")
+	assert.True(t, fetchedSite.Status.PackageManagerReady, "PackageManagerReady should be true when PackageManager is disabled")
 
-	// Verify Connect and Workbench CRs do NOT exist
+	// Verify aggregate site readiness - the main goal of the fix
+	assert.True(t, status.IsReady(fetchedSite.Status.Conditions), "site should be Ready when all required products are disabled")
+
+	// Verify CRs do NOT exist for disabled products
 	connect := &v1beta1.Connect{}
 	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, connect)
 	assert.Error(t, err, "Connect CR should not exist when disabled")
@@ -1629,6 +1636,31 @@ func TestSiteReadyWithDisabledProducts(t *testing.T) {
 	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, workbench)
 	assert.Error(t, err, "Workbench CR should not exist when disabled")
 
-	// PackageManager and Chronicle should be enabled by default, so their CRs should exist
-	// but we won't verify their full state here since the focus is on disabled products
+	pm := &v1beta1.PackageManager{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, pm)
+	assert.Error(t, err, "PackageManager CR should not exist when disabled")
+}
+
+// TestSiteNilEnabledMissingCR is a regression test verifying that when Enabled=nil (the default)
+// and the product CR does not exist, the product is NOT treated as ready. This guards against
+// future refactors that might accidentally collapse the nil and false cases.
+func TestSiteNilEnabledMissingCR(t *testing.T) {
+	siteName := "nil-enabled-missing-cr"
+	siteNamespace := "posit-team"
+
+	fakeClient := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeClient.Start(loadSchemes)
+	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
+
+	// site with Connect.Enabled = nil (default: not set)
+	site := defaultSite(siteName)
+	// Connect.Enabled is nil — product is expected but CR does not yet exist
+
+	err := rec.aggregateChildStatus(context.TODO(), req, site, log)
+	assert.NoError(t, err)
+
+	assert.False(t, site.Status.ConnectReady, "ConnectReady should be false when Enabled=nil and Connect CR does not exist")
+	assert.False(t, site.Status.WorkbenchReady, "WorkbenchReady should be false when Enabled=nil and Workbench CR does not exist")
+	assert.False(t, site.Status.PackageManagerReady, "PackageManagerReady should be false when Enabled=nil and PackageManager CR does not exist")
 }
