@@ -1582,3 +1582,53 @@ func TestSiteTeardownIgnoredWhileEnabled(t *testing.T) {
 	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, chronicle)
 	assert.NoError(t, err, "Chronicle CR should still exist: teardown has no effect while enabled=true")
 }
+
+// TestSiteReadyWithDisabledProducts verifies that a Site can be Ready even when
+// some products are disabled (enabled: false), since disabled products don't create CRs
+// and therefore shouldn't block site readiness.
+func TestSiteReadyWithDisabledProducts(t *testing.T) {
+	siteName := "ready-with-disabled-products"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	
+	// Disable Connect and Workbench
+	connectEnabled := false
+	workbenchEnabled := false
+	site.Spec.Connect.Enabled = &connectEnabled
+	site.Spec.Workbench.Enabled = &workbenchEnabled
+
+	// Use shared fake client to run multiple reconcile passes
+	fakeClient := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeClient.Start(loadSchemes)
+	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
+
+	// Create the Site
+	err := cli.Create(context.TODO(), site)
+	assert.NoError(t, err)
+
+	// Run initial reconcile
+	_, err = rec.Reconcile(context.TODO(), req)
+	assert.NoError(t, err)
+
+	// Fetch the Site to check its status
+	fetchedSite := &v1beta1.Site{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, fetchedSite)
+	assert.NoError(t, err)
+
+	// Verify that ConnectReady and WorkbenchReady are true even though CRs don't exist
+	assert.True(t, fetchedSite.Status.ConnectReady, "ConnectReady should be true when Connect is disabled")
+	assert.True(t, fetchedSite.Status.WorkbenchReady, "WorkbenchReady should be true when Workbench is disabled")
+
+	// Verify Connect and Workbench CRs do NOT exist
+	connect := &v1beta1.Connect{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, connect)
+	assert.Error(t, err, "Connect CR should not exist when disabled")
+
+	workbench := &v1beta1.Workbench{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, workbench)
+	assert.Error(t, err, "Workbench CR should not exist when disabled")
+
+	// PackageManager and Chronicle should be enabled by default, so their CRs should exist
+	// but we won't verify their full state here since the focus is on disabled products
+}

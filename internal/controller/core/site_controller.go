@@ -528,47 +528,67 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	key := client.ObjectKey{Name: site.Name, Namespace: req.Namespace}
 
 	// Connect
-	connect := &positcov1beta1.Connect{}
-	if err := r.Get(ctx, key, connect); err == nil {
-		site.Status.ConnectReady = status.IsReady(connect.Status.Conditions)
+	// If disabled (Enabled = false), treat as ready since it won't have a CR
+	if site.Spec.Connect.Enabled != nil && !*site.Spec.Connect.Enabled {
+		site.Status.ConnectReady = true
 	} else {
-		if !apierrors.IsNotFound(err) {
-			l.Error(err, "error fetching Connect for status aggregation")
+		connect := &positcov1beta1.Connect{}
+		if err := r.Get(ctx, key, connect); err == nil {
+			site.Status.ConnectReady = status.IsReady(connect.Status.Conditions)
+		} else {
+			if !apierrors.IsNotFound(err) {
+				l.Error(err, "error fetching Connect for status aggregation")
+			}
+			site.Status.ConnectReady = false
 		}
-		site.Status.ConnectReady = false
 	}
 
 	// Workbench
-	workbench := &positcov1beta1.Workbench{}
-	if err := r.Get(ctx, key, workbench); err == nil {
-		site.Status.WorkbenchReady = status.IsReady(workbench.Status.Conditions)
+	// If disabled (Enabled = false), treat as ready since it won't have a CR
+	if site.Spec.Workbench.Enabled != nil && !*site.Spec.Workbench.Enabled {
+		site.Status.WorkbenchReady = true
 	} else {
-		if !apierrors.IsNotFound(err) {
-			l.Error(err, "error fetching Workbench for status aggregation")
+		workbench := &positcov1beta1.Workbench{}
+		if err := r.Get(ctx, key, workbench); err == nil {
+			site.Status.WorkbenchReady = status.IsReady(workbench.Status.Conditions)
+		} else {
+			if !apierrors.IsNotFound(err) {
+				l.Error(err, "error fetching Workbench for status aggregation")
+			}
+			site.Status.WorkbenchReady = false
 		}
-		site.Status.WorkbenchReady = false
 	}
 
 	// PackageManager
-	pm := &positcov1beta1.PackageManager{}
-	if err := r.Get(ctx, key, pm); err == nil {
-		site.Status.PackageManagerReady = status.IsReady(pm.Status.Conditions)
+	// If disabled (Enabled = false), treat as ready since it won't have a CR
+	if site.Spec.PackageManager.Enabled != nil && !*site.Spec.PackageManager.Enabled {
+		site.Status.PackageManagerReady = true
 	} else {
-		if !apierrors.IsNotFound(err) {
-			l.Error(err, "error fetching PackageManager for status aggregation")
+		pm := &positcov1beta1.PackageManager{}
+		if err := r.Get(ctx, key, pm); err == nil {
+			site.Status.PackageManagerReady = status.IsReady(pm.Status.Conditions)
+		} else {
+			if !apierrors.IsNotFound(err) {
+				l.Error(err, "error fetching PackageManager for status aggregation")
+			}
+			site.Status.PackageManagerReady = false
 		}
-		site.Status.PackageManagerReady = false
 	}
 
 	// Chronicle
-	chronicle := &positcov1beta1.Chronicle{}
-	if err := r.Get(ctx, key, chronicle); err == nil {
-		site.Status.ChronicleReady = status.IsReady(chronicle.Status.Conditions)
+	// If disabled (Enabled = false), treat as ready since it won't have a CR
+	if site.Spec.Chronicle.Enabled != nil && !*site.Spec.Chronicle.Enabled {
+		site.Status.ChronicleReady = true
 	} else {
-		if !apierrors.IsNotFound(err) {
-			l.Error(err, "error fetching Chronicle for status aggregation")
+		chronicle := &positcov1beta1.Chronicle{}
+		if err := r.Get(ctx, key, chronicle); err == nil {
+			site.Status.ChronicleReady = status.IsReady(chronicle.Status.Conditions)
+		} else {
+			if !apierrors.IsNotFound(err) {
+				l.Error(err, "error fetching Chronicle for status aggregation")
+			}
+			site.Status.ChronicleReady = false
 		}
-		site.Status.ChronicleReady = false
 	}
 
 	// Flightdeck
