@@ -147,13 +147,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	ctx := ctrl.SetupSignalHandler()
+
 	if manageCRDs {
 		if crdApplyTimeout <= 0 {
 			setupLog.Error(fmt.Errorf("--crd-apply-timeout must be positive, got %v", crdApplyTimeout), "invalid flag value")
 			os.Exit(1)
 		}
 		if err := func() error {
-			crdCtx, crdCancel := context.WithTimeout(ctrl.SetupSignalHandler(), crdApplyTimeout)
+			crdCtx, crdCancel := context.WithTimeout(ctx, crdApplyTimeout)
 			defer crdCancel()
 			return crdapply.ApplyCRDs(crdCtx, mgr.GetConfig(), setupLog)
 		}(); err != nil {
@@ -237,7 +239,7 @@ func main() {
 	}
 
 	setupLog.Info("starting team-operator")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running team-operator")
 		os.Exit(1)
 	}

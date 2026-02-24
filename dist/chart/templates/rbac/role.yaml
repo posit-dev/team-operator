@@ -23,6 +23,17 @@ rules:
   - apiextensions.k8s.io
   resources:
   - customresourcedefinitions
+  # IMPORTANT: Keep this list in sync with internal/crdapply/bases/.
+  # Use ParseCRDs() as the source of truth — one entry per embedded CRD file.
+  # When adding a new CRD, add its full name (e.g. llms.core.posit.team) here.
+  resourceNames:
+  - chronicles.core.posit.team
+  - connects.core.posit.team
+  - flightdecks.core.posit.team
+  - packagemanagers.core.posit.team
+  - postgresdatabases.core.posit.team
+  - sites.core.posit.team
+  - workbenches.core.posit.team
   verbs:
   - get
   - patch
