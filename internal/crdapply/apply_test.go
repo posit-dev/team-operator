@@ -103,6 +103,24 @@ func TestPollApplyCRDsContextCancelWrapsErrors(t *testing.T) {
 	require.Contains(t, err.Error(), "transient patch error", "last apply error should be included in returned error")
 }
 
+// TestPollApplyCRDsContextCancelUnwrapsErrors verifies that both the poll error and the
+// last apply error are independently unwrappable via errors.Is from the combined error.
+// This exercises the Go 1.20+ multi-error wrapping via fmt.Errorf with two %w verbs.
+func TestPollApplyCRDsContextCancelUnwrapsErrors(t *testing.T) {
+	sentinel := errors.New("sentinel transient error")
+	fn := func(_ context.Context, _ client.Client, _ logr.Logger) error {
+		return sentinel
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	err := pollApplyCRDs(ctx, newFakeClient(t), logr.Discard(), 5*time.Second, fn)
+	require.Error(t, err)
+	require.True(t, errors.Is(err, context.DeadlineExceeded), "poll error (context deadline) should be unwrappable via errors.Is")
+	require.True(t, errors.Is(err, sentinel), "last apply error should be unwrappable via errors.Is (requires Go 1.20+ dual %%w)")
+}
+
 // TestApplyCRDs is a structural test that verifies all embedded CRDs are stored after
 // applyCRDs is called. It uses the controller-runtime fake client, which implements
 // Patch(Apply) as a simplified create-or-update and does not enforce SSA field-manager
