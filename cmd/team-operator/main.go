@@ -159,7 +159,8 @@ func main() {
 			defer crdCancel()
 			return crdapply.ApplyCRDs(crdCtx, mgr.GetConfig(), setupLog)
 		}(); err != nil {
-			setupLog.Error(err, "unable to apply CRDs")
+			setupLog.Error(err, "CRD apply failed after timeout; pod will exit and Kubernetes will restart with backoff",
+				"hint", "verify RBAC grants get/update/patch on customresourcedefinitions, or set --manage-crds=false to disable")
 			os.Exit(1)
 		}
 	}

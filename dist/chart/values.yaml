@@ -17,6 +17,9 @@ controllerManager:
       # This solves CRD drift when using adhoc images or emergency patches.
       # Set to false if you manage CRDs externally (Flux, ArgoCD, or Helm with GitOps).
       # - "--manage-crds=false"
+      # After this deadline the operator exits and Kubernetes restarts it with exponential backoff.
+      # Increase only if CRD apply is consistently slow (e.g., large schemas, slow API server).
+      # - "--crd-apply-timeout=60s"
     env:
       WATCH_NAMESPACES: "posit-team"
       # AWS_REGION: "us-east-1"  # Set if deploying on AWS
