@@ -8,14 +8,17 @@ package v1beta1
 // ChronicleSpecApplyConfiguration represents a declarative configuration of the ChronicleSpec type for use
 // with apply.
 type ChronicleSpecApplyConfiguration struct {
-	Config               *ChronicleConfigApplyConfiguration `json:"config,omitempty"`
-	ImagePullSecrets     []string                           `json:"imagePullSecrets,omitempty"`
-	NodeSelector         map[string]string                  `json:"nodeSelector,omitempty"`
-	AddEnv               map[string]string                  `json:"addEnv,omitempty"`
-	Image                *string                            `json:"image,omitempty"`
-	AwsAccountId         *string                            `json:"awsAccountId,omitempty"`
-	ClusterDate          *string                            `json:"clusterDate,omitempty"`
-	WorkloadCompoundName *string                            `json:"workloadCompoundName,omitempty"`
+	Config                    *ChronicleConfigApplyConfiguration `json:"config,omitempty"`
+	ImagePullSecrets          []string                           `json:"imagePullSecrets,omitempty"`
+	NodeSelector              map[string]string                  `json:"nodeSelector,omitempty"`
+	AddEnv                    map[string]string                  `json:"addEnv,omitempty"`
+	Image                     *string                            `json:"image,omitempty"`
+	AwsAccountId              *string                            `json:"awsAccountId,omitempty"`
+	ClusterDate               *string                            `json:"clusterDate,omitempty"`
+	WorkloadCompoundName      *string                            `json:"workloadCompoundName,omitempty"`
+	ServiceAccountName        *string                            `json:"serviceAccountName,omitempty"`
+	ServiceAccountAnnotations map[string]string                  `json:"serviceAccountAnnotations,omitempty"`
+	PodLabels                 map[string]string                  `json:"podLabels,omitempty"`
 }
 
 // ChronicleSpecApplyConfiguration constructs a declarative configuration of the ChronicleSpec type for use with
@@ -99,5 +102,41 @@ func (b *ChronicleSpecApplyConfiguration) WithClusterDate(value string) *Chronic
 // If called multiple times, the WorkloadCompoundName field is set to the value of the last call.
 func (b *ChronicleSpecApplyConfiguration) WithWorkloadCompoundName(value string) *ChronicleSpecApplyConfiguration {
 	b.WorkloadCompoundName = &value
+	return b
+}
+
+// WithServiceAccountName sets the ServiceAccountName field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ServiceAccountName field is set to the value of the last call.
+func (b *ChronicleSpecApplyConfiguration) WithServiceAccountName(value string) *ChronicleSpecApplyConfiguration {
+	b.ServiceAccountName = &value
+	return b
+}
+
+// WithServiceAccountAnnotations puts the entries into the ServiceAccountAnnotations field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, the entries provided by each call will be put on the ServiceAccountAnnotations field,
+// overwriting an existing map entries in ServiceAccountAnnotations field with the same key.
+func (b *ChronicleSpecApplyConfiguration) WithServiceAccountAnnotations(entries map[string]string) *ChronicleSpecApplyConfiguration {
+	if b.ServiceAccountAnnotations == nil && len(entries) > 0 {
+		b.ServiceAccountAnnotations = make(map[string]string, len(entries))
+	}
+	for k, v := range entries {
+		b.ServiceAccountAnnotations[k] = v
+	}
+	return b
+}
+
+// WithPodLabels puts the entries into the PodLabels field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, the entries provided by each call will be put on the PodLabels field,
+// overwriting an existing map entries in PodLabels field with the same key.
+func (b *ChronicleSpecApplyConfiguration) WithPodLabels(entries map[string]string) *ChronicleSpecApplyConfiguration {
+	if b.PodLabels == nil && len(entries) > 0 {
+		b.PodLabels = make(map[string]string, len(entries))
+	}
+	for k, v := range entries {
+		b.PodLabels[k] = v
+	}
 	return b
 }

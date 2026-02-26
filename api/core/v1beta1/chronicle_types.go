@@ -34,6 +34,21 @@ type ChronicleSpec struct {
 
 	// WorkloadCompoundName is the name for the workload
 	WorkloadCompoundName string `json:"workloadCompoundName,omitempty"`
+
+	// ServiceAccountName overrides the default ServiceAccount name.
+	// Defaults to {site.metadata.name}-chronicle if not set.
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
+	// ServiceAccountAnnotations are applied to this product's ServiceAccount.
+	// The operator treats these as opaque key-value pairs.
+	// +optional
+	ServiceAccountAnnotations map[string]string `json:"serviceAccountAnnotations,omitempty"`
+
+	// PodLabels are applied to all pods created for this product.
+	// The operator treats these as opaque key-value pairs.
+	// +optional
+	PodLabels map[string]string `json:"podLabels,omitempty"`
 }
 
 // ChronicleStatus defines the observed state of Chronicle
@@ -108,6 +123,11 @@ func (c *Chronicle) KubernetesLabels() map[string]string {
 	})
 }
 
+// PodTemplateLabels returns labels for pod templates, including custom PodLabels if set
+func (c *Chronicle) PodTemplateLabels() map[string]string {
+	return product.LabelMerge(c.KubernetesLabels(), c.Spec.PodLabels)
+}
+
 func (c *Chronicle) OwnerReferencesForChildren() []metav1.OwnerReference {
 	return []metav1.OwnerReference{
 		{
@@ -147,4 +167,16 @@ func (c *Chronicle) GetChronicleAgentImage() string {
 	// TODO: make an interface that fits chronicle better...?
 	//   - does chronicle care what version the agents are?
 	return fmt.Sprintf("ghcr.io/rstudio/chronicle:2023.10.4")
+}
+
+func (c *Chronicle) GetServiceAccountName() string {
+	return c.Spec.ServiceAccountName
+}
+
+func (c *Chronicle) GetServiceAccountAnnotations() map[string]string {
+	return c.Spec.ServiceAccountAnnotations
+}
+
+func (c *Chronicle) GetPodLabels() map[string]string {
+	return c.Spec.PodLabels
 }

@@ -778,7 +778,7 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: w.KubernetesLabels(),
+					Labels: w.PodTemplateLabels(),
 					Annotations: map[string]string{
 						// TODO: this is a hack to get config changes to trigger a new deployment (for now)
 						//   In the future, we could use our own mechanism and decide whether to restart or SIGHUP the service...

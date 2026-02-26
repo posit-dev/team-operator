@@ -12,21 +12,24 @@ import (
 // FlightdeckSpecApplyConfiguration represents a declarative configuration of the FlightdeckSpec type for use
 // with apply.
 type FlightdeckSpecApplyConfiguration struct {
-	SiteName             *string                                 `json:"siteName,omitempty"`
-	Image                *string                                 `json:"image,omitempty"`
-	ImagePullPolicy      *v1.PullPolicy                          `json:"imagePullPolicy,omitempty"`
-	Port                 *int32                                  `json:"port,omitempty"`
-	Replicas             *int                                    `json:"replicas,omitempty"`
-	FeatureEnabler       *FeatureEnablerConfigApplyConfiguration `json:"featureEnabler,omitempty"`
-	Domain               *string                                 `json:"domain,omitempty"`
-	IngressClass         *string                                 `json:"ingressClass,omitempty"`
-	IngressAnnotations   map[string]string                       `json:"ingressAnnotations,omitempty"`
-	ImagePullSecrets     []string                                `json:"imagePullSecrets,omitempty"`
-	AwsAccountId         *string                                 `json:"awsAccountId,omitempty"`
-	ClusterDate          *string                                 `json:"clusterDate,omitempty"`
-	WorkloadCompoundName *string                                 `json:"workloadCompoundName,omitempty"`
-	LogLevel             *string                                 `json:"logLevel,omitempty"`
-	LogFormat            *string                                 `json:"logFormat,omitempty"`
+	SiteName                  *string                                 `json:"siteName,omitempty"`
+	Image                     *string                                 `json:"image,omitempty"`
+	ImagePullPolicy           *v1.PullPolicy                          `json:"imagePullPolicy,omitempty"`
+	Port                      *int32                                  `json:"port,omitempty"`
+	Replicas                  *int                                    `json:"replicas,omitempty"`
+	FeatureEnabler            *FeatureEnablerConfigApplyConfiguration `json:"featureEnabler,omitempty"`
+	Domain                    *string                                 `json:"domain,omitempty"`
+	IngressClass              *string                                 `json:"ingressClass,omitempty"`
+	IngressAnnotations        map[string]string                       `json:"ingressAnnotations,omitempty"`
+	ImagePullSecrets          []string                                `json:"imagePullSecrets,omitempty"`
+	AwsAccountId              *string                                 `json:"awsAccountId,omitempty"`
+	ClusterDate               *string                                 `json:"clusterDate,omitempty"`
+	WorkloadCompoundName      *string                                 `json:"workloadCompoundName,omitempty"`
+	LogLevel                  *string                                 `json:"logLevel,omitempty"`
+	LogFormat                 *string                                 `json:"logFormat,omitempty"`
+	ServiceAccountName        *string                                 `json:"serviceAccountName,omitempty"`
+	ServiceAccountAnnotations map[string]string                       `json:"serviceAccountAnnotations,omitempty"`
+	PodLabels                 map[string]string                       `json:"podLabels,omitempty"`
 }
 
 // FlightdeckSpecApplyConfiguration constructs a declarative configuration of the FlightdeckSpec type for use with
@@ -160,5 +163,41 @@ func (b *FlightdeckSpecApplyConfiguration) WithLogLevel(value string) *Flightdec
 // If called multiple times, the LogFormat field is set to the value of the last call.
 func (b *FlightdeckSpecApplyConfiguration) WithLogFormat(value string) *FlightdeckSpecApplyConfiguration {
 	b.LogFormat = &value
+	return b
+}
+
+// WithServiceAccountName sets the ServiceAccountName field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ServiceAccountName field is set to the value of the last call.
+func (b *FlightdeckSpecApplyConfiguration) WithServiceAccountName(value string) *FlightdeckSpecApplyConfiguration {
+	b.ServiceAccountName = &value
+	return b
+}
+
+// WithServiceAccountAnnotations puts the entries into the ServiceAccountAnnotations field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, the entries provided by each call will be put on the ServiceAccountAnnotations field,
+// overwriting an existing map entries in ServiceAccountAnnotations field with the same key.
+func (b *FlightdeckSpecApplyConfiguration) WithServiceAccountAnnotations(entries map[string]string) *FlightdeckSpecApplyConfiguration {
+	if b.ServiceAccountAnnotations == nil && len(entries) > 0 {
+		b.ServiceAccountAnnotations = make(map[string]string, len(entries))
+	}
+	for k, v := range entries {
+		b.ServiceAccountAnnotations[k] = v
+	}
+	return b
+}
+
+// WithPodLabels puts the entries into the PodLabels field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, the entries provided by each call will be put on the PodLabels field,
+// overwriting an existing map entries in PodLabels field with the same key.
+func (b *FlightdeckSpecApplyConfiguration) WithPodLabels(entries map[string]string) *FlightdeckSpecApplyConfiguration {
+	if b.PodLabels == nil && len(entries) > 0 {
+		b.PodLabels = make(map[string]string, len(entries))
+	}
+	for k, v := range entries {
+		b.PodLabels[k] = v
+	}
 	return b
 }

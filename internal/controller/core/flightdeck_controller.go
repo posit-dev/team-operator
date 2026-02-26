@@ -252,7 +252,7 @@ func (r *FlightdeckReconciler) reconcileFlightdeckResources(
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: fd.KubernetesLabels(),
+					Labels: fd.PodTemplateLabels(),
 				},
 				Spec: corev1.PodSpec{
 					EnableServiceLinks: ptr.To(false),

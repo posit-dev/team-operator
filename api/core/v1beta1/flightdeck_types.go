@@ -61,6 +61,21 @@ type FlightdeckSpec struct {
 	// LogFormat sets the log output format (text, json)
 	// +kubebuilder:default="text"
 	LogFormat string `json:"logFormat,omitempty"`
+
+	// ServiceAccountName overrides the default ServiceAccount name.
+	// Defaults to {metadata.name}-flightdeck if not set.
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
+	// ServiceAccountAnnotations are applied to this product's ServiceAccount.
+	// The operator treats these as opaque key-value pairs.
+	// +optional
+	ServiceAccountAnnotations map[string]string `json:"serviceAccountAnnotations,omitempty"`
+
+	// PodLabels are applied to all pods created for this product.
+	// The operator treats these as opaque key-value pairs.
+	// +optional
+	PodLabels map[string]string `json:"podLabels,omitempty"`
 }
 
 // FlightdeckStatus defines the observed state of Flightdeck
@@ -117,7 +132,28 @@ func (f *Flightdeck) KubernetesLabels() map[string]string {
 	}
 }
 
+// PodTemplateLabels returns labels for pod templates, including custom PodLabels if set
+func (f *Flightdeck) PodTemplateLabels() map[string]string {
+	labels := f.KubernetesLabels()
+	for k, v := range f.Spec.PodLabels {
+		labels[k] = v
+	}
+	return labels
+}
+
 // ComponentName returns the component name for this Flightdeck instance
 func (f *Flightdeck) ComponentName() string {
 	return fmt.Sprintf("%s-flightdeck", f.Name)
+}
+
+func (f *Flightdeck) GetServiceAccountName() string {
+	return f.Spec.ServiceAccountName
+}
+
+func (f *Flightdeck) GetServiceAccountAnnotations() map[string]string {
+	return f.Spec.ServiceAccountAnnotations
+}
+
+func (f *Flightdeck) GetPodLabels() map[string]string {
+	return f.Spec.PodLabels
 }

@@ -109,6 +109,21 @@ type WorkbenchSpec struct {
 	// Empty or whitespace-only content will be ignored.
 	// See: https://docs.posit.co/ide/server-pro/admin/authenticating_users/customizing_signin.html
 	AuthLoginPageHtml string `json:"authLoginPageHtml,omitempty"`
+
+	// ServiceAccountName overrides the default ServiceAccount name.
+	// Defaults to {site.metadata.name}-workbench if not set.
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
+	// ServiceAccountAnnotations are applied to this product's ServiceAccount.
+	// The operator treats these as opaque key-value pairs.
+	// +optional
+	ServiceAccountAnnotations map[string]string `json:"serviceAccountAnnotations,omitempty"`
+
+	// PodLabels are applied to all pods created for this product.
+	// The operator treats these as opaque key-value pairs.
+	// +optional
+	PodLabels map[string]string `json:"podLabels,omitempty"`
 }
 
 // TODO: Validation should require Volume definition for off-host-execution...
@@ -223,6 +238,11 @@ func (w *Workbench) KubernetesLabels() map[string]string {
 	})
 }
 
+// PodTemplateLabels returns labels for pod templates, including custom PodLabels if set
+func (w *Workbench) PodTemplateLabels() map[string]string {
+	return product.LabelMerge(w.KubernetesLabels(), w.Spec.PodLabels)
+}
+
 func (w *Workbench) SecretProviderClassName() string {
 	return fmt.Sprintf("%s-secrets", w.ComponentName())
 }
@@ -279,6 +299,18 @@ func (w *Workbench) GetSecretVaultName() string {
 
 func (w *Workbench) GetAwsAccountId() string {
 	return w.Spec.AwsAccountId
+}
+
+func (w *Workbench) GetServiceAccountName() string {
+	return w.Spec.ServiceAccountName
+}
+
+func (w *Workbench) GetServiceAccountAnnotations() map[string]string {
+	return w.Spec.ServiceAccountAnnotations
+}
+
+func (w *Workbench) GetPodLabels() map[string]string {
+	return w.Spec.PodLabels
 }
 
 func (w *Workbench) CreateSessionVolumeFactory(cfg *WorkbenchConfig) *product.VolumeFactory {

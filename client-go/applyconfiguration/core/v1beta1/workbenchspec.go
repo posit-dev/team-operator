@@ -47,6 +47,9 @@ type WorkbenchSpecApplyConfiguration struct {
 	DsnSecret                            *string                                   `json:"dsnSecret,omitempty"`
 	ChronicleSidecarProductApiKeyEnabled *bool                                     `json:"chronicleSidecarProductApiKeyEnabled,omitempty"`
 	AuthLoginPageHtml                    *string                                   `json:"authLoginPageHtml,omitempty"`
+	ServiceAccountName                   *string                                   `json:"serviceAccountName,omitempty"`
+	ServiceAccountAnnotations            map[string]string                         `json:"serviceAccountAnnotations,omitempty"`
+	PodLabels                            map[string]string                         `json:"podLabels,omitempty"`
 }
 
 // WorkbenchSpecApplyConfiguration constructs a declarative configuration of the WorkbenchSpec type for use with
@@ -348,5 +351,41 @@ func (b *WorkbenchSpecApplyConfiguration) WithChronicleSidecarProductApiKeyEnabl
 // If called multiple times, the AuthLoginPageHtml field is set to the value of the last call.
 func (b *WorkbenchSpecApplyConfiguration) WithAuthLoginPageHtml(value string) *WorkbenchSpecApplyConfiguration {
 	b.AuthLoginPageHtml = &value
+	return b
+}
+
+// WithServiceAccountName sets the ServiceAccountName field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ServiceAccountName field is set to the value of the last call.
+func (b *WorkbenchSpecApplyConfiguration) WithServiceAccountName(value string) *WorkbenchSpecApplyConfiguration {
+	b.ServiceAccountName = &value
+	return b
+}
+
+// WithServiceAccountAnnotations puts the entries into the ServiceAccountAnnotations field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, the entries provided by each call will be put on the ServiceAccountAnnotations field,
+// overwriting an existing map entries in ServiceAccountAnnotations field with the same key.
+func (b *WorkbenchSpecApplyConfiguration) WithServiceAccountAnnotations(entries map[string]string) *WorkbenchSpecApplyConfiguration {
+	if b.ServiceAccountAnnotations == nil && len(entries) > 0 {
+		b.ServiceAccountAnnotations = make(map[string]string, len(entries))
+	}
+	for k, v := range entries {
+		b.ServiceAccountAnnotations[k] = v
+	}
+	return b
+}
+
+// WithPodLabels puts the entries into the PodLabels field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, the entries provided by each call will be put on the PodLabels field,
+// overwriting an existing map entries in PodLabels field with the same key.
+func (b *WorkbenchSpecApplyConfiguration) WithPodLabels(entries map[string]string) *WorkbenchSpecApplyConfiguration {
+	if b.PodLabels == nil && len(entries) > 0 {
+		b.PodLabels = make(map[string]string, len(entries))
+	}
+	for k, v := range entries {
+		b.PodLabels[k] = v
+	}
 	return b
 }

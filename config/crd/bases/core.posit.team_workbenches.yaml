@@ -691,6 +691,13 @@ spec:
                 type: boolean
               parentUrl:
                 type: string
+              podLabels:
+                additionalProperties:
+                  type: string
+                description: |-
+                  PodLabels are applied to all pods created for this product.
+                  The operator treats these as opaque key-value pairs.
+                type: object
               replicas:
                 type: integer
               secret:
@@ -747,6 +754,18 @@ spec:
                     type: object
                 type: object
               secretType:
+                type: string
+              serviceAccountAnnotations:
+                additionalProperties:
+                  type: string
+                description: |-
+                  ServiceAccountAnnotations are applied to this product's ServiceAccount.
+                  The operator treats these as opaque key-value pairs.
+                type: object
+              serviceAccountName:
+                description: |-
+                  ServiceAccountName overrides the default ServiceAccount name.
+                  Defaults to {site.metadata.name}-workbench if not set.
                 type: string
               sessionConfig:
                 description: SessionConfig houses all session configuration

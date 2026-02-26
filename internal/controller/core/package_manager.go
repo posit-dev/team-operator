@@ -462,7 +462,7 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: pm.KubernetesLabels(),
+					Labels: pm.PodTemplateLabels(),
 					Annotations: map[string]string{
 						// TODO: this is a hack to get config changes to trigger a new deployment (for now)
 						//   In the future, we could use our own mechanism and decide whether to restart or SIGHUP the service...

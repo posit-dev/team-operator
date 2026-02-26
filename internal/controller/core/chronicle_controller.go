@@ -229,7 +229,7 @@ func (r *ChronicleReconciler) ensureDeployedService(ctx context.Context, req ctr
 			ServiceName: "chronicle-server",
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: c.KubernetesLabels(),
+					Labels: c.PodTemplateLabels(),
 				},
 				Spec: corev1.PodSpec{
 					EnableServiceLinks: ptr.To(false),

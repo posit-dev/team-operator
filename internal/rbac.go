@@ -15,6 +15,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// ServiceAccountAnnotationsProvider defines the interface for products that can provide custom ServiceAccount annotations
+type ServiceAccountAnnotationsProvider interface {
+	GetServiceAccountAnnotations() map[string]string
+}
+
+// ServiceAccountNameProvider defines the interface for products that can provide a custom ServiceAccount name
+type ServiceAccountNameProvider interface {
+	GetServiceAccountName() string
+}
+
 func AddIamAnnotation(name, namespace, site string, annotations map[string]string, p product.WorkloadAccountProvider) map[string]string {
 	// default to using p.ShortName() if name is not provided
 	if name == "" {
@@ -45,12 +55,37 @@ func GenerateRbac(ctx context.Context, c client.Client, scheme *runtime.Scheme, 
 	l := logr.FromContextOrDiscard(ctx).WithValues(
 		"event", "generate-rbac",
 	)
-	annotations := AddIamAnnotation("", req.Namespace, "", map[string]string{}, p)
+
+	// Start with empty annotations map
+	annotations := map[string]string{}
+
+	// Check if product provides custom ServiceAccount annotations
+	// If so, use those first (they take precedence)
+	if annotationsProvider, ok := p.(ServiceAccountAnnotationsProvider); ok {
+		customAnnotations := annotationsProvider.GetServiceAccountAnnotations()
+		for k, v := range customAnnotations {
+			annotations[k] = v
+		}
+	}
+
+	// If no custom annotations provided, fall back to computing IRSA annotation
+	// from the old fields (backward compatibility)
+	if len(annotations) == 0 {
+		annotations = AddIamAnnotation("", req.Namespace, "", annotations, p)
+	}
+
+	// Determine ServiceAccount name
+	saName := p.ComponentName()
+	if nameProvider, ok := p.(ServiceAccountNameProvider); ok {
+		if customName := nameProvider.GetServiceAccountName(); customName != "" {
+			saName = customName
+		}
+	}
 
 	// SERVICE ACCOUNT
 	serviceAccount := &v1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      p.ComponentName(),
+			Name:      saName,
 			Namespace: req.Namespace,
 		},
 	}

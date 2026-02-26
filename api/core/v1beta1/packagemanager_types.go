@@ -79,6 +79,21 @@ type PackageManagerSpec struct {
 	// AzureFiles configures Azure Files integration for persistent storage
 	// +optional
 	AzureFiles *AzureFilesConfig `json:"azureFiles,omitempty"`
+
+	// ServiceAccountName overrides the default ServiceAccount name.
+	// Defaults to {site.metadata.name}-packagemanager if not set.
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
+	// ServiceAccountAnnotations are applied to this product's ServiceAccount.
+	// The operator treats these as opaque key-value pairs.
+	// +optional
+	ServiceAccountAnnotations map[string]string `json:"serviceAccountAnnotations,omitempty"`
+
+	// PodLabels are applied to all pods created for this product.
+	// The operator treats these as opaque key-value pairs.
+	// +optional
+	PodLabels map[string]string `json:"podLabels,omitempty"`
 }
 
 // PackageManagerStatus defines the observed state of PackageManager
@@ -151,6 +166,18 @@ func (pm *PackageManager) GetAwsAccountId() string {
 	return pm.Spec.AwsAccountId
 }
 
+func (pm *PackageManager) GetServiceAccountName() string {
+	return pm.Spec.ServiceAccountName
+}
+
+func (pm *PackageManager) GetServiceAccountAnnotations() map[string]string {
+	return pm.Spec.ServiceAccountAnnotations
+}
+
+func (pm *PackageManager) GetPodLabels() map[string]string {
+	return pm.Spec.PodLabels
+}
+
 func (pm *PackageManager) ComponentName() string {
 	return fmt.Sprintf("%s-packagemanager", pm.Name)
 }
@@ -185,6 +212,11 @@ func (pm *PackageManager) KubernetesLabels() map[string]string {
 		SiteLabelKey:      pm.SiteName(),
 		ComponentLabelKey: "package-manager",
 	})
+}
+
+// PodTemplateLabels returns labels for pod templates, including custom PodLabels if set
+func (pm *PackageManager) PodTemplateLabels() map[string]string {
+	return product.LabelMerge(pm.KubernetesLabels(), pm.Spec.PodLabels)
 }
 
 func (pm *PackageManager) KeySecretName() string {

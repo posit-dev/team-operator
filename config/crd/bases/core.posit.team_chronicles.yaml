@@ -118,6 +118,25 @@ spec:
                 additionalProperties:
                   type: string
                 type: object
+              podLabels:
+                additionalProperties:
+                  type: string
+                description: |-
+                  PodLabels are applied to all pods created for this product.
+                  The operator treats these as opaque key-value pairs.
+                type: object
+              serviceAccountAnnotations:
+                additionalProperties:
+                  type: string
+                description: |-
+                  ServiceAccountAnnotations are applied to this product's ServiceAccount.
+                  The operator treats these as opaque key-value pairs.
+                type: object
+              serviceAccountName:
+                description: |-
+                  ServiceAccountName overrides the default ServiceAccount name.
+                  Defaults to {site.metadata.name}-chronicle if not set.
+                type: string
               workloadCompoundName:
                 description: WorkloadCompoundName is the name for the workload
                 type: string

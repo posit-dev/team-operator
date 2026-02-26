@@ -92,6 +92,13 @@ spec:
                 description: LogLevel sets the logging verbosity (debug, info, warn,
                   error)
                 type: string
+              podLabels:
+                additionalProperties:
+                  type: string
+                description: |-
+                  PodLabels are applied to all pods created for this product.
+                  The operator treats these as opaque key-value pairs.
+                type: object
               port:
                 default: 8080
                 description: Port is the port that the container will listen on
@@ -101,6 +108,18 @@ spec:
                 default: 1
                 description: Replicas is the number of Flightdeck pods to run
                 type: integer
+              serviceAccountAnnotations:
+                additionalProperties:
+                  type: string
+                description: |-
+                  ServiceAccountAnnotations are applied to this product's ServiceAccount.
+                  The operator treats these as opaque key-value pairs.
+                type: object
+              serviceAccountName:
+                description: |-
+                  ServiceAccountName overrides the default ServiceAccount name.
+                  Defaults to {metadata.name}-flightdeck if not set.
+                type: string
               siteName:
                 description: SiteName is the name of the Site that owns this Flightdeck
                   instance

@@ -304,6 +304,13 @@ spec:
                 additionalProperties:
                   type: string
                 type: object
+              podLabels:
+                additionalProperties:
+                  type: string
+                description: |-
+                  PodLabels are applied to all pods created for this product.
+                  The operator treats these as opaque key-value pairs.
+                type: object
               replicas:
                 type: integer
               secret:
@@ -315,6 +322,18 @@ spec:
                     type: string
                 type: object
               secretType:
+                type: string
+              serviceAccountAnnotations:
+                additionalProperties:
+                  type: string
+                description: |-
+                  ServiceAccountAnnotations are applied to this product's ServiceAccount.
+                  The operator treats these as opaque key-value pairs.
+                type: object
+              serviceAccountName:
+                description: |-
+                  ServiceAccountName overrides the default ServiceAccount name.
+                  Defaults to {site.metadata.name}-packagemanager if not set.
                 type: string
               sleep:
                 description: |-

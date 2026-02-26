@@ -46,6 +46,9 @@ type ConnectSpecApplyConfiguration struct {
 	Replicas                             *int                                        `json:"replicas,omitempty"`
 	DsnSecret                            *string                                     `json:"dsnSecret,omitempty"`
 	ChronicleSidecarProductApiKeyEnabled *bool                                       `json:"chronicleSidecarProductApiKeyEnabled,omitempty"`
+	ServiceAccountName                   *string                                     `json:"serviceAccountName,omitempty"`
+	ServiceAccountAnnotations            map[string]string                           `json:"serviceAccountAnnotations,omitempty"`
+	PodLabels                            map[string]string                           `json:"podLabels,omitempty"`
 }
 
 // ConnectSpecApplyConfiguration constructs a declarative configuration of the ConnectSpec type for use with
@@ -342,5 +345,41 @@ func (b *ConnectSpecApplyConfiguration) WithDsnSecret(value string) *ConnectSpec
 // If called multiple times, the ChronicleSidecarProductApiKeyEnabled field is set to the value of the last call.
 func (b *ConnectSpecApplyConfiguration) WithChronicleSidecarProductApiKeyEnabled(value bool) *ConnectSpecApplyConfiguration {
 	b.ChronicleSidecarProductApiKeyEnabled = &value
+	return b
+}
+
+// WithServiceAccountName sets the ServiceAccountName field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ServiceAccountName field is set to the value of the last call.
+func (b *ConnectSpecApplyConfiguration) WithServiceAccountName(value string) *ConnectSpecApplyConfiguration {
+	b.ServiceAccountName = &value
+	return b
+}
+
+// WithServiceAccountAnnotations puts the entries into the ServiceAccountAnnotations field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, the entries provided by each call will be put on the ServiceAccountAnnotations field,
+// overwriting an existing map entries in ServiceAccountAnnotations field with the same key.
+func (b *ConnectSpecApplyConfiguration) WithServiceAccountAnnotations(entries map[string]string) *ConnectSpecApplyConfiguration {
+	if b.ServiceAccountAnnotations == nil && len(entries) > 0 {
+		b.ServiceAccountAnnotations = make(map[string]string, len(entries))
+	}
+	for k, v := range entries {
+		b.ServiceAccountAnnotations[k] = v
+	}
+	return b
+}
+
+// WithPodLabels puts the entries into the PodLabels field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, the entries provided by each call will be put on the PodLabels field,
+// overwriting an existing map entries in PodLabels field with the same key.
+func (b *ConnectSpecApplyConfiguration) WithPodLabels(entries map[string]string) *ConnectSpecApplyConfiguration {
+	if b.PodLabels == nil && len(entries) > 0 {
+		b.PodLabels = make(map[string]string, len(entries))
+	}
+	for k, v := range entries {
+		b.PodLabels[k] = v
+	}
 	return b
 }

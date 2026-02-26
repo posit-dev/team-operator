@@ -500,6 +500,13 @@ spec:
                 type: object
               offHostExecution:
                 type: boolean
+              podLabels:
+                additionalProperties:
+                  type: string
+                description: |-
+                  PodLabels are applied to all pods created for this product.
+                  The operator treats these as opaque key-value pairs.
+                type: object
               registerOnFirstLogin:
                 description: |-
                   RegisterOnFirstLogin controls whether new users are automatically registered
@@ -516,6 +523,18 @@ spec:
                     type: string
                 type: object
               secretType:
+                type: string
+              serviceAccountAnnotations:
+                additionalProperties:
+                  type: string
+                description: |-
+                  ServiceAccountAnnotations are applied to this product's ServiceAccount.
+                  The operator treats these as opaque key-value pairs.
+                type: object
+              serviceAccountName:
+                description: |-
+                  ServiceAccountName overrides the default ServiceAccount name.
+                  Defaults to {site.metadata.name}-connect if not set.
                 type: string
               sessionConfig:
                 description: SessionConfig houses all session configuration

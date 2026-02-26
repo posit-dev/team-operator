@@ -147,6 +147,21 @@ type ConnectSpec struct {
 	// ChronicleSidecarProductApiKeyEnabled assumes the api key for this product has been added to a secret and
 	// injects the secret as an environment variable to the sidecar. **EXPERIMENTAL**
 	ChronicleSidecarProductApiKeyEnabled bool `json:"chronicleSidecarProductApiKeyEnabled,omitempty"`
+
+	// ServiceAccountName overrides the default ServiceAccount name.
+	// Defaults to {site.metadata.name}-connect if not set.
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
+	// ServiceAccountAnnotations are applied to this product's ServiceAccount.
+	// The operator treats these as opaque key-value pairs.
+	// +optional
+	ServiceAccountAnnotations map[string]string `json:"serviceAccountAnnotations,omitempty"`
+
+	// PodLabels are applied to all pods created for this product.
+	// The operator treats these as opaque key-value pairs.
+	// +optional
+	PodLabels map[string]string `json:"podLabels,omitempty"`
 }
 
 // TODO: Validation should require Volume definition for off-host-execution...
@@ -224,6 +239,11 @@ func (c *Connect) KubernetesLabels() map[string]string {
 	})
 }
 
+// PodTemplateLabels returns labels for pod templates, including custom PodLabels if set
+func (c *Connect) PodTemplateLabels() map[string]string {
+	return product.LabelMerge(c.KubernetesLabels(), c.Spec.PodLabels)
+}
+
 func (c *Connect) DsnSecret() string {
 	return c.Spec.DsnSecret
 }
@@ -267,6 +287,18 @@ func (c *Connect) GetClusterDate() string {
 
 func (c *Connect) GetAwsAccountId() string {
 	return c.Spec.AwsAccountId
+}
+
+func (c *Connect) GetServiceAccountName() string {
+	return c.Spec.ServiceAccountName
+}
+
+func (c *Connect) GetServiceAccountAnnotations() map[string]string {
+	return c.Spec.ServiceAccountAnnotations
+}
+
+func (c *Connect) GetPodLabels() map[string]string {
+	return c.Spec.PodLabels
 }
 
 func (c *Connect) OwnerReferencesForChildren() []metav1.OwnerReference {
