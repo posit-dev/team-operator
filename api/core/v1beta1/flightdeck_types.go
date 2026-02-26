@@ -67,6 +67,8 @@ type FlightdeckSpec struct {
 	// Defaults to {metadata.name}-flightdeck if not set.
 	// WARNING: This field is immutable after creation. Changing it will create a new
 	// ServiceAccount but leave the old one (and its RoleBinding) orphaned in the cluster.
+	// Once set, this field cannot be unset. To revert to the operator-managed service
+	// account you must delete and recreate the resource.
 	// +optional
 	// +kubebuilder:validation:XValidation:rule="oldSelf == '' || self == oldSelf",message="serviceAccountName is immutable once set"
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
