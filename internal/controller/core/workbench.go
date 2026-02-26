@@ -34,6 +34,7 @@ import (
 //+kubebuilder:rbac:namespace=posit-team,groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:namespace=posit-team,groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:namespace=posit-team,groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:namespace=posit-team,groups=gateway.networking.k8s.io,resources=httproutes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:namespace=posit-team,groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:namespace=posit-team,groups=rbac.authorization.k8s.io,resources=roles,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:namespace=posit-team,groups=secrets-store.csi.x-k8s.io,resources=secretproviderclasses,verbs=get;list;watch;create;update;patch;delete
@@ -924,77 +925,123 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	// TRAEFIK MIDDLEWARES
+	// ROUTING: Gateway API (HTTPRoute) or Ingress
 
-	if err := r.deployTraefikMiddlewares(ctx, req, w); err != nil {
-		l.Error(err, "Error deploying traefik middlewares")
+	// Fetch the Site to check for GatewayRef
+	site := &positcov1beta1.Site{}
+	siteKey := client.ObjectKey{Name: req.Name, Namespace: req.Namespace}
+	if err := r.Get(ctx, siteKey, site); err != nil {
+		l.Error(err, "Error fetching Site")
 		return ctrl.Result{}, err
 	}
 
-	// INGRESS
-	annotations := map[string]string{}
-	traefikMiddlewares := internal.BuildTraefikMiddlewareAnnotation(
-		req.Namespace,
-		r.ForwardMiddleware(w),
-		r.CspMiddleware(w),
-		r.HeadersMiddleware(w),
-	)
-	annotations[internal.TraefikMiddlewaresKey] = traefikMiddlewares
+	if site.Spec.GatewayRef != nil {
+		// NEW PATH: Gateway API - Create HTTPRoute
+		l.Info("Using Gateway API (HTTPRoute) for routing")
 
-	// add spec annotations and append traefik middlewares
-	for k, v := range w.Spec.IngressAnnotations {
-		if k == internal.TraefikMiddlewaresKey {
-			traefikMiddlewares = fmt.Sprintf("%s,%s", v, traefikMiddlewares)
-			v = traefikMiddlewares
+		requestHeaders := map[string]string{
+			"X-Forwarded-Port":  "443",
+			"X-Forwarded-Proto": "https",
+			"X-Rstudio-Request": fmt.Sprintf("https://%s", w.Spec.Url),
 		}
-		annotations[k] = v
-	}
 
-	ingress := &networkingv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      w.ComponentName(),
-			Namespace: req.Namespace,
-		},
-	}
-	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, ingress, w, func() error {
-		ingress.Labels = w.KubernetesLabels()
-		ingress.Annotations = annotations
-		ingress.Spec = networkingv1.IngressSpec{
-			// IngressClass set below
-			// TODO: TLS configuration, perhaps
-			TLS: nil,
-			Rules: []networkingv1.IngressRule{
-				{
-					Host: w.Spec.Url,
-					IngressRuleValue: networkingv1.IngressRuleValue{
-						HTTP: &networkingv1.HTTPIngressRuleValue{
-							Paths: []networkingv1.HTTPIngressPath{
-								{
-									Path:     "/",
-									PathType: ptr.To(networkingv1.PathTypePrefix),
-									Backend: networkingv1.IngressBackend{
-										Service: &networkingv1.IngressServiceBackend{
-											Name: w.ComponentName(),
-											Port: networkingv1.ServiceBackendPort{
-												Name: "http",
+		responseHeaders := map[string]string{
+			"Content-Security-Policy": fmt.Sprintf("frame-ancestors %s 'self';", w.Spec.ParentUrl),
+		}
+
+		if err := internal.EnsureHTTPRoute(
+			ctx,
+			r.Client,
+			r.Scheme,
+			l,
+			w,
+			w.ComponentName(),
+			req.Namespace,
+			site.Spec.GatewayRef.Name,
+			site.Spec.GatewayRef.Namespace,
+			w.Spec.Url,
+			w.ComponentName(),
+			80,
+			requestHeaders,
+			responseHeaders,
+			true, // use session persistence for sticky sessions
+		); err != nil {
+			l.Error(err, "Error creating HTTPRoute")
+			return ctrl.Result{}, err
+		}
+	} else {
+		// LEGACY PATH: Ingress + Traefik Middleware (unchanged)
+		l.Info("Using legacy Ingress for routing")
+
+		if err := r.deployTraefikMiddlewares(ctx, req, w); err != nil {
+			l.Error(err, "Error deploying traefik middlewares")
+			return ctrl.Result{}, err
+		}
+
+		annotations := map[string]string{}
+		traefikMiddlewares := internal.BuildTraefikMiddlewareAnnotation(
+			req.Namespace,
+			r.ForwardMiddleware(w),
+			r.CspMiddleware(w),
+			r.HeadersMiddleware(w),
+		)
+		annotations[internal.TraefikMiddlewaresKey] = traefikMiddlewares
+
+		// add spec annotations and append traefik middlewares
+		for k, v := range w.Spec.IngressAnnotations {
+			if k == internal.TraefikMiddlewaresKey {
+				traefikMiddlewares = fmt.Sprintf("%s,%s", v, traefikMiddlewares)
+				v = traefikMiddlewares
+			}
+			annotations[k] = v
+		}
+
+		ingress := &networkingv1.Ingress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      w.ComponentName(),
+				Namespace: req.Namespace,
+			},
+		}
+		if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, ingress, w, func() error {
+			ingress.Labels = w.KubernetesLabels()
+			ingress.Annotations = annotations
+			ingress.Spec = networkingv1.IngressSpec{
+				// IngressClass set below
+				// TODO: TLS configuration, perhaps
+				TLS: nil,
+				Rules: []networkingv1.IngressRule{
+					{
+						Host: w.Spec.Url,
+						IngressRuleValue: networkingv1.IngressRuleValue{
+							HTTP: &networkingv1.HTTPIngressRuleValue{
+								Paths: []networkingv1.HTTPIngressPath{
+									{
+										Path:     "/",
+										PathType: ptr.To(networkingv1.PathTypePrefix),
+										Backend: networkingv1.IngressBackend{
+											Service: &networkingv1.IngressServiceBackend{
+												Name: w.ComponentName(),
+												Port: networkingv1.ServiceBackendPort{
+													Name: "http",
+												},
 											},
+											Resource: nil,
 										},
-										Resource: nil,
 									},
 								},
 							},
 						},
 					},
 				},
-			},
+			}
+			// only define the ingressClassName if it is specified on the site
+			if w.Spec.IngressClass != "" {
+				ingress.Spec.IngressClassName = &w.Spec.IngressClass
+			}
+			return nil
+		}); err != nil {
+			return ctrl.Result{}, err
 		}
-		// only define the ingressClassName if it is specified on the site
-		if w.Spec.IngressClass != "" {
-			ingress.Spec.IngressClassName = &w.Spec.IngressClass
-		}
-		return nil
-	}); err != nil {
-		return ctrl.Result{}, err
 	}
 
 	// POD DISRUPTION BUDGET for server pods
@@ -1028,10 +1075,16 @@ func (r *WorkbenchReconciler) CleanupWorkbench(ctx context.Context, req ctrl.Req
 func (r *WorkbenchReconciler) cleanupDeployedService(ctx context.Context, req ctrl.Request, w *positcov1beta1.Workbench) error {
 	l := r.GetLogger(ctx).WithValues(
 		"event", "cleanup-service",
-		"product", "connect",
+		"product", "workbench",
 	)
 
 	l.Info("starting")
+
+	// Delete HTTPRoute if it exists (Gateway API path)
+	if err := internal.DeleteHTTPRoute(ctx, r.Client, l, w.ComponentName(), req.Namespace); err != nil {
+		l.Error(err, "Error deleting HTTPRoute (may not exist)")
+		// Don't fail if HTTPRoute doesn't exist
+	}
 
 	return nil
 }

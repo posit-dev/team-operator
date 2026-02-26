@@ -105,6 +105,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &corev1beta1.FlightdeckSpecApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("FlightdeckStatus"):
 		return &corev1beta1.FlightdeckStatusApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("GatewayReference"):
+		return &corev1beta1.GatewayReferenceApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("GPUSettings"):
 		return &corev1beta1.GPUSettingsApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("InternalChronicleSpec"):

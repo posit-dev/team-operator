@@ -37,6 +37,7 @@ type FlightdeckReconciler struct {
 //+kubebuilder:rbac:namespace=posit-team,groups="",resources=services;serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:namespace=posit-team,groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:namespace=posit-team,groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:namespace=posit-team,groups=gateway.networking.k8s.io,resources=httproutes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=sites,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -362,37 +363,79 @@ func (r *FlightdeckReconciler) reconcileFlightdeckResources(
 	}
 	l.V(1).Info("reconciled service", "service", componentName)
 
-	// INGRESS
-	ingress := &networkingv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fd.ComponentName(),
-			Namespace: req.Namespace,
-		},
+	// ROUTING: Gateway API (HTTPRoute) or Ingress
+
+	// Fetch the Site to check for GatewayRef
+	site := &positcov1beta1.Site{}
+	siteKey := client.ObjectKey{Name: fd.Spec.SiteName, Namespace: req.Namespace}
+	if err := r.Get(ctx, siteKey, site); err != nil {
+		l.Error(err, "Error fetching Site")
+		return ctrl.Result{}, err
 	}
-	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, ingress, fd, func() error {
-		// Build annotations
-		annotations := map[string]string{}
-		for k, v := range fd.Spec.IngressAnnotations {
-			annotations[k] = v
+
+	if site.Spec.GatewayRef != nil {
+		// NEW PATH: Gateway API - Create HTTPRoute
+		l.Info("Using Gateway API (HTTPRoute) for routing")
+
+		if err := internal.EnsureHTTPRoute(
+			ctx,
+			r.Client,
+			r.Scheme,
+			l,
+			fd,
+			fd.ComponentName(),
+			req.Namespace,
+			site.Spec.GatewayRef.Name,
+			site.Spec.GatewayRef.Namespace,
+			fd.Spec.Domain,
+			fd.ComponentName(),
+			80,
+			nil, // no special request headers for Flightdeck
+			nil, // no response headers
+			false, // no session persistence needed
+		); err != nil {
+			l.Error(err, "Error creating HTTPRoute")
+			return ctrl.Result{}, err
 		}
-		ingress.Labels = fd.KubernetesLabels()
-		ingress.Annotations = annotations
-		ingress.Spec = networkingv1.IngressSpec{
-			TLS: nil,
-			Rules: []networkingv1.IngressRule{
-				{
-					Host: fd.Spec.Domain,
-					IngressRuleValue: networkingv1.IngressRuleValue{
-						HTTP: &networkingv1.HTTPIngressRuleValue{
-							Paths: []networkingv1.HTTPIngressPath{
-								{
-									Path:     "/",
-									PathType: ptr.To(networkingv1.PathTypePrefix),
-									Backend: networkingv1.IngressBackend{
-										Service: &networkingv1.IngressServiceBackend{
-											Name: fd.ComponentName(),
-											Port: networkingv1.ServiceBackendPort{
-												Name: "http",
+		l.V(1).Info("reconciled httproute",
+			"httproute", componentName,
+			"domain", fd.Spec.Domain,
+		)
+	} else {
+		// LEGACY PATH: Ingress (unchanged)
+		l.Info("Using legacy Ingress for routing")
+
+		ingress := &networkingv1.Ingress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fd.ComponentName(),
+				Namespace: req.Namespace,
+			},
+		}
+		if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, ingress, fd, func() error {
+			// Build annotations
+			annotations := map[string]string{}
+			for k, v := range fd.Spec.IngressAnnotations {
+				annotations[k] = v
+			}
+			ingress.Labels = fd.KubernetesLabels()
+			ingress.Annotations = annotations
+			ingress.Spec = networkingv1.IngressSpec{
+				TLS: nil,
+				Rules: []networkingv1.IngressRule{
+					{
+						Host: fd.Spec.Domain,
+						IngressRuleValue: networkingv1.IngressRuleValue{
+							HTTP: &networkingv1.HTTPIngressRuleValue{
+								Paths: []networkingv1.HTTPIngressPath{
+									{
+										Path:     "/",
+										PathType: ptr.To(networkingv1.PathTypePrefix),
+										Backend: networkingv1.IngressBackend{
+											Service: &networkingv1.IngressServiceBackend{
+												Name: fd.ComponentName(),
+												Port: networkingv1.ServiceBackendPort{
+													Name: "http",
+												},
 											},
 										},
 									},
@@ -401,22 +444,22 @@ func (r *FlightdeckReconciler) reconcileFlightdeckResources(
 						},
 					},
 				},
-			},
+			}
+			// Only define the ingressClassName if it is specified
+			if fd.Spec.IngressClass != "" {
+				ingress.Spec.IngressClassName = &fd.Spec.IngressClass
+			}
+			return nil
+		}); err != nil {
+			l.Error(err, "failed to reconcile ingress", "ingress", componentName)
+			return ctrl.Result{}, err
 		}
-		// Only define the ingressClassName if it is specified
-		if fd.Spec.IngressClass != "" {
-			ingress.Spec.IngressClassName = &fd.Spec.IngressClass
-		}
-		return nil
-	}); err != nil {
-		l.Error(err, "failed to reconcile ingress", "ingress", componentName)
-		return ctrl.Result{}, err
+		l.V(1).Info("reconciled ingress",
+			"ingress", componentName,
+			"domain", fd.Spec.Domain,
+			"ingressClass", fd.Spec.IngressClass,
+		)
 	}
-	l.V(1).Info("reconciled ingress",
-		"ingress", componentName,
-		"domain", fd.Spec.Domain,
-		"ingressClass", fd.Spec.IngressClass,
-	)
 
 	l.V(1).Info("all flightdeck resources reconciled successfully", "component", componentName)
 

@@ -69,6 +69,11 @@ type SiteSpec struct {
 	// IngressAnnotations is a set of annotations to be applied to all ingress routes
 	IngressAnnotations map[string]string `json:"ingressAnnotations,omitempty"`
 
+	// GatewayRef references the Gateway resource created by infrastructure.
+	// When set, the operator creates HTTPRoutes instead of Ingress resources.
+	// +optional
+	GatewayRef *GatewayReference `json:"gatewayRef,omitempty"`
+
 	// ImagePullSecrets is a set of image pull secrets to use for all image pulls. These names / secrets
 	// must already exist in the namespace in question.
 	ImagePullSecrets []string `json:"imagePullSecrets,omitempty"`
@@ -130,6 +135,14 @@ type SiteSpec struct {
 type ServiceAccountConfig struct {
 	NameSuffix  string            `json:"nameSuffix,omitempty"`
 	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
+// GatewayReference identifies the Gateway resource created by infrastructure.
+type GatewayReference struct {
+	// Name of the Gateway resource
+	Name string `json:"name"`
+	// Namespace of the Gateway resource
+	Namespace string `json:"namespace"`
 }
 
 type SiteDomainType string

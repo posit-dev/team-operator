@@ -26,6 +26,7 @@ type SiteSpecApplyConfiguration struct {
 	Keycloak                     *InternalKeycloakSpecApplyConfiguration       `json:"keycloak,omitempty"`
 	IngressClass                 *string                                       `json:"ingressClass,omitempty"`
 	IngressAnnotations           map[string]string                             `json:"ingressAnnotations,omitempty"`
+	GatewayRef                   *GatewayReferenceApplyConfiguration           `json:"gatewayRef,omitempty"`
 	ImagePullSecrets             []string                                      `json:"imagePullSecrets,omitempty"`
 	VolumeSource                 *VolumeSourceApplyConfiguration               `json:"volumeSource,omitempty"`
 	SharedDirectory              *string                                       `json:"sharedDirectory,omitempty"`
@@ -158,6 +159,14 @@ func (b *SiteSpecApplyConfiguration) WithIngressAnnotations(entries map[string]s
 	for k, v := range entries {
 		b.IngressAnnotations[k] = v
 	}
+	return b
+}
+
+// WithGatewayRef sets the GatewayRef field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the GatewayRef field is set to the value of the last call.
+func (b *SiteSpecApplyConfiguration) WithGatewayRef(value *GatewayReferenceApplyConfiguration) *SiteSpecApplyConfiguration {
+	b.GatewayRef = value
 	return b
 }
 

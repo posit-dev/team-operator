@@ -27,6 +27,7 @@ import (
 //+kubebuilder:rbac:namespace=posit-team,groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:namespace=posit-team,groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:namespace=posit-team,groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:namespace=posit-team,groups=gateway.networking.k8s.io,resources=httproutes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:namespace=posit-team,groups=secrets-store.csi.x-k8s.io,resources=secretproviderclasses,verbs=get;list;watch;create;update;patch;delete
 
 func (r *PackageManagerReconciler) CleanupPackageManager(ctx context.Context, req ctrl.Request, pm *positcov1beta1.PackageManager) (ctrl.Result, error) {
@@ -57,11 +58,17 @@ func (r *PackageManagerReconciler) cleanupDeployedService(ctx context.Context, r
 		Namespace: req.Namespace,
 	}
 
-	// INGRESS
+	// INGRESS / HTTPROUTE
 
 	existingIngress := &networkingv1.Ingress{}
 	if err := internal.BasicDelete(ctx, r, l, key, existingIngress); err != nil {
 		return err
+	}
+
+	// Also delete HTTPRoute if it exists (Gateway API path)
+	if err := internal.DeleteHTTPRoute(ctx, r.Client, l, pm.ComponentName(), req.Namespace); err != nil {
+		l.Error(err, "Error deleting HTTPRoute (may not exist)")
+		// Don't fail if HTTPRoute doesn't exist
 	}
 
 	// SERVICE
@@ -631,58 +638,95 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 		return ctrl.Result{}, err
 	}
 
-	// INGRESS
+	// ROUTING: Gateway API (HTTPRoute) or Ingress
 
-	ing_annotations := map[string]string{}
-	for k, v := range pm.Spec.IngressAnnotations {
-		ing_annotations[k] = v
+	// Fetch the Site to check for GatewayRef
+	site := &positcov1beta1.Site{}
+	siteKey := client.ObjectKey{Name: req.Name, Namespace: req.Namespace}
+	if err := r.Get(ctx, siteKey, site); err != nil {
+		l.Error(err, "Error fetching Site")
+		return ctrl.Result{}, err
 	}
 
-	ingress := &networkingv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pm.ComponentName(),
-			Namespace: req.Namespace,
-		},
-	}
-	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, ingress, pm, func() error {
-		ingress.Labels = pm.KubernetesLabels()
-		ingress.Annotations = ing_annotations
-		ingress.Spec = networkingv1.IngressSpec{
-			// IngressClass set below
-			// TODO: TLS configuration, perhaps
-			TLS: nil,
-			Rules: []networkingv1.IngressRule{
-				{
-					Host: pm.Spec.Url,
-					IngressRuleValue: networkingv1.IngressRuleValue{
-						HTTP: &networkingv1.HTTPIngressRuleValue{
-							Paths: []networkingv1.HTTPIngressPath{
-								{
-									Path:     "/",
-									PathType: ptr.To(networkingv1.PathTypePrefix),
-									Backend: networkingv1.IngressBackend{
-										Service: &networkingv1.IngressServiceBackend{
-											Name: pm.ComponentName(),
-											Port: networkingv1.ServiceBackendPort{
-												Name: "http",
+	if site.Spec.GatewayRef != nil {
+		// NEW PATH: Gateway API - Create HTTPRoute
+		l.Info("Using Gateway API (HTTPRoute) for routing")
+
+		if err := internal.EnsureHTTPRoute(
+			ctx,
+			r.Client,
+			r.Scheme,
+			l,
+			pm,
+			pm.ComponentName(),
+			req.Namespace,
+			site.Spec.GatewayRef.Name,
+			site.Spec.GatewayRef.Namespace,
+			pm.Spec.Url,
+			pm.ComponentName(),
+			80,
+			nil, // no special request headers for Package Manager
+			nil, // no response headers
+			false, // no session persistence needed
+		); err != nil {
+			l.Error(err, "Error creating HTTPRoute")
+			return ctrl.Result{}, err
+		}
+	} else {
+		// LEGACY PATH: Ingress (unchanged)
+		l.Info("Using legacy Ingress for routing")
+
+		ing_annotations := map[string]string{}
+		for k, v := range pm.Spec.IngressAnnotations {
+			ing_annotations[k] = v
+		}
+
+		ingress := &networkingv1.Ingress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      pm.ComponentName(),
+				Namespace: req.Namespace,
+			},
+		}
+		if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, ingress, pm, func() error {
+			ingress.Labels = pm.KubernetesLabels()
+			ingress.Annotations = ing_annotations
+			ingress.Spec = networkingv1.IngressSpec{
+				// IngressClass set below
+				// TODO: TLS configuration, perhaps
+				TLS: nil,
+				Rules: []networkingv1.IngressRule{
+					{
+						Host: pm.Spec.Url,
+						IngressRuleValue: networkingv1.IngressRuleValue{
+							HTTP: &networkingv1.HTTPIngressRuleValue{
+								Paths: []networkingv1.HTTPIngressPath{
+									{
+										Path:     "/",
+										PathType: ptr.To(networkingv1.PathTypePrefix),
+										Backend: networkingv1.IngressBackend{
+											Service: &networkingv1.IngressServiceBackend{
+												Name: pm.ComponentName(),
+												Port: networkingv1.ServiceBackendPort{
+													Name: "http",
+												},
 											},
+											Resource: nil,
 										},
-										Resource: nil,
 									},
 								},
 							},
 						},
 					},
 				},
-			},
+			}
+			// only define the ingressClassName if it is specified on the site
+			if pm.Spec.IngressClass != "" {
+				ingress.Spec.IngressClassName = &pm.Spec.IngressClass
+			}
+			return nil
+		}); err != nil {
+			return ctrl.Result{}, err
 		}
-		// only define the ingressClassName if it is specified on the site
-		if pm.Spec.IngressClass != "" {
-			ingress.Spec.IngressClassName = &pm.Spec.IngressClass
-		}
-		return nil
-	}); err != nil {
-		return ctrl.Result{}, err
 	}
 
 	// POD DISRUPTION BUDGET

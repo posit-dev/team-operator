@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -66,6 +67,8 @@ func LoadSchemes(scheme *runtime.Scheme) {
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	// keycloak
 	utilruntime.Must(v2alpha1.AddToScheme(scheme))
+	// gateway API
+	utilruntime.Must(gatewayv1.Install(scheme))
 }
 
 func init() {
