@@ -52,8 +52,18 @@ func runFakeFlightdeckReconciler(t *testing.T, namespace, name string, fd *v1bet
 	fakeClient := localtest.FakeTestEnv{}
 	cli, scheme, log := fakeClient.Start(loadSchemes)
 
-	// Create the Flightdeck resource first
-	err := cli.Create(context.TODO(), fd)
+	// Create the Site that Flightdeck references
+	site := &v1beta1.Site{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fd.Spec.SiteName,
+			Namespace: namespace,
+		},
+	}
+	err := cli.Create(context.TODO(), site)
+	require.NoError(t, err)
+
+	// Create the Flightdeck resource
+	err = cli.Create(context.TODO(), fd)
 	require.NoError(t, err)
 
 	rec := FlightdeckReconciler{

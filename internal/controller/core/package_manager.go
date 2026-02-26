@@ -67,8 +67,7 @@ func (r *PackageManagerReconciler) cleanupDeployedService(ctx context.Context, r
 
 	// Also delete HTTPRoute if it exists (Gateway API path)
 	if err := internal.DeleteHTTPRoute(ctx, r.Client, l, pm.ComponentName(), req.Namespace); err != nil {
-		l.Error(err, "Error deleting HTTPRoute (may not exist)")
-		// Don't fail if HTTPRoute doesn't exist
+		return err
 	}
 
 	// SERVICE
@@ -652,6 +651,12 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 		// NEW PATH: Gateway API - Create HTTPRoute
 		l.Info("Using Gateway API (HTTPRoute) for routing")
 
+		// Delete legacy Ingress if present (mode migration: Ingress -> HTTPRoute)
+		ingressKey := client.ObjectKey{Name: pm.ComponentName(), Namespace: req.Namespace}
+		if err := internal.BasicDelete(ctx, r, l, ingressKey, &networkingv1.Ingress{}); err != nil {
+			return ctrl.Result{}, err
+		}
+
 		if err := internal.EnsureHTTPRoute(
 			ctx,
 			r.Client,
@@ -678,6 +683,11 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 	} else {
 		// LEGACY PATH: Ingress (unchanged)
 		l.Info("Using legacy Ingress for routing")
+
+		// Delete HTTPRoute if present (mode migration: HTTPRoute -> Ingress)
+		if err := internal.DeleteHTTPRoute(ctx, r.Client, l, pm.ComponentName(), req.Namespace); err != nil {
+			return ctrl.Result{}, err
+		}
 
 		ing_annotations := map[string]string{}
 		for k, v := range pm.Spec.IngressAnnotations {

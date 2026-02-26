@@ -782,6 +782,12 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 		// NEW PATH: Gateway API - Create HTTPRoute
 		l.Info("Using Gateway API (HTTPRoute) for routing")
 
+		// Delete legacy Ingress if present (mode migration: Ingress -> HTTPRoute)
+		ingressKey := client.ObjectKey{Name: c.ComponentName(), Namespace: req.Namespace}
+		if err := internal.BasicDelete(ctx, r, l, ingressKey, &networkingv1.Ingress{}); err != nil {
+			return ctrl.Result{}, err
+		}
+
 		if err := internal.EnsureHTTPRoute(
 			ctx,
 			r.Client,
@@ -811,6 +817,11 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 	} else {
 		// LEGACY PATH: Ingress + Traefik Middleware (unchanged)
 		l.Info("Using legacy Ingress for routing")
+
+		// Delete HTTPRoute if present (mode migration: HTTPRoute -> Ingress)
+		if err := internal.DeleteHTTPRoute(ctx, r.Client, l, c.ComponentName(), req.Namespace); err != nil {
+			return ctrl.Result{}, err
+		}
 
 		if err := r.deployTraefikMiddlewares(ctx, req, c); err != nil {
 			l.Error(err, "Error deploying traefik middlewares")
@@ -933,8 +944,7 @@ func (r *ConnectReconciler) suspendDeployedService(ctx context.Context, req ctrl
 		return ctrl.Result{}, err
 	}
 	if err := internal.DeleteHTTPRoute(ctx, r.Client, l, c.ComponentName(), req.Namespace); err != nil {
-		l.Error(err, "Error deleting HTTPRoute (may not exist)")
-		// Don't fail if HTTPRoute doesn't exist
+		return ctrl.Result{}, err
 	}
 
 	if err := internal.BasicDelete(ctx, r, l, key, &corev1.Service{}); err != nil {
@@ -969,8 +979,7 @@ func (r *ConnectReconciler) cleanupDeployedService(ctx context.Context, req ctrl
 
 	// Also delete HTTPRoute if it exists (Gateway API path)
 	if err := internal.DeleteHTTPRoute(ctx, r.Client, l, c.ComponentName(), req.Namespace); err != nil {
-		l.Error(err, "Error deleting HTTPRoute (may not exist)")
-		// Don't fail if HTTPRoute doesn't exist
+		return err
 	}
 
 	// SERVICE

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/pkg/errors"
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
@@ -939,6 +940,17 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 		// NEW PATH: Gateway API - Create HTTPRoute
 		l.Info("Using Gateway API (HTTPRoute) for routing")
 
+		// Delete legacy Ingress if present (mode migration: Ingress -> HTTPRoute)
+		ingressKey := client.ObjectKey{Name: w.ComponentName(), Namespace: req.Namespace}
+		if err := internal.BasicDelete(ctx, r, l, ingressKey, &networkingv1.Ingress{}); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		// Validate ParentUrl to prevent CSP header injection
+		if strings.ContainsAny(w.Spec.ParentUrl, ";\n\r") {
+			return ctrl.Result{}, fmt.Errorf("invalid ParentUrl: contains forbidden characters")
+		}
+
 		if err := internal.EnsureHTTPRoute(
 			ctx,
 			r.Client,
@@ -971,6 +983,11 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 	} else {
 		// LEGACY PATH: Ingress + Traefik Middleware (unchanged)
 		l.Info("Using legacy Ingress for routing")
+
+		// Delete HTTPRoute if present (mode migration: HTTPRoute -> Ingress)
+		if err := internal.DeleteHTTPRoute(ctx, r.Client, l, w.ComponentName(), req.Namespace); err != nil {
+			return ctrl.Result{}, err
+		}
 
 		if err := r.deployTraefikMiddlewares(ctx, req, w); err != nil {
 			l.Error(err, "Error deploying traefik middlewares")
@@ -1081,8 +1098,7 @@ func (r *WorkbenchReconciler) cleanupDeployedService(ctx context.Context, req ct
 
 	// Delete HTTPRoute if it exists (Gateway API path)
 	if err := internal.DeleteHTTPRoute(ctx, r.Client, l, w.ComponentName(), req.Namespace); err != nil {
-		l.Error(err, "Error deleting HTTPRoute (may not exist)")
-		// Don't fail if HTTPRoute doesn't exist
+		return err
 	}
 
 	return nil

@@ -24,6 +24,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 )
 
@@ -39,6 +40,8 @@ func loadSchemes(scheme *runtime.Scheme) {
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	// keycloak
 	utilruntime.Must(v2alpha1.AddToScheme(scheme))
+	// gateway API
+	utilruntime.Must(gatewayv1.Install(scheme))
 }
 
 // runFakeSiteReconciler uses a FakeClient to run the SiteReconciler in a "fake" capacity. (i.e. no actual server API)

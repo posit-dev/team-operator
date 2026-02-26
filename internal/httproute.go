@@ -32,7 +32,7 @@ func EnsureHTTPRoute(
 	c client.Client,
 	scheme *runtime.Scheme,
 	l logr.Logger,
-	owner metav1.Object,
+	owner client.Object,
 	cfg HTTPRouteConfig,
 ) error {
 	l = l.WithValues(
@@ -49,7 +49,7 @@ func EnsureHTTPRoute(
 	}
 
 	l.Info("Creating or updating HTTPRoute")
-	_, err := CreateOrUpdateResource(ctx, c, scheme, l, route, owner.(client.Object), func() error {
+	_, err := CreateOrUpdateResource(ctx, c, scheme, l, route, owner, func() error {
 		// Set labels (required by CreateOrUpdateResource)
 		route.Labels = cfg.Labels
 
