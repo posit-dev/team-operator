@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	secretstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 )
 
@@ -286,54 +287,55 @@ func (r *PackageManagerReconciler) createStorageClassPVC(ctx context.Context, pm
 
 	pvcName := fmt.Sprintf("%s-storage", pm.ComponentName())
 
+	storageClassName := pm.Spec.PackageManagerStorageClassName
+
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pvcName,
 			Namespace: pm.Namespace,
-			Annotations: map[string]string{
-				// nfs-subdir-external-provisioner uses this annotation to determine
-				// the subdirectory path on the NFS volume
-				"nfs.io/storage-path": fmt.Sprintf("%s/package-manager", pm.Name),
-			},
-			Labels:          pm.KubernetesLabels(),
-			OwnerReferences: pm.OwnerReferencesForChildren(),
 		},
-		Spec: corev1.PersistentVolumeClaimSpec{
-			StorageClassName: &pm.Spec.PackageManagerStorageClassName,
-			AccessModes: []corev1.PersistentVolumeAccessMode{
-				corev1.ReadWriteMany,
-			},
-			Resources: corev1.VolumeResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: defaultPmVolumeSize,
+	}
+
+	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, pvc, func() error {
+		// nfs.io/storage-path is maintained on every reconcile so provisioner
+		// can restore it if removed from the cluster.
+		if pvc.Annotations == nil {
+			pvc.Annotations = make(map[string]string)
+		}
+		pvc.Annotations["nfs.io/storage-path"] = fmt.Sprintf("%s/package-manager", pm.Name)
+
+		// Only set immutable fields on creation; StorageClassName cannot be
+		// changed after a PVC is provisioned.
+		if pvc.CreationTimestamp.IsZero() {
+			pvc.Labels = pm.KubernetesLabels()
+			pvc.Spec = corev1.PersistentVolumeClaimSpec{
+				StorageClassName: &storageClassName,
+				AccessModes: []corev1.PersistentVolumeAccessMode{
+					corev1.ReadWriteMany,
 				},
-			},
-		},
-	}
-
-	if err := r.Create(ctx, pvc); err != nil {
-		if !apierrors.IsAlreadyExists(err) {
-			l.Error(err, "Failed to create Package Manager PersistentVolumeClaim via StorageClass", "pvc", pvcName)
-			return err
-		}
-
-		// PVC already exists, update it if needed
-		existingPVC := &corev1.PersistentVolumeClaim{}
-		if err := r.Get(ctx, client.ObjectKey{Name: pvcName, Namespace: pm.Namespace}, existingPVC); err != nil {
-			l.Error(err, "Failed to get existing Package Manager PersistentVolumeClaim", "pvc", pvcName)
-			return err
-		}
-
-		if existingPVC.Spec.StorageClassName == nil || *existingPVC.Spec.StorageClassName != pm.Spec.PackageManagerStorageClassName {
-			existingPVC.Spec.StorageClassName = &pm.Spec.PackageManagerStorageClassName
-			if err := r.Update(ctx, existingPVC); err != nil {
-				l.Error(err, "Failed to update Package Manager PersistentVolumeClaim", "pvc", pvcName)
-				return err
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: defaultPmVolumeSize,
+					},
+				},
 			}
+		} else if pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName != storageClassName {
+			l.Info("StorageClassName cannot be changed on an existing PVC; ignoring",
+				"pvc", pvcName,
+				"current", *pvc.Spec.StorageClassName,
+				"requested", storageClassName,
+			)
 		}
+
+		return controllerutil.SetControllerReference(pm, pvc, r.Scheme)
+	})
+
+	if err != nil {
+		l.Error(err, "Failed to create or update Package Manager PersistentVolumeClaim via StorageClass", "pvc", pvcName)
+		return err
 	}
 
-	l.Info("Successfully created/updated Package Manager PVC", "pvc", pvcName, "storageClass", pm.Spec.PackageManagerStorageClassName)
+	l.Info("Successfully created/updated Package Manager PVC", "pvc", pvcName, "storageClass", storageClassName)
 	return nil
 }
 

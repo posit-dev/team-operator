@@ -262,16 +262,17 @@ func (r *SiteReconciler) provisionVolumeViaPVC(ctx context.Context, site *v1beta
 		ObjectMeta: v12.ObjectMeta{
 			Name:      name,
 			Namespace: site.Namespace,
-			Annotations: map[string]string{
-				// nfs-subdir-external-provisioner uses this annotation to determine
-				// the subdirectory path on the NFS volume. This preserves existing
-				// data paths (e.g., "mysite/connect") and creates new ones identically.
-				"nfs.io/storage-path": fmt.Sprintf("%s/%s", site.Name, subdir),
-			},
 		},
 	}
 
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, pvc, func() error {
+		// nfs.io/storage-path is maintained on every reconcile so provisioner
+		// can restore it if removed from the cluster.
+		if pvc.Annotations == nil {
+			pvc.Annotations = make(map[string]string)
+		}
+		pvc.Annotations["nfs.io/storage-path"] = fmt.Sprintf("%s/%s", site.Name, subdir)
+
 		// Only set immutable fields on creation
 		if pvc.CreationTimestamp.IsZero() {
 			pvc.Labels = site.KubernetesLabels()

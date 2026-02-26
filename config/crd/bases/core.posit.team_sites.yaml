@@ -627,6 +627,7 @@ spec:
                   NFSEgressCIDR allows NFS (port 2049) egress to this CIDR in network policies.
                   Set this when workbench sessions need to mount external NFS/EFS volumes.
                   When set, this field takes precedence over EFSEnabled/VPCCIDR for network policy configuration.
+                pattern: ^(\d{1,3}\.){3}\d{1,3}\/(\d|[1-2]\d|3[0-2])$
                 type: string
               packageManager:
                 description: PackageManager contains Posit Package Manager configuration

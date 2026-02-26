@@ -138,6 +138,7 @@ type SiteSpec struct {
 	// Set this when workbench sessions need to mount external NFS/EFS volumes.
 	// When set, this field takes precedence over EFSEnabled/VPCCIDR for network policy configuration.
 	// +optional
+	// +kubebuilder:validation:Pattern=`^(\d{1,3}\.){3}\d{1,3}\/(\d|[1-2]\d|3[0-2])$`
 	NFSEgressCIDR string `json:"nfsEgressCIDR,omitempty"`
 
 	// EnableFQDNHealthChecks controls whether Grafana Alloy generates FQDN-based health check targets
