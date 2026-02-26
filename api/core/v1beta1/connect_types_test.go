@@ -583,3 +583,52 @@ func TestConnect_SiteSessionSecretProviderClass(t *testing.T) {
 	// TODO: note that a secret like "secret://site-session//a-key" would look for "/a-key" in the secret
 	//   this is currently untested behavior, but should be courtesy of TrimPrefix
 }
+
+func TestConnect_PodTemplateLabels_CustomLabelsMerged(t *testing.T) {
+	con := &Connect{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "test-connect",
+			Namespace: "posit-team",
+		},
+		Spec: ConnectSpec{
+			PodLabels: map[string]string{
+				"custom-label": "custom-value",
+			},
+		},
+	}
+
+	labels := con.PodTemplateLabels()
+
+	// Custom labels should be present
+	require.Equal(t, "custom-value", labels["custom-label"])
+
+	// Operator-managed labels should also be present
+	require.Contains(t, labels, ManagedByLabelKey)
+	require.Contains(t, labels, KubernetesNameLabelKey)
+}
+
+func TestConnect_PodTemplateLabels_OperatorLabelsCannotBeOverridden(t *testing.T) {
+	con := &Connect{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "test-connect",
+			Namespace: "posit-team",
+		},
+		Spec: ConnectSpec{
+			PodLabels: map[string]string{
+				// Try to override operator-managed labels
+				ManagedByLabelKey:      "malicious-operator",
+				KubernetesNameLabelKey: "fake-name",
+				"custom-label":         "custom-value",
+			},
+		},
+	}
+
+	labels := con.PodTemplateLabels()
+
+	// Custom labels should be present
+	require.Equal(t, "custom-value", labels["custom-label"])
+
+	// Operator-managed labels should NOT be overridden by PodLabels
+	require.Equal(t, ManagedByLabelValue, labels[ManagedByLabelKey])
+	require.Equal(t, "connect", labels[KubernetesNameLabelKey])
+}

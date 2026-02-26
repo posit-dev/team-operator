@@ -239,3 +239,52 @@ func TestWorkbench_InitializeNonRootSupervisorConfig(t *testing.T) {
 	assert.Contains(t, cfgProg.SupervisordIniConfig.Programs["something.conf"], "some-launcher-program")
 	assert.NotContains(t, cfgProg.SupervisordIniConfig.Programs["something.conf"], "rstudio-launcher")
 }
+
+func TestWorkbench_PodTemplateLabels_CustomLabelsMerged(t *testing.T) {
+	w := &Workbench{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "test-workbench",
+			Namespace: "posit-team",
+		},
+		Spec: WorkbenchSpec{
+			PodLabels: map[string]string{
+				"custom-label": "custom-value",
+			},
+		},
+	}
+
+	labels := w.PodTemplateLabels()
+
+	// Custom labels should be present
+	require.Equal(t, "custom-value", labels["custom-label"])
+
+	// Operator-managed labels should also be present
+	require.Contains(t, labels, ManagedByLabelKey)
+	require.Contains(t, labels, KubernetesNameLabelKey)
+}
+
+func TestWorkbench_PodTemplateLabels_OperatorLabelsCannotBeOverridden(t *testing.T) {
+	w := &Workbench{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "test-workbench",
+			Namespace: "posit-team",
+		},
+		Spec: WorkbenchSpec{
+			PodLabels: map[string]string{
+				// Try to override operator-managed labels
+				ManagedByLabelKey:      "malicious-operator",
+				KubernetesNameLabelKey: "fake-name",
+				"custom-label":         "custom-value",
+			},
+		},
+	}
+
+	labels := w.PodTemplateLabels()
+
+	// Custom labels should be present
+	require.Equal(t, "custom-value", labels["custom-label"])
+
+	// Operator-managed labels should NOT be overridden by PodLabels
+	require.Equal(t, ManagedByLabelValue, labels[ManagedByLabelKey])
+	require.Equal(t, "workbench", labels[KubernetesNameLabelKey])
+}

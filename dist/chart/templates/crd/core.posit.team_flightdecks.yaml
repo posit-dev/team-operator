@@ -98,6 +98,15 @@ spec:
                 description: LogLevel sets the logging verbosity (debug, info, warn,
                   error)
                 type: string
+              podLabels:
+                additionalProperties:
+                  type: string
+                description: |-
+                  PodLabels are applied to all pods created for this product.
+                  The operator treats these as opaque key-value pairs.
+                  Operator-managed selector labels take precedence; user-supplied labels that collide
+                  with selector labels are silently ignored.
+                type: object
               port:
                 default: 8080
                 description: Port is the port that the container will listen on
@@ -107,6 +116,28 @@ spec:
                 default: 1
                 description: Replicas is the number of Flightdeck pods to run
                 type: integer
+              serviceAccountAnnotations:
+                additionalProperties:
+                  type: string
+                description: |-
+                  ServiceAccountAnnotations are applied to this product's ServiceAccount.
+                  The operator treats these as opaque key-value pairs.
+                  WARNING: Setting this field replaces all operator-managed ServiceAccount annotations,
+                  including the IRSA annotation (eks.amazonaws.com/role-arn). To retain IRSA alongside
+                  custom annotations, include the role ARN annotation explicitly in this map.
+                type: object
+              serviceAccountName:
+                description: |-
+                  ServiceAccountName overrides the default ServiceAccount name.
+                  Defaults to {metadata.name}-flightdeck if not set.
+                  WARNING: This field is immutable after creation. Changing it will create a new
+                  ServiceAccount but leave the old one (and its RoleBinding) orphaned in the cluster.
+                  Once set, this field cannot be unset. To revert to the operator-managed service
+                  account you must delete and recreate the resource.
+                type: string
+                x-kubernetes-validations:
+                - message: serviceAccountName is immutable once set
+                  rule: oldSelf == '' || self == oldSelf
               siteName:
                 description: SiteName is the name of the Site that owns this Flightdeck
                   instance

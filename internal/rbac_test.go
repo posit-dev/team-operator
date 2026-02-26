@@ -99,18 +99,18 @@ func TestGenerateRbac_CustomServiceAccountName(t *testing.T) {
 	require.Equal(t, "my-custom-sa", rb.Subjects[0].Name)
 }
 
-// TestGenerateRbac_CustomAnnotationsSkipsIRSA verifies custom annotations are used and IRSA is skipped.
-func TestGenerateRbac_CustomAnnotationsSkipsIRSA(t *testing.T) {
+// TestGenerateRbac_CustomAnnotationsMergedWithIRSA verifies custom annotations are merged with IRSA.
+func TestGenerateRbac_CustomAnnotationsMergedWithIRSA(t *testing.T) {
 	ctx := context.Background()
 	s := newRbacTestScheme(t)
 	c := newRbacTestClient(t, s)
 
 	connect := newTestConnect("mysite", "posit-team")
-	// Set AWS fields that would normally trigger IRSA
+	// Set AWS fields that trigger IRSA
 	connect.Spec.AwsAccountId = "123456789012"
 	connect.Spec.ClusterDate = "20240101"
 	connect.Spec.WorkloadCompoundName = "compound-name"
-	// Provide explicit custom annotations — IRSA fallback must be skipped
+	// Provide explicit custom annotations — IRSA should still be computed and merged
 	connect.Spec.ServiceAccountAnnotations = map[string]string{
 		"custom-key": "custom-value",
 	}
@@ -122,7 +122,37 @@ func TestGenerateRbac_CustomAnnotationsSkipsIRSA(t *testing.T) {
 	sa := &v1.ServiceAccount{}
 	err = c.Get(ctx, client.ObjectKey{Name: connect.ComponentName(), Namespace: "posit-team"}, sa)
 	require.NoError(t, err)
-	require.Equal(t, map[string]string{"custom-key": "custom-value"}, sa.Annotations)
+	// Both IRSA and custom annotations should be present
+	require.Contains(t, sa.Annotations, "eks.amazonaws.com/role-arn")
+	require.Contains(t, sa.Annotations["eks.amazonaws.com/role-arn"], "123456789012")
+	require.Equal(t, "custom-value", sa.Annotations["custom-key"])
+}
+
+// TestGenerateRbac_CustomAnnotationsOverrideIRSA verifies custom annotations can override IRSA.
+func TestGenerateRbac_CustomAnnotationsOverrideIRSA(t *testing.T) {
+	ctx := context.Background()
+	s := newRbacTestScheme(t)
+	c := newRbacTestClient(t, s)
+
+	connect := newTestConnect("mysite", "posit-team")
+	// Set AWS fields that trigger IRSA
+	connect.Spec.AwsAccountId = "123456789012"
+	connect.Spec.ClusterDate = "20240101"
+	connect.Spec.WorkloadCompoundName = "compound-name"
+	// Explicitly override the IRSA annotation
+	connect.Spec.ServiceAccountAnnotations = map[string]string{
+		"eks.amazonaws.com/role-arn": "arn:aws:iam::999999999999:role/custom-role",
+	}
+	req := newTestRequest("posit-team", "mysite")
+
+	err := internal.GenerateRbac(ctx, c, s, req, connect)
+	require.NoError(t, err)
+
+	sa := &v1.ServiceAccount{}
+	err = c.Get(ctx, client.ObjectKey{Name: connect.ComponentName(), Namespace: "posit-team"}, sa)
+	require.NoError(t, err)
+	// Custom annotation should win over IRSA
+	require.Equal(t, "arn:aws:iam::999999999999:role/custom-role", sa.Annotations["eks.amazonaws.com/role-arn"])
 }
 
 // TestGenerateRbac_NilAnnotationsUsesIRSAFallback verifies IRSA annotation is added when

@@ -102,14 +102,28 @@ func (r *FlightdeckReconciler) reconcileFlightdeckResources(
 	l.V(2).Info("prepared image pull secrets", "count", len(pullSecrets))
 
 	// SERVICE ACCOUNT
+	// Always compute IRSA annotations when AwsAccountId is set
+	annotations := internal.AddIamAnnotation("", req.Namespace, "", map[string]string{}, fd)
+	// Merge custom annotations on top (custom wins on conflict)
+	for k, v := range fd.Spec.ServiceAccountAnnotations {
+		annotations[k] = v
+	}
+
+	// Determine ServiceAccount name
+	saName := fd.ComponentName()
+	if fd.Spec.ServiceAccountName != "" {
+		saName = fd.Spec.ServiceAccountName
+	}
+
 	serviceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fd.ComponentName(),
+			Name:      saName,
 			Namespace: req.Namespace,
 		},
 	}
 	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, serviceAccount, fd, func() error {
 		serviceAccount.Labels = fd.KubernetesLabels()
+		serviceAccount.Annotations = annotations
 		serviceAccount.ImagePullSecrets = pullSecrets
 		return nil
 	}); err != nil {
@@ -155,7 +169,7 @@ func (r *FlightdeckReconciler) reconcileFlightdeckResources(
 		roleBinding.Subjects = []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
-				Name:      fd.ComponentName(),
+				Name:      saName,
 				Namespace: req.Namespace,
 			},
 		}
@@ -261,7 +275,12 @@ func (r *FlightdeckReconciler) reconcileFlightdeckResources(
 				Spec: corev1.PodSpec{
 					EnableServiceLinks: ptr.To(false),
 					ImagePullSecrets:   pullSecrets,
-					ServiceAccountName: fd.ComponentName(),
+					ServiceAccountName: func() string {
+						if fd.Spec.ServiceAccountName != "" {
+							return fd.Spec.ServiceAccountName
+						}
+						return fd.ComponentName()
+					}(),
 					Containers: []corev1.Container{
 						{
 							Name:            "flightdeck",

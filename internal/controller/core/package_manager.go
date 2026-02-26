@@ -477,7 +477,12 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 					EnableServiceLinks: ptr.To(false),
 					NodeSelector:       pm.Spec.NodeSelector,
 					ImagePullSecrets:   pullSecrets,
-					ServiceAccountName: pm.ComponentName(),
+					ServiceAccountName: func() string {
+						if pm.Spec.ServiceAccountName != "" {
+							return pm.Spec.ServiceAccountName
+						}
+						return pm.ComponentName()
+					}(),
 					Containers: product.ConcatLists([]corev1.Container{
 						{
 							Name:            "rspm",

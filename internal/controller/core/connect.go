@@ -580,7 +580,11 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 
 	maybeServiceAccountName := ""
 	if c.Spec.OffHostExecution {
-		maybeServiceAccountName = c.ComponentName()
+		if c.Spec.ServiceAccountName != "" {
+			maybeServiceAccountName = c.Spec.ServiceAccountName
+		} else {
+			maybeServiceAccountName = c.ComponentName()
+		}
 	}
 
 	volumeFactory := c.CreateVolumeFactory(configCopy)

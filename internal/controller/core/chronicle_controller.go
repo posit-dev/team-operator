@@ -170,11 +170,22 @@ func (r *ChronicleReconciler) ensureDeployedService(ctx context.Context, req ctr
 
 	// SERVICE ACCOUNT
 
+	// Always compute IRSA annotations when AwsAccountId is set
 	annotations := internal.AddIamAnnotation("", req.Namespace, c.SiteName(), map[string]string{}, c)
+	// Merge custom annotations on top (custom wins on conflict)
+	for k, v := range c.Spec.ServiceAccountAnnotations {
+		annotations[k] = v
+	}
+
+	// Determine ServiceAccount name
+	saName := c.ComponentName()
+	if c.Spec.ServiceAccountName != "" {
+		saName = c.Spec.ServiceAccountName
+	}
 
 	serviceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      c.ComponentName(),
+			Name:      saName,
 			Namespace: req.Namespace,
 		},
 	}
@@ -239,7 +250,12 @@ func (r *ChronicleReconciler) ensureDeployedService(ctx context.Context, req ctr
 					EnableServiceLinks: ptr.To(false),
 					NodeSelector:       c.Spec.NodeSelector,
 					ImagePullSecrets:   pullSecrets,
-					ServiceAccountName: c.ComponentName(),
+					ServiceAccountName: func() string {
+						if c.Spec.ServiceAccountName != "" {
+							return c.Spec.ServiceAccountName
+						}
+						return c.ComponentName()
+					}(),
 					Containers: []corev1.Container{
 						{
 							Name:    "chronicle-server",

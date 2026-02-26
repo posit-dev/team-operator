@@ -164,3 +164,23 @@ func (f *Flightdeck) GetServiceAccountAnnotations() map[string]string {
 func (f *Flightdeck) GetPodLabels() map[string]string {
 	return f.Spec.PodLabels
 }
+
+func (f *Flightdeck) GetAwsAccountId() string {
+	return f.Spec.AwsAccountId
+}
+
+func (f *Flightdeck) GetClusterDate() string {
+	return f.Spec.ClusterDate
+}
+
+func (f *Flightdeck) WorkloadCompoundName() string {
+	return f.Spec.WorkloadCompoundName
+}
+
+func (f *Flightdeck) ShortName() string {
+	return "flightdeck"
+}
+
+func (f *Flightdeck) SiteName() string {
+	return f.Spec.SiteName
+}

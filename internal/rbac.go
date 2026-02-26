@@ -59,20 +59,14 @@ func GenerateRbac(ctx context.Context, c client.Client, scheme *runtime.Scheme, 
 	// Start with empty annotations map
 	annotations := map[string]string{}
 
-	// If the product provides custom annotations, use them (even if empty).
-	// Only fall back to the IRSA annotation when the provider returns nil,
-	// so that an explicitly empty map suppresses IRSA rather than triggering it.
+	// Always compute IRSA annotations when AwsAccountId is set
+	annotations = AddIamAnnotation("", req.Namespace, "", annotations, p)
+
+	// Merge custom annotations on top (custom wins on conflict)
 	if annotationsProvider, ok := p.(ServiceAccountAnnotationsProvider); ok {
-		customAnnotations := annotationsProvider.GetServiceAccountAnnotations()
-		if customAnnotations != nil {
-			for k, v := range customAnnotations {
-				annotations[k] = v
-			}
-		} else {
-			annotations = AddIamAnnotation("", req.Namespace, "", annotations, p)
+		for k, v := range annotationsProvider.GetServiceAccountAnnotations() {
+			annotations[k] = v
 		}
-	} else {
-		annotations = AddIamAnnotation("", req.Namespace, "", annotations, p)
 	}
 
 	// Determine ServiceAccount name

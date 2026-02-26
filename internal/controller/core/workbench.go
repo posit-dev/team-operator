@@ -739,7 +739,11 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 
 	maybeServiceAccountName := ""
 	if w.Spec.OffHostExecution {
-		maybeServiceAccountName = w.ComponentName()
+		if w.Spec.ServiceAccountName != "" {
+			maybeServiceAccountName = w.Spec.ServiceAccountName
+		} else {
+			maybeServiceAccountName = w.ComponentName()
+		}
 	}
 
 	workbenchVolumeFactory := w.CreateVolumeFactory(configCopy)
