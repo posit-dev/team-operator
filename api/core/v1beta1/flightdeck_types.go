@@ -75,13 +75,16 @@ type FlightdeckSpec struct {
 
 	// ServiceAccountAnnotations are applied to this product's ServiceAccount.
 	// The operator treats these as opaque key-value pairs.
+	// WARNING: Setting this field replaces all operator-managed ServiceAccount annotations,
+	// including the IRSA annotation (eks.amazonaws.com/role-arn). To retain IRSA alongside
+	// custom annotations, include the role ARN annotation explicitly in this map.
 	// +optional
 	ServiceAccountAnnotations map[string]string `json:"serviceAccountAnnotations,omitempty"`
 
 	// PodLabels are applied to all pods created for this product.
 	// The operator treats these as opaque key-value pairs.
-	// WARNING: User-supplied labels can overwrite operator-managed selector labels (e.g. "app"),
-	// potentially breaking Service traffic routing.
+	// Operator-managed selector labels take precedence; user-supplied labels that collide
+	// with selector labels are silently ignored.
 	// +optional
 	PodLabels map[string]string `json:"podLabels,omitempty"`
 }

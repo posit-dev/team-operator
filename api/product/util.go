@@ -68,7 +68,9 @@ func LabelMerge(m1 map[string]string, m2 map[string]string) map[string]string {
 		m1 = map[string]string{}
 	}
 	for k, v := range m2 {
-		m1[k] = v
+		if _, exists := m1[k]; !exists {
+			m1[k] = v
+		}
 	}
 	return m1
 }
