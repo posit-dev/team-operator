@@ -272,6 +272,9 @@ func TestDeleteHTTPRoute(t *testing.T) {
 	})
 
 	t.Run("tolerates CRD not installed (NoKindMatchError)", func(t *testing.T) {
+		// DeleteHTTPRoute calls Delete directly without a prior Get, so the
+		// noKindMatchClient wrapper is guaranteed to fire even though no route
+		// is pre-created in the embedded fake client.
 		fakeClient := &noKindMatchClient{
 			Client: fake.NewClientBuilder().WithScheme(scheme).Build(),
 		}
