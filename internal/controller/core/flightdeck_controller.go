@@ -383,16 +383,19 @@ func (r *FlightdeckReconciler) reconcileFlightdeckResources(
 			r.Scheme,
 			l,
 			fd,
-			fd.ComponentName(),
-			req.Namespace,
-			site.Spec.GatewayRef.Name,
-			site.Spec.GatewayRef.Namespace,
-			fd.Spec.Domain,
-			fd.ComponentName(),
-			80,
-			nil, // no special request headers for Flightdeck
-			nil, // no response headers
-			false, // no session persistence needed
+			internal.HTTPRouteConfig{
+				Name:               fd.ComponentName(),
+				Namespace:          req.Namespace,
+				GatewayName:        site.Spec.GatewayRef.Name,
+				GatewayNS:          site.Spec.GatewayRef.Namespace,
+				Hostname:           fd.Spec.Domain,
+				BackendService:     fd.ComponentName(),
+				BackendPort:        80,
+				Labels:             fd.KubernetesLabels(),
+				RequestHeaders:     nil,
+				ResponseHeaders:    nil,
+				SessionPersistence: false,
+			},
 		); err != nil {
 			l.Error(err, "Error creating HTTPRoute")
 			return ctrl.Result{}, err

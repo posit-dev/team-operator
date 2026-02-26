@@ -594,6 +594,21 @@ spec:
                     description: Replicas is the number of Flightdeck pods to run
                     type: integer
                 type: object
+              gatewayRef:
+                description: |-
+                  GatewayRef references the Gateway resource created by infrastructure.
+                  When set, the operator creates HTTPRoutes instead of Ingress resources.
+                properties:
+                  name:
+                    description: Name of the Gateway resource
+                    type: string
+                  namespace:
+                    description: Namespace of the Gateway resource
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
               imagePullSecrets:
                 description: |-
                   ImagePullSecrets is a set of image pull secrets to use for all image pulls. These names / secrets

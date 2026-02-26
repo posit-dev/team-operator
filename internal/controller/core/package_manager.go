@@ -658,16 +658,19 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 			r.Scheme,
 			l,
 			pm,
-			pm.ComponentName(),
-			req.Namespace,
-			site.Spec.GatewayRef.Name,
-			site.Spec.GatewayRef.Namespace,
-			pm.Spec.Url,
-			pm.ComponentName(),
-			80,
-			nil, // no special request headers for Package Manager
-			nil, // no response headers
-			false, // no session persistence needed
+			internal.HTTPRouteConfig{
+				Name:               pm.ComponentName(),
+				Namespace:          req.Namespace,
+				GatewayName:        site.Spec.GatewayRef.Name,
+				GatewayNS:          site.Spec.GatewayRef.Namespace,
+				Hostname:           pm.Spec.Url,
+				BackendService:     pm.ComponentName(),
+				BackendPort:        80,
+				Labels:             pm.KubernetesLabels(),
+				RequestHeaders:     nil,
+				ResponseHeaders:    nil,
+				SessionPersistence: false,
+			},
 		); err != nil {
 			l.Error(err, "Error creating HTTPRoute")
 			return ctrl.Result{}, err

@@ -782,27 +782,28 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 		// NEW PATH: Gateway API - Create HTTPRoute
 		l.Info("Using Gateway API (HTTPRoute) for routing")
 
-		requestHeaders := map[string]string{
-			"X-Forwarded-Port":  "443",
-			"X-Forwarded-Proto": "https",
-		}
-
 		if err := internal.EnsureHTTPRoute(
 			ctx,
 			r.Client,
 			r.Scheme,
 			l,
 			c,
-			c.ComponentName(),
-			req.Namespace,
-			site.Spec.GatewayRef.Name,
-			site.Spec.GatewayRef.Namespace,
-			c.Spec.Url,
-			c.ComponentName(),
-			80,
-			requestHeaders,
-			nil, // no response headers for Connect
-			true, // use session persistence for sticky sessions
+			internal.HTTPRouteConfig{
+				Name:           c.ComponentName(),
+				Namespace:      req.Namespace,
+				GatewayName:    site.Spec.GatewayRef.Name,
+				GatewayNS:      site.Spec.GatewayRef.Namespace,
+				Hostname:       c.Spec.Url,
+				BackendService: c.ComponentName(),
+				BackendPort:    80,
+				Labels:         c.KubernetesLabels(),
+				RequestHeaders: map[string]string{
+					"X-Forwarded-Port":  "443",
+					"X-Forwarded-Proto": "https",
+				},
+				ResponseHeaders:    nil,
+				SessionPersistence: true,
+			},
 		); err != nil {
 			l.Error(err, "Error creating HTTPRoute")
 			return ctrl.Result{}, err

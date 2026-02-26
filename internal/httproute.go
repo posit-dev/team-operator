@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/go-logr/logr"
 	"github.com/rstudio/goex/ptr"
@@ -12,6 +13,19 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
+// HTTPRouteConfig contains all parameters for creating/updating an HTTPRoute
+type HTTPRouteConfig struct {
+	Name, Namespace        string
+	GatewayName, GatewayNS string
+	Hostname               string
+	BackendService         string
+	BackendPort            int32
+	Labels                 map[string]string
+	RequestHeaders         map[string]string
+	ResponseHeaders        map[string]string
+	SessionPersistence     bool
+}
+
 // EnsureHTTPRoute creates or updates an HTTPRoute for a product
 func EnsureHTTPRoute(
 	ctx context.Context,
@@ -19,65 +33,75 @@ func EnsureHTTPRoute(
 	scheme *runtime.Scheme,
 	l logr.Logger,
 	owner metav1.Object,
-	name, namespace string,
-	gatewayName, gatewayNamespace string,
-	hostname string,
-	backendService string,
-	backendPort int32,
-	requestHeaders map[string]string,
-	responseHeaders map[string]string,
-	useSessionPersistence bool,
+	cfg HTTPRouteConfig,
 ) error {
 	l = l.WithValues(
 		"function", "EnsureHTTPRoute",
-		"name", name,
-		"namespace", namespace,
+		"name", cfg.Name,
+		"namespace", cfg.Namespace,
 	)
 
 	route := &gatewayv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			Name:      cfg.Name,
+			Namespace: cfg.Namespace,
 		},
 	}
 
 	l.Info("Creating or updating HTTPRoute")
 	_, err := CreateOrUpdateResource(ctx, c, scheme, l, route, owner.(client.Object), func() error {
+		// Set labels (required by CreateOrUpdateResource)
+		route.Labels = cfg.Labels
+
 		// Build filters for header manipulation
 		filters := []gatewayv1.HTTPRouteFilter{}
 
-		if len(requestHeaders) > 0 {
+		if len(cfg.RequestHeaders) > 0 {
 			headerFilter := gatewayv1.HTTPRouteFilter{
 				Type: gatewayv1.HTTPRouteFilterRequestHeaderModifier,
 				RequestHeaderModifier: &gatewayv1.HTTPHeaderFilter{
 					Set: []gatewayv1.HTTPHeader{},
 				},
 			}
-			for key, value := range requestHeaders {
+			// Sort keys for deterministic ordering
+			keys := make([]string, 0, len(cfg.RequestHeaders))
+			for k := range cfg.RequestHeaders {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+
+			for _, key := range keys {
 				headerFilter.RequestHeaderModifier.Set = append(
 					headerFilter.RequestHeaderModifier.Set,
 					gatewayv1.HTTPHeader{
 						Name:  gatewayv1.HTTPHeaderName(key),
-						Value: value,
+						Value: cfg.RequestHeaders[key],
 					},
 				)
 			}
 			filters = append(filters, headerFilter)
 		}
 
-		if len(responseHeaders) > 0 {
+		if len(cfg.ResponseHeaders) > 0 {
 			headerFilter := gatewayv1.HTTPRouteFilter{
 				Type: gatewayv1.HTTPRouteFilterResponseHeaderModifier,
 				ResponseHeaderModifier: &gatewayv1.HTTPHeaderFilter{
 					Set: []gatewayv1.HTTPHeader{},
 				},
 			}
-			for key, value := range responseHeaders {
+			// Sort keys for deterministic ordering
+			keys := make([]string, 0, len(cfg.ResponseHeaders))
+			for k := range cfg.ResponseHeaders {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+
+			for _, key := range keys {
 				headerFilter.ResponseHeaderModifier.Set = append(
 					headerFilter.ResponseHeaderModifier.Set,
 					gatewayv1.HTTPHeader{
 						Name:  gatewayv1.HTTPHeaderName(key),
-						Value: value,
+						Value: cfg.ResponseHeaders[key],
 					},
 				)
 			}
@@ -95,8 +119,8 @@ func EnsureHTTPRoute(
 			BackendRefs: []gatewayv1.HTTPBackendRef{{
 				BackendRef: gatewayv1.BackendRef{
 					BackendObjectReference: gatewayv1.BackendObjectReference{
-						Name: gatewayv1.ObjectName(backendService),
-						Port: (*gatewayv1.PortNumber)(&backendPort),
+						Name: gatewayv1.ObjectName(cfg.BackendService),
+						Port: (*gatewayv1.PortNumber)(&cfg.BackendPort),
 					},
 				},
 			}},
@@ -104,9 +128,9 @@ func EnsureHTTPRoute(
 		}
 
 		// Add session persistence if needed
-		if useSessionPersistence {
+		if cfg.SessionPersistence {
 			rule.SessionPersistence = &gatewayv1.SessionPersistence{
-				SessionName: ptr.To(name),
+				SessionName: ptr.To(cfg.Name),
 				Type:        ptr.To(gatewayv1.CookieBasedSessionPersistence),
 			}
 		}
@@ -114,11 +138,11 @@ func EnsureHTTPRoute(
 		route.Spec = gatewayv1.HTTPRouteSpec{
 			CommonRouteSpec: gatewayv1.CommonRouteSpec{
 				ParentRefs: []gatewayv1.ParentReference{{
-					Name:      gatewayv1.ObjectName(gatewayName),
-					Namespace: (*gatewayv1.Namespace)(&gatewayNamespace),
+					Name:      gatewayv1.ObjectName(cfg.GatewayName),
+					Namespace: (*gatewayv1.Namespace)(&cfg.GatewayNS),
 				}},
 			},
-			Hostnames: []gatewayv1.Hostname{gatewayv1.Hostname(hostname)},
+			Hostnames: []gatewayv1.Hostname{gatewayv1.Hostname(cfg.Hostname)},
 			Rules:     []gatewayv1.HTTPRouteRule{rule},
 		}
 

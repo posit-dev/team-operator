@@ -939,32 +939,31 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 		// NEW PATH: Gateway API - Create HTTPRoute
 		l.Info("Using Gateway API (HTTPRoute) for routing")
 
-		requestHeaders := map[string]string{
-			"X-Forwarded-Port":  "443",
-			"X-Forwarded-Proto": "https",
-			"X-Rstudio-Request": fmt.Sprintf("https://%s", w.Spec.Url),
-		}
-
-		responseHeaders := map[string]string{
-			"Content-Security-Policy": fmt.Sprintf("frame-ancestors %s 'self';", w.Spec.ParentUrl),
-		}
-
 		if err := internal.EnsureHTTPRoute(
 			ctx,
 			r.Client,
 			r.Scheme,
 			l,
 			w,
-			w.ComponentName(),
-			req.Namespace,
-			site.Spec.GatewayRef.Name,
-			site.Spec.GatewayRef.Namespace,
-			w.Spec.Url,
-			w.ComponentName(),
-			80,
-			requestHeaders,
-			responseHeaders,
-			true, // use session persistence for sticky sessions
+			internal.HTTPRouteConfig{
+				Name:           w.ComponentName(),
+				Namespace:      req.Namespace,
+				GatewayName:    site.Spec.GatewayRef.Name,
+				GatewayNS:      site.Spec.GatewayRef.Namespace,
+				Hostname:       w.Spec.Url,
+				BackendService: w.ComponentName(),
+				BackendPort:    80,
+				Labels:         w.KubernetesLabels(),
+				RequestHeaders: map[string]string{
+					"X-Forwarded-Port":  "443",
+					"X-Forwarded-Proto": "https",
+					"X-Rstudio-Request": fmt.Sprintf("https://%s", w.Spec.Url),
+				},
+				ResponseHeaders: map[string]string{
+					"Content-Security-Policy": fmt.Sprintf("frame-ancestors %s 'self';", w.Spec.ParentUrl),
+				},
+				SessionPersistence: true,
+			},
 		); err != nil {
 			l.Error(err, "Error creating HTTPRoute")
 			return ctrl.Result{}, err
