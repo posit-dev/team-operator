@@ -127,14 +127,19 @@ func TestWorkbenchSessionNetworkPolicy_NFSCIDRTakesPrecedence(t *testing.T) {
 	// NFSEgressCIDR takes precedence: only one NFS rule is added
 	assert.Len(t, policy.Spec.Egress, baseEgressRuleCount+1, "only one NFS egress rule expected when both paths configured")
 
-	// The rule must use NFSEgressCIDR, not VPCCIDR
-	var nfsCIDR string
+	// The rule must use NFSEgressCIDR, not VPCCIDR, and restrict to port 2049
+	var nfsCIDRs []string
+	var nfsPort int32
 	for _, rule := range policy.Spec.Egress {
 		for _, peer := range rule.To {
 			if peer.IPBlock != nil && (peer.IPBlock.CIDR == "10.0.0.0/8" || peer.IPBlock.CIDR == "172.16.0.0/12") {
-				nfsCIDR = peer.IPBlock.CIDR
+				nfsCIDRs = append(nfsCIDRs, peer.IPBlock.CIDR)
+				if len(rule.Ports) > 0 && rule.Ports[0].Port != nil {
+					nfsPort = rule.Ports[0].Port.IntVal
+				}
 			}
 		}
 	}
-	assert.Equal(t, "10.0.0.0/8", nfsCIDR, "NFSEgressCIDR must take precedence over VPCCIDR")
+	assert.Equal(t, []string{"10.0.0.0/8"}, nfsCIDRs, "NFSEgressCIDR must take precedence over VPCCIDR")
+	assert.Equal(t, int32(2049), nfsPort, "NFS egress rule must restrict to port 2049")
 }
