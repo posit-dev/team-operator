@@ -129,10 +129,40 @@ func TestCreateStorageClassPVC_LabelsMergedOnUpdate(t *testing.T) {
 // TestCreateStorageClassPVC_MissingStorageClass verifies that an error is returned
 // when PackageManagerStorageClassName is empty.
 func TestCreateStorageClassPVC_MissingStorageClass(t *testing.T) {
-	ctx, r, _ := initPackageManagerReconciler(t)
+	ctx, r, cli := initPackageManagerReconciler(t)
 	ns := "posit-team"
 	pm := makePackageManager(ns, "mysite", "")
 
+	require.NoError(t, cli.Create(ctx, pm))
+
 	err := r.createStorageClassPVC(ctx, pm)
 	assert.Error(t, err)
+}
+
+// TestCreateStorageClassPVC_StorageClassMismatch verifies that when an existing PVC
+// has a different StorageClassName, no error is returned and the PVC's StorageClass
+// is left unchanged (the mismatch is logged as a warning).
+func TestCreateStorageClassPVC_StorageClassMismatch(t *testing.T) {
+	ctx, r, cli := initPackageManagerReconciler(t)
+	ns := "posit-team"
+	pm := makePackageManager(ns, "mysite", "sc-a")
+
+	require.NoError(t, cli.Create(ctx, pm))
+
+	// First reconcile – creates the PVC with StorageClass "sc-a"
+	require.NoError(t, r.createStorageClassPVC(ctx, pm))
+
+	// Change the requested StorageClass to "sc-b"
+	pm.Spec.PackageManagerStorageClassName = "sc-b"
+
+	// Second reconcile – should log a warning and return no error
+	err := r.createStorageClassPVC(ctx, pm)
+	require.NoError(t, err)
+
+	// PVC's StorageClass must remain "sc-a"
+	pvc := &corev1.PersistentVolumeClaim{}
+	pvcName := pm.ComponentName() + "-storage"
+	require.NoError(t, cli.Get(ctx, types.NamespacedName{Namespace: ns, Name: pvcName}, pvc))
+	require.NotNil(t, pvc.Spec.StorageClassName)
+	assert.Equal(t, "sc-a", *pvc.Spec.StorageClassName, "StorageClass must not change on existing PVC")
 }

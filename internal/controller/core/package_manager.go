@@ -316,7 +316,7 @@ func (r *PackageManagerReconciler) createStorageClassPVC(ctx context.Context, pm
 
 		// Only set immutable fields on creation; StorageClassName cannot be
 		// changed after a PVC is provisioned.
-		if pvc.CreationTimestamp.IsZero() {
+		if pvc.ResourceVersion == "" {
 			pvc.Spec = corev1.PersistentVolumeClaimSpec{
 				StorageClassName: &storageClassName,
 				AccessModes: []corev1.PersistentVolumeAccessMode{
