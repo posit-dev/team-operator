@@ -481,3 +481,38 @@ func TestWorkbenchReconciler_InvalidParentUrl_ReturnsError(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid ParentUrl")
 }
+
+func TestWorkbenchReconciler_SiteWatchMap(t *testing.T) {
+	ctx := context.Background()
+	ns := "test-ns"
+
+	fakeEnv := localtest.FakeTestEnv{}
+	cli, cliScheme, cliLog := fakeEnv.Start(loadSchemes)
+	r := &WorkbenchReconciler{
+		Client: cli,
+		Scheme: cliScheme,
+		Log:    cliLog,
+	}
+
+	// Create a Workbench that matches the Site name
+	require.NoError(t, cli.Create(ctx, &positcov1beta1.Workbench{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-site", Namespace: ns},
+	}))
+	// Create a Workbench with a different name (should not be enqueued)
+	require.NoError(t, cli.Create(ctx, &positcov1beta1.Workbench{
+		ObjectMeta: metav1.ObjectMeta{Name: "other-site", Namespace: ns},
+	}))
+	// Create a Workbench in a different namespace (should not be enqueued)
+	require.NoError(t, cli.Create(ctx, &positcov1beta1.Workbench{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-site", Namespace: "other-ns"},
+	}))
+
+	site := &positcov1beta1.Site{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-site", Namespace: ns},
+	}
+	requests := r.siteToWorkbenchRequests(ctx, site)
+
+	require.Len(t, requests, 1)
+	assert.Equal(t, "my-site", requests[0].Name)
+	assert.Equal(t, ns, requests[0].Namespace)
+}

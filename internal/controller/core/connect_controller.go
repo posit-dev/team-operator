@@ -96,22 +96,25 @@ func (r *ConnectReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&positcov1beta1.Connect{}).
 		Watches(
 			&positcov1beta1.Site{},
-			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []ctrl.Request {
-				var list positcov1beta1.ConnectList
-				if err := mgr.GetClient().List(ctx, &list, client.InNamespace(obj.GetNamespace())); err != nil {
-					return nil
-				}
-				var requests []ctrl.Request
-				for _, c := range list.Items {
-					if c.SiteName() == obj.GetName() {
-						requests = append(requests, ctrl.Request{NamespacedName: client.ObjectKey{
-							Name:      c.Name,
-							Namespace: c.Namespace,
-						}})
-					}
-				}
-				return requests
-			}),
+			handler.EnqueueRequestsFromMapFunc(r.siteToConnectRequests),
 		).
 		Complete(r)
+}
+
+func (r *ConnectReconciler) siteToConnectRequests(ctx context.Context, obj client.Object) []ctrl.Request {
+	var list positcov1beta1.ConnectList
+	if err := r.List(ctx, &list, client.InNamespace(obj.GetNamespace())); err != nil {
+		log.FromContext(ctx).Error(err, "failed to list Connects for Site watch")
+		return nil
+	}
+	var requests []ctrl.Request
+	for _, c := range list.Items {
+		if c.SiteName() == obj.GetName() {
+			requests = append(requests, ctrl.Request{NamespacedName: client.ObjectKey{
+				Name:      c.Name,
+				Namespace: c.Namespace,
+			}})
+		}
+	}
+	return requests
 }

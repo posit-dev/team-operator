@@ -84,24 +84,27 @@ func (r *PackageManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&positcov1beta1.PackageManager{}).
 		Watches(
 			&positcov1beta1.Site{},
-			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []ctrl.Request {
-				var list positcov1beta1.PackageManagerList
-				if err := mgr.GetClient().List(ctx, &list, client.InNamespace(obj.GetNamespace())); err != nil {
-					return nil
-				}
-				var requests []ctrl.Request
-				for _, pm := range list.Items {
-					if pm.SiteName() == obj.GetName() {
-						requests = append(requests, ctrl.Request{NamespacedName: client.ObjectKey{
-							Name:      pm.Name,
-							Namespace: pm.Namespace,
-						}})
-					}
-				}
-				return requests
-			}),
+			handler.EnqueueRequestsFromMapFunc(r.siteToPackageManagerRequests),
 		).
 		Complete(r)
+}
+
+func (r *PackageManagerReconciler) siteToPackageManagerRequests(ctx context.Context, obj client.Object) []ctrl.Request {
+	var list positcov1beta1.PackageManagerList
+	if err := r.List(ctx, &list, client.InNamespace(obj.GetNamespace())); err != nil {
+		log.FromContext(ctx).Error(err, "failed to list PackageManagers for Site watch")
+		return nil
+	}
+	var requests []ctrl.Request
+	for _, pm := range list.Items {
+		if pm.SiteName() == obj.GetName() {
+			requests = append(requests, ctrl.Request{NamespacedName: client.ObjectKey{
+				Name:      pm.Name,
+				Namespace: pm.Namespace,
+			}})
+		}
+	}
+	return requests
 }
 
 func (r *PackageManagerReconciler) GetLogger(ctx context.Context) logr.Logger {

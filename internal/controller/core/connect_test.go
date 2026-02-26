@@ -650,3 +650,38 @@ func TestConnectReconciler_GatewayRef_CreatesHTTPRoute(t *testing.T) {
 	assert.Equal(t, "connect.example.com", string(route.Spec.Hostnames[0]))
 	assert.Equal(t, "test-gateway", string(route.Spec.ParentRefs[0].Name))
 }
+
+func TestConnectReconciler_SiteWatchMap(t *testing.T) {
+	ctx := context.Background()
+	ns := "test-ns"
+
+	fakeEnv := localtest.FakeTestEnv{}
+	cli, cliScheme, cliLog := fakeEnv.Start(loadSchemes)
+	r := &ConnectReconciler{
+		Client: cli,
+		Scheme: cliScheme,
+		Log:    cliLog,
+	}
+
+	// Create a Connect that matches the Site name
+	require.NoError(t, cli.Create(ctx, &positcov1beta1.Connect{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-site", Namespace: ns},
+	}))
+	// Create a Connect with a different name (should not be enqueued)
+	require.NoError(t, cli.Create(ctx, &positcov1beta1.Connect{
+		ObjectMeta: metav1.ObjectMeta{Name: "other-site", Namespace: ns},
+	}))
+	// Create a Connect in a different namespace (should not be enqueued)
+	require.NoError(t, cli.Create(ctx, &positcov1beta1.Connect{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-site", Namespace: "other-ns"},
+	}))
+
+	site := &positcov1beta1.Site{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-site", Namespace: ns},
+	}
+	requests := r.siteToConnectRequests(ctx, site)
+
+	require.Len(t, requests, 1)
+	assert.Equal(t, "my-site", requests[0].Name)
+	assert.Equal(t, ns, requests[0].Namespace)
+}

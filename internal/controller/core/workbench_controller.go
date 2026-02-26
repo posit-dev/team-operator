@@ -91,24 +91,27 @@ func (r *WorkbenchReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&positcov1beta1.Workbench{}).
 		Watches(
 			&positcov1beta1.Site{},
-			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []ctrl.Request {
-				var list positcov1beta1.WorkbenchList
-				if err := mgr.GetClient().List(ctx, &list, client.InNamespace(obj.GetNamespace())); err != nil {
-					return nil
-				}
-				var requests []ctrl.Request
-				for _, w := range list.Items {
-					if w.SiteName() == obj.GetName() {
-						requests = append(requests, ctrl.Request{NamespacedName: client.ObjectKey{
-							Name:      w.Name,
-							Namespace: w.Namespace,
-						}})
-					}
-				}
-				return requests
-			}),
+			handler.EnqueueRequestsFromMapFunc(r.siteToWorkbenchRequests),
 		).
 		Complete(r)
+}
+
+func (r *WorkbenchReconciler) siteToWorkbenchRequests(ctx context.Context, obj client.Object) []ctrl.Request {
+	var list positcov1beta1.WorkbenchList
+	if err := r.List(ctx, &list, client.InNamespace(obj.GetNamespace())); err != nil {
+		log.FromContext(ctx).Error(err, "failed to list Workbenches for Site watch")
+		return nil
+	}
+	var requests []ctrl.Request
+	for _, w := range list.Items {
+		if w.SiteName() == obj.GetName() {
+			requests = append(requests, ctrl.Request{NamespacedName: client.ObjectKey{
+				Name:      w.Name,
+				Namespace: w.Namespace,
+			}})
+		}
+	}
+	return requests
 }
 
 func (r *WorkbenchReconciler) GetLogger(ctx context.Context) logr.Logger {
