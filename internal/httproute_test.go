@@ -151,6 +151,66 @@ func TestEnsureHTTPRoute(t *testing.T) {
 		assert.Equal(t, "Z-Header", string(reqFilter.RequestHeaderModifier.Set[2].Name))
 	})
 
+	t.Run("empty GatewayName returns error", func(t *testing.T) {
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+		ctx := context.Background()
+		logger := logr.Discard()
+
+		owner := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-owner",
+				Namespace: "test-ns",
+				UID:       "test-uid",
+			},
+		}
+
+		cfg := HTTPRouteConfig{
+			Name:           "test-route-empty-gw",
+			Namespace:      "test-ns",
+			GatewayName:    "",
+			GatewayNS:      "gateway-ns",
+			Hostname:       "example.com",
+			BackendService: "test-service",
+			BackendPort:    80,
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "team-operator",
+			},
+		}
+
+		err := EnsureHTTPRoute(ctx, fakeClient, scheme, logger, owner, cfg)
+		assert.ErrorContains(t, err, "GatewayRef name and namespace must not be empty")
+	})
+
+	t.Run("empty GatewayNS returns error", func(t *testing.T) {
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+		ctx := context.Background()
+		logger := logr.Discard()
+
+		owner := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-owner",
+				Namespace: "test-ns",
+				UID:       "test-uid",
+			},
+		}
+
+		cfg := HTTPRouteConfig{
+			Name:           "test-route-empty-ns",
+			Namespace:      "test-ns",
+			GatewayName:    "test-gateway",
+			GatewayNS:      "",
+			Hostname:       "example.com",
+			BackendService: "test-service",
+			BackendPort:    80,
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "team-operator",
+			},
+		}
+
+		err := EnsureHTTPRoute(ctx, fakeClient, scheme, logger, owner, cfg)
+		assert.ErrorContains(t, err, "GatewayRef name and namespace must not be empty")
+	})
+
 	t.Run("nil Labels is rejected because managed-by label is required", func(t *testing.T) {
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 		ctx := context.Background()

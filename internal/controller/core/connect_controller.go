@@ -97,10 +97,20 @@ func (r *ConnectReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(
 			&positcov1beta1.Site{},
 			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []ctrl.Request {
-				return []ctrl.Request{{NamespacedName: client.ObjectKey{
-					Name:      obj.GetName(),
-					Namespace: obj.GetNamespace(),
-				}}}
+				var list positcov1beta1.ConnectList
+				if err := mgr.GetClient().List(ctx, &list, client.InNamespace(obj.GetNamespace())); err != nil {
+					return nil
+				}
+				var requests []ctrl.Request
+				for _, c := range list.Items {
+					if c.SiteName() == obj.GetName() {
+						requests = append(requests, ctrl.Request{NamespacedName: client.ObjectKey{
+							Name:      c.Name,
+							Namespace: c.Namespace,
+						}})
+					}
+				}
+				return requests
 			}),
 		).
 		Complete(r)

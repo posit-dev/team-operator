@@ -85,10 +85,20 @@ func (r *PackageManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(
 			&positcov1beta1.Site{},
 			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []ctrl.Request {
-				return []ctrl.Request{{NamespacedName: client.ObjectKey{
-					Name:      obj.GetName(),
-					Namespace: obj.GetNamespace(),
-				}}}
+				var list positcov1beta1.PackageManagerList
+				if err := mgr.GetClient().List(ctx, &list, client.InNamespace(obj.GetNamespace())); err != nil {
+					return nil
+				}
+				var requests []ctrl.Request
+				for _, pm := range list.Items {
+					if pm.SiteName() == obj.GetName() {
+						requests = append(requests, ctrl.Request{NamespacedName: client.ObjectKey{
+							Name:      pm.Name,
+							Namespace: pm.Namespace,
+						}})
+					}
+				}
+				return requests
 			}),
 		).
 		Complete(r)
