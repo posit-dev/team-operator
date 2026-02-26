@@ -18,7 +18,7 @@ import (
 
 func TestEnsureHTTPRoute(t *testing.T) {
 	scheme := runtime.NewScheme()
-	err := gatewayv1.AddToScheme(scheme)
+	err := gatewayv1.Install(scheme)
 	require.NoError(t, err)
 	err = positcov1beta1.AddToScheme(scheme)
 	require.NoError(t, err)
@@ -184,7 +184,7 @@ func TestEnsureHTTPRoute(t *testing.T) {
 
 func TestDeleteHTTPRoute(t *testing.T) {
 	scheme := runtime.NewScheme()
-	err := gatewayv1.AddToScheme(scheme)
+	err := gatewayv1.Install(scheme)
 	require.NoError(t, err)
 
 	t.Run("handles not-found gracefully", func(t *testing.T) {

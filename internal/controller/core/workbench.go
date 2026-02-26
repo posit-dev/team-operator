@@ -938,12 +938,17 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 
 	if site.Spec.GatewayRef != nil {
 		// NEW PATH: Gateway API - Create HTTPRoute
-		l.Info("Using Gateway API (HTTPRoute) for routing")
+		l.V(1).Info("Using Gateway API (HTTPRoute) for routing")
 
 		// Delete legacy Ingress if present (mode migration: Ingress -> HTTPRoute)
 		ingressKey := client.ObjectKey{Name: w.ComponentName(), Namespace: req.Namespace}
 		if err := internal.BasicDelete(ctx, r, l, ingressKey, &networkingv1.Ingress{}); err != nil {
 			return ctrl.Result{}, err
+		}
+
+		// Validate Url to prevent header injection via X-Rstudio-Request
+		if strings.ContainsAny(w.Spec.Url, ";\n\r \t") {
+			return ctrl.Result{}, fmt.Errorf("invalid Url: contains forbidden characters")
 		}
 
 		// Validate ParentUrl to prevent CSP header injection
@@ -984,7 +989,7 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 		}
 	} else {
 		// LEGACY PATH: Ingress + Traefik Middleware (unchanged)
-		l.Info("Using legacy Ingress for routing")
+		l.V(1).Info("Using legacy Ingress for routing")
 
 		// Delete HTTPRoute if present (mode migration: HTTPRoute -> Ingress)
 		if err := internal.DeleteHTTPRoute(ctx, r.Client, l, w.ComponentName(), req.Namespace); err != nil {
@@ -1097,6 +1102,16 @@ func (r *WorkbenchReconciler) cleanupDeployedService(ctx context.Context, req ct
 	)
 
 	l.Info("starting")
+
+	key := client.ObjectKey{
+		Name:      w.ComponentName(),
+		Namespace: req.Namespace,
+	}
+
+	// Delete Ingress if it exists (legacy path)
+	if err := internal.BasicDelete(ctx, r, l, key, &networkingv1.Ingress{}); err != nil {
+		return err
+	}
 
 	// Delete HTTPRoute if it exists (Gateway API path)
 	if err := internal.DeleteHTTPRoute(ctx, r.Client, l, w.ComponentName(), req.Namespace); err != nil {

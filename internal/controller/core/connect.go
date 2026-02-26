@@ -780,7 +780,7 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 
 	if site.Spec.GatewayRef != nil {
 		// NEW PATH: Gateway API - Create HTTPRoute
-		l.Info("Using Gateway API (HTTPRoute) for routing")
+		l.V(1).Info("Using Gateway API (HTTPRoute) for routing")
 
 		// Delete legacy Ingress if present (mode migration: Ingress -> HTTPRoute)
 		ingressKey := client.ObjectKey{Name: c.ComponentName(), Namespace: req.Namespace}
@@ -816,7 +816,7 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 		}
 	} else {
 		// LEGACY PATH: Ingress + Traefik Middleware (unchanged)
-		l.Info("Using legacy Ingress for routing")
+		l.V(1).Info("Using legacy Ingress for routing")
 
 		// Delete HTTPRoute if present (mode migration: HTTPRoute -> Ingress)
 		if err := internal.DeleteHTTPRoute(ctx, r.Client, l, c.ComponentName(), req.Namespace); err != nil {

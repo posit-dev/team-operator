@@ -129,6 +129,9 @@ func EnsureHTTPRoute(
 
 		// Add session persistence if needed
 		if cfg.SessionPersistence {
+			// Note: Secure/HttpOnly/SameSite cookie attributes are not set here because
+			// gatewayv1.SessionPersistence does not expose those fields — they are delegated
+			// to the gateway implementation. Behavior may vary across gateway providers.
 			rule.SessionPersistence = &gatewayv1.SessionPersistence{
 				SessionName: ptr.To(cfg.Name),
 				Type:        ptr.To(gatewayv1.CookieBasedSessionPersistence),

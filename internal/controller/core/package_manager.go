@@ -649,7 +649,7 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 
 	if site.Spec.GatewayRef != nil {
 		// NEW PATH: Gateway API - Create HTTPRoute
-		l.Info("Using Gateway API (HTTPRoute) for routing")
+		l.V(1).Info("Using Gateway API (HTTPRoute) for routing")
 
 		// Delete legacy Ingress if present (mode migration: Ingress -> HTTPRoute)
 		ingressKey := client.ObjectKey{Name: pm.ComponentName(), Namespace: req.Namespace}
@@ -682,16 +682,16 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 		}
 	} else {
 		// LEGACY PATH: Ingress (unchanged)
-		l.Info("Using legacy Ingress for routing")
+		l.V(1).Info("Using legacy Ingress for routing")
 
 		// Delete HTTPRoute if present (mode migration: HTTPRoute -> Ingress)
 		if err := internal.DeleteHTTPRoute(ctx, r.Client, l, pm.ComponentName(), req.Namespace); err != nil {
 			return ctrl.Result{}, err
 		}
 
-		ing_annotations := map[string]string{}
+		annotations := map[string]string{}
 		for k, v := range pm.Spec.IngressAnnotations {
-			ing_annotations[k] = v
+			annotations[k] = v
 		}
 
 		ingress := &networkingv1.Ingress{
@@ -702,7 +702,7 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 		}
 		if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, ingress, pm, func() error {
 			ingress.Labels = pm.KubernetesLabels()
-			ingress.Annotations = ing_annotations
+			ingress.Annotations = annotations
 			ingress.Spec = networkingv1.IngressSpec{
 				// IngressClass set below
 				// TODO: TLS configuration, perhaps

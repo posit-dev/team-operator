@@ -375,7 +375,7 @@ func (r *FlightdeckReconciler) reconcileFlightdeckResources(
 
 	if site.Spec.GatewayRef != nil {
 		// NEW PATH: Gateway API - Create HTTPRoute
-		l.Info("Using Gateway API (HTTPRoute) for routing")
+		l.V(1).Info("Using Gateway API (HTTPRoute) for routing")
 
 		// Delete legacy Ingress if present (mode migration: Ingress -> HTTPRoute)
 		ingressKey := client.ObjectKey{Name: fd.ComponentName(), Namespace: req.Namespace}
@@ -412,7 +412,7 @@ func (r *FlightdeckReconciler) reconcileFlightdeckResources(
 		)
 	} else {
 		// LEGACY PATH: Ingress (unchanged)
-		l.Info("Using legacy Ingress for routing")
+		l.V(1).Info("Using legacy Ingress for routing")
 
 		// Delete HTTPRoute if present (mode migration: HTTPRoute -> Ingress)
 		if err := internal.DeleteHTTPRoute(ctx, r.Client, l, fd.ComponentName(), req.Namespace); err != nil {
