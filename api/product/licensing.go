@@ -75,7 +75,7 @@ func LicenseVolumeDefsFromProduct(p Product) *VolumeDef {
 			Source: &v1.VolumeSource{
 				Secret: &v1.SecretVolumeSource{
 					SecretName:  p.GetSecretName(),
-					DefaultMode: ptr.To(MustParseOctal("0400")),
+					DefaultMode: ptr.To(MustParseOctal("0644")),
 				},
 			},
 			Mounts: []*VolumeMountDef{

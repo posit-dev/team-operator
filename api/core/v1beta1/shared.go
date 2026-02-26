@@ -69,7 +69,7 @@ type SecretConfig struct {
 	// Name is the name of a Kubernetes Secret in the same namespace.
 	// When set, the operator reads secrets from this K8s Secret instead of
 	// using the cloud secret backend (AWS Secrets Manager, Azure Key Vault).
-	// Name takes precedence over VaultName if both are set.
+	// Name takes precedence over Type/VaultName when set.
 	// +optional
 	Name string `json:"name,omitempty"`
 }

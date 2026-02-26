@@ -461,11 +461,12 @@ func (c *Connect) CreateSecretVolumeFactory(cfg *ConnectConfig) *product.SecretV
 	csiEntries := map[string]*product.CSIDef{}
 
 	// New path: SecretConfig.Name is set (K8s Secret reference)
-	if c.GetSecretName() != "" {
+	secretName := c.GetSecretName()
+	if secretName != "" {
 		vols["key-volume"] = &product.VolumeDef{
 			Source: &corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: c.GetSecretName(),
+					SecretName: secretName,
 					Items: []corev1.KeyToPath{
 						{Key: "pub-secret-key", Path: "secret.key"},
 					},
@@ -483,7 +484,7 @@ func (c *Connect) CreateSecretVolumeFactory(cfg *ConnectConfig) *product.SecretV
 					Name: "CONNECT_POSTGRES_PASSWORD",
 					ValueFrom: &corev1.EnvVarSource{
 						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{Name: c.GetSecretName()},
+							LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
 							Key:                  "pub-db-password",
 						},
 					},
@@ -492,7 +493,7 @@ func (c *Connect) CreateSecretVolumeFactory(cfg *ConnectConfig) *product.SecretV
 					Name: "CONNECT_POSTGRES_INSTRUMENTATIONPASSWORD",
 					ValueFrom: &corev1.EnvVarSource{
 						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{Name: c.GetSecretName()},
+							LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
 							Key:                  "pub-db-instrumentation-password",
 						},
 					},
@@ -504,7 +505,7 @@ func (c *Connect) CreateSecretVolumeFactory(cfg *ConnectConfig) *product.SecretV
 			vols["client-secret-volume"] = &product.VolumeDef{
 				Source: &corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: c.GetSecretName(),
+						SecretName: secretName,
 						Items: []corev1.KeyToPath{
 							{
 								Key:  "pub-client-secret",
@@ -526,7 +527,7 @@ func (c *Connect) CreateSecretVolumeFactory(cfg *ConnectConfig) *product.SecretV
 						Name: "CONNECT_SMTP_PASSWORD",
 						ValueFrom: &corev1.EnvVarSource{
 							SecretKeyRef: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{Name: c.GetSecretName()},
+								LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
 								Key:                  "smtp-password",
 							},
 						},
@@ -535,7 +536,7 @@ func (c *Connect) CreateSecretVolumeFactory(cfg *ConnectConfig) *product.SecretV
 						Name: "CONNECT_SMTP_USER",
 						ValueFrom: &corev1.EnvVarSource{
 							SecretKeyRef: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{Name: c.GetSecretName()},
+								LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
 								Key:                  "smtp-user",
 							},
 						},
@@ -544,7 +545,7 @@ func (c *Connect) CreateSecretVolumeFactory(cfg *ConnectConfig) *product.SecretV
 						Name: "CONNECT_SMTP_HOST",
 						ValueFrom: &corev1.EnvVarSource{
 							SecretKeyRef: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{Name: c.GetSecretName()},
+								LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
 								Key:                  "smtp-host",
 							},
 						},
@@ -553,7 +554,7 @@ func (c *Connect) CreateSecretVolumeFactory(cfg *ConnectConfig) *product.SecretV
 						Name: "CONNECT_SMTP_PORT",
 						ValueFrom: &corev1.EnvVarSource{
 							SecretKeyRef: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{Name: c.GetSecretName()},
+								LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
 								Key:                  "smtp-port",
 							},
 						},
@@ -562,6 +563,11 @@ func (c *Connect) CreateSecretVolumeFactory(cfg *ConnectConfig) *product.SecretV
 			}
 		}
 
+		return &product.SecretVolumeFactory{
+			Vols:       vols,
+			Env:        nil,
+			CsiEntries: csiEntries,
+		}
 	} else if c.GetSecretType() == product.SiteSecretAws {
 		// TODO: where does this key come from...?
 		secretName := fmt.Sprintf("%s-secret-key", c.ComponentName())

@@ -213,14 +213,15 @@ func (pm *PackageManager) CreateSecretVolumeFactory() *product.SecretVolumeFacto
 	csiEntries := map[string]*product.CSIDef{}
 
 	// New path: SecretConfig.Name is set (K8s Secret reference)
-	if pm.GetSecretName() != "" {
+	secretName := pm.GetSecretName()
+	if secretName != "" {
 		vols["key-volume"] = &product.VolumeDef{
 			Env: []v1.EnvVar{
 				{
 					Name: "PACKAGEMANAGER_SECRET_KEY",
 					ValueFrom: &v1.EnvVarSource{
 						SecretKeyRef: &v1.SecretKeySelector{
-							LocalObjectReference: v1.LocalObjectReference{Name: pm.GetSecretName()},
+							LocalObjectReference: v1.LocalObjectReference{Name: secretName},
 							Key:                  "pkg-secret-key",
 						},
 					},
@@ -233,7 +234,7 @@ func (pm *PackageManager) CreateSecretVolumeFactory() *product.SecretVolumeFacto
 					Name: "PACKAGEMANAGER_POSTGRES_PASSWORD",
 					ValueFrom: &v1.EnvVarSource{
 						SecretKeyRef: &v1.SecretKeySelector{
-							LocalObjectReference: v1.LocalObjectReference{Name: pm.GetSecretName()},
+							LocalObjectReference: v1.LocalObjectReference{Name: secretName},
 							Key:                  "pkg-db-password",
 						},
 					},
@@ -242,7 +243,7 @@ func (pm *PackageManager) CreateSecretVolumeFactory() *product.SecretVolumeFacto
 					Name: "PACKAGEMANAGER_POSTGRES_USAGEDATAPASSWORD",
 					ValueFrom: &v1.EnvVarSource{
 						SecretKeyRef: &v1.SecretKeySelector{
-							LocalObjectReference: v1.LocalObjectReference{Name: pm.GetSecretName()},
+							LocalObjectReference: v1.LocalObjectReference{Name: secretName},
 							Key:                  "pkg-db-usagedata-password",
 						},
 					},

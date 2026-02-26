@@ -751,7 +751,8 @@ func (w *Workbench) CreateSecretVolumeFactory() *product.SecretVolumeFactory {
 
 	// case-by-case volumes based on secret type...
 	// New path: SecretConfig.Name is set (K8s Secret reference)
-	if w.GetSecretName() != "" {
+	secretName := w.GetSecretName()
+	if secretName != "" {
 		keyToPaths := []corev1.KeyToPath{}
 		mountDefs := []*product.VolumeMountDef{}
 		if w.Spec.Auth.Type == AuthTypeOidc {
@@ -776,18 +777,18 @@ func (w *Workbench) CreateSecretVolumeFactory() *product.SecretVolumeFactory {
 					{Name: "SNOWFLAKE_CLIENT_ID", Value: w.Spec.Snowflake.ClientId},
 					{Name: "SNOWFLAKE_CLIENT_SECRET", ValueFrom: &corev1.EnvVarSource{
 						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{Name: w.GetSecretName()},
+							LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
 							Key:                  "snowflake-client-secret",
 						},
 					}},
 				},
 			}
 		}
-		if len(keyToPaths) > 0 || len(mountDefs) > 0 {
+		if len(keyToPaths) > 0 {
 			vols["secret-volume"] = &product.VolumeDef{
 				Source: &corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: w.GetSecretName(),
+						SecretName: secretName,
 						Items:      keyToPaths,
 					},
 				},
@@ -799,7 +800,7 @@ func (w *Workbench) CreateSecretVolumeFactory() *product.SecretVolumeFactory {
 			Env: []corev1.EnvVar{
 				{Name: "WORKBENCH_POSTGRES_PASSWORD", ValueFrom: &corev1.EnvVarSource{
 					SecretKeyRef: &corev1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{Name: w.GetSecretName()},
+						LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
 						Key:                  "dev-db-password",
 					},
 				}},

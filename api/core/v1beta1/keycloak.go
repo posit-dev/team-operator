@@ -93,6 +93,40 @@ func (k *Keycloak) SecretVolumeFactory() *product.SecretVolumeFactory {
 	csiAllSecrets := map[string]string{}
 	csiKubernetesSecrets := map[string]map[string]string{}
 
+	// New path: SecretConfig.Name is set (K8s Secret reference)
+	if k.Site.GetSecretName() != "" {
+		// Mount keycloak DB credentials from K8s Secret
+		vols["keycloak-db-volume"] = &product.VolumeDef{
+			Env: []corev1.EnvVar{
+				{
+					Name: "KC_DB_USERNAME",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: k.Site.GetSecretName()},
+							Key:                  "keycloak-db-user",
+						},
+					},
+				},
+				{
+					Name: "KC_DB_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: k.Site.GetSecretName()},
+							Key:                  "keycloak-db-password",
+						},
+					},
+				},
+			},
+		}
+		return &product.SecretVolumeFactory{
+			Vols:                 vols,
+			Env:                  []corev1.EnvVar{},
+			CsiEntries:           csiEntries,
+			CsiAllSecrets:        csiAllSecrets,
+			CsiKubernetesSecrets: csiKubernetesSecrets,
+		}
+	}
+
 	if k.Site.GetSecretType() == product.SiteSecretAws {
 		// we do not create a volume here because the volume factory should take care of it...
 		csiEntries["keycloak-csi-volume"] = &product.CSIDef{
