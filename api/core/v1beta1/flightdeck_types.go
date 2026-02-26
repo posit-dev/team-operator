@@ -68,6 +68,7 @@ type FlightdeckSpec struct {
 	// WARNING: This field is immutable after creation. Changing it will create a new
 	// ServiceAccount but leave the old one (and its RoleBinding) orphaned in the cluster.
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="oldSelf == '' || self == oldSelf",message="serviceAccountName is immutable once set"
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
 	// ServiceAccountAnnotations are applied to this product's ServiceAccount.
