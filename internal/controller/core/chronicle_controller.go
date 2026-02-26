@@ -208,6 +208,10 @@ func (r *ChronicleReconciler) ensureDeployedService(ctx context.Context, req ctr
 
 	// STATEFULSET
 
+	if dropped := product.DroppedLabels(c.KubernetesLabels(), c.Spec.PodLabels); len(dropped) > 0 {
+		l.Info("user-supplied PodLabels were dropped: keys conflict with operator-managed labels", "dropped", dropped)
+	}
+
 	var pullSecrets []corev1.LocalObjectReference
 	for _, s := range c.Spec.ImagePullSecrets {
 		pullSecrets = append(pullSecrets, corev1.LocalObjectReference{Name: s})

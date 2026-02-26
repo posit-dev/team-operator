@@ -122,8 +122,7 @@ func TestGenerateRbac_CustomAnnotationsSkipsIRSA(t *testing.T) {
 	sa := &v1.ServiceAccount{}
 	err = c.Get(ctx, client.ObjectKey{Name: connect.ComponentName(), Namespace: "posit-team"}, sa)
 	require.NoError(t, err)
-	require.Equal(t, "custom-value", sa.Annotations["custom-key"])
-	require.NotContains(t, sa.Annotations, "eks.amazonaws.com/role-arn")
+	require.Equal(t, map[string]string{"custom-key": "custom-value"}, sa.Annotations)
 }
 
 // TestGenerateRbac_NilAnnotationsUsesIRSAFallback verifies IRSA annotation is added when

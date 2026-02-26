@@ -876,6 +876,9 @@ func (c *Connect) SessionConfigTemplateData(ctx context.Context) string {
 			if sess.Service.Type == "" {
 				sess.Service.Type = defaultSessionConfig.Service.Type
 			}
+			// User session labels (m1) take precedence over operator defaults (m2) here —
+			// the opposite of PodTemplateLabels where operator wins. This is intentional:
+			// session config is user-controlled and defaults are merely fallbacks.
 			sess.Service.Labels = product.LabelMerge(sess.Service.Labels, defaultSessionConfig.Service.Labels)
 		}
 
@@ -899,7 +902,7 @@ func (c *Connect) SessionConfigTemplateData(ctx context.Context) string {
 				sess.Pod.InitContainers,
 				defaultSessionConfig.Pod.InitContainers,
 			)
-			// and labels
+			// and labels (user wins over operator defaults — see comment above)
 			sess.Pod.Labels = product.LabelMerge(sess.Pod.Labels, defaultSessionConfig.Pod.Labels)
 		}
 
@@ -907,7 +910,7 @@ func (c *Connect) SessionConfigTemplateData(ctx context.Context) string {
 		if sess.Job == nil {
 			sess.Job = defaultSessionConfig.Job
 		} else {
-			// fill in labels
+			// fill in labels (user wins over operator defaults — see comment above)
 			sess.Job.Labels = product.LabelMerge(sess.Job.Labels, defaultSessionConfig.Job.Labels)
 		}
 

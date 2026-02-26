@@ -75,6 +75,18 @@ func LabelMerge(m1 map[string]string, m2 map[string]string) map[string]string {
 	return m1
 }
 
+// DroppedLabels returns keys from m2 that are silently dropped because they
+// conflict with keys already present in m1 (i.e. m1 wins in LabelMerge).
+func DroppedLabels(m1 map[string]string, m2 map[string]string) []string {
+	var dropped []string
+	for k := range m2 {
+		if _, exists := m1[k]; exists {
+			dropped = append(dropped, k)
+		}
+	}
+	return dropped
+}
+
 func ComputeSha256(in map[string]string) (string, error) {
 	h := sha256.New()
 

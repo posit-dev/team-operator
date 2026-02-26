@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
+	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/rstudio/goex/ptr"
 	appsv1 "k8s.io/api/apps/v1"
@@ -237,6 +238,9 @@ func (r *FlightdeckReconciler) reconcileFlightdeckResources(
 	}
 
 	// DEPLOYMENT
+	if dropped := product.DroppedLabels(fd.KubernetesLabels(), fd.Spec.PodLabels); len(dropped) > 0 {
+		l.Info("user-supplied PodLabels were dropped: keys conflict with operator-managed labels", "dropped", dropped)
+	}
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fd.ComponentName(),

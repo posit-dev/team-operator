@@ -766,6 +766,9 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 			Namespace: req.Namespace,
 		},
 	}
+	if dropped := product.DroppedLabels(w.KubernetesLabels(), w.Spec.PodLabels); len(dropped) > 0 {
+		l.Info("user-supplied PodLabels were dropped: keys conflict with operator-managed labels", "dropped", dropped)
+	}
 	// TODO: deployment will _definitely_ need custom CreateOrUpdate work at some point
 	//   i.e. to handle version upgrades, etc. We could add an Updater() callback, or a
 	//   CustomComparator... or just decide to inline the logic
