@@ -112,6 +112,8 @@ type WorkbenchSpec struct {
 
 	// ServiceAccountName overrides the default ServiceAccount name.
 	// Defaults to {site.metadata.name}-workbench if not set.
+	// WARNING: This field is immutable after creation. Changing it will create a new
+	// ServiceAccount but leave the old one (and its RoleBinding) orphaned in the cluster.
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
@@ -122,6 +124,8 @@ type WorkbenchSpec struct {
 
 	// PodLabels are applied to all pods created for this product.
 	// The operator treats these as opaque key-value pairs.
+	// WARNING: User-supplied labels can overwrite operator-managed selector labels (e.g. "app"),
+	// potentially breaking Service traffic routing.
 	// +optional
 	PodLabels map[string]string `json:"podLabels,omitempty"`
 }

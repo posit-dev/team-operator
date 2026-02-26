@@ -7,6 +7,7 @@ package v1beta1
 import (
 	"fmt"
 
+	"github.com/posit-dev/team-operator/api/product"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -64,6 +65,8 @@ type FlightdeckSpec struct {
 
 	// ServiceAccountName overrides the default ServiceAccount name.
 	// Defaults to {metadata.name}-flightdeck if not set.
+	// WARNING: This field is immutable after creation. Changing it will create a new
+	// ServiceAccount but leave the old one (and its RoleBinding) orphaned in the cluster.
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
@@ -74,6 +77,8 @@ type FlightdeckSpec struct {
 
 	// PodLabels are applied to all pods created for this product.
 	// The operator treats these as opaque key-value pairs.
+	// WARNING: User-supplied labels can overwrite operator-managed selector labels (e.g. "app"),
+	// potentially breaking Service traffic routing.
 	// +optional
 	PodLabels map[string]string `json:"podLabels,omitempty"`
 }
@@ -134,11 +139,7 @@ func (f *Flightdeck) KubernetesLabels() map[string]string {
 
 // PodTemplateLabels returns labels for pod templates, including custom PodLabels if set
 func (f *Flightdeck) PodTemplateLabels() map[string]string {
-	labels := f.KubernetesLabels()
-	for k, v := range f.Spec.PodLabels {
-		labels[k] = v
-	}
-	return labels
+	return product.LabelMerge(f.KubernetesLabels(), f.Spec.PodLabels)
 }
 
 // ComponentName returns the component name for this Flightdeck instance
