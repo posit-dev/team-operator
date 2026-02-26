@@ -26,6 +26,7 @@ func TestPackageManagerReconciler_SiteWatchMap(t *testing.T) {
 		Log:    cliLog,
 	}
 
+	// PackageManager.SiteName() returns pm.Name (the metadata name), so no Spec is needed.
 	// Create a PackageManager that matches the Site name
 	require.NoError(t, cli.Create(ctx, &positcov1beta1.PackageManager{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-site", Namespace: ns},

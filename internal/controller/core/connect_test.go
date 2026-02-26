@@ -663,6 +663,7 @@ func TestConnectReconciler_SiteWatchMap(t *testing.T) {
 		Log:    cliLog,
 	}
 
+	// Connect.SiteName() returns c.Name (the metadata name), so no Spec is needed.
 	// Create a Connect that matches the Site name
 	require.NoError(t, cli.Create(ctx, &positcov1beta1.Connect{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-site", Namespace: ns},

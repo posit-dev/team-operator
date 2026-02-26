@@ -494,6 +494,7 @@ func TestWorkbenchReconciler_SiteWatchMap(t *testing.T) {
 		Log:    cliLog,
 	}
 
+	// Workbench.SiteName() returns w.Name (the metadata name), so no Spec is needed.
 	// Create a Workbench that matches the Site name
 	require.NoError(t, cli.Create(ctx, &positcov1beta1.Workbench{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-site", Namespace: ns},
