@@ -263,7 +263,9 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 
 	// SECRETS
 
-	if pm.Spec.Secret.Type == product.SiteSecretAws {
+	// Only create SecretProviderClass if using legacy AWS secret backend
+	// (not when using new K8s Secret reference via SecretConfig.Name)
+	if pm.Spec.Secret.Type == product.SiteSecretAws && pm.GetSecretName() == "" {
 		// deploy SecretProviderClass for app secrets
 		// Build the secret refs map
 		secretRefs := map[string]string{

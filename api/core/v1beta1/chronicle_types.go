@@ -135,6 +135,10 @@ func (c *Chronicle) GetSecretVaultName() string {
 	return ""
 }
 
+func (c *Chronicle) GetSecretName() string {
+	return ""
+}
+
 func (c *Chronicle) SecretProviderClassName() string {
 	return ""
 }

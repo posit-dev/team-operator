@@ -143,6 +143,10 @@ func (pm *PackageManager) GetSecretVaultName() string {
 	return pm.Spec.Secret.VaultName
 }
 
+func (pm *PackageManager) GetSecretName() string {
+	return pm.Spec.Secret.Name
+}
+
 func (pm *PackageManager) GetClusterDate() string {
 	return pm.Spec.ClusterDate
 }
@@ -207,6 +211,51 @@ func (pm *PackageManager) CreateSecretVolumeFactory() *product.SecretVolumeFacto
 	}
 
 	csiEntries := map[string]*product.CSIDef{}
+
+	// New path: SecretConfig.Name is set (K8s Secret reference)
+	if pm.GetSecretName() != "" {
+		vols["key-volume"] = &product.VolumeDef{
+			Env: []v1.EnvVar{
+				{
+					Name: "PACKAGEMANAGER_SECRET_KEY",
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{Name: pm.GetSecretName()},
+							Key:                  "pkg-secret-key",
+						},
+					},
+				},
+			},
+		}
+		vols["db-volume"] = &product.VolumeDef{
+			Env: []v1.EnvVar{
+				{
+					Name: "PACKAGEMANAGER_POSTGRES_PASSWORD",
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{Name: pm.GetSecretName()},
+							Key:                  "pkg-db-password",
+						},
+					},
+				},
+				{
+					Name: "PACKAGEMANAGER_POSTGRES_USAGEDATAPASSWORD",
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{Name: pm.GetSecretName()},
+							Key:                  "pkg-db-password",
+						},
+					},
+				},
+			},
+		}
+
+		return &product.SecretVolumeFactory{
+			Vols:       vols,
+			Env:        nil,
+			CsiEntries: csiEntries,
+		}
+	}
 
 	switch pm.GetSecretType() {
 	case product.SiteSecretAws:

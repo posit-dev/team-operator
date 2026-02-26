@@ -261,6 +261,10 @@ func (c *Connect) GetSecretVaultName() string {
 	return c.Spec.Secret.VaultName
 }
 
+func (c *Connect) GetSecretName() string {
+	return c.Spec.Secret.Name
+}
+
 func (c *Connect) GetClusterDate() string {
 	return c.Spec.ClusterDate
 }
@@ -456,7 +460,109 @@ func (c *Connect) CreateSecretVolumeFactory(cfg *ConnectConfig) *product.SecretV
 
 	csiEntries := map[string]*product.CSIDef{}
 
-	if c.GetSecretType() == product.SiteSecretAws {
+	// New path: SecretConfig.Name is set (K8s Secret reference)
+	if c.GetSecretName() != "" {
+		vols["key-volume"] = &product.VolumeDef{
+			Source: &corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: c.GetSecretName(),
+					Items: []corev1.KeyToPath{
+						{Key: "pub-secret-key", Path: "secret.key"},
+					},
+					DefaultMode: ptr.To(product.MustParseOctal("0600")),
+				},
+			},
+			Mounts: []*product.VolumeMountDef{
+				{MountPath: "/var/lib/rstudio-connect/db/secret.key", SubPath: "secret.key", ReadOnly: true},
+			},
+		}
+
+		vols["db-volume"] = &product.VolumeDef{
+			Env: []corev1.EnvVar{
+				{
+					Name: "CONNECT_POSTGRES_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: c.GetSecretName()},
+							Key:                  "pub-db-password",
+						},
+					},
+				},
+				{
+					Name: "CONNECT_POSTGRES_INSTRUMENTATIONPASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: c.GetSecretName()},
+							Key:                  "pub-db-password",
+						},
+					},
+				},
+			},
+		}
+
+		if c.Spec.Auth.Type == AuthTypeOidc {
+			vols["client-secret-volume"] = &product.VolumeDef{
+				Source: &corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: c.GetSecretName(),
+						Items: []corev1.KeyToPath{
+							{
+								Key:  "pub-client-secret",
+								Path: "client-secret",
+							},
+						},
+					},
+				},
+				Mounts: []*product.VolumeMountDef{
+					{MountPath: "/etc/rstudio-connect/client-secret", SubPath: "client-secret", ReadOnly: true},
+				},
+			}
+		}
+
+		if cfg.Server != nil && cfg.Server.EmailProvider == "SMTP" {
+			vols["smtp-volume"] = &product.VolumeDef{
+				Env: []corev1.EnvVar{
+					{
+						Name: "CONNECT_SMTP_PASSWORD",
+						ValueFrom: &corev1.EnvVarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{Name: c.GetSecretName()},
+								Key:                  "smtp-password",
+							},
+						},
+					},
+					{
+						Name: "CONNECT_SMTP_USER",
+						ValueFrom: &corev1.EnvVarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{Name: c.GetSecretName()},
+								Key:                  "smtp-user",
+							},
+						},
+					},
+					{
+						Name: "CONNECT_SMTP_HOST",
+						ValueFrom: &corev1.EnvVarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{Name: c.GetSecretName()},
+								Key:                  "smtp-host",
+							},
+						},
+					},
+					{
+						Name: "CONNECT_SMTP_PORT",
+						ValueFrom: &corev1.EnvVarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{Name: c.GetSecretName()},
+								Key:                  "smtp-port",
+							},
+						},
+					},
+				},
+			}
+		}
+
+	} else if c.GetSecretType() == product.SiteSecretAws {
 		// TODO: where does this key come from...?
 		secretName := fmt.Sprintf("%s-secret-key", c.ComponentName())
 

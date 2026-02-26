@@ -70,7 +70,9 @@ func (r *SiteReconciler) reconcileKeycloak(ctx context.Context, req controllerru
 		}
 
 		// potentially create secret provider class
-		if site.GetSecretType() == product.SiteSecretAws {
+		// Only create SecretProviderClass if using legacy AWS secret backend
+		// (not when using new K8s Secret reference via SecretConfig.Name)
+		if site.GetSecretType() == product.SiteSecretAws && site.GetSecretName() == "" {
 
 			if targetKeycloakSpc, err := localKeycloak.SecretProviderClass(req); err != nil {
 				l.Error(err, "Error preparing keycloak secret provider class")

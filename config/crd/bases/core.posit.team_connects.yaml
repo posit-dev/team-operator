@@ -489,6 +489,12 @@ spec:
                 description: MainDatabaseCredentialSecret configures the secret used
                   for storing the main database credentials
                 properties:
+                  name:
+                    description: |-
+                      Name is the name of a Kubernetes Secret in the same namespace.
+                      When set, the operator reads secrets from this K8s Secret instead of
+                      using the cloud secret backend (AWS Secrets Manager, Azure Key Vault).
+                    type: string
                   type:
                     type: string
                   vaultName:
@@ -510,6 +516,12 @@ spec:
               secret:
                 description: Secret configures the secret management for this Connect
                 properties:
+                  name:
+                    description: |-
+                      Name is the name of a Kubernetes Secret in the same namespace.
+                      When set, the operator reads secrets from this K8s Secret instead of
+                      using the cloud secret backend (AWS Secrets Manager, Azure Key Vault).
+                    type: string
                   type:
                     type: string
                   vaultName:
@@ -7392,6 +7404,12 @@ spec:
                 description: WorkloadSecret configures the managed persistent secret
                   for the entire workload account
                 properties:
+                  name:
+                    description: |-
+                      Name is the name of a Kubernetes Secret in the same namespace.
+                      When set, the operator reads secrets from this K8s Secret instead of
+                      using the cloud secret backend (AWS Secrets Manager, Azure Key Vault).
+                    type: string
                   type:
                     type: string
                   vaultName:

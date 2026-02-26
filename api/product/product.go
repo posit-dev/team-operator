@@ -51,6 +51,7 @@ type Product interface {
 	GetLicenseConstants() LicenseConstants
 	GetSecretType() SiteSecretType
 	GetSecretVaultName() string
+	GetSecretName() string
 	SecretProviderClassName() string
 	GetChronicleAgentImage() string
 	GetChronicleUrl() string

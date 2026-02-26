@@ -242,7 +242,9 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 	)
 
 	// SECRETS
-	if w.GetSecretType() == product.SiteSecretAws {
+	// Only create SecretProviderClass if using legacy AWS secret backend
+	// (not when using new K8s Secret reference via SecretConfig.Name)
+	if w.GetSecretType() == product.SiteSecretAws && w.GetSecretName() == "" {
 		// deploy SecretProviderClass for app secrets
 		secretName := fmt.Sprintf("%s-secret", w.ComponentName())
 

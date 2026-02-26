@@ -14,6 +14,7 @@ import (
 type SecretConfigApplyConfiguration struct {
 	VaultName *string                 `json:"vaultName,omitempty"`
 	Type      *product.SiteSecretType `json:"type,omitempty"`
+	Name      *string                 `json:"name,omitempty"`
 }
 
 // SecretConfigApplyConfiguration constructs a declarative configuration of the SecretConfig type for use with
@@ -35,5 +36,13 @@ func (b *SecretConfigApplyConfiguration) WithVaultName(value string) *SecretConf
 // If called multiple times, the Type field is set to the value of the last call.
 func (b *SecretConfigApplyConfiguration) WithType(value product.SiteSecretType) *SecretConfigApplyConfiguration {
 	b.Type = &value
+	return b
+}
+
+// WithName sets the Name field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Name field is set to the value of the last call.
+func (b *SecretConfigApplyConfiguration) WithName(value string) *SecretConfigApplyConfiguration {
+	b.Name = &value
 	return b
 }

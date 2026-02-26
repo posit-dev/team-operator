@@ -46,6 +46,10 @@ func (k *Keycloak) DatabaseName() string {
 }
 
 func (k *Keycloak) SecretName() string {
+	// New path: SecretConfig.Name is set (K8s Secret reference)
+	if k.Site.GetSecretName() != "" {
+		return k.Site.GetSecretName()
+	}
 	if k.Site.GetSecretType() == product.SiteSecretKubernetes {
 		return k.Site.Spec.Secret.VaultName
 	}

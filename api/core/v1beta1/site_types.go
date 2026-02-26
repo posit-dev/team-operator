@@ -610,6 +610,10 @@ func (s *Site) GetSecretType() product.SiteSecretType {
 	return s.Spec.Secret.Type
 }
 
+func (s *Site) GetSecretName() string {
+	return s.Spec.Secret.Name
+}
+
 func (s *Site) OwnerReferencesForChildren() []metav1.OwnerReference {
 	return []metav1.OwnerReference{
 		{

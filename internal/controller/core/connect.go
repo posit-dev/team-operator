@@ -167,7 +167,9 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 	}
 
 	// SECRETS
-	if c.GetSecretType() == product.SiteSecretAws {
+	// Only create SecretProviderClass if using legacy AWS secret backend
+	// (not when using new K8s Secret reference via SecretConfig.Name)
+	if c.GetSecretType() == product.SiteSecretAws && c.GetSecretName() == "" {
 		// deploy SecretProviderClass for app secrets
 		allSecrets := map[string]string{
 			"secret.key":      "pub-secret-key",

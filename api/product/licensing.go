@@ -68,8 +68,28 @@ func LicenseVolumeDefsFromProduct(p Product) *VolumeDef {
 		})
 	}
 
-	if p.GetSecretType() == SiteSecretAws {
-		// add a license volume...
+	// Check if using K8s Secret directly (new path via SecretConfig.Name)
+	if p.GetSecretName() != "" {
+		// New path: K8s Secret reference by name
+		vol = &VolumeDef{
+			Source: &v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName:  p.GetSecretName(),
+					DefaultMode: nil,
+					Optional:    nil,
+				},
+			},
+			Mounts: []*VolumeMountDef{
+				{
+					MountPath: p.GetLicenseConstants().FilePath,
+					SubPath:   fmt.Sprintf("%s.lic", p.ShortName()),
+					ReadOnly:  true,
+				},
+			},
+			Env: env,
+		}
+	} else if p.GetSecretType() == SiteSecretAws {
+		// Legacy path: AWS SecretProviderClass + CSI
 		vol = &VolumeDef{
 			Source: &v1.VolumeSource{
 				CSI: &v1.CSIVolumeSource{

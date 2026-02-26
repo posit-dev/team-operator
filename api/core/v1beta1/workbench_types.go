@@ -277,6 +277,10 @@ func (w *Workbench) GetSecretVaultName() string {
 	return w.Spec.Secret.VaultName
 }
 
+func (w *Workbench) GetSecretName() string {
+	return w.Spec.Secret.Name
+}
+
 func (w *Workbench) GetAwsAccountId() string {
 	return w.Spec.AwsAccountId
 }
@@ -746,7 +750,65 @@ func (w *Workbench) CreateSecretVolumeFactory() *product.SecretVolumeFactory {
 	}
 
 	// case-by-case volumes based on secret type...
-	if w.GetSecretType() == product.SiteSecretAws {
+	// New path: SecretConfig.Name is set (K8s Secret reference)
+	if w.GetSecretName() != "" {
+		keyToPaths := []corev1.KeyToPath{}
+		mountDefs := []*product.VolumeMountDef{}
+		if w.Spec.Auth.Type == AuthTypeOidc {
+			keyToPaths = product.ConcatLists(
+				keyToPaths,
+				[]corev1.KeyToPath{
+					{Key: "dev-admin-token", Path: "admin_token"},
+					{Key: "dev-user-token", Path: "user_token"},
+				})
+			mountDefs = product.ConcatLists(
+				mountDefs,
+				[]*product.VolumeMountDef{
+					{MountPath: "/etc/rstudio/admin_token", SubPath: "admin_token", ReadOnly: true},
+					{MountPath: "/etc/rstudio/user_token", SubPath: "user_token", ReadOnly: true},
+				},
+			)
+		}
+		if w.Spec.Snowflake.AccountId != "" && w.Spec.Snowflake.ClientId != "" {
+			vols["snowflake-volume"] = &product.VolumeDef{
+				Env: []corev1.EnvVar{
+					{Name: "SNOWFLAKE_ACCOUNT", Value: w.Spec.Snowflake.AccountId},
+					{Name: "SNOWFLAKE_CLIENT_ID", Value: w.Spec.Snowflake.ClientId},
+					{Name: "SNOWFLAKE_CLIENT_SECRET", ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: w.GetSecretName()},
+							Key:                  "snowflake-client-secret",
+						},
+					}},
+				},
+			}
+		}
+		vols["secret-volume"] = &product.VolumeDef{
+			Source: &corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: w.GetSecretName(),
+					Items:      keyToPaths,
+				},
+			},
+			Mounts: mountDefs,
+		}
+
+		vols["db-secret-volume"] = &product.VolumeDef{
+			Env: []corev1.EnvVar{
+				{Name: "WORKBENCH_POSTGRES_PASSWORD", ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: w.GetSecretName()},
+						Key:                  "dev-db-password",
+					},
+				}},
+			},
+		}
+
+		k8sSecretFactory := &product.SecretVolumeFactory{
+			Vols: vols,
+		}
+		return k8sSecretFactory
+	} else if w.GetSecretType() == product.SiteSecretAws {
 		mountDefs := []*product.VolumeMountDef{}
 		if w.Spec.Auth.Type == AuthTypeOidc {
 			mountDefs = product.ConcatLists(

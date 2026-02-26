@@ -66,6 +66,11 @@ type AuthSpec struct {
 type SecretConfig struct {
 	VaultName string                 `json:"vaultName,omitempty"`
 	Type      product.SiteSecretType `json:"type,omitempty"`
+	// Name is the name of a Kubernetes Secret in the same namespace.
+	// When set, the operator reads secrets from this K8s Secret instead of
+	// using the cloud secret backend (AWS Secrets Manager, Azure Key Vault).
+	// +optional
+	Name string `json:"name,omitempty"`
 }
 
 // ComponentSpecPodAntiAffinity generates a *corev1.PodAntiAffinity suitable for use in a
