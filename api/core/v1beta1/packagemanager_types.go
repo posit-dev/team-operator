@@ -243,7 +243,7 @@ func (pm *PackageManager) CreateSecretVolumeFactory() *product.SecretVolumeFacto
 					ValueFrom: &v1.EnvVarSource{
 						SecretKeyRef: &v1.SecretKeySelector{
 							LocalObjectReference: v1.LocalObjectReference{Name: pm.GetSecretName()},
-							Key:                  "pkg-db-password",
+							Key:                  "pkg-db-usagedata-password",
 						},
 					},
 				},

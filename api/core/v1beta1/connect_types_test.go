@@ -583,3 +583,69 @@ func TestConnect_SiteSessionSecretProviderClass(t *testing.T) {
 	// TODO: note that a secret like "secret://site-session//a-key" would look for "/a-key" in the secret
 	//   this is currently untested behavior, but should be courtesy of TrimPrefix
 }
+
+func TestCreateSecretVolumeFactory_K8sSecret(t *testing.T) {
+	con := &Connect{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "k8s-secret",
+			Namespace: "posit-team",
+		},
+		Spec: ConnectSpec{
+			Secret: SecretConfig{
+				Name: "my-k8s-secret",
+			},
+			License: product.LicenseSpec{
+				Type: product.LicenseTypeKey,
+				Key:  "test-key",
+			},
+		},
+	}
+	v := con.CreateSecretVolumeFactory(&ConnectConfig{})
+
+	vols := v.Volumes()
+	assert.Len(t, vols, 1)
+	checkSecretVolume(t, vols[0], "key-volume", "my-k8s-secret", "pub-secret-key", "secret.key")
+
+	volMounts := v.VolumeMounts()
+	assert.Len(t, volMounts, 1)
+	checkVolumeMount(t, volMounts[0], "key-volume", "/var/lib/rstudio-connect/db/secret.key", "secret.key", true)
+
+	env := v.EnvVars()
+	assert.Len(t, env, 2)
+	checkEnvVarFromSecret(t, env[0], "CONNECT_POSTGRES_PASSWORD", "my-k8s-secret", "pub-db-password")
+	checkEnvVarFromSecret(t, env[1], "CONNECT_POSTGRES_INSTRUMENTATIONPASSWORD", "my-k8s-secret", "pub-db-instrumentation-password")
+}
+
+func TestCreateSecretVolumeFactory_K8sSecret_Smtp(t *testing.T) {
+	con := &Connect{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "k8s-smtp",
+			Namespace: "posit-team",
+		},
+		Spec: ConnectSpec{
+			Secret: SecretConfig{
+				Name: "my-k8s-secret",
+			},
+		},
+	}
+	v := con.CreateSecretVolumeFactory(&ConnectConfig{
+		Server: &ConnectServerConfig{
+			EmailProvider: "SMTP",
+		},
+	})
+
+	env := v.EnvVars()
+	foundHost := false
+	foundPassword := false
+	for _, e := range env {
+		if e.Name == "CONNECT_SMTP_HOST" {
+			foundHost = true
+			assert.Equal(t, "my-k8s-secret", e.ValueFrom.SecretKeyRef.Name)
+		}
+		if e.Name == "CONNECT_SMTP_PASSWORD" {
+			foundPassword = true
+		}
+	}
+	assert.True(t, foundHost)
+	assert.True(t, foundPassword)
+}

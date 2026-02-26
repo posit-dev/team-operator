@@ -783,14 +783,16 @@ func (w *Workbench) CreateSecretVolumeFactory() *product.SecretVolumeFactory {
 				},
 			}
 		}
-		vols["secret-volume"] = &product.VolumeDef{
-			Source: &corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: w.GetSecretName(),
-					Items:      keyToPaths,
+		if len(keyToPaths) > 0 || len(mountDefs) > 0 {
+			vols["secret-volume"] = &product.VolumeDef{
+				Source: &corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: w.GetSecretName(),
+						Items:      keyToPaths,
+					},
 				},
-			},
-			Mounts: mountDefs,
+				Mounts: mountDefs,
+			}
 		}
 
 		vols["db-secret-volume"] = &product.VolumeDef{

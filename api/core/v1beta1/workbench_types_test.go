@@ -175,6 +175,68 @@ func TestWorkbench_CreateSecretVolumeFactory_Aws(t *testing.T) {
 	require.Len(t, vm, 4)
 }
 
+func TestWorkbench_CreateSecretVolumeFactory_K8sSecret_NoOidc(t *testing.T) {
+	w := &Workbench{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "k8s-secret",
+			Namespace: "ns",
+		},
+		Spec: WorkbenchSpec{
+			Secret: SecretConfig{
+				Name: "my-k8s-secret",
+			},
+		},
+	}
+
+	vf := w.CreateSecretVolumeFactory()
+
+	// Non-OIDC path should not create a secret-volume (empty Items/Mounts)
+	vols := vf.Volumes()
+	for _, vol := range vols {
+		assert.NotEqual(t, "secret-volume", vol.Name, "secret-volume should not be created when there are no OIDC items to mount")
+	}
+
+	// db-secret-volume should be present with correct key
+	e := vf.EnvVars()
+	require.True(t, anyTrue(e, func(envVar corev1.EnvVar) bool {
+		return envVar.Name == "WORKBENCH_POSTGRES_PASSWORD" &&
+			envVar.ValueFrom != nil &&
+			envVar.ValueFrom.SecretKeyRef != nil &&
+			envVar.ValueFrom.SecretKeyRef.LocalObjectReference.Name == "my-k8s-secret" &&
+			envVar.ValueFrom.SecretKeyRef.Key == "dev-db-password"
+	}))
+}
+
+func TestWorkbench_CreateSecretVolumeFactory_K8sSecret_WithOidc(t *testing.T) {
+	w := &Workbench{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "k8s-oidc",
+			Namespace: "ns",
+		},
+		Spec: WorkbenchSpec{
+			Secret: SecretConfig{
+				Name: "my-k8s-secret",
+			},
+			Auth: AuthSpec{
+				Type: AuthTypeOidc,
+			},
+		},
+	}
+
+	vf := w.CreateSecretVolumeFactory()
+
+	vols := vf.Volumes()
+	foundSecretVol := false
+	for _, vol := range vols {
+		if vol.Name == "secret-volume" {
+			foundSecretVol = true
+			assert.Equal(t, "my-k8s-secret", vol.Secret.SecretName)
+			assert.Len(t, vol.Secret.Items, 2)
+		}
+	}
+	assert.True(t, foundSecretVol, "secret-volume should be created for OIDC path")
+}
+
 func TestWorkbench_InitializeNonRootSupervisorConfig(t *testing.T) {
 
 	w := &Workbench{

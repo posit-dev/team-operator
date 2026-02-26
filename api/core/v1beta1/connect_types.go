@@ -493,7 +493,7 @@ func (c *Connect) CreateSecretVolumeFactory(cfg *ConnectConfig) *product.SecretV
 					ValueFrom: &corev1.EnvVarSource{
 						SecretKeyRef: &corev1.SecretKeySelector{
 							LocalObjectReference: corev1.LocalObjectReference{Name: c.GetSecretName()},
-							Key:                  "pub-db-password",
+							Key:                  "pub-db-instrumentation-password",
 						},
 					},
 				},
