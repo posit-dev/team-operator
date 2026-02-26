@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/rstudio/goex/ptr"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -164,7 +165,8 @@ func EnsureHTTPRoute(
 	return nil
 }
 
-// DeleteHTTPRoute removes an HTTPRoute
+// DeleteHTTPRoute removes an HTTPRoute.
+// Returns nil if the HTTPRoute doesn't exist or if the Gateway API CRD is not installed.
 func DeleteHTTPRoute(ctx context.Context, c client.Client, l logr.Logger, name, namespace string) error {
 	l = l.WithValues(
 		"function", "DeleteHTTPRoute",
@@ -177,12 +179,13 @@ func DeleteHTTPRoute(ctx context.Context, c client.Client, l logr.Logger, name, 
 	route.Namespace = namespace
 
 	if err := c.Delete(ctx, route); err != nil {
-		if client.IgnoreNotFound(err) != nil {
-			l.Error(err, "Failed to delete HTTPRoute")
-			return fmt.Errorf("failed to delete HTTPRoute: %w", err)
+		// Tolerate both "not found" (resource doesn't exist) and "no match" (CRD not installed)
+		if client.IgnoreNotFound(err) == nil || meta.IsNoMatchError(err) {
+			l.Info("HTTPRoute not found or CRD not installed (skipping delete)")
+			return nil
 		}
-		l.Info("HTTPRoute not found (already deleted)")
-		return nil
+		l.Error(err, "Failed to delete HTTPRoute")
+		return fmt.Errorf("failed to delete HTTPRoute: %w", err)
 	}
 
 	l.Info("Successfully deleted HTTPRoute")
