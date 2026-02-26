@@ -273,9 +273,18 @@ func (r *SiteReconciler) provisionVolumeViaPVC(ctx context.Context, site *v1beta
 		}
 		pvc.Annotations["nfs.io/storage-path"] = fmt.Sprintf("%s/%s", site.Name, subdir)
 
+		// Merge labels on every reconcile so new label keys are picked up by existing PVCs.
+		// Note: this is additive only; keys removed from KubernetesLabels() will remain on
+		// live PVCs until manually pruned.
+		if pvc.Labels == nil {
+			pvc.Labels = make(map[string]string)
+		}
+		for k, v := range site.KubernetesLabels() {
+			pvc.Labels[k] = v
+		}
+
 		// Only set immutable fields on creation
 		if pvc.ResourceVersion == "" {
-			pvc.Labels = site.KubernetesLabels()
 			pvc.Spec = v1.PersistentVolumeClaimSpec{
 				AccessModes:      []v1.PersistentVolumeAccessMode{v1.ReadWriteMany},
 				StorageClassName: &storageClassName,

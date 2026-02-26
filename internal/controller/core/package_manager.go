@@ -306,7 +306,7 @@ func (r *PackageManagerReconciler) createStorageClassPVC(ctx context.Context, pm
 
 		// Merge labels on every reconcile so new label keys are picked up by existing PVCs.
 		// Note: this is additive only; keys removed from KubernetesLabels() will remain on
-		// live PVCs until manually pruned. This matches the pattern used in volumes.go.
+		// live PVCs until manually pruned. This matches the label-merge pattern in volumes.go.
 		if pvc.Labels == nil {
 			pvc.Labels = make(map[string]string)
 		}
@@ -329,7 +329,10 @@ func (r *PackageManagerReconciler) createStorageClassPVC(ctx context.Context, pm
 				},
 			}
 		} else if pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName != storageClassName {
-			l.Info("StorageClassName cannot be changed on an existing PVC; ignoring",
+			// Log as an error (without returning one) so the mismatch surfaces in operator logs.
+			// The user's PackageManagerStorageClassName change has been silently ignored; they
+			// must delete and recreate the PVC manually to change the StorageClass.
+			l.Error(nil, "StorageClassName cannot be changed on an existing PVC; delete and recreate the PVC to change it",
 				"pvc", pvcName,
 				"current", *pvc.Spec.StorageClassName,
 				"requested", storageClassName,

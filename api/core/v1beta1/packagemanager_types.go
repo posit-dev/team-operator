@@ -83,6 +83,7 @@ type PackageManagerSpec struct {
 	// PackageManagerStorageClassName is the StorageClass to use for Package Manager storage.
 	// If set, this overrides the site's default StorageClassName and AzureFiles configuration.
 	// The operator will create a PVC using this StorageClass.
+	// The StorageClass must support ReadWriteMany (RWX) access mode; EBS does not support RWX and will cause the PVC to remain Pending.
 	// +optional
 	PackageManagerStorageClassName string `json:"packageManagerStorageClassName,omitempty"`
 }

@@ -122,7 +122,8 @@ type SiteSpec struct {
 
 	// StorageClassName is the name of the StorageClass to use for product volumes.
 	// The StorageClass must be pre-created by the infrastructure layer.
-	// On AWS: typically backed by FSx CSI driver, EBS CSI driver, or nfs-subdir-external-provisioner
+	// The StorageClass must support ReadWriteMany (RWX) access mode; EBS does not support RWX and will cause PVCs to remain Pending.
+	// On AWS: typically backed by FSx CSI driver or nfs-subdir-external-provisioner
 	// On Azure: typically backed by NetApp CSI or Azure Files CSI
 	// On kind: typically "standard" (local-path-provisioner)
 	// When set, this field takes precedence over VolumeSource for volume provisioning.
@@ -137,6 +138,7 @@ type SiteSpec struct {
 	// NFSEgressCIDR allows NFS (port 2049) egress to this CIDR in network policies.
 	// Set this when workbench sessions need to mount external NFS/EFS volumes.
 	// When set, this field takes precedence over EFSEnabled/VPCCIDR for network policy configuration.
+	// Accepts any valid IPv4 CIDR including /0 (unrestricted egress); use /0 only when all destinations need NFS access.
 	// +optional
 	// +kubebuilder:validation:Pattern=`^((25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)\.){3}(25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)\/(\d|[1-2]\d|3[0-2])$`
 	NFSEgressCIDR string `json:"nfsEgressCIDR,omitempty"`

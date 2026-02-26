@@ -191,7 +191,7 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 			connectStorageClassName = site.Spec.StorageClassName
 		}
 
-		// Provision Workbench volume
+		// Provision Workbench volume (intentionally reuses connectVolumeSize; both are 10Gi)
 		if err := r.provisionVolumeViaPVC(ctx, site, devVolumeName, "workbench", site.Spec.StorageClassName, connectVolumeSize); err != nil {
 			return ctrl.Result{}, err
 		}
