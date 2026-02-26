@@ -940,15 +940,9 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 		// NEW PATH: Gateway API - Create HTTPRoute
 		l.V(1).Info("Using Gateway API (HTTPRoute) for routing")
 
-		// Delete legacy Ingress if present (mode migration: Ingress -> HTTPRoute)
-		ingressKey := client.ObjectKey{Name: w.ComponentName(), Namespace: req.Namespace}
-		if err := internal.BasicDelete(ctx, r, l, ingressKey, &networkingv1.Ingress{}); err != nil {
-			return ctrl.Result{}, err
-		}
-
 		// Validate Url to prevent header injection via X-Rstudio-Request
 		if strings.ContainsAny(w.Spec.Url, ";\n\r \t") {
-			return ctrl.Result{}, fmt.Errorf("invalid Url: contains forbidden characters")
+			return ctrl.Result{}, fmt.Errorf("invalid Url %q: contains forbidden characters (one of: ; \\n \\r space tab)", w.Spec.Url)
 		}
 
 		// Validate ParentUrl to prevent CSP header injection
@@ -956,6 +950,12 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 		// meaning "legitimate.com attacker.com" would silently add attacker.com as a framing origin.
 		if strings.ContainsAny(w.Spec.ParentUrl, ";\n\r \t") {
 			return ctrl.Result{}, fmt.Errorf("invalid ParentUrl: contains forbidden characters")
+		}
+
+		// Delete legacy Ingress if present (mode migration: Ingress -> HTTPRoute)
+		ingressKey := client.ObjectKey{Name: w.ComponentName(), Namespace: req.Namespace}
+		if err := internal.BasicDelete(ctx, r, l, ingressKey, &networkingv1.Ingress{}); err != nil {
+			return ctrl.Result{}, err
 		}
 
 		if err := internal.EnsureHTTPRoute(

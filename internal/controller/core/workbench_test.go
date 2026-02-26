@@ -423,3 +423,32 @@ func TestWorkbenchPodDisruptionBudgets(t *testing.T) {
 	assert.Equal(t, int32(0), sessionPdb.Spec.MaxUnavailable.IntVal,
 		"Session PDB should have maxUnavailable=0 to prevent session evictions")
 }
+
+func TestWorkbenchReconciler_InvalidUrl_ReturnsError(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-invalid-url"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	// Create Site with a GatewayRef so we exercise the Gateway API path
+	site := defineDefaultSite(t, ns, name)
+	site.Spec.GatewayRef = &positcov1beta1.GatewayReference{
+		Name:      "test-gateway",
+		Namespace: ns,
+	}
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
+	require.NoError(t, err)
+
+	wb := defineDefaultWorkbench(t, ns, name)
+	wb.Spec.Url = "workbench.example.com;injected"
+
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	_, err = r.ReconcileWorkbench(ctx, req, wb)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid Url")
+}
