@@ -41,6 +41,36 @@ func initConnectReconciler(t *testing.T, ctx context.Context, namespace, name st
 	return ctx2, r, req, cli
 }
 
+func defineDefaultSite(t *testing.T, ns, name string) *positcov1beta1.Site {
+	return &positcov1beta1.Site{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Site",
+			APIVersion: "core.posit.team/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: ns,
+			Name:      name,
+			Labels: map[string]string{
+				positcov1beta1.ManagedByLabelKey: positcov1beta1.ManagedByLabelValue,
+			},
+		},
+		Spec: positcov1beta1.SiteSpec{
+			WorkloadSecret: positcov1beta1.SecretConfig{
+				VaultName: "workload-vault",
+				Type:      product.SiteSecretTest,
+			},
+			MainDatabaseCredentialSecret: positcov1beta1.SecretConfig{
+				VaultName: "test-vault",
+				Type:      product.SiteSecretTest,
+			},
+			Flightdeck: positcov1beta1.InternalFlightdeckSpec{
+				Image: "test-image:latest",
+			},
+			// GatewayRef is nil, so tests will use legacy Ingress path
+		},
+	}
+}
+
 func defineDefaultConnect(t *testing.T, ns, name string) *positcov1beta1.Connect {
 	err := product.GlobalTestSecretProvider.SetSecret("dev-db-password", "dev-password")
 	require.NoError(t, err)
@@ -87,13 +117,18 @@ func TestConnectReconciler_SAML(t *testing.T) {
 
 	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
 
+	// Create Site fixture (required for Gateway API dual-path)
+	site := defineDefaultSite(t, ns, name)
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
+	require.NoError(t, err)
+
 	c := defineDefaultConnect(t, ns, name)
 	c.Spec.Auth = positcov1beta1.AuthSpec{
 		Type:            positcov1beta1.AuthTypeSaml,
 		SamlMetadataUrl: "https://idp.example.com/saml/metadata",
 	}
 
-	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
 	require.NoError(t, err)
 
 	c = getConnect(t, cli, ns, name)
@@ -123,6 +158,11 @@ func TestConnectReconciler_SAML_WithIdPAttributeProfile(t *testing.T) {
 
 	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
 
+	// Create Site fixture (required for Gateway API dual-path)
+	site := defineDefaultSite(t, ns, name)
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
+	require.NoError(t, err)
+
 	c := defineDefaultConnect(t, ns, name)
 	c.Spec.Auth = positcov1beta1.AuthSpec{
 		Type:                    positcov1beta1.AuthTypeSaml,
@@ -130,7 +170,7 @@ func TestConnectReconciler_SAML_WithIdPAttributeProfile(t *testing.T) {
 		SamlIdPAttributeProfile: "custom-profile",
 	}
 
-	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
 	require.NoError(t, err)
 
 	c = getConnect(t, cli, ns, name)
@@ -160,6 +200,11 @@ func TestConnectReconciler_SAML_WithIndividualAttributes(t *testing.T) {
 
 	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
 
+	// Create Site fixture (required for Gateway API dual-path)
+	site := defineDefaultSite(t, ns, name)
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
+	require.NoError(t, err)
+
 	c := defineDefaultConnect(t, ns, name)
 	c.Spec.Auth = positcov1beta1.AuthSpec{
 		Type:                   positcov1beta1.AuthTypeSaml,
@@ -170,7 +215,7 @@ func TestConnectReconciler_SAML_WithIndividualAttributes(t *testing.T) {
 		SamlEmailAttribute:     "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress",
 	}
 
-	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
 	require.NoError(t, err)
 
 	c = getConnect(t, cli, ns, name)
@@ -205,6 +250,11 @@ func TestConnectReconciler_SAML_PartialIndividualAttributes(t *testing.T) {
 
 	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
 
+	// Create Site fixture (required for Gateway API dual-path)
+	site := defineDefaultSite(t, ns, name)
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
+	require.NoError(t, err)
+
 	c := defineDefaultConnect(t, ns, name)
 	c.Spec.Auth = positcov1beta1.AuthSpec{
 		Type:                  positcov1beta1.AuthTypeSaml,
@@ -214,7 +264,7 @@ func TestConnectReconciler_SAML_PartialIndividualAttributes(t *testing.T) {
 		// Only setting username and email, not first/last name
 	}
 
-	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
 	require.NoError(t, err)
 
 	c = getConnect(t, cli, ns, name)
@@ -247,6 +297,11 @@ func TestConnectReconciler_SAML_ValidationError_MutualExclusivity(t *testing.T) 
 
 	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
 
+	// Create Site fixture (required for Gateway API dual-path)
+	site := defineDefaultSite(t, ns, name)
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
+	require.NoError(t, err)
+
 	c := defineDefaultConnect(t, ns, name)
 	c.Spec.Auth = positcov1beta1.AuthSpec{
 		Type:                    positcov1beta1.AuthTypeSaml,
@@ -272,9 +327,14 @@ func TestConnectReconciler_DefaultDatabaseSchemas(t *testing.T) {
 
 	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
 
+	// Create Site fixture (required for Gateway API dual-path)
+	site := defineDefaultSite(t, ns, name)
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
+	require.NoError(t, err)
+
 	c := defineDefaultConnect(t, ns, name)
 
-	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
 	require.NoError(t, err)
 
 	c = getConnect(t, cli, ns, name)
@@ -306,12 +366,17 @@ func TestConnectReconciler_CustomDatabaseSchemas(t *testing.T) {
 
 	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
 
+	// Create Site fixture (required for Gateway API dual-path)
+	site := defineDefaultSite(t, ns, name)
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
+	require.NoError(t, err)
+
 	c := defineDefaultConnect(t, ns, name)
 	// Set custom schema names
 	c.Spec.DatabaseConfig.Schema = "custom_schema"
 	c.Spec.DatabaseConfig.InstrumentationSchema = "custom_metrics"
 
-	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
 	require.NoError(t, err)
 
 	c = getConnect(t, cli, ns, name)

@@ -132,10 +132,15 @@ func TestWorkbenchReconciler_Basic(t *testing.T) {
 
 	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
 
+	// Create Site fixture (required for Gateway API dual-path)
+	site := defineDefaultSite(t, ns, name)
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
+	require.NoError(t, err)
+
 	wb := defineDefaultWorkbench(t, ns, name)
 
 	// have to make sure the CRD _actually exists_
-	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
 	require.NoError(t, err)
 
 	wb = getWorkbench(t, cli, ns, name)
@@ -162,6 +167,11 @@ func TestWorkbenchConfigReload(t *testing.T) {
 	name := "workbench-config-reload"
 
 	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	// Create Site fixture (required for Gateway API dual-path)
+	site := defineDefaultSite(t, ns, name)
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
+	require.NoError(t, err)
 
 	wb := defineDefaultWorkbench(t, ns, name)
 
@@ -209,6 +219,11 @@ func TestWorkbenchAuthSaml(t *testing.T) {
 
 	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
 
+	// Create Site fixture (required for Gateway API dual-path)
+	site := defineDefaultSite(t, ns, name)
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
+	require.NoError(t, err)
+
 	wb := defineDefaultWorkbench(t, ns, name)
 	wb.Spec.Auth = positcov1beta1.AuthSpec{
 		Type:            positcov1beta1.AuthTypeSaml,
@@ -216,7 +231,7 @@ func TestWorkbenchAuthSaml(t *testing.T) {
 		UsernameClaim:   "email",
 	}
 
-	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
 	require.NoError(t, err)
 
 	wb = getWorkbench(t, cli, ns, name)
@@ -245,6 +260,11 @@ func TestWorkbenchAuthSamlMissingMetadata(t *testing.T) {
 
 	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
 
+	// Create Site fixture (required for Gateway API dual-path)
+	site := defineDefaultSite(t, ns, name)
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
+	require.NoError(t, err)
+
 	wb := defineDefaultWorkbench(t, ns, name)
 	wb.Spec.Auth = positcov1beta1.AuthSpec{
 		Type:          positcov1beta1.AuthTypeSaml,
@@ -252,7 +272,7 @@ func TestWorkbenchAuthSamlMissingMetadata(t *testing.T) {
 		// Intentionally not setting SamlMetadataUrl
 	}
 
-	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
 	require.NoError(t, err)
 
 	wb = getWorkbench(t, cli, ns, name)
@@ -270,13 +290,18 @@ func TestWorkbenchLoadBalancingInitContainer(t *testing.T) {
 
 	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
 
+	// Create Site fixture (required for Gateway API dual-path)
+	site := defineDefaultSite(t, ns, name)
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
+	require.NoError(t, err)
+
 	wb := defineDefaultWorkbench(t, ns, name)
 	// Enable load balancing
 	wb.Spec.Config.RServer = &positcov1beta1.WorkbenchRServerConfig{
 		LoadBalancingEnabled: 1,
 	}
 
-	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
 	require.NoError(t, err)
 
 	wb = getWorkbench(t, cli, ns, name)
@@ -332,10 +357,15 @@ func TestWorkbenchLoadBalancingDisabled(t *testing.T) {
 
 	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
 
+	// Create Site fixture (required for Gateway API dual-path)
+	site := defineDefaultSite(t, ns, name)
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
+	require.NoError(t, err)
+
 	wb := defineDefaultWorkbench(t, ns, name)
 	// Do NOT enable load balancing - leave RServer config nil
 
-	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
 	require.NoError(t, err)
 
 	wb = getWorkbench(t, cli, ns, name)
@@ -363,9 +393,14 @@ func TestWorkbenchPodDisruptionBudgets(t *testing.T) {
 
 	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
 
+	// Create Site fixture (required for Gateway API dual-path)
+	site := defineDefaultSite(t, ns, name)
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
+	require.NoError(t, err)
+
 	wb := defineDefaultWorkbench(t, ns, name)
 
-	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
 	require.NoError(t, err)
 
 	wb = getWorkbench(t, cli, ns, name)

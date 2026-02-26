@@ -150,6 +150,36 @@ func TestEnsureHTTPRoute(t *testing.T) {
 		assert.Equal(t, "M-Header", string(reqFilter.RequestHeaderModifier.Set[1].Name))
 		assert.Equal(t, "Z-Header", string(reqFilter.RequestHeaderModifier.Set[2].Name))
 	})
+
+	t.Run("nil Labels is rejected because managed-by label is required", func(t *testing.T) {
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+		ctx := context.Background()
+		logger := logr.Discard()
+
+		owner := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-owner",
+				Namespace: "test-ns",
+				UID:       "test-uid",
+			},
+		}
+
+		cfg := HTTPRouteConfig{
+			Name:               "test-route-labels",
+			Namespace:          "test-ns",
+			GatewayName:        "test-gateway",
+			GatewayNS:          "gateway-ns",
+			Hostname:           "example.com",
+			BackendService:     "test-service",
+			BackendPort:        80,
+			Labels:             nil, // nil omits managed-by label
+			SessionPersistence: false,
+		}
+
+		// nil Labels causes an error because CreateOrUpdateResource requires the managed-by label
+		err := EnsureHTTPRoute(ctx, fakeClient, scheme, logger, owner, cfg)
+		assert.Error(t, err, "nil Labels should be rejected because managed-by label is required")
+	})
 }
 
 func TestDeleteHTTPRoute(t *testing.T) {
