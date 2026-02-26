@@ -294,6 +294,12 @@ func (r *SiteReconciler) provisionVolumeViaPVC(ctx context.Context, site *v1beta
 					},
 				},
 			}
+		} else if pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName != storageClassName {
+			l.Error(nil, "StorageClassName cannot be changed on an existing PVC; delete and recreate the PVC to change it",
+				"pvc", name,
+				"current", *pvc.Spec.StorageClassName,
+				"requested", storageClassName,
+			)
 		}
 		return controllerutil.SetControllerReference(site, pvc, r.Scheme)
 	})

@@ -64,17 +64,18 @@ func TestProvisionVolumeViaPVC_LabelsMergedOnUpdate(t *testing.T) {
 	// First reconcile – creates the PVC with labels
 	require.NoError(t, r.provisionVolumeViaPVC(ctx, site, "mysite-pvc", "data", "my-sc", size))
 
-	// Simulate a PVC that has lost its labels (e.g. manual edit)
+	// Simulate a PVC that has lost its labels (e.g. manual edit) but has a custom label
 	pvc := &corev1.PersistentVolumeClaim{}
 	require.NoError(t, cli.Get(ctx, types.NamespacedName{Namespace: ns, Name: "mysite-pvc"}, pvc))
-	pvc.Labels = map[string]string{}
+	pvc.Labels = map[string]string{"custom-key": "custom-val"}
 	require.NoError(t, cli.Update(ctx, pvc))
 
-	// Second reconcile – labels must be merged back
+	// Second reconcile – operator labels must be merged back
 	require.NoError(t, r.provisionVolumeViaPVC(ctx, site, "mysite-pvc", "data", "my-sc", size))
 
 	require.NoError(t, cli.Get(ctx, types.NamespacedName{Namespace: ns, Name: "mysite-pvc"}, pvc))
 	for k, v := range site.KubernetesLabels() {
 		assert.Equal(t, v, pvc.Labels[k], "label %s must be present after second reconcile", k)
 	}
+	assert.Equal(t, "custom-val", pvc.Labels["custom-key"], "pre-existing non-operator label must survive merge")
 }

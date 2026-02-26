@@ -847,7 +847,8 @@ spec:
                 description: |-
                   StorageClassName is the name of the StorageClass to use for product volumes.
                   The StorageClass must be pre-created by the infrastructure layer.
-                  On AWS: typically backed by FSx CSI driver, EBS CSI driver, or nfs-subdir-external-provisioner
+                  The StorageClass must support ReadWriteMany (RWX) access mode; EBS does not support RWX and will cause PVCs to remain Pending.
+                  On AWS: typically backed by FSx CSI driver or nfs-subdir-external-provisioner
                   On Azure: typically backed by NetApp CSI or Azure Files CSI
                   On kind: typically "standard" (local-path-provisioner)
                   When set, this field takes precedence over VolumeSource for volume provisioning.
