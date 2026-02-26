@@ -305,6 +305,8 @@ func (r *PackageManagerReconciler) createStorageClassPVC(ctx context.Context, pm
 		pvc.Annotations["nfs.io/storage-path"] = fmt.Sprintf("%s/package-manager", pm.Name)
 
 		// Merge labels on every reconcile so new label keys are picked up by existing PVCs.
+		// Note: this is additive only; keys removed from KubernetesLabels() will remain on
+		// live PVCs until manually pruned. This matches the pattern used in volumes.go.
 		if pvc.Labels == nil {
 			pvc.Labels = make(map[string]string)
 		}
