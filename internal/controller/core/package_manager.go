@@ -304,10 +304,17 @@ func (r *PackageManagerReconciler) createStorageClassPVC(ctx context.Context, pm
 		}
 		pvc.Annotations["nfs.io/storage-path"] = fmt.Sprintf("%s/package-manager", pm.Name)
 
+		// Merge labels on every reconcile so new label keys are picked up by existing PVCs.
+		if pvc.Labels == nil {
+			pvc.Labels = make(map[string]string)
+		}
+		for k, v := range pm.KubernetesLabels() {
+			pvc.Labels[k] = v
+		}
+
 		// Only set immutable fields on creation; StorageClassName cannot be
 		// changed after a PVC is provisioned.
 		if pvc.CreationTimestamp.IsZero() {
-			pvc.Labels = pm.KubernetesLabels()
 			pvc.Spec = corev1.PersistentVolumeClaimSpec{
 				StorageClassName: &storageClassName,
 				AccessModes: []corev1.PersistentVolumeAccessMode{
