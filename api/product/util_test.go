@@ -82,6 +82,14 @@ func TestLabelMerge(t *testing.T) {
 	assert.Equal(t, expected, result)
 }
 
+func TestLabelMerge_OperatorTakesPrecedence(t *testing.T) {
+	operator := map[string]string{"app": "operator-value"}
+	user := map[string]string{"app": "user-value", "custom": "user-custom"}
+	result := product.LabelMerge(operator, user)
+	assert.Equal(t, "operator-value", result["app"])
+	assert.Equal(t, "user-custom", result["custom"])
+}
+
 func TestGetAWSRegion(t *testing.T) {
 	tests := []struct {
 		name       string
