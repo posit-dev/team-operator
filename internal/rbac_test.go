@@ -146,5 +146,7 @@ func TestGenerateRbac_NilAnnotationsUsesIRSAFallback(t *testing.T) {
 	sa := &v1.ServiceAccount{}
 	err = c.Get(ctx, client.ObjectKey{Name: connect.ComponentName(), Namespace: "posit-team"}, sa)
 	require.NoError(t, err)
-	require.Contains(t, sa.Annotations["eks.amazonaws.com/role-arn"], "123456789012")
+	arn, ok := sa.Annotations["eks.amazonaws.com/role-arn"]
+	require.True(t, ok, "expected IRSA annotation to be present")
+	require.Contains(t, arn, "123456789012")
 }
