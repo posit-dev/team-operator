@@ -23,6 +23,7 @@ import (
 	corev1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	keycloakv2alpha1 "github.com/posit-dev/team-operator/api/keycloak/v2alpha1"
 	"github.com/traefik/traefik/v3/pkg/provider/kubernetes/crd/traefikio/v1alpha1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 	//+kubebuilder:scaffold:imports
 )
@@ -53,6 +54,7 @@ var _ = BeforeSuite(func() {
 			filepath.Join("..", "..", "..", "config", "crd", "bases"),
 			filepath.Join("..", "..", "..", "hack", "keycloak", "crds"),
 			filepath.Join("..", "..", "..", "hack", "traefik", "crds"),
+			filepath.Join("..", "..", "..", "hack", "gateway-api", "crds"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -74,6 +76,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = secretsstorev1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = gatewayv1.Install(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
