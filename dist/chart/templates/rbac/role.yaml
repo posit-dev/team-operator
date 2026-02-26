@@ -10,6 +10,7 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - persistentvolumeclaims
   - persistentvolumes
   verbs:
   - create
