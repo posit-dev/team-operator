@@ -274,7 +274,7 @@ func (r *SiteReconciler) provisionVolumeViaPVC(ctx context.Context, site *v1beta
 		pvc.Annotations["nfs.io/storage-path"] = fmt.Sprintf("%s/%s", site.Name, subdir)
 
 		// Only set immutable fields on creation
-		if pvc.CreationTimestamp.IsZero() {
+		if pvc.ResourceVersion == "" {
 			pvc.Labels = site.KubernetesLabels()
 			pvc.Spec = v1.PersistentVolumeClaimSpec{
 				AccessModes:      []v1.PersistentVolumeAccessMode{v1.ReadWriteMany},
