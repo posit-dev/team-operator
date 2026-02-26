@@ -13,30 +13,31 @@ import (
 // PackageManagerSpecApplyConfiguration represents a declarative configuration of the PackageManagerSpec type for use
 // with apply.
 type PackageManagerSpecApplyConfiguration struct {
-	License                      *product.LicenseSpec                      `json:"license,omitempty"`
-	Config                       *PackageManagerConfigApplyConfiguration   `json:"config,omitempty"`
-	Volume                       *product.VolumeSpec                       `json:"volume,omitempty"`
-	SecretType                   *product.SiteSecretType                   `json:"secretType,omitempty"`
-	Url                          *string                                   `json:"url,omitempty"`
-	DatabaseConfig               *PostgresDatabaseConfigApplyConfiguration `json:"databaseConfig,omitempty"`
-	IngressClass                 *string                                   `json:"ingressClass,omitempty"`
-	IngressAnnotations           map[string]string                         `json:"ingressAnnotations,omitempty"`
-	ImagePullSecrets             []string                                  `json:"imagePullSecrets,omitempty"`
-	NodeSelector                 map[string]string                         `json:"nodeSelector,omitempty"`
-	AddEnv                       map[string]string                         `json:"addEnv,omitempty"`
-	Image                        *string                                   `json:"image,omitempty"`
-	ImagePullPolicy              *v1.PullPolicy                            `json:"imagePullPolicy,omitempty"`
-	Sleep                        *bool                                     `json:"sleep,omitempty"`
-	AwsAccountId                 *string                                   `json:"awsAccountId,omitempty"`
-	WorkloadCompoundName         *string                                   `json:"workloadCompoundName,omitempty"`
-	ClusterDate                  *string                                   `json:"clusterDate,omitempty"`
-	ChronicleAgentImage          *string                                   `json:"chronicleImage,omitempty"`
-	Secret                       *SecretConfigApplyConfiguration           `json:"secret,omitempty"`
-	WorkloadSecret               *SecretConfigApplyConfiguration           `json:"workloadSecret,omitempty"`
-	MainDatabaseCredentialSecret *SecretConfigApplyConfiguration           `json:"mainDatabaseCredentialSecret,omitempty"`
-	Replicas                     *int                                      `json:"replicas,omitempty"`
-	GitSSHKeys                   []SSHKeyConfigApplyConfiguration          `json:"gitSSHKeys,omitempty"`
-	AzureFiles                   *AzureFilesConfigApplyConfiguration       `json:"azureFiles,omitempty"`
+	License                        *product.LicenseSpec                      `json:"license,omitempty"`
+	Config                         *PackageManagerConfigApplyConfiguration   `json:"config,omitempty"`
+	Volume                         *product.VolumeSpec                       `json:"volume,omitempty"`
+	SecretType                     *product.SiteSecretType                   `json:"secretType,omitempty"`
+	Url                            *string                                   `json:"url,omitempty"`
+	DatabaseConfig                 *PostgresDatabaseConfigApplyConfiguration `json:"databaseConfig,omitempty"`
+	IngressClass                   *string                                   `json:"ingressClass,omitempty"`
+	IngressAnnotations             map[string]string                         `json:"ingressAnnotations,omitempty"`
+	ImagePullSecrets               []string                                  `json:"imagePullSecrets,omitempty"`
+	NodeSelector                   map[string]string                         `json:"nodeSelector,omitempty"`
+	AddEnv                         map[string]string                         `json:"addEnv,omitempty"`
+	Image                          *string                                   `json:"image,omitempty"`
+	ImagePullPolicy                *v1.PullPolicy                            `json:"imagePullPolicy,omitempty"`
+	Sleep                          *bool                                     `json:"sleep,omitempty"`
+	AwsAccountId                   *string                                   `json:"awsAccountId,omitempty"`
+	WorkloadCompoundName           *string                                   `json:"workloadCompoundName,omitempty"`
+	ClusterDate                    *string                                   `json:"clusterDate,omitempty"`
+	ChronicleAgentImage            *string                                   `json:"chronicleImage,omitempty"`
+	Secret                         *SecretConfigApplyConfiguration           `json:"secret,omitempty"`
+	WorkloadSecret                 *SecretConfigApplyConfiguration           `json:"workloadSecret,omitempty"`
+	MainDatabaseCredentialSecret   *SecretConfigApplyConfiguration           `json:"mainDatabaseCredentialSecret,omitempty"`
+	Replicas                       *int                                      `json:"replicas,omitempty"`
+	GitSSHKeys                     []SSHKeyConfigApplyConfiguration          `json:"gitSSHKeys,omitempty"`
+	AzureFiles                     *AzureFilesConfigApplyConfiguration       `json:"azureFiles,omitempty"`
+	PackageManagerStorageClassName *string                                   `json:"packageManagerStorageClassName,omitempty"`
 }
 
 // PackageManagerSpecApplyConfiguration constructs a declarative configuration of the PackageManagerSpec type for use with
@@ -259,5 +260,13 @@ func (b *PackageManagerSpecApplyConfiguration) WithGitSSHKeys(values ...*SSHKeyC
 // If called multiple times, the AzureFiles field is set to the value of the last call.
 func (b *PackageManagerSpecApplyConfiguration) WithAzureFiles(value *AzureFilesConfigApplyConfiguration) *PackageManagerSpecApplyConfiguration {
 	b.AzureFiles = value
+	return b
+}
+
+// WithPackageManagerStorageClassName sets the PackageManagerStorageClassName field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the PackageManagerStorageClassName field is set to the value of the last call.
+func (b *PackageManagerSpecApplyConfiguration) WithPackageManagerStorageClassName(value string) *PackageManagerSpecApplyConfiguration {
+	b.PackageManagerStorageClassName = &value
 	return b
 }

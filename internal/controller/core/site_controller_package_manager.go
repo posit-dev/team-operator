@@ -95,9 +95,10 @@ func (r *SiteReconciler) reconcilePackageManager(
 			AddEnv:                       site.Spec.PackageManager.AddEnv,
 			Secret:                       site.Spec.Secret,
 			WorkloadSecret:               site.Spec.WorkloadSecret,
-			Replicas:                     product.PassDefaultReplicas(site.Spec.PackageManager.Replicas, 1),
-			GitSSHKeys:                   site.Spec.PackageManager.GitSSHKeys,
-			AzureFiles:                   site.Spec.PackageManager.AzureFiles,
+			Replicas:                       product.PassDefaultReplicas(site.Spec.PackageManager.Replicas, 1),
+			GitSSHKeys:                     site.Spec.PackageManager.GitSSHKeys,
+			AzureFiles:                     site.Spec.PackageManager.AzureFiles,
+			PackageManagerStorageClassName: site.Spec.PackageManagerStorageClassName,
 		}
 
 		if site.Spec.PackageManager.S3Bucket != "" {

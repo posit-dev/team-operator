@@ -622,6 +622,12 @@ spec:
                 maximum: 100
                 minimum: 0
                 type: integer
+              nfsEgressCIDR:
+                description: |-
+                  NFSEgressCIDR allows NFS (port 2049) egress to this CIDR in network policies.
+                  Set this when workbench sessions need to mount external NFS/EFS volumes.
+                  When set, this field takes precedence over EFSEnabled/VPCCIDR for network policy configuration.
+                type: string
               packageManager:
                 description: PackageManager contains Posit Package Manager configuration
                 properties:
@@ -807,6 +813,11 @@ spec:
                         type: string
                     type: object
                 type: object
+              packageManagerStorageClassName:
+                description: |-
+                  PackageManagerStorageClassName overrides StorageClassName for Package Manager.
+                  Use when PM needs a different storage backend (e.g., Azure Files for NFS shares).
+                type: string
               packageManagerUrl:
                 description: |-
                   PackageManagerUrl specifies the Package Manager URL for Workbench to use
@@ -829,6 +840,15 @@ spec:
                 description: |-
                   SharedDirectory is the name of a directory mounted into Workbench and Connect at /mnt/<sharedDirectory>. It should
                   NOT contain any slashes.
+                type: string
+              storageClassName:
+                description: |-
+                  StorageClassName is the name of the StorageClass to use for product volumes.
+                  The StorageClass must be pre-created by the infrastructure layer.
+                  On AWS: typically backed by FSx CSI driver, EBS CSI driver, or nfs-subdir-external-provisioner
+                  On Azure: typically backed by NetApp CSI or Azure Files CSI
+                  On kind: typically "standard" (local-path-provisioner)
+                  When set, this field takes precedence over VolumeSource for volume provisioning.
                 type: string
               volumeSource:
                 description: |-

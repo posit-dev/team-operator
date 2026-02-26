@@ -672,15 +672,22 @@ func (r *SiteReconciler) reconcileWorkbenchSessionNetworkPolicy(ctx context.Cont
 			internal.PublicInternetOnlyNetworkPolicyEgressRule(),
 		}
 
-		// Add EFS egress rule if enabled
-		if site.Spec.EFSEnabled && site.Spec.VPCCIDR != "" {
+		// Add NFS egress rule if configured
+		// NEW PATH: Use NFSEgressCIDR if set (cloud-agnostic)
+		// LEGACY PATH: Fall back to EFSEnabled + VPCCIDR (AWS-specific)
+		nfsEgressCIDR := site.Spec.NFSEgressCIDR
+		if nfsEgressCIDR == "" && site.Spec.EFSEnabled && site.Spec.VPCCIDR != "" {
+			nfsEgressCIDR = site.Spec.VPCCIDR
+		}
+
+		if nfsEgressCIDR != "" {
 			tcp := v1.ProtocolTCP
 			port2049 := intstr.FromInt(2049)
 			egressRules = append(egressRules, networkingv1.NetworkPolicyEgressRule{
 				To: []networkingv1.NetworkPolicyPeer{
 					{
 						IPBlock: &networkingv1.IPBlock{
-							CIDR: site.Spec.VPCCIDR,
+							CIDR: nfsEgressCIDR,
 						},
 					},
 				},

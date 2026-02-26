@@ -13,36 +13,39 @@ import (
 // SiteSpecApplyConfiguration represents a declarative configuration of the SiteSpec type for use
 // with apply.
 type SiteSpecApplyConfiguration struct {
-	AwsAccountId                 *string                                       `json:"awsAccountId,omitempty"`
-	ClusterDate                  *string                                       `json:"clusterDate,omitempty"`
-	WorkloadCompoundName         *string                                       `json:"workloadCompoundName,omitempty"`
-	Domain                       *string                                       `json:"domain,omitempty"`
-	SecretType                   *product.SiteSecretType                       `json:"secretType,omitempty"`
-	Flightdeck                   *InternalFlightdeckSpecApplyConfiguration     `json:"flightdeck,omitempty"`
-	PackageManager               *InternalPackageManagerSpecApplyConfiguration `json:"packageManager,omitempty"`
-	Connect                      *InternalConnectSpecApplyConfiguration        `json:"connect,omitempty"`
-	Workbench                    *InternalWorkbenchSpecApplyConfiguration      `json:"workbench,omitempty"`
-	Chronicle                    *InternalChronicleSpecApplyConfiguration      `json:"chronicle,omitempty"`
-	Keycloak                     *InternalKeycloakSpecApplyConfiguration       `json:"keycloak,omitempty"`
-	IngressClass                 *string                                       `json:"ingressClass,omitempty"`
-	IngressAnnotations           map[string]string                             `json:"ingressAnnotations,omitempty"`
-	ImagePullSecrets             []string                                      `json:"imagePullSecrets,omitempty"`
-	VolumeSource                 *VolumeSourceApplyConfiguration               `json:"volumeSource,omitempty"`
-	SharedDirectory              *string                                       `json:"sharedDirectory,omitempty"`
-	VolumeSubdirJobOff           *bool                                         `json:"volumeSubdirJobOff,omitempty"`
-	ExtraSiteServiceAccounts     []ServiceAccountConfigApplyConfiguration      `json:"extraSiteServiceAccounts,omitempty"`
-	Secret                       *SecretConfigApplyConfiguration               `json:"secret,omitempty"`
-	WorkloadSecret               *SecretConfigApplyConfiguration               `json:"workloadSecret,omitempty"`
-	DisablePrePullImages         *bool                                         `json:"disablePrePullImages,omitempty"`
-	MainDatabaseCredentialSecret *SecretConfigApplyConfiguration               `json:"mainDatabaseCredentialSecret,omitempty"`
-	DropDatabaseOnTeardown       *bool                                         `json:"dropDatabaseOnTearDown,omitempty"`
-	Debug                        *bool                                         `json:"debug,omitempty"`
-	LogFormat                    *product.LogFormat                            `json:"logFormat,omitempty"`
-	NetworkTrust                 *corev1beta1.NetworkTrust                     `json:"networkTrust,omitempty"`
-	PackageManagerUrl            *string                                       `json:"packageManagerUrl,omitempty"`
-	EFSEnabled                   *bool                                         `json:"efsEnabled,omitempty"`
-	VPCCIDR                      *string                                       `json:"vpcCIDR,omitempty"`
-	EnableFQDNHealthChecks       *bool                                         `json:"enableFqdnHealthChecks,omitempty"`
+	AwsAccountId                   *string                                       `json:"awsAccountId,omitempty"`
+	ClusterDate                    *string                                       `json:"clusterDate,omitempty"`
+	WorkloadCompoundName           *string                                       `json:"workloadCompoundName,omitempty"`
+	Domain                         *string                                       `json:"domain,omitempty"`
+	SecretType                     *product.SiteSecretType                       `json:"secretType,omitempty"`
+	Flightdeck                     *InternalFlightdeckSpecApplyConfiguration     `json:"flightdeck,omitempty"`
+	PackageManager                 *InternalPackageManagerSpecApplyConfiguration `json:"packageManager,omitempty"`
+	Connect                        *InternalConnectSpecApplyConfiguration        `json:"connect,omitempty"`
+	Workbench                      *InternalWorkbenchSpecApplyConfiguration      `json:"workbench,omitempty"`
+	Chronicle                      *InternalChronicleSpecApplyConfiguration      `json:"chronicle,omitempty"`
+	Keycloak                       *InternalKeycloakSpecApplyConfiguration       `json:"keycloak,omitempty"`
+	IngressClass                   *string                                       `json:"ingressClass,omitempty"`
+	IngressAnnotations             map[string]string                             `json:"ingressAnnotations,omitempty"`
+	ImagePullSecrets               []string                                      `json:"imagePullSecrets,omitempty"`
+	VolumeSource                   *VolumeSourceApplyConfiguration               `json:"volumeSource,omitempty"`
+	SharedDirectory                *string                                       `json:"sharedDirectory,omitempty"`
+	VolumeSubdirJobOff             *bool                                         `json:"volumeSubdirJobOff,omitempty"`
+	ExtraSiteServiceAccounts       []ServiceAccountConfigApplyConfiguration      `json:"extraSiteServiceAccounts,omitempty"`
+	Secret                         *SecretConfigApplyConfiguration               `json:"secret,omitempty"`
+	WorkloadSecret                 *SecretConfigApplyConfiguration               `json:"workloadSecret,omitempty"`
+	DisablePrePullImages           *bool                                         `json:"disablePrePullImages,omitempty"`
+	MainDatabaseCredentialSecret   *SecretConfigApplyConfiguration               `json:"mainDatabaseCredentialSecret,omitempty"`
+	DropDatabaseOnTeardown         *bool                                         `json:"dropDatabaseOnTearDown,omitempty"`
+	Debug                          *bool                                         `json:"debug,omitempty"`
+	LogFormat                      *product.LogFormat                            `json:"logFormat,omitempty"`
+	NetworkTrust                   *corev1beta1.NetworkTrust                     `json:"networkTrust,omitempty"`
+	PackageManagerUrl              *string                                       `json:"packageManagerUrl,omitempty"`
+	EFSEnabled                     *bool                                         `json:"efsEnabled,omitempty"`
+	VPCCIDR                        *string                                       `json:"vpcCIDR,omitempty"`
+	StorageClassName               *string                                       `json:"storageClassName,omitempty"`
+	PackageManagerStorageClassName *string                                       `json:"packageManagerStorageClassName,omitempty"`
+	NFSEgressCIDR                  *string                                       `json:"nfsEgressCIDR,omitempty"`
+	EnableFQDNHealthChecks         *bool                                         `json:"enableFqdnHealthChecks,omitempty"`
 }
 
 // SiteSpecApplyConfiguration constructs a declarative configuration of the SiteSpec type for use with
@@ -293,6 +296,30 @@ func (b *SiteSpecApplyConfiguration) WithEFSEnabled(value bool) *SiteSpecApplyCo
 // If called multiple times, the VPCCIDR field is set to the value of the last call.
 func (b *SiteSpecApplyConfiguration) WithVPCCIDR(value string) *SiteSpecApplyConfiguration {
 	b.VPCCIDR = &value
+	return b
+}
+
+// WithStorageClassName sets the StorageClassName field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the StorageClassName field is set to the value of the last call.
+func (b *SiteSpecApplyConfiguration) WithStorageClassName(value string) *SiteSpecApplyConfiguration {
+	b.StorageClassName = &value
+	return b
+}
+
+// WithPackageManagerStorageClassName sets the PackageManagerStorageClassName field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the PackageManagerStorageClassName field is set to the value of the last call.
+func (b *SiteSpecApplyConfiguration) WithPackageManagerStorageClassName(value string) *SiteSpecApplyConfiguration {
+	b.PackageManagerStorageClassName = &value
+	return b
+}
+
+// WithNFSEgressCIDR sets the NFSEgressCIDR field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the NFSEgressCIDR field is set to the value of the last call.
+func (b *SiteSpecApplyConfiguration) WithNFSEgressCIDR(value string) *SiteSpecApplyConfiguration {
+	b.NFSEgressCIDR = &value
 	return b
 }
 

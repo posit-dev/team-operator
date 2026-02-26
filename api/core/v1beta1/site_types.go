@@ -120,6 +120,26 @@ type SiteSpec struct {
 	// VPCCIDR is the CIDR block for the VPC, used for EFS network policies
 	VPCCIDR string `json:"vpcCIDR,omitempty"`
 
+	// StorageClassName is the name of the StorageClass to use for product volumes.
+	// The StorageClass must be pre-created by the infrastructure layer.
+	// On AWS: typically backed by FSx CSI driver, EBS CSI driver, or nfs-subdir-external-provisioner
+	// On Azure: typically backed by NetApp CSI or Azure Files CSI
+	// On kind: typically "standard" (local-path-provisioner)
+	// When set, this field takes precedence over VolumeSource for volume provisioning.
+	// +optional
+	StorageClassName string `json:"storageClassName,omitempty"`
+
+	// PackageManagerStorageClassName overrides StorageClassName for Package Manager.
+	// Use when PM needs a different storage backend (e.g., Azure Files for NFS shares).
+	// +optional
+	PackageManagerStorageClassName string `json:"packageManagerStorageClassName,omitempty"`
+
+	// NFSEgressCIDR allows NFS (port 2049) egress to this CIDR in network policies.
+	// Set this when workbench sessions need to mount external NFS/EFS volumes.
+	// When set, this field takes precedence over EFSEnabled/VPCCIDR for network policy configuration.
+	// +optional
+	NFSEgressCIDR string `json:"nfsEgressCIDR,omitempty"`
+
 	// EnableFQDNHealthChecks controls whether Grafana Alloy generates FQDN-based health check targets
 	// for this site's products. When false, only internal cluster health checks are generated.
 	// Defaults to true.

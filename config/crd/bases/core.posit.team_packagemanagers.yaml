@@ -304,6 +304,12 @@ spec:
                 additionalProperties:
                   type: string
                 type: object
+              packageManagerStorageClassName:
+                description: |-
+                  PackageManagerStorageClassName is the StorageClass to use for Package Manager storage.
+                  If set, this overrides the site's default StorageClassName and AzureFiles configuration.
+                  The operator will create a PVC using this StorageClass.
+                type: string
               replicas:
                 type: integer
               secret:

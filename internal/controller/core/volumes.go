@@ -12,9 +12,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 // +kubebuilder:rbac:groups="",resources=persistentvolumes,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
 
 func (r *SiteReconciler) provisionFsxVolume(ctx context.Context, site *v1beta1.Site, name, subdir string, size resource.Quantity) error {
 	l := r.GetLogger(ctx).WithValues(
@@ -244,4 +246,53 @@ func guessRootNFSPathFromDNSName(dnsName string) string {
 	}
 
 	return "/"
+}
+
+// provisionVolumeViaPVC creates a PVC that references a StorageClass by name.
+// The StorageClass must be pre-created by the infrastructure layer.
+// This is the cloud-agnostic volume provisioning path.
+func (r *SiteReconciler) provisionVolumeViaPVC(ctx context.Context, site *v1beta1.Site, name, subdir, storageClassName string, size resource.Quantity) error {
+	l := r.GetLogger(ctx).WithValues(
+		"event", fmt.Sprintf("%s-pvc-volume", name),
+	)
+
+	l.Info("Provisioning volume via PVC", "name", name, "storageClass", storageClassName, "subdir", subdir)
+
+	pvc := &v1.PersistentVolumeClaim{
+		ObjectMeta: v12.ObjectMeta{
+			Name:      name,
+			Namespace: site.Namespace,
+			Annotations: map[string]string{
+				// nfs-subdir-external-provisioner uses this annotation to determine
+				// the subdirectory path on the NFS volume. This preserves existing
+				// data paths (e.g., "mysite/connect") and creates new ones identically.
+				"nfs.io/storage-path": fmt.Sprintf("%s/%s", site.Name, subdir),
+			},
+		},
+	}
+
+	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, pvc, func() error {
+		// Only set immutable fields on creation
+		if pvc.CreationTimestamp.IsZero() {
+			pvc.Labels = site.KubernetesLabels()
+			pvc.Spec = v1.PersistentVolumeClaimSpec{
+				AccessModes:      []v1.PersistentVolumeAccessMode{v1.ReadWriteMany},
+				StorageClassName: &storageClassName,
+				Resources: v1.VolumeResourceRequirements{
+					Requests: v1.ResourceList{
+						v1.ResourceStorage: size,
+					},
+				},
+			}
+		}
+		return controllerutil.SetControllerReference(site, pvc, r.Scheme)
+	})
+
+	if err != nil {
+		l.Error(err, fmt.Sprintf("Error creating or updating PVC for %s", name))
+		return err
+	}
+
+	l.Info("Done provisioning volume via PVC for " + name)
+	return nil
 }

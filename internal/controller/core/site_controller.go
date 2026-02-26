@@ -168,6 +168,8 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 	devStorageClassName := devVolumeName
 	sharedVolumeName := fmt.Sprintf("%s-shared", site.Name)
 	sharedStorageClassName := sharedVolumeName
+	workbenchSharedStorageVolumeName := fmt.Sprintf("%s-workbench-shared-storage", site.Name)
+	workbenchSharedStorageClassName := workbenchSharedStorageVolumeName
 
 	if site.Spec.VolumeSource.Type == positcov1beta1.VolumeSourceTypeAzureNetApp {
 		connectStorageClassName = string(positcov1beta1.StorageClassAzureNetApp)
@@ -176,7 +178,40 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 
 	}
 
-	if site.Spec.VolumeSource.Type != positcov1beta1.VolumeSourceTypeNone {
+	// NEW PATH: Cloud-agnostic volume provisioning via PVC + StorageClass
+	// This takes precedence over the legacy VolumeSource path
+	if site.Spec.StorageClassName != "" {
+		l.Info("Provisioning volumes via StorageClass", "storage-class", site.Spec.StorageClassName)
+
+		// Provision Connect volume only if Connect is enabled
+		if connectEnabled {
+			if err := r.provisionVolumeViaPVC(ctx, site, connectVolumeName, "connect", site.Spec.StorageClassName, connectVolumeSize); err != nil {
+				return ctrl.Result{}, err
+			}
+			connectStorageClassName = site.Spec.StorageClassName
+		}
+
+		// Provision Workbench volume
+		if err := r.provisionVolumeViaPVC(ctx, site, devVolumeName, "workbench", site.Spec.StorageClassName, connectVolumeSize); err != nil {
+			return ctrl.Result{}, err
+		}
+		devStorageClassName = site.Spec.StorageClassName
+
+		// Provision shared storage volume for workbench load balancing
+		if err := r.provisionVolumeViaPVC(ctx, site, workbenchSharedStorageVolumeName, "workbench-shared-storage", site.Spec.StorageClassName, workbenchSharedStorageVolumeSize); err != nil {
+			return ctrl.Result{}, err
+		}
+		workbenchSharedStorageClassName = site.Spec.StorageClassName
+
+		// Provision shared directory volume if configured
+		if site.Spec.SharedDirectory != "" {
+			if err := r.provisionVolumeViaPVC(ctx, site, sharedVolumeName, "shared", site.Spec.StorageClassName, connectVolumeSize); err != nil {
+				return ctrl.Result{}, err
+			}
+			sharedStorageClassName = site.Spec.StorageClassName
+		}
+	} else if site.Spec.VolumeSource.Type != positcov1beta1.VolumeSourceTypeNone {
+		// LEGACY PATH: Cloud-specific volume provisioning (backward compatibility)
 		l.Info("Provisioning volumes", "volume-type", site.Spec.VolumeSource.Type)
 
 		if site.Spec.VolumeSource.Type == positcov1beta1.VolumeSourceTypeFsxZfs {
@@ -196,7 +231,6 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 			}
 
 			// Provision shared storage volume for workbench load balancing
-			workbenchSharedStorageVolumeName := fmt.Sprintf("%s-workbench-shared-storage", site.Name)
 			// Note: provisionFsxVolume uses the volume name as the storage class name
 			if err := r.provisionFsxVolume(ctx, site, workbenchSharedStorageVolumeName, "workbench-shared-storage", workbenchSharedStorageVolumeSize); err != nil {
 				return ctrl.Result{}, err
@@ -235,8 +269,7 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 			}
 
 			// Provision shared storage volume for workbench load balancing
-			workbenchSharedStorageVolumeName := fmt.Sprintf("%s-workbench-shared-storage", site.Name)
-			workbenchSharedStorageClassName := fmt.Sprintf("%s-nfs", workbenchSharedStorageVolumeName)
+			workbenchSharedStorageClassName = fmt.Sprintf("%s-nfs", workbenchSharedStorageVolumeName)
 			if err := r.provisionNfsVolume(ctx, site, workbenchSharedStorageVolumeName, "workbench-shared-storage", workbenchSharedStorageClassName, workbenchSharedStorageVolumeSize); err != nil {
 				return ctrl.Result{}, err
 			}

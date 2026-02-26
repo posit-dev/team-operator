@@ -153,15 +153,32 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 	pm.Spec.Config.Postgres.URL = db.DatabaseUrl(pm.Spec.DatabaseConfig.Host, pm.ComponentName(), "", db.QueryParams("pm", pm.Spec.DatabaseConfig.SslMode)).String()
 	pm.Spec.Config.Postgres.UsageDataURL = db.DatabaseUrl(pm.Spec.DatabaseConfig.Host, pm.ComponentName(), "", db.QueryParams("metrics", pm.Spec.DatabaseConfig.SslMode)).String()
 
-	// Handle Azure Files configuration
-	if pm.Spec.AzureFiles != nil {
-		// Set Server.DataDir to the mount path when Azure Files is used
+	// Handle storage configuration
+	// NEW PATH: Use PackageManagerStorageClassName if set (cloud-agnostic)
+	// LEGACY PATH: Fall back to AzureFiles configuration (Azure-specific)
+	if pm.Spec.PackageManagerStorageClassName != "" {
+		// Cloud-agnostic storage via StorageClass
+		if pm.Spec.Config.Server == nil {
+			pm.Spec.Config.Server = &positcov1beta1.PackageManagerServerConfig{}
+		}
+		pm.Spec.Config.Server.DataDir = "/mnt/package-manager-storage"
+
+		if pm.Spec.Config.Storage == nil {
+			pm.Spec.Config.Storage = &positcov1beta1.PackageManagerStorageConfig{}
+		}
+		pm.Spec.Config.Storage.Default = "file"
+
+		if err := r.createStorageClassPVC(ctx, pm); err != nil {
+			l.Error(err, "error creating PackageManager PVC via StorageClass")
+			return ctrl.Result{}, err
+		}
+	} else if pm.Spec.AzureFiles != nil {
+		// Legacy Azure Files configuration
 		if pm.Spec.Config.Server == nil {
 			pm.Spec.Config.Server = &positcov1beta1.PackageManagerServerConfig{}
 		}
 		pm.Spec.Config.Server.DataDir = "/mnt/azure-files"
 
-		// Set Storage type configuration
 		if pm.Spec.Config.Storage == nil {
 			pm.Spec.Config.Storage = &positcov1beta1.PackageManagerStorageConfig{}
 		}
@@ -252,6 +269,71 @@ func (r *PackageManagerReconciler) createAzureFilesStoragePVC(ctx context.Contex
 		}
 	}
 
+	return nil
+}
+
+// createStorageClassPVC creates a PVC using the specified StorageClass
+// This is the cloud-agnostic storage path for Package Manager
+func (r *PackageManagerReconciler) createStorageClassPVC(ctx context.Context, pm *positcov1beta1.PackageManager) error {
+	l := r.GetLogger(ctx).WithValues(
+		"event", "create-storageclass-pvc",
+		"product", "package-manager",
+	)
+
+	if pm.Spec.PackageManagerStorageClassName == "" {
+		return fmt.Errorf("PackageManagerStorageClassName is required but not set")
+	}
+
+	pvcName := fmt.Sprintf("%s-storage", pm.ComponentName())
+
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pvcName,
+			Namespace: pm.Namespace,
+			Annotations: map[string]string{
+				// nfs-subdir-external-provisioner uses this annotation to determine
+				// the subdirectory path on the NFS volume
+				"nfs.io/storage-path": fmt.Sprintf("%s/package-manager", pm.Name),
+			},
+			Labels:          pm.KubernetesLabels(),
+			OwnerReferences: pm.OwnerReferencesForChildren(),
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			StorageClassName: &pm.Spec.PackageManagerStorageClassName,
+			AccessModes: []corev1.PersistentVolumeAccessMode{
+				corev1.ReadWriteMany,
+			},
+			Resources: corev1.VolumeResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceStorage: defaultPmVolumeSize,
+				},
+			},
+		},
+	}
+
+	if err := r.Create(ctx, pvc); err != nil {
+		if !apierrors.IsAlreadyExists(err) {
+			l.Error(err, "Failed to create Package Manager PersistentVolumeClaim via StorageClass", "pvc", pvcName)
+			return err
+		}
+
+		// PVC already exists, update it if needed
+		existingPVC := &corev1.PersistentVolumeClaim{}
+		if err := r.Get(ctx, client.ObjectKey{Name: pvcName, Namespace: pm.Namespace}, existingPVC); err != nil {
+			l.Error(err, "Failed to get existing Package Manager PersistentVolumeClaim", "pvc", pvcName)
+			return err
+		}
+
+		if existingPVC.Spec.StorageClassName == nil || *existingPVC.Spec.StorageClassName != pm.Spec.PackageManagerStorageClassName {
+			existingPVC.Spec.StorageClassName = &pm.Spec.PackageManagerStorageClassName
+			if err := r.Update(ctx, existingPVC); err != nil {
+				l.Error(err, "Failed to update Package Manager PersistentVolumeClaim", "pvc", pvcName)
+				return err
+			}
+		}
+	}
+
+	l.Info("Successfully created/updated Package Manager PVC", "pvc", pvcName, "storageClass", pm.Spec.PackageManagerStorageClassName)
 	return nil
 }
 
@@ -510,6 +592,17 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 								},
 							},
 								func() []corev1.VolumeMount {
+									// NEW PATH: Use PackageManagerStorageClassName
+									if pm.Spec.PackageManagerStorageClassName != "" {
+										return []corev1.VolumeMount{
+											{
+												Name:      "package-manager-storage",
+												MountPath: "/mnt/package-manager-storage",
+												ReadOnly:  false,
+											},
+										}
+									}
+									// LEGACY PATH: Use AzureFiles
 									if pm.Spec.AzureFiles != nil {
 										return []corev1.VolumeMount{
 											{
@@ -572,6 +665,21 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 						},
 					},
 						func() []corev1.Volume {
+							// NEW PATH: Use PackageManagerStorageClassName
+							if pm.Spec.PackageManagerStorageClassName != "" {
+								return []corev1.Volume{
+									{
+										Name: "package-manager-storage",
+										VolumeSource: corev1.VolumeSource{
+											PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+												ClaimName: fmt.Sprintf("%s-storage", pm.ComponentName()),
+												ReadOnly:  false,
+											},
+										},
+									},
+								}
+							}
+							// LEGACY PATH: Use AzureFiles
 							if pm.Spec.AzureFiles != nil {
 								return []corev1.Volume{
 									{

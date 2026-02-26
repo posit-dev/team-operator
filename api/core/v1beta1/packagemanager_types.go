@@ -79,6 +79,12 @@ type PackageManagerSpec struct {
 	// AzureFiles configures Azure Files integration for persistent storage
 	// +optional
 	AzureFiles *AzureFilesConfig `json:"azureFiles,omitempty"`
+
+	// PackageManagerStorageClassName is the StorageClass to use for Package Manager storage.
+	// If set, this overrides the site's default StorageClassName and AzureFiles configuration.
+	// The operator will create a PVC using this StorageClass.
+	// +optional
+	PackageManagerStorageClassName string `json:"packageManagerStorageClassName,omitempty"`
 }
 
 // PackageManagerStatus defines the observed state of PackageManager
