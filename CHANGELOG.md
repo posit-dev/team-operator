@@ -1,3 +1,10 @@
+# [1.16.0](https://github.com/posit-dev/team-operator/compare/v1.15.0...v1.16.0) (2026-02-26)
+
+
+### Features
+
+* auto-generate Edit Config page from Site CRD ([#39](https://github.com/posit-dev/team-operator/issues/39)) ([#79](https://github.com/posit-dev/team-operator/issues/79)) ([101dab1](https://github.com/posit-dev/team-operator/commit/101dab1f6e675ee0c35b0d12747ed6dc7b545677))
+
 # [1.15.0](https://github.com/posit-dev/team-operator/compare/v1.14.0...v1.15.0) (2026-02-24)
 
 
