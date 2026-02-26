@@ -452,3 +452,32 @@ func TestWorkbenchReconciler_InvalidUrl_ReturnsError(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid Url")
 }
+
+func TestWorkbenchReconciler_InvalidParentUrl_ReturnsError(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-invalid-parenturl"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	// Create Site with a GatewayRef so we exercise the Gateway API path
+	site := defineDefaultSite(t, ns, name)
+	site.Spec.GatewayRef = &positcov1beta1.GatewayReference{
+		Name:      "test-gateway",
+		Namespace: ns,
+	}
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
+	require.NoError(t, err)
+
+	wb := defineDefaultWorkbench(t, ns, name)
+	wb.Spec.ParentUrl = "parent.example.com;injected"
+
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	_, err = r.ReconcileWorkbench(ctx, req, wb)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid ParentUrl")
+}
