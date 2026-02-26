@@ -35,6 +35,10 @@ func EnsureHTTPRoute(
 	owner client.Object,
 	cfg HTTPRouteConfig,
 ) error {
+	if cfg.GatewayName == "" || cfg.GatewayNS == "" {
+		return fmt.Errorf("GatewayRef name and namespace must not be empty")
+	}
+
 	l = l.WithValues(
 		"function", "EnsureHTTPRoute",
 		"name", cfg.Name,

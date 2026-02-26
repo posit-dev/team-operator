@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func initConnectReconciler(t *testing.T, ctx context.Context, namespace, name string) (context.Context, *ConnectReconciler, ctrl.Request, client.Client) {
@@ -613,4 +614,39 @@ func TestConnectReconciler_OIDC_DisableGroupsClaim(t *testing.T) {
 	assert.Contains(t, config, "GroupsClaim = ", "GroupsClaim should be explicitly set to empty")
 	// Ensure it's not set to a non-empty value
 	assert.NotContains(t, config, "GroupsClaim = groups", "GroupsClaim should not have the default 'groups' value")
+}
+
+func TestConnectReconciler_GatewayRef_CreatesHTTPRoute(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "connect-gateway"
+
+	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
+
+	// Create Site with a GatewayRef to exercise the Gateway API path
+	site := defineDefaultSite(t, ns, name)
+	site.Spec.GatewayRef = &positcov1beta1.GatewayReference{
+		Name:      "test-gateway",
+		Namespace: ns,
+	}
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
+	require.NoError(t, err)
+
+	c := defineDefaultConnect(t, ns, name)
+	c.Spec.Url = "connect.example.com"
+
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	require.NoError(t, err)
+
+	c = getConnect(t, cli, ns, name)
+
+	_, err = r.ReconcileConnect(ctx, req, c)
+	require.NoError(t, err)
+
+	// Verify HTTPRoute was created with the correct hostname
+	route := &gatewayv1.HTTPRoute{}
+	err = cli.Get(ctx, client.ObjectKey{Name: c.ComponentName(), Namespace: ns}, route)
+	require.NoError(t, err)
+	assert.Equal(t, "connect.example.com", string(route.Spec.Hostnames[0]))
+	assert.Equal(t, "test-gateway", string(route.Spec.ParentRefs[0].Name))
 }

@@ -782,12 +782,6 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 		// NEW PATH: Gateway API - Create HTTPRoute
 		l.V(1).Info("Using Gateway API (HTTPRoute) for routing")
 
-		// Delete legacy Ingress if present (mode migration: Ingress -> HTTPRoute)
-		ingressKey := client.ObjectKey{Name: c.ComponentName(), Namespace: req.Namespace}
-		if err := internal.BasicDelete(ctx, r, l, ingressKey, &networkingv1.Ingress{}); err != nil {
-			return ctrl.Result{}, err
-		}
-
 		if err := internal.EnsureHTTPRoute(
 			ctx,
 			r.Client,
@@ -814,14 +808,15 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 			l.Error(err, "Error creating HTTPRoute")
 			return ctrl.Result{}, err
 		}
+
+		// Delete legacy Ingress if present (mode migration: Ingress -> HTTPRoute)
+		ingressKey := client.ObjectKey{Name: c.ComponentName(), Namespace: req.Namespace}
+		if err := internal.BasicDelete(ctx, r, l, ingressKey, &networkingv1.Ingress{}); err != nil {
+			return ctrl.Result{}, err
+		}
 	} else {
 		// LEGACY PATH: Ingress + Traefik Middleware (unchanged)
 		l.V(1).Info("Using legacy Ingress for routing")
-
-		// Delete HTTPRoute if present (mode migration: HTTPRoute -> Ingress)
-		if err := internal.DeleteHTTPRoute(ctx, r.Client, l, c.ComponentName(), req.Namespace); err != nil {
-			return ctrl.Result{}, err
-		}
 
 		if err := r.deployTraefikMiddlewares(ctx, req, c); err != nil {
 			l.Error(err, "Error deploying traefik middlewares")
@@ -885,6 +880,11 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 			}
 			return nil
 		}); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		// Delete HTTPRoute if present (mode migration: HTTPRoute -> Ingress)
+		if err := internal.DeleteHTTPRoute(ctx, r.Client, l, c.ComponentName(), req.Namespace); err != nil {
 			return ctrl.Result{}, err
 		}
 	}

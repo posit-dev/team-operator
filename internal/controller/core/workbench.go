@@ -952,12 +952,6 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 			return ctrl.Result{}, fmt.Errorf("invalid ParentUrl %q: contains forbidden characters (one of: ; \\n \\r space tab)", w.Spec.ParentUrl)
 		}
 
-		// Delete legacy Ingress if present (mode migration: Ingress -> HTTPRoute)
-		ingressKey := client.ObjectKey{Name: w.ComponentName(), Namespace: req.Namespace}
-		if err := internal.BasicDelete(ctx, r, l, ingressKey, &networkingv1.Ingress{}); err != nil {
-			return ctrl.Result{}, err
-		}
-
 		if err := internal.EnsureHTTPRoute(
 			ctx,
 			r.Client,
@@ -987,14 +981,15 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 			l.Error(err, "Error creating HTTPRoute")
 			return ctrl.Result{}, err
 		}
+
+		// Delete legacy Ingress if present (mode migration: Ingress -> HTTPRoute)
+		ingressKey := client.ObjectKey{Name: w.ComponentName(), Namespace: req.Namespace}
+		if err := internal.BasicDelete(ctx, r, l, ingressKey, &networkingv1.Ingress{}); err != nil {
+			return ctrl.Result{}, err
+		}
 	} else {
 		// LEGACY PATH: Ingress + Traefik Middleware (unchanged)
 		l.V(1).Info("Using legacy Ingress for routing")
-
-		// Delete HTTPRoute if present (mode migration: HTTPRoute -> Ingress)
-		if err := internal.DeleteHTTPRoute(ctx, r.Client, l, w.ComponentName(), req.Namespace); err != nil {
-			return ctrl.Result{}, err
-		}
 
 		if err := r.deployTraefikMiddlewares(ctx, req, w); err != nil {
 			l.Error(err, "Error deploying traefik middlewares")
@@ -1063,6 +1058,11 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 			}
 			return nil
 		}); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		// Delete HTTPRoute if present (mode migration: HTTPRoute -> Ingress)
+		if err := internal.DeleteHTTPRoute(ctx, r.Client, l, w.ComponentName(), req.Namespace); err != nil {
 			return ctrl.Result{}, err
 		}
 	}

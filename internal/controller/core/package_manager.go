@@ -651,12 +651,6 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 		// NEW PATH: Gateway API - Create HTTPRoute
 		l.V(1).Info("Using Gateway API (HTTPRoute) for routing")
 
-		// Delete legacy Ingress if present (mode migration: Ingress -> HTTPRoute)
-		ingressKey := client.ObjectKey{Name: pm.ComponentName(), Namespace: req.Namespace}
-		if err := internal.BasicDelete(ctx, r, l, ingressKey, &networkingv1.Ingress{}); err != nil {
-			return ctrl.Result{}, err
-		}
-
 		if err := internal.EnsureHTTPRoute(
 			ctx,
 			r.Client,
@@ -680,14 +674,15 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 			l.Error(err, "Error creating HTTPRoute")
 			return ctrl.Result{}, err
 		}
+
+		// Delete legacy Ingress if present (mode migration: Ingress -> HTTPRoute)
+		ingressKey := client.ObjectKey{Name: pm.ComponentName(), Namespace: req.Namespace}
+		if err := internal.BasicDelete(ctx, r, l, ingressKey, &networkingv1.Ingress{}); err != nil {
+			return ctrl.Result{}, err
+		}
 	} else {
 		// LEGACY PATH: Ingress (unchanged)
 		l.V(1).Info("Using legacy Ingress for routing")
-
-		// Delete HTTPRoute if present (mode migration: HTTPRoute -> Ingress)
-		if err := internal.DeleteHTTPRoute(ctx, r.Client, l, pm.ComponentName(), req.Namespace); err != nil {
-			return ctrl.Result{}, err
-		}
 
 		annotations := map[string]string{}
 		for k, v := range pm.Spec.IngressAnnotations {
@@ -738,6 +733,11 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 			}
 			return nil
 		}); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		// Delete HTTPRoute if present (mode migration: HTTPRoute -> Ingress)
+		if err := internal.DeleteHTTPRoute(ctx, r.Client, l, pm.ComponentName(), req.Namespace); err != nil {
 			return ctrl.Result{}, err
 		}
 	}

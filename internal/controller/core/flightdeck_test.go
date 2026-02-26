@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func defaultFlightdeck(name, namespace string) *v1beta1.Flightdeck {
@@ -446,4 +447,55 @@ func TestResolveFlightdeckImage(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestFlightdeckReconciler_GatewayRef_CreatesHTTPRoute(t *testing.T) {
+	fdName := "gateway-flightdeck"
+	fdNamespace := "posit-team"
+	fd := defaultFlightdeck(fdName, fdNamespace)
+
+	fakeClient := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeClient.Start(loadSchemes)
+
+	// Create the Site with GatewayRef
+	site := &v1beta1.Site{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fd.Spec.SiteName,
+			Namespace: fdNamespace,
+		},
+		Spec: v1beta1.SiteSpec{
+			GatewayRef: &v1beta1.GatewayReference{
+				Name:      "test-gateway",
+				Namespace: fdNamespace,
+			},
+		},
+	}
+	err := cli.Create(context.TODO(), site)
+	require.NoError(t, err)
+
+	err = cli.Create(context.TODO(), fd)
+	require.NoError(t, err)
+
+	rec := FlightdeckReconciler{
+		Client: cli,
+		Scheme: scheme,
+		Log:    log,
+	}
+
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: fdNamespace,
+			Name:      fdName,
+		},
+	}
+
+	_, err = rec.Reconcile(context.TODO(), req)
+	require.NoError(t, err)
+
+	// Verify HTTPRoute was created with the correct hostname
+	route := &gatewayv1.HTTPRoute{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: fd.ComponentName(), Namespace: fdNamespace}, route)
+	require.NoError(t, err)
+	assert.Equal(t, fd.Spec.Domain, string(route.Spec.Hostnames[0]))
+	assert.Equal(t, "test-gateway", string(route.Spec.ParentRefs[0].Name))
 }

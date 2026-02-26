@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 )
 
 // FlightdeckReconciler reconciles a Flightdeck object
@@ -377,12 +378,6 @@ func (r *FlightdeckReconciler) reconcileFlightdeckResources(
 		// NEW PATH: Gateway API - Create HTTPRoute
 		l.V(1).Info("Using Gateway API (HTTPRoute) for routing")
 
-		// Delete legacy Ingress if present (mode migration: Ingress -> HTTPRoute)
-		ingressKey := client.ObjectKey{Name: fd.ComponentName(), Namespace: req.Namespace}
-		if err := internal.BasicDelete(ctx, r, l, ingressKey, &networkingv1.Ingress{}); err != nil {
-			return ctrl.Result{}, err
-		}
-
 		if err := internal.EnsureHTTPRoute(
 			ctx,
 			r.Client,
@@ -410,14 +405,15 @@ func (r *FlightdeckReconciler) reconcileFlightdeckResources(
 			"httproute", componentName,
 			"domain", fd.Spec.Domain,
 		)
+
+		// Delete legacy Ingress if present (mode migration: Ingress -> HTTPRoute)
+		ingressKey := client.ObjectKey{Name: fd.ComponentName(), Namespace: req.Namespace}
+		if err := internal.BasicDelete(ctx, r, l, ingressKey, &networkingv1.Ingress{}); err != nil {
+			return ctrl.Result{}, err
+		}
 	} else {
 		// LEGACY PATH: Ingress (unchanged)
 		l.V(1).Info("Using legacy Ingress for routing")
-
-		// Delete HTTPRoute if present (mode migration: HTTPRoute -> Ingress)
-		if err := internal.DeleteHTTPRoute(ctx, r.Client, l, fd.ComponentName(), req.Namespace); err != nil {
-			return ctrl.Result{}, err
-		}
 
 		ingress := &networkingv1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
@@ -473,6 +469,11 @@ func (r *FlightdeckReconciler) reconcileFlightdeckResources(
 			"domain", fd.Spec.Domain,
 			"ingressClass", fd.Spec.IngressClass,
 		)
+
+		// Delete HTTPRoute if present (mode migration: HTTPRoute -> Ingress)
+		if err := internal.DeleteHTTPRoute(ctx, r.Client, l, fd.ComponentName(), req.Namespace); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	l.V(1).Info("all flightdeck resources reconciled successfully", "component", componentName)
@@ -499,5 +500,24 @@ func (r *FlightdeckReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&rbacv1.Role{}).
 		Owns(&rbacv1.RoleBinding{}).
 		Owns(&networkingv1.Ingress{}).
+		Watches(
+			&positcov1beta1.Site{},
+			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []ctrl.Request {
+				var list positcov1beta1.FlightdeckList
+				if err := mgr.GetClient().List(ctx, &list, client.InNamespace(obj.GetNamespace())); err != nil {
+					return nil
+				}
+				var requests []ctrl.Request
+				for _, fd := range list.Items {
+					if fd.Spec.SiteName == obj.GetName() {
+						requests = append(requests, ctrl.Request{NamespacedName: client.ObjectKey{
+							Name:      fd.Name,
+							Namespace: fd.Namespace,
+						}})
+					}
+				}
+				return requests
+			}),
+		).
 		Complete(r)
 }

@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
@@ -88,6 +89,15 @@ func (r *WorkbenchReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 func (r *WorkbenchReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&positcov1beta1.Workbench{}).
+		Watches(
+			&positcov1beta1.Site{},
+			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []ctrl.Request {
+				return []ctrl.Request{{NamespacedName: client.ObjectKey{
+					Name:      obj.GetName(),
+					Namespace: obj.GetNamespace(),
+				}}}
+			}),
+		).
 		Complete(r)
 }
 

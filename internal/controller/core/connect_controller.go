@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
@@ -93,5 +94,14 @@ func (r *ConnectReconciler) GetLogger(ctx context.Context) logr.Logger {
 func (r *ConnectReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&positcov1beta1.Connect{}).
+		Watches(
+			&positcov1beta1.Site{},
+			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []ctrl.Request {
+				return []ctrl.Request{{NamespacedName: client.ObjectKey{
+					Name:      obj.GetName(),
+					Namespace: obj.GetNamespace(),
+				}}}
+			}),
+		).
 		Complete(r)
 }
