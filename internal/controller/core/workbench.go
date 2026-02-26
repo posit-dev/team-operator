@@ -947,7 +947,9 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 		}
 
 		// Validate ParentUrl to prevent CSP header injection
-		if strings.ContainsAny(w.Spec.ParentUrl, ";\n\r") {
+		// Space and tab are also forbidden because CSP frame-ancestors is space-delimited,
+		// meaning "legitimate.com attacker.com" would silently add attacker.com as a framing origin.
+		if strings.ContainsAny(w.Spec.ParentUrl, ";\n\r \t") {
 			return ctrl.Result{}, fmt.Errorf("invalid ParentUrl: contains forbidden characters")
 		}
 
