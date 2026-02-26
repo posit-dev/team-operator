@@ -408,6 +408,11 @@ func TestConnectReconciler_OIDC_EnableRegisterOnFirstLogin(t *testing.T) {
 
 	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
 
+	// Create Site fixture (required for Gateway API dual-path)
+	site := defineDefaultSite(t, ns, name)
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
+	require.NoError(t, err)
+
 	c := defineDefaultConnect(t, ns, name)
 	c.Spec.RegisterOnFirstLogin = ptr.To(true)
 	c.Spec.Auth = positcov1beta1.AuthSpec{
@@ -416,7 +421,7 @@ func TestConnectReconciler_OIDC_EnableRegisterOnFirstLogin(t *testing.T) {
 		Issuer:   "https://idp.example.com",
 	}
 
-	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
 	require.NoError(t, err)
 
 	c = getConnect(t, cli, ns, name)
@@ -446,6 +451,11 @@ func TestConnectReconciler_OIDC_DefaultRegisterOnFirstLogin(t *testing.T) {
 
 	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
 
+	// Create Site fixture (required for Gateway API dual-path)
+	site := defineDefaultSite(t, ns, name)
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
+	require.NoError(t, err)
+
 	c := defineDefaultConnect(t, ns, name)
 	c.Spec.Auth = positcov1beta1.AuthSpec{
 		Type:     positcov1beta1.AuthTypeOidc,
@@ -453,7 +463,7 @@ func TestConnectReconciler_OIDC_DefaultRegisterOnFirstLogin(t *testing.T) {
 		Issuer:   "https://idp.example.com",
 	}
 
-	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
 	require.NoError(t, err)
 
 	c = getConnect(t, cli, ns, name)
@@ -483,11 +493,16 @@ func TestConnectReconciler_RegisterOnFirstLogin_IgnoredWithNoAuth(t *testing.T) 
 
 	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
 
+	// Create Site fixture (required for Gateway API dual-path)
+	site := defineDefaultSite(t, ns, name)
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
+	require.NoError(t, err)
+
 	c := defineDefaultConnect(t, ns, name)
 	c.Spec.RegisterOnFirstLogin = ptr.To(true)
 	// Auth.Type left empty (no auth configured)
 
-	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
 	require.NoError(t, err)
 
 	c = getConnect(t, cli, ns, name)
@@ -516,6 +531,11 @@ func TestConnectReconciler_RegisterOnFirstLogin_IgnoredWithSAML(t *testing.T) {
 
 	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
 
+	// Create Site fixture (required for Gateway API dual-path)
+	site := defineDefaultSite(t, ns, name)
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
+	require.NoError(t, err)
+
 	c := defineDefaultConnect(t, ns, name)
 	c.Spec.RegisterOnFirstLogin = ptr.To(true)
 	c.Spec.Auth = positcov1beta1.AuthSpec{
@@ -523,7 +543,7 @@ func TestConnectReconciler_RegisterOnFirstLogin_IgnoredWithSAML(t *testing.T) {
 		SamlMetadataUrl: "https://idp.example.com/saml/metadata",
 	}
 
-	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
 	require.NoError(t, err)
 
 	c = getConnect(t, cli, ns, name)
@@ -553,6 +573,11 @@ func TestConnectReconciler_OIDC_DisableGroupsClaim(t *testing.T) {
 
 	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
 
+	// Create Site fixture (required for Gateway API dual-path)
+	site := defineDefaultSite(t, ns, name)
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
+	require.NoError(t, err)
+
 	c := defineDefaultConnect(t, ns, name)
 	c.Spec.Auth = positcov1beta1.AuthSpec{
 		Type:               positcov1beta1.AuthTypeOidc,
@@ -562,7 +587,7 @@ func TestConnectReconciler_OIDC_DisableGroupsClaim(t *testing.T) {
 		DisableGroupsClaim: true, // But explicitly disable the groups claim
 	}
 
-	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
 	require.NoError(t, err)
 
 	c = getConnect(t, cli, ns, name)
