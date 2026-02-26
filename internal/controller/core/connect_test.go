@@ -310,7 +310,7 @@ func TestConnectReconciler_SAML_ValidationError_MutualExclusivity(t *testing.T) 
 		SamlUsernameAttribute:   "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn", // This should cause an error
 	}
 
-	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
 	require.NoError(t, err)
 
 	c = getConnect(t, cli, ns, name)

@@ -162,7 +162,6 @@ func TestWorkbenchReconciler_Basic(t *testing.T) {
 
 func TestWorkbenchConfigReload(t *testing.T) {
 	ctx := context.Background()
-	var err error
 	ns := "posit-team"
 	name := "workbench-config-reload"
 
@@ -170,7 +169,7 @@ func TestWorkbenchConfigReload(t *testing.T) {
 
 	// Create Site fixture (required for Gateway API dual-path)
 	site := defineDefaultSite(t, ns, name)
-	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Site{}, site)
 	require.NoError(t, err)
 
 	wb := defineDefaultWorkbench(t, ns, name)
