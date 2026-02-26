@@ -9,12 +9,26 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
+
+// noKindMatchClient wraps a client and returns a NoKindMatchError on Delete,
+// simulating an environment where the Gateway API CRD is not installed.
+type noKindMatchClient struct {
+	client.Client
+}
+
+func (c *noKindMatchClient) Delete(_ context.Context, _ client.Object, _ ...client.DeleteOption) error {
+	return &apimeta.NoKindMatchError{
+		GroupKind: schema.GroupKind{Group: "gateway.networking.k8s.io", Kind: "HTTPRoute"},
+	}
+}
 
 func TestEnsureHTTPRoute(t *testing.T) {
 	scheme := runtime.NewScheme()
@@ -255,6 +269,17 @@ func TestDeleteHTTPRoute(t *testing.T) {
 		// Try to delete a route that doesn't exist
 		err := DeleteHTTPRoute(ctx, fakeClient, logger, "nonexistent-route", "test-ns")
 		assert.NoError(t, err, "should not error when route doesn't exist")
+	})
+
+	t.Run("tolerates CRD not installed (NoKindMatchError)", func(t *testing.T) {
+		fakeClient := &noKindMatchClient{
+			Client: fake.NewClientBuilder().WithScheme(scheme).Build(),
+		}
+		ctx := context.Background()
+		logger := logr.Discard()
+
+		err := DeleteHTTPRoute(ctx, fakeClient, logger, "test-route", "test-ns")
+		assert.NoError(t, err, "should not error when Gateway API CRD is not installed")
 	})
 
 	t.Run("deletes existing route", func(t *testing.T) {
