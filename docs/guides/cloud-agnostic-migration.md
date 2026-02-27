@@ -94,7 +94,7 @@ Azure clusters can proceed with Gateway API migration immediately.
 
 ## Step-by-Step: Enable on a Staging Cluster
 
-The following steps walk through enabling all four tracks on a single staging cluster. You can enable tracks independently, but the recommended order is: Storage → IAM → Secrets → Gateway API.
+The following steps walk through enabling all four tracks on a single staging cluster. You can enable tracks independently, but the recommended order is: IAM → Secrets → Storage → Gateway API.
 
 ### Step 1: Enable Pod Identity (AWS Only)
 
@@ -556,9 +556,37 @@ If issues arise during migration, you can roll back each track independently.
 | Track | Rollback Flag | Fallback Behavior | Data Impact |
 |-------|--------------|-------------------|-------------|
 | Storage | `enable_nfs_subdir_provisioner: false` | Operator creates PVs directly with cloud CSI driver | None - same underlying volume |
-| IAM | `enable_pod_identity_agent: false` | Operator computes IRSA ARN and annotates ServiceAccounts | Requires IAM trust policy change back to OIDC |
+| IAM | `enable_pod_identity_agent: false` | Operator computes IRSA ARN and annotates ServiceAccounts | Requires IAM trust policy change back to OIDC (see below) |
 | Secrets | `enable_external_secrets_operator: false` | Operator calls AWS SM SDK and creates SecretProviderClass | None - products re-fetch from cloud secrets |
 | Gateway API | `enable_gateway_api: false` | Operator creates Ingress resources | None - traffic continues via Ingress |
+
+#### IAM Rollback: OIDC Trust Policy
+
+When rolling back from Pod Identity to IRSA, update each IAM role's trust policy to trust your cluster's OIDC provider instead of `pods.eks.amazonaws.com`:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Principal": {
+      "Federated": "arn:aws:iam::<account-id>:oidc-provider/oidc.eks.<region>.amazonaws.com/id/<oidc-id>"
+    },
+    "Action": "sts:AssumeRoleWithWebIdentity",
+    "Condition": {
+      "StringEquals": {
+        "oidc.eks.<region>.amazonaws.com/id/<oidc-id>:sub": "system:serviceaccount:posit-team:<service-account-name>",
+        "oidc.eks.<region>.amazonaws.com/id/<oidc-id>:aud": "sts.amazonaws.com"
+      }
+    }
+  }]
+}
+```
+
+Get your OIDC provider ID:
+```bash
+aws eks describe-cluster --name <cluster-name> --query 'cluster.identity.oidc.issuer' --output text | awk -F'/' '{print $NF}'
+```
 
 ### Emergency Rollback (Full)
 
@@ -710,10 +738,7 @@ ptd workon <workload> -- kubectl describe pvc <pvc-name> -n posit-team
    ptd workon <workload> -- kubectl logs -n kube-system -l app=nfs-subdir-external-provisioner --tail=100
    ```
 
-3. **NFS connectivity issue**: Test NFS mount from a debug pod
-   ```bash
-   ptd workon <workload> -- kubectl run -it --rm debug --image=busybox --restart=Never -- mount -t nfs4 <fsx-dns-name>:/fsx /mnt
-   ```
+3. **NFS connectivity issue**: Test NFS mount using the test pod spec from Step 3 above (the full pod manifest with `sh -c "mount ... && ls ... && sleep 3600"`). The simple `kubectl run` one-liner will not work — `mount` requires privileges not available in a default busybox container.
 
 4. **Security group blocking NFS**: Verify security groups allow port 2049 from cluster to FSx
 
