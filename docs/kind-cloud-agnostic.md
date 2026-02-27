@@ -262,7 +262,7 @@ kubectl logs -n posit-team-system <pod-name>
 Common issues:
 - CRDs not installed (`just install`)
 - Helm chart misconfigured (`just helm-lint`)
-- Image not loaded into kind (`make docker-build` + `kind load docker-image`)
+- Image not loaded into kind (`just build` + `kind load docker-image`)
 
 ## Differences from Production
 

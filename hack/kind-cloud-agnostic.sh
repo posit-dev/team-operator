@@ -89,7 +89,13 @@ create_cluster() {
 
     # Check that host ports 80 and 443 are available
     for port in 80 443; do
-        if lsof -ti:"${port}" &>/dev/null; then
+        local port_in_use=false
+        if command -v lsof &>/dev/null; then
+            lsof -i "TCP:${port}" -sTCP:LISTEN &>/dev/null && port_in_use=true
+        else
+            ss -tlnp | grep -q ":${port} " && port_in_use=true
+        fi
+        if [[ "${port_in_use}" == "true" ]]; then
             log_error "Port ${port} is already in use. Stop the process using it before creating the kind cluster."
             exit 1
         fi
@@ -136,7 +142,15 @@ install_traefik() {
     log_step "Installing Traefik with Gateway API provider..."
 
     # Add Traefik Helm repo
-    helm repo add traefik https://traefik.github.io/charts 2>&1 | grep -v "already exists" || true
+    local helm_output
+    helm_output=$(helm repo add traefik https://traefik.github.io/charts 2>&1) || {
+        if echo "${helm_output}" | grep -q "already exists"; then
+            true  # repo already added, not an error
+        else
+            log_error "helm repo add failed: ${helm_output}"
+            exit 1
+        fi
+    }
     helm repo update traefik
 
     # Create traefik namespace
