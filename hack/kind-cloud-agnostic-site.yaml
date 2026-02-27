@@ -78,7 +78,9 @@ spec:
       existingSecretName: license
       existingSecretKey: ppm.lic
 
-  # Chronicle configuration (disabled: requires cloud storage)
+  # Chronicle configuration
+  # NOTE: Chronicle requires S3-compatible storage which is not set up in kind.
+  # Expect reconciliation errors for Chronicle. Use MinIO for full testing.
   chronicle:
     enabled: false
 

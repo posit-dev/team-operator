@@ -93,7 +93,7 @@ create_cluster() {
         if command -v lsof &>/dev/null; then
             lsof -i "TCP:${port}" -sTCP:LISTEN &>/dev/null && port_in_use=true
         else
-            ss -tlnp | grep -q ":${port} " && port_in_use=true
+            ss -tlnp | grep -qE ":${port}([^0-9]|$)" && port_in_use=true
         fi
         if [[ "${port_in_use}" == "true" ]]; then
             log_error "Port ${port} is already in use. Stop the process using it before creating the kind cluster."
@@ -151,6 +151,7 @@ install_traefik() {
             exit 1
         fi
     }
+    [[ -n "${helm_output}" ]] && echo "${helm_output}"
     helm repo update traefik
 
     # Create traefik namespace
@@ -159,7 +160,7 @@ install_traefik() {
     # Install Traefik with Gateway API enabled
     helm upgrade --install traefik traefik/traefik \
         --namespace traefik \
-        --version "~33.2.0" \
+        --version "33.2.1" \
         --set providers.kubernetesGateway.enabled=true \
         --set gateway.enabled=false \
         --set ports.web.nodePort=30080 \
@@ -173,6 +174,16 @@ install_traefik() {
 # Create Gateway resource
 create_gateway() {
     log_step "Creating Gateway resource..."
+
+    # Create self-signed TLS certificate for testing
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout /tmp/tls.key -out /tmp/tls.crt \
+        -subj "/CN=*.dev.localhost" 2>/dev/null
+    kubectl create secret tls tls-cert \
+        --namespace traefik \
+        --cert=/tmp/tls.crt --key=/tmp/tls.key \
+        --dry-run=client -o yaml | kubectl apply -f -
+    rm -f /tmp/tls.key /tmp/tls.crt
 
     kubectl apply -f - <<EOF
 ---
@@ -246,21 +257,27 @@ print_usage() {
 
 # Main
 main() {
-    if [[ "${MODE}" == "--delete" ]]; then
-        check_prerequisites
-        delete_cluster
-    fi
-
-    log_info "Setting up kind cluster for cloud-agnostic development..."
-
-    check_prerequisites
-    create_cluster
-    install_gateway_api
-    install_traefik
-    create_gateway
-    create_test_resources
-
-    print_usage
+    case "${MODE}" in
+        create|--create|"")
+            log_info "Setting up kind cluster for cloud-agnostic development..."
+            check_prerequisites
+            create_cluster
+            install_gateway_api
+            install_traefik
+            create_gateway
+            create_test_resources
+            print_usage
+            ;;
+        --delete|delete)
+            check_prerequisites
+            delete_cluster
+            ;;
+        *)
+            log_error "Unknown option: ${MODE}"
+            echo "Usage: $0 [create|--create|--delete|delete]"
+            exit 1
+            ;;
+    esac
 }
 
-main "$@"
+main
