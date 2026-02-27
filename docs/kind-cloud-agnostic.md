@@ -36,7 +36,7 @@ just kind-cloud-agnostic
 ```
 
 This script:
-- Creates a kind cluster with port mappings (host 80→node 30080)
+- Creates a kind cluster with port mappings (host 80→node 30080, host 443→node 30443)
 - Installs Gateway API CRDs (v1.2+)
 - Deploys Traefik with Gateway API provider
 - Creates a Gateway resource

@@ -100,6 +100,7 @@ nodes:
   - containerPort: 30443
     hostPort: 443
     protocol: TCP
+    # Reserved for future HTTPS use; no TLS certificate is configured yet
 EOF
 
     kubectl config use-context "kind-${CLUSTER_NAME}"
