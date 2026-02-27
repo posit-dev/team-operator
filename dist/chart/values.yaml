@@ -8,7 +8,7 @@ controllerManager:
   container:
     image:
       repository: posit/team-operator
-      tag: latest
+      tag: ""
     args:
       - "--leader-elect"
       - "--metrics-bind-address=:8443"
