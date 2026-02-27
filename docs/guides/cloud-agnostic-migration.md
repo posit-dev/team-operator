@@ -66,6 +66,8 @@ Before beginning migration on any cluster, verify the following:
 
 **Note**: The PTD CLI minimum version for cloud-agnostic features has not been finalized. This document is a draft — do not proceed until the PTD CLI version is confirmed and this note is removed.
 
+**CRD Field Availability**: Several field names referenced in this runbook (`Secret.Name`, `gatewayRef`, `packageManagerStorageClassName`, `serviceAccountAnnotations`, `podLabels`, `nfsEgressCIDR`) are introduced by Phase 1 PRs (team-operator #101-104). These fields will be available in Team Operator 1.16.0+ after those PRs are merged. Ensure you are running a compatible operator version before proceeding.
+
 Check current versions:
 
 ```bash
@@ -94,7 +96,9 @@ Azure clusters can proceed with Gateway API migration immediately.
 
 ## Step-by-Step: Enable on a Staging Cluster
 
-The following steps walk through enabling all four tracks on a single staging cluster. You can enable tracks independently, but the recommended order is: IAM → Secrets → Storage → Gateway API.
+The following steps walk through enabling all four tracks on a single staging cluster. You can enable tracks independently, but the recommended order is: Pod Identity (IAM) → External Secrets (Secrets) → Storage (nfs-subdir-provisioner) → Gateway API.
+
+This order ensures that dependencies are in place before dependent components: IAM credentials must exist before external-secrets-operator can authenticate, secrets should be ready before storage (in case storage needs credentials), and Gateway API is independent and can be last.
 
 ### Step 1: Enable Pod Identity (AWS Only)
 
@@ -300,9 +304,8 @@ ptd workon ganso01-staging -- kubectl logs -n kube-system -l app=nfs-subdir-exte
 ptd workon ganso01-staging -- kubectl get storageclass posit-shared-storage -o yaml
 
 # Test NFS connectivity from a test pod
-# Note: this relies on ptd workon forwarding stdin to kubectl.
-# If it doesn't work, write the manifest to a temp file and apply it directly.
-cat <<EOF | ptd workon ganso01-staging -- kubectl apply -f -
+# Create temp file with test pod manifest
+cat > /tmp/nfs-test-pod.yaml <<EOF
 apiVersion: v1
 kind: Pod
 metadata:
@@ -323,8 +326,14 @@ spec:
       path: /fsx
 EOF
 
+# Apply the test pod
+ptd workon ganso01-staging -- kubectl apply -f /tmp/nfs-test-pod.yaml
+
 # Check test pod logs
 ptd workon ganso01-staging -- kubectl logs nfs-test -n posit-team
+
+# Clean up test pod after verification
+ptd workon ganso01-staging -- kubectl delete pod nfs-test -n posit-team
 ```
 
 **Data migration**: The provisioner uses `nfs.io/storage-path` annotation to set subdirectory paths. PTD configures this as `{site}/{product}` to match existing directory structure. Existing data is reused automatically - no migration needed.
@@ -341,6 +350,8 @@ clusters:
 Then run `ptd ensure ganso01-staging`. Operator falls back to creating PVs directly when `storageClassName` is not set in Site CR.
 
 **Note**: Rollback does NOT delete existing PVCs or data. Storage data remains on the same underlying FSx/NFS volume. However, once the provisioner is removed, new PVC requests against the `posit-shared-storage` StorageClass will fail — existing *bound* PVCs continue working, but any new PVCs (e.g., after pod rescheduling that triggers volume recreation) will stay in Pending until the provisioner is re-enabled.
+
+**Why quick re-enablement matters**: In practice, node failure or pod eviction is the realistic trigger for PVCs needing recreation. If a node fails and pods reschedule to another node while the provisioner is disabled, the PVCs will stay Pending and products will be unavailable until the provisioner is re-enabled. Keep this in mind when planning rollback duration — don't leave clusters in rolled-back state longer than necessary if stability issues arise.
 
 ### Step 4: Enable Gateway API (Optional)
 
@@ -562,6 +573,8 @@ If issues arise during migration, you can roll back each track independently.
 
 #### IAM Rollback: OIDC Trust Policy
 
+**WARNING**: Rolling back from Pod Identity to IRSA will cause brief service disruption for AWS-dependent operations (S3 access, Secrets Manager, etc.). During the transition window when trust policies are switched from `pods.eks.amazonaws.com` back to OIDC provider, pods will temporarily lose credential injection. Plan accordingly and consider performing this rollback during a maintenance window.
+
 When rolling back from Pod Identity to IRSA, update each IAM role's trust policy to trust your cluster's OIDC provider instead of `pods.eks.amazonaws.com`:
 
 ```json
@@ -743,7 +756,17 @@ ptd workon <workload> -- kubectl describe pvc <pvc-name> -n posit-team
 4. **Security group blocking NFS**: Verify security groups allow port 2049 from cluster to FSx
 
 **Resolution**: Fix the underlying cause, then PVC should bind automatically. If not, delete and recreate:
+
+**WARNING**: Before deleting PVCs, check the PersistentVolume's reclaim policy. With dynamic provisioning, the default reclaim policy may be `Delete`, which destroys the underlying storage and data when the PVC is deleted.
+
 ```bash
+# Check reclaim policy first
+ptd workon <workload> -- kubectl get pv <pv-name> -o jsonpath='{.spec.persistentVolumeReclaimPolicy}'
+
+# If reclaim policy is "Retain", safe to delete PVC (data preserved)
+# If reclaim policy is "Delete", deleting PVC will destroy data - proceed with caution
+
+# Delete PVC only after confirming reclaim policy
 ptd workon <workload> -- kubectl delete pvc <pvc-name> -n posit-team
 # Operator will recreate
 ```
