@@ -276,7 +276,7 @@ Common issues:
 
 ## Next Steps
 
-- Read the cloud-agnostic design document in the ptd-workspace repository
+- Read the cloud-agnostic design document (`thoughts/shared/plans/2026-02-26-cloud-agnostic-team-operator.md` in the ptd-workspace repo)
 - Explore the [operator source code](../internal/controllers/)
 - Run integration tests: `just test`
 - Build for production: `just docker-build`

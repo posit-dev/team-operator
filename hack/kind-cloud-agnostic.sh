@@ -176,14 +176,17 @@ create_gateway() {
     log_step "Creating Gateway resource..."
 
     # Create self-signed TLS certificate for testing
+    local tls_tmp
+    tls_tmp=$(mktemp -d)
     openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-        -keyout /tmp/tls.key -out /tmp/tls.crt \
-        -subj "/CN=*.dev.localhost" 2>/dev/null
+        -keyout "${tls_tmp}/tls.key" -out "${tls_tmp}/tls.crt" \
+        -subj "/CN=*.dev.localhost" 2>/dev/null \
+        || { log_error "Failed to generate self-signed certificate (is openssl installed?)"; rm -rf "${tls_tmp}"; exit 1; }
     kubectl create secret tls tls-cert \
         --namespace traefik \
-        --cert=/tmp/tls.crt --key=/tmp/tls.key \
+        --cert="${tls_tmp}/tls.crt" --key="${tls_tmp}/tls.key" \
         --dry-run=client -o yaml | kubectl apply -f -
-    rm -f /tmp/tls.key /tmp/tls.crt
+    rm -rf "${tls_tmp}"
 
     kubectl apply -f - <<EOF
 ---
