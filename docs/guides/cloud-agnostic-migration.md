@@ -58,9 +58,11 @@ Before beginning migration on any cluster, verify the following:
 | Component | Minimum Version | Notes |
 |-----------|----------------|-------|
 | Team Operator | 1.16.0+ | Contains Phase 1 dual-path fields |
-| PTD CLI | TBD | Contains infrastructure + wiring for cloud-agnostic features |
+| PTD CLI | TBD (see note) | Contains infrastructure + wiring for cloud-agnostic features |
 | EKS Version | 1.24+ | Required for EKS Pod Identity Agent (AWS only) |
 | Traefik | v3.1+ | Required for Gateway API HTTPRoute session persistence |
+
+**Note**: The PTD CLI minimum version for cloud-agnostic features has not been finalized. This document is a draft — do not proceed until the PTD CLI version is confirmed and this note is removed.
 
 Check current versions:
 
@@ -198,6 +200,7 @@ ptd workon ganso01-staging -- kubectl get secret <site-name>-secrets -n posit-te
 - Connect: `dev.lic`, `pub.lic`, `pub-db-password`, `pub-db-username`
 - Workbench: `dev.lic`, `pub.lic`
 - Package Manager: `dev.lic`, `pub.lic`, `pub-db-password`, `pub-db-username`
+- Chronicle: `dev.lic`, `pub.lic`
 
 **Troubleshooting**:
 
@@ -295,6 +298,8 @@ ptd workon ganso01-staging -- kubectl logs -n kube-system -l app=nfs-subdir-exte
 ptd workon ganso01-staging -- kubectl get storageclass posit-shared-storage -o yaml
 
 # Test NFS connectivity from a test pod
+# Note: this relies on ptd workon forwarding stdin to kubectl.
+# If it doesn't work, write the manifest to a temp file and apply it directly.
 cat <<EOF | ptd workon ganso01-staging -- kubectl apply -f -
 apiVersion: v1
 kind: Pod
@@ -333,7 +338,7 @@ clusters:
 
 Then run `ptd ensure ganso01-staging`. Operator falls back to creating PVs directly when `storageClassName` is not set in Site CR.
 
-**Note**: Rollback does NOT delete existing PVCs or data. Storage data remains on the same underlying FSx/NFS volume.
+**Note**: Rollback does NOT delete existing PVCs or data. Storage data remains on the same underlying FSx/NFS volume. However, once the provisioner is removed, new PVC requests against the `posit-shared-storage` StorageClass will fail — existing *bound* PVCs continue working, but any new PVCs (e.g., after pod rescheduling that triggers volume recreation) will stay in Pending until the provisioner is re-enabled.
 
 ### Step 4: Enable Gateway API (Optional)
 
@@ -364,7 +369,7 @@ ptd ensure ganso01-staging
 
 ```bash
 # Check Gateway API CRDs installed
-kubectl get crds | grep gateway.networking.k8s.io
+ptd workon ganso01-staging -- kubectl get crds | grep gateway.networking.k8s.io
 
 # Check Gateway resource created
 ptd workon ganso01-staging -- kubectl get gateway -A
@@ -941,4 +946,3 @@ ptd workon <workload-name> <step-name> -- pulumi <command>
 - [Team Operator Architecture](../architecture.md)
 - [Upgrading Team Operator](./upgrading.md)
 - [Troubleshooting Guide](./troubleshooting.md)
-- [Cloud-Agnostic Design Doc](/Users/ianfloressiaca/ptd-workspace/thoughts/shared/plans/2026-02-26-cloud-agnostic-team-operator.md)
