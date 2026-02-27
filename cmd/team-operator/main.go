@@ -21,6 +21,7 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -77,9 +78,10 @@ func init() {
 	LoadSchemes(scheme)
 }
 
-func registerManageCRDsFlag(fs *flag.FlagSet, dest *bool) {
-	fs.BoolVar(dest, "manage-crds", true,
-		"Apply CRDs on startup to ensure schema is in sync with operator version")
+func applyCRDs(ctx context.Context, timeout time.Duration, cfg *rest.Config) error {
+	crdCtx, crdCancel := context.WithTimeout(ctx, timeout)
+	defer crdCancel()
+	return crdapply.ApplyCRDs(crdCtx, cfg, setupLog)
 }
 
 func main() {
@@ -98,7 +100,8 @@ func main() {
 		"Enable leader election for team-operator. "+
 			"Enabling this will ensure there is only one active team-operator.")
 
-	registerManageCRDsFlag(flag.CommandLine, &manageCRDs)
+	flag.BoolVar(&manageCRDs, "manage-crds", true,
+		"Apply CRDs on startup to ensure schema is in sync with operator version")
 	flag.DurationVar(&crdApplyTimeout, "crd-apply-timeout", 60*time.Second,
 		"Timeout for applying CRDs at startup")
 
@@ -154,11 +157,7 @@ func main() {
 			setupLog.Error(fmt.Errorf("--crd-apply-timeout must be positive, got %v", crdApplyTimeout), "invalid flag value")
 			os.Exit(1)
 		}
-		if err := func() error {
-			crdCtx, crdCancel := context.WithTimeout(ctx, crdApplyTimeout)
-			defer crdCancel()
-			return crdapply.ApplyCRDs(crdCtx, mgr.GetConfig(), setupLog)
-		}(); err != nil {
+		if err := applyCRDs(ctx, crdApplyTimeout, mgr.GetConfig()); err != nil {
 			setupLog.Error(err, "CRD apply failed after timeout; pod will exit and Kubernetes will restart with backoff",
 				"hint", "verify RBAC grants get/update/patch on customresourcedefinitions, or set --manage-crds=false to disable")
 			os.Exit(1)
