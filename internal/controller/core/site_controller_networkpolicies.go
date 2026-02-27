@@ -39,7 +39,7 @@ func (r *SiteReconciler) reconcileNetworkPolicies(ctx context.Context, req ctrl.
 	}
 
 	// Chronicle network policy
-	chronicleEnabled := isProductEnabled(site.Spec.Chronicle.Enabled)
+	chronicleEnabled := checkBool(site.Spec.Chronicle.Enabled, true)
 	if chronicleEnabled {
 		if err := r.reconcileChronicleNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
 			l.Error(err, "error ensuring chronicle network policy")
@@ -53,7 +53,7 @@ func (r *SiteReconciler) reconcileNetworkPolicies(ctx context.Context, req ctrl.
 	}
 
 	// Connect network policies
-	connectEnabled := site.Spec.Connect.Enabled == nil || *site.Spec.Connect.Enabled
+	connectEnabled := checkBool(site.Spec.Connect.Enabled, true)
 	if connectEnabled {
 		if err := r.reconcileConnectNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
 			l.Error(err, "error ensuring connect network policy")
@@ -82,7 +82,7 @@ func (r *SiteReconciler) reconcileNetworkPolicies(ctx context.Context, req ctrl.
 	}
 
 	// Package Manager network policy
-	pmEnabled := isProductEnabled(site.Spec.PackageManager.Enabled)
+	pmEnabled := checkBool(site.Spec.PackageManager.Enabled, true)
 	if pmEnabled {
 		if err := r.reconcilePackageManagerNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
 			l.Error(err, "error ensuring package manager network policy")
@@ -96,7 +96,7 @@ func (r *SiteReconciler) reconcileNetworkPolicies(ctx context.Context, req ctrl.
 	}
 
 	// Workbench network policies
-	workbenchEnabled := isProductEnabled(site.Spec.Workbench.Enabled)
+	workbenchEnabled := checkBool(site.Spec.Workbench.Enabled, true)
 	if workbenchEnabled {
 		if err := r.reconcileWorkbenchNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
 			l.Error(err, "error ensuring workbench network policy")

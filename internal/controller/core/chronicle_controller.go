@@ -340,26 +340,15 @@ func (r *ChronicleReconciler) CleanupChronicle(ctx context.Context, req ctrl.Req
 
 	key := client.ObjectKey{Name: c.ComponentName(), Namespace: req.Namespace}
 
-	// SERVICE
-	if err := internal.BasicDelete(ctx, r, l, key, &corev1.Service{}); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	// STATEFULSET
-	if err := internal.BasicDelete(ctx, r, l, key, &v1.StatefulSet{}); err != nil {
-		return ctrl.Result{}, err
-	}
 	// NOTE: Chronicle's StatefulSet does not use VolumeClaimTemplates (it uses EmptyDir or S3).
 	// If VolumeClaimTemplates are added in the future, their PVCs must be deleted explicitly
 	// here because Kubernetes does not garbage-collect StatefulSet PVCs automatically.
-
-	// CONFIGMAP
-	if err := internal.BasicDelete(ctx, r, l, key, &corev1.ConfigMap{}); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	// SERVICE ACCOUNTS
-	if err := internal.BasicDelete(ctx, r, l, key, &corev1.ServiceAccount{}); err != nil {
+	if err := internal.BatchDelete(ctx, r, l, key,
+		&corev1.Service{},
+		&v1.StatefulSet{},
+		&corev1.ConfigMap{},
+		&corev1.ServiceAccount{},
+	); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -383,13 +372,10 @@ func (r *ChronicleReconciler) suspendDeployedService(ctx context.Context, req ct
 
 	key := client.ObjectKey{Name: c.ComponentName(), Namespace: req.Namespace}
 
-	// SERVICE
-	if err := internal.BasicDelete(ctx, r, l, key, &corev1.Service{}); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	// STATEFULSET (Chronicle uses StatefulSet, not Deployment)
-	if err := internal.BasicDelete(ctx, r, l, key, &v1.StatefulSet{}); err != nil {
+	if err := internal.BatchDelete(ctx, r, l, key,
+		&corev1.Service{},
+		&v1.StatefulSet{}, // Chronicle uses StatefulSet, not Deployment
+	); err != nil {
 		return ctrl.Result{}, err
 	}
 

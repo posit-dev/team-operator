@@ -1034,22 +1034,11 @@ func (r *WorkbenchReconciler) CleanupWorkbench(ctx context.Context, req ctrl.Req
 func (r *WorkbenchReconciler) deleteServingResources(ctx context.Context, req ctrl.Request, w *positcov1beta1.Workbench, l logr.Logger) error {
 	key := client.ObjectKey{Name: w.ComponentName(), Namespace: req.Namespace}
 
-	// INGRESS
-	if err := internal.BasicDelete(ctx, r, l, key, &networkingv1.Ingress{}); err != nil {
-		return err
-	}
-
-	// SERVICE
-	if err := internal.BasicDelete(ctx, r, l, key, &corev1.Service{}); err != nil {
-		return err
-	}
-
-	// DEPLOYMENT
-	if err := internal.BasicDelete(ctx, r, l, key, &appsv1.Deployment{}); err != nil {
-		return err
-	}
-
-	return nil
+	return internal.BatchDelete(ctx, r, l, key,
+		&networkingv1.Ingress{},
+		&corev1.Service{},
+		&appsv1.Deployment{},
+	)
 }
 
 // suspendDeployedService removes serving resources (Deployment, Service, Ingress)

@@ -174,10 +174,14 @@ If you are upgrading an existing installation that has already run the operator 
 1. Identify the components with existing DB password secrets:
 
    ```bash
-   kubectl get secrets -n posit-team -o name | grep -v db-password
+   for comp in workbench connect packagemanager; do
+     kubectl get secret "${comp}" -n posit-team --ignore-not-found -o name
+   done
    ```
 
 2. For each component (workbench, connect, packagemanager), rename the secret:
+
+   > **Warning:** If `${NEW_NAME}` already exists in the cluster, do not apply this migration — the operator has already generated a new password and you must re-synchronize the database password manually.
 
    ```bash
    # Get the old secret data
@@ -187,7 +191,7 @@ If you are upgrading an existing installation that has already run the operator 
 
    # Create new secret with old data
    kubectl get secret "${OLD_NAME}" -n "${NAMESPACE}" -o json \
-     | python3 -c "import json,sys; d=json.load(sys.stdin); d['metadata']['name']='${NEW_NAME}'; [d['metadata'].pop(k,None) for k in ['resourceVersion','uid','creationTimestamp','ownerReferences']]; print(json.dumps(d))" \
+     | python3 -c "import json,sys; d=json.load(sys.stdin); d['metadata']['name']='${NEW_NAME}'; [d['metadata'].pop(k,None) for k in ['resourceVersion','uid','creationTimestamp','managedFields','ownerReferences']]; print(json.dumps(d))" \
      | kubectl apply -f -
 
    # Delete old secret
