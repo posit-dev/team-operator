@@ -1,5 +1,7 @@
 # Cloud-Agnostic Migration Runbook
 
+> **DRAFT** — The PTD CLI minimum version for cloud-agnostic features has not been finalized. Do not proceed until the PTD CLI version is confirmed and this notice is removed.
+
 This guide provides step-by-step instructions for migrating existing clusters to use cloud-agnostic Team Operator features. These features eliminate cloud-specific code from the operator by using Kubernetes-native APIs and infrastructure-layer abstractions.
 
 ## Overview
