@@ -87,17 +87,17 @@ create_cluster() {
         return 0
     fi
 
-    # Create cluster with port mappings for Traefik
+    # Create cluster with port mappings for Traefik NodePort services
     cat <<EOF | kind create cluster --name "${CLUSTER_NAME}" --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
 - role: control-plane
   extraPortMappings:
-  - containerPort: 80
+  - containerPort: 30080
     hostPort: 80
     protocol: TCP
-  - containerPort: 443
+  - containerPort: 30443
     hostPort: 443
     protocol: TCP
 EOF
@@ -175,54 +175,12 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
-    - name: https
-      protocol: HTTPS
-      port: 443
-      allowedRoutes:
-        namespaces:
-          from: All
-      tls:
-        mode: Terminate
-        certificateRefs:
-          - name: tls-cert
-            kind: Secret
 EOF
-
-    # Create a self-signed TLS certificate for testing
-    log_info "Creating self-signed TLS certificate..."
-    kubectl create secret tls tls-cert \
-        --namespace traefik \
-        --cert=/dev/null \
-        --key=/dev/null \
-        --dry-run=client -o yaml | kubectl apply -f - || true
 
     # Wait for Gateway to be ready
     kubectl wait --for=condition=Programmed --timeout=60s gateway/posit-team -n traefik
 
     log_info "Gateway created"
-}
-
-# Create ReferenceGrant for cross-namespace access
-create_reference_grant() {
-    log_step "Creating ReferenceGrant..."
-
-    kubectl apply -f - <<EOF
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: ReferenceGrant
-metadata:
-  name: allow-posit-team
-  namespace: traefik
-spec:
-  from:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      namespace: posit-team
-  to:
-    - group: ""
-      kind: Service
-EOF
-
-    log_info "ReferenceGrant created"
 }
 
 # Create test namespace and secrets
@@ -236,19 +194,6 @@ create_test_resources() {
     kubectl apply -f "$(dirname "$0")/kind-cloud-agnostic-secrets.yaml"
 
     log_info "Test resources created"
-}
-
-# Apply sample Site CR
-apply_sample_site() {
-    log_step "Applying sample Site CR..."
-
-    kubectl apply -f "$(dirname "$0")/kind-cloud-agnostic-site.yaml"
-
-    log_info "Sample Site CR applied"
-    log_info ""
-    log_info "To check Site status:"
-    log_info "  kubectl get site dev -n posit-team"
-    log_info "  kubectl describe site dev -n posit-team"
 }
 
 # Print usage instructions
@@ -290,7 +235,6 @@ main() {
     install_gateway_api
     install_traefik
     create_gateway
-    create_reference_grant
     create_test_resources
 
     print_usage

@@ -78,13 +78,9 @@ spec:
       existingSecretName: license
       existingSecretKey: ppm.lic
 
-  # Chronicle configuration
+  # Chronicle configuration (disabled: requires cloud storage)
   chronicle:
-    enabled: true
-    serviceAccountName: dev-chronicle
-    image: ghcr.io/posit-dev/test-service:latest
-    imagePullPolicy: IfNotPresent
-    s3Bucket: dev-chronicle-bucket
+    enabled: false
 
   # Site Home (Flightdeck)
   siteHome:

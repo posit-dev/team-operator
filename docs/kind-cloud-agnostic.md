@@ -36,7 +36,7 @@ just kind-cloud-agnostic
 ```
 
 This script:
-- Creates a kind cluster with port mappings (80, 443)
+- Creates a kind cluster with port mappings (host 80→node 30080)
 - Installs Gateway API CRDs (v1.2+)
 - Deploys Traefik with Gateway API provider
 - Creates a Gateway resource
@@ -48,8 +48,7 @@ This script:
 # Build the operator binary
 just build
 
-# Generate and install the Helm chart
-just helm-generate
+# Install the Helm chart
 just helm-install
 ```
 
@@ -93,7 +92,6 @@ kubectl get gateway posit-team -n traefik
 - **Gateway API CRDs**: GatewayClass, Gateway, HTTPRoute
 - **Traefik**: Deployed with Gateway API provider enabled
 - **Gateway resource**: `posit-team` in `traefik` namespace
-- **ReferenceGrant**: Allows cross-namespace HTTPRoute → Service references
 - **K8s Secrets**: Test secrets in `posit-team` namespace
 
 ### Site Resources (by operator)
@@ -238,12 +236,6 @@ kubectl get httproutes -n posit-team
 kubectl describe httproute <name> -n posit-team
 ```
 
-Check ReferenceGrant allows cross-namespace access:
-
-```bash
-kubectl get referencegrants -n traefik
-```
-
 ### PVCs stuck in Pending
 
 ```bash
@@ -284,7 +276,7 @@ Common issues:
 
 ## Next Steps
 
-- Read the [cloud-agnostic design doc](../thoughts/shared/plans/2026-02-26-cloud-agnostic-team-operator.md)
+- Read the cloud-agnostic design doc (located at `thoughts/shared/plans/2026-02-26-cloud-agnostic-team-operator.md` in the workspace root)
 - Explore the [operator source code](../internal/controllers/)
 - Run integration tests: `just test`
 - Build for production: `just docker-build`
