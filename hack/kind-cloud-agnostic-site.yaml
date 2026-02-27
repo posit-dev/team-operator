@@ -1,0 +1,101 @@
+---
+# Sample Site CR for cloud-agnostic development on kind
+#
+# This Site CR uses only cloud-agnostic fields:
+# - storageClassName: "standard" (kind's local-path-provisioner)
+# - secret.name: K8s Secret name (not AWS/Azure secret vault)
+# - serviceAccountName: explicit SA names (no IAM annotations)
+# - gatewayRef: references Gateway resource (not Ingress)
+# - nfsEgressCIDR: empty (no NFS access needed for kind)
+#
+# All product secrets are in kind-cloud-agnostic-secrets.yaml
+
+apiVersion: core.posit.team/v1beta1
+kind: Site
+metadata:
+  name: dev
+  namespace: posit-team
+spec:
+  # Domain for the site
+  domain: dev.localhost
+
+  # Storage: use kind's built-in local-path-provisioner
+  storageClassName: standard
+
+  # No NFS egress needed for kind
+  nfsEgressCIDR: ""
+
+  # Gateway reference (Traefik Gateway API)
+  gatewayRef:
+    name: posit-team
+    namespace: traefik
+
+  # Product secrets (K8s Secret)
+  secret:
+    name: dev-secrets
+
+  # Workload secrets (K8s Secret)
+  workloadSecret:
+    name: dev-workload-secrets
+
+  # Main database credentials (K8s Secret)
+  mainDatabaseCredentialSecret:
+    name: dev-db-creds
+
+  # Connect configuration
+  connect:
+    enabled: true
+    serviceAccountName: dev-connect
+    image: ghcr.io/posit-dev/test-service:latest
+    imagePullPolicy: IfNotPresent
+    url: connect.dev.localhost
+    license:
+      type: FILE
+      existingSecretName: license
+      existingSecretKey: pub.lic
+
+  # Workbench configuration
+  workbench:
+    enabled: true
+    serviceAccountName: dev-workbench
+    image: ghcr.io/posit-dev/test-service:latest
+    imagePullPolicy: IfNotPresent
+    url: workbench.dev.localhost
+    license:
+      type: FILE
+      existingSecretName: license
+      existingSecretKey: dev.lic
+
+  # Package Manager configuration
+  packageManager:
+    enabled: true
+    serviceAccountName: dev-packagemanager
+    image: ghcr.io/posit-dev/test-service:latest
+    imagePullPolicy: IfNotPresent
+    url: packagemanager.dev.localhost
+    license:
+      type: FILE
+      existingSecretName: license
+      existingSecretKey: ppm.lic
+
+  # Chronicle configuration
+  chronicle:
+    enabled: true
+    serviceAccountName: dev-chronicle
+    image: ghcr.io/posit-dev/test-service:latest
+    imagePullPolicy: IfNotPresent
+    s3Bucket: dev-chronicle-bucket
+
+  # Site Home (Flightdeck)
+  siteHome:
+    enabled: true
+    serviceAccountName: dev-home
+    image: ghcr.io/posit-dev/flightdeck:latest
+    imagePullPolicy: IfNotPresent
+
+  # Keycloak configuration
+  keycloak:
+    enabled: true
+
+  # Drop database on tear down (test environment)
+  dropDatabaseOnTearDown: true

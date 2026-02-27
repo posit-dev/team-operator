@@ -217,3 +217,11 @@ helm-template:
 # Package Helm chart as .tar.gz
 helm-package:
   make helm-package
+
+# Set up a kind cluster for cloud-agnostic development
+kind-cloud-agnostic:
+  ./hack/kind-cloud-agnostic.sh
+
+# Tear down the kind cloud-agnostic cluster
+kind-cloud-agnostic-delete:
+  ./hack/kind-cloud-agnostic.sh --delete
