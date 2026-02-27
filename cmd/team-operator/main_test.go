@@ -21,7 +21,8 @@ func TestThings(t *testing.T) {
 func TestManageCRDsFlag(t *testing.T) {
 	fs := flag.NewFlagSet("test", flag.ContinueOnError)
 	var manageCRDs bool
-	registerManageCRDsFlag(fs, &manageCRDs)
+	fs.BoolVar(&manageCRDs, "manage-crds", true,
+		"Apply CRDs on startup to ensure schema is in sync with operator version")
 
 	// Default is true: CRD management is enabled out of the box.
 	require.Equal(t, "true", fs.Lookup("manage-crds").DefValue)
