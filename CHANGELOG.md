@@ -1,3 +1,10 @@
+## [1.16.1](https://github.com/posit-dev/team-operator/compare/v1.16.0...v1.16.1) (2026-02-27)
+
+
+### Bug Fixes
+
+* default operator image tag to chart appVersion instead of latest ([#107](https://github.com/posit-dev/team-operator/issues/107)) ([0ee55c1](https://github.com/posit-dev/team-operator/commit/0ee55c1a37992bfa5591875b001985c7a4cef2dd))
+
 # [1.16.0](https://github.com/posit-dev/team-operator/compare/v1.15.0...v1.16.0) (2026-02-26)
 
 
