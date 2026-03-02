@@ -867,54 +867,54 @@ spec:
 
 #### Authentication Failures
 
-Check OIDC configuration:
-- Verify the issuer URL is accessible from the cluster
-- Confirm the client ID matches IdP configuration
-- Verify redirect URIs are configured in the IdP
+1. **Check OIDC configuration:**
+   - Verify the issuer URL is accessible from the cluster
+   - Confirm the client ID matches IdP configuration
+   - Verify redirect URIs are configured in the IdP
 
-View authentication logs:
-```bash
-kubectl logs -n posit-team deploy/<site-name>-workbench | grep -i auth
-```
+2. **View authentication logs:**
+   ```bash
+   kubectl logs -n posit-team deploy/<site-name>-workbench | grep -i auth
+   ```
 
-Verify secrets exist:
-```bash
-kubectl get secret <site-name>-workbench-config -n posit-team
-```
+3. **Verify secrets exist:**
+   ```bash
+   kubectl get secret <site-name>-workbench-config -n posit-team
+   ```
 
 #### Session Resource Issues
 
-Check resource profile configuration:
-```bash
-kubectl get configmap <site-name>-workbench -n posit-team -o yaml | grep -A 50 "launcher.kubernetes.resources.conf"
-```
+1. **Check resource profile configuration:**
+   ```bash
+   kubectl get configmap <site-name>-workbench -n posit-team -o yaml | grep -A 50 "launcher.kubernetes.resources.conf"
+   ```
 
-Verify nodes have capacity:
-```bash
-kubectl describe nodes | grep -A 10 "Allocated resources"
-```
+2. **Verify nodes have capacity:**
+   ```bash
+   kubectl describe nodes | grep -A 10 "Allocated resources"
+   ```
 
-Check session pod events:
-```bash
-kubectl describe pod <session-pod-name> -n posit-team
-```
+3. **Check session pod events:**
+   ```bash
+   kubectl describe pod <session-pod-name> -n posit-team
+   ```
 
 #### Volume Mount Issues
 
-Verify the PVC exists and is bound:
-```bash
-kubectl get pvc -n posit-team | grep workbench
-```
+1. **Verify the PVC exists and is bound:**
+   ```bash
+   kubectl get pvc -n posit-team | grep workbench
+   ```
 
-Check volume permissions in the session:
-```bash
-kubectl exec -it <session-pod> -n posit-team -- ls -la /home
-```
+2. **Check volume permissions in the session:**
+   ```bash
+   kubectl exec -it <session-pod> -n posit-team -- ls -la /home
+   ```
 
-Verify the storage class supports RWX:
-```bash
-kubectl get storageclass <storage-class-name> -o yaml
-```
+3. **Verify the storage class supports RWX:**
+   ```bash
+   kubectl get storageclass <storage-class-name> -o yaml
+   ```
 
 ### Useful Commands
 

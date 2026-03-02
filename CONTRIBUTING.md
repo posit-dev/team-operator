@@ -155,7 +155,7 @@ just mtest
 
 ### PR Title Conventions (Required)
 
-We use [Conventional Commits](https://www.conventionalcommits.org/) and squash merging. Your PR title becomes the commit message and must follow this format:
+We use [Conventional Commits](https://www.conventionalcommits.org/) and **squash merging**. Your PR title becomes the commit message and must follow this format:
 
 ```
 <type>(<scope>): <description>
@@ -343,7 +343,7 @@ The following checks must pass:
 
 ### Merging
 
-This repository uses squash and merge. Your PR title becomes the final commit message on `main`. The PR title format is enforced because semantic-release analyzes commit messages to determine version bumps.
+This repository uses **squash and merge**. Your PR title becomes the final commit message on `main`. The PR title format is enforced because semantic-release analyzes commit messages to determine version bumps.
 
 ### Review Expectations
 

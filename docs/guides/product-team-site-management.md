@@ -4,7 +4,7 @@ This guide covers the management of Site resources in Team Operator for platform
 
 ## Overview
 
-The `Site` Custom Resource Definition (CRD) is the single source of truth for a Posit Team deployment. A Site represents a complete deployment environment that includes:
+The `Site` Custom Resource Definition (CRD) is the **single source of truth** for a Posit Team deployment. A Site represents a complete deployment environment that includes:
 
 - **Flightdeck** - Landing page dashboard
 - **Connect** - Publishing and sharing platform

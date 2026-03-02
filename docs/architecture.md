@@ -367,7 +367,7 @@ See the [Workbench Configuration Guide](guides/workbench-configuration.md) for d
 
 ## Package Manager Architecture
 
-Posit Package Manager provides a local repository for R and Python packages. It mirrors public repositories and hosts private packages.
+Posit Package Manager provides a local repository for R and Python packages. It can mirror public repositories and host private packages.
 
 ```mermaid
 flowchart TB

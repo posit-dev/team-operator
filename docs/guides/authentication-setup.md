@@ -658,36 +658,36 @@ samlEmailAttribute: "..."
 
 To debug OIDC token claims:
 
-Enable Debug Logging:
-```yaml
-spec:
-  connect:
-    debug: true
-```
+1. **Enable Debug Logging:**
+   ```yaml
+   spec:
+     connect:
+       debug: true
+   ```
 
-Check Pod Logs:
-```bash
-kubectl logs -n posit-team deploy/<site>-connect -f
-```
+2. **Check Pod Logs:**
+   ```bash
+   kubectl logs -n posit-team deploy/<site>-connect -f
+   ```
 
-Decode JWT Tokens:
-Use [jwt.io](https://jwt.io) to inspect tokens and verify claims.
+3. **Decode JWT Tokens:**
+   Use [jwt.io](https://jwt.io) to inspect tokens and verify claims.
 
 ### Group Membership Issues
 
 If users aren't getting the correct roles:
 
-Verify group claim is present:
-- Check the `groupsClaim` field matches your IdP
-- Some IdPs use nested claims (e.g., `realm_access.roles`)
+1. **Verify group claim is present:**
+   - Check the `groupsClaim` field matches your IdP
+   - Some IdPs use nested claims (e.g., `realm_access.roles`)
 
-Check group name matching:
-- Group names in role mappings must match exactly
-- Group names are case-sensitive
+2. **Check group name matching:**
+   - Group names in role mappings must match exactly
+   - Group names are case-sensitive
 
-Verify IdP configuration:
-- Verify groups are included in the token
-- Check token size limits (large group lists may be truncated)
+3. **Verify IdP configuration:**
+   - Verify groups are included in the token
+   - Check token size limits (large group lists may be truncated)
 
 ### Workbench-Specific Issues
 

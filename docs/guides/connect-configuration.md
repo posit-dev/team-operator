@@ -411,7 +411,7 @@ spec:
 
 ## Off-Host Execution / Kubernetes Launcher
 
-Off-host execution is enabled by default when Connect is deployed via Team Operator. Content runs in isolated Kubernetes Jobs rather than on the Connect server.
+Off-host execution is **enabled by default** when Connect is deployed via Team Operator. Content runs in isolated Kubernetes Jobs rather than on the Connect server.
 
 ### How It Works
 
@@ -780,7 +780,7 @@ For AWS Secrets Manager, these keys are automatically mapped to the `<site>-conn
 
 ### Email Configuration Notes
 
-- SMTP is experimental in Team Operator
+- SMTP is **experimental** in Team Operator
 - For production email, use Connect's built-in email configuration after deployment
 - The `mailTarget` setting prevents accidental emails to real users during testing
 
