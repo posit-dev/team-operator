@@ -193,10 +193,6 @@ spec:
                     description: AuthenticatedRepos enables PPM authenticated repository
                       access for Connect
                     type: boolean
-                  ppmAuthImage:
-                    description: PPMAuthImage specifies the container image for PPM
-                      auth init/sidecar containers
-                    type: string
                   baseDomain:
                     description: |-
                       BaseDomain overrides site.Spec.Domain for this product's URL construction.
@@ -459,6 +455,10 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  ppmAuthImage:
+                    description: PPMAuthImage specifies the container image for PPM
+                      auth init/sidecar containers
+                    type: string
                   publicWarning:
                     type: string
                   registerOnFirstLogin:
@@ -1155,10 +1155,6 @@ spec:
                     description: AuthenticatedRepos enables PPM authenticated repository
                       access for Workbench
                     type: boolean
-                  ppmAuthImage:
-                    description: PPMAuthImage specifies the container image for PPM
-                      auth init/sidecar containers
-                    type: string
                   baseDomain:
                     description: |-
                       BaseDomain overrides site.Spec.Domain for this product's URL construction.
@@ -1564,6 +1560,10 @@ spec:
                           x-kubernetes-preserve-unknown-fields: true
                         type: object
                     type: object
+                  ppmAuthImage:
+                    description: PPMAuthImage specifies the container image for PPM
+                      auth init/sidecar containers
+                    type: string
                   replicas:
                     type: integer
                   sessionInitContainerImageName:
