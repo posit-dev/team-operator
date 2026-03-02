@@ -17,6 +17,10 @@ func TestPPMAuthTokenExchangeScript(t *testing.T) {
 	require.Contains(t, script, "CURLRC_PATH")
 	require.Contains(t, script, "--netrc-file")
 	require.Contains(t, script, ".curlrc")
+	// Verify curl and jq are installed
+	require.Contains(t, script, "apk add --no-cache curl jq")
+	// Verify null token validation
+	require.Contains(t, script, `[ "$PPM_TOKEN" = "null" ]`)
 }
 
 func TestPPMAuthConfigMapName(t *testing.T) {
@@ -92,4 +96,10 @@ func TestPPMAuthEnvVars(t *testing.T) {
 	require.Equal(t, "/mnt/ppm-auth/netrc", envs[0].Value)
 	require.Equal(t, "CURL_HOME", envs[1].Name)
 	require.Equal(t, "/mnt/ppm-auth", envs[1].Value)
+}
+
+func TestSanitizePPMUrl(t *testing.T) {
+	require.Equal(t, "https://ppm.example.com", SanitizePPMUrl("ppm.example.com"))
+	require.Equal(t, "https://ppm.example.com", SanitizePPMUrl("https://ppm.example.com"))
+	require.Equal(t, "https://ppm.example.com", SanitizePPMUrl("http://ppm.example.com"))
 }

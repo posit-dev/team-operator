@@ -48,6 +48,7 @@ type InternalWorkbenchSpecApplyConfiguration struct {
 	AdditionalConfigs             map[string]string                                        `json:"additionalConfigs,omitempty"`
 	AdditionalSessionConfigs      map[string]string                                        `json:"additionalSessionConfigs,omitempty"`
 	AuthenticatedRepos            *bool                                                    `json:"authenticatedRepos,omitempty"`
+	PPMAuthImage                  *string                                                  `json:"ppmAuthImage,omitempty"`
 }
 
 // InternalWorkbenchSpecApplyConfiguration constructs a declarative configuration of the InternalWorkbenchSpec type for use with
@@ -375,5 +376,13 @@ func (b *InternalWorkbenchSpecApplyConfiguration) WithAdditionalSessionConfigs(e
 // If called multiple times, the AuthenticatedRepos field is set to the value of the last call.
 func (b *InternalWorkbenchSpecApplyConfiguration) WithAuthenticatedRepos(value bool) *InternalWorkbenchSpecApplyConfiguration {
 	b.AuthenticatedRepos = &value
+	return b
+}
+
+// WithPPMAuthImage sets the PPMAuthImage field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the PPMAuthImage field is set to the value of the last call.
+func (b *InternalWorkbenchSpecApplyConfiguration) WithPPMAuthImage(value string) *InternalWorkbenchSpecApplyConfiguration {
+	b.PPMAuthImage = &value
 	return b
 }

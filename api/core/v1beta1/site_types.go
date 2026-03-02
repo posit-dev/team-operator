@@ -129,6 +129,11 @@ type SiteSpec struct {
 	// OIDCIssuerURL is the K8s cluster OIDC issuer URL (for EKS/AKS Identity Federation)
 	// +optional
 	OIDCIssuerURL string `json:"oidcIssuerUrl,omitempty"`
+
+	// OIDCAudience is the audience claim for the OIDC token used in Identity Federation.
+	// For EKS this is typically "sts.amazonaws.com", for AKS it varies by configuration.
+	// +optional
+	OIDCAudience string `json:"oidcAudience,omitempty"`
 }
 
 type ServiceAccountConfig struct {
@@ -314,6 +319,10 @@ type InternalConnectSpec struct {
 	// AuthenticatedRepos enables PPM authenticated repository access for Connect
 	// +optional
 	AuthenticatedRepos bool `json:"authenticatedRepos,omitempty"`
+
+	// PPMAuthImage specifies the container image for PPM auth init/sidecar containers
+	// +optional
+	PPMAuthImage string `json:"ppmAuthImage,omitempty"`
 }
 
 type DatabaseSettings struct {
@@ -455,6 +464,10 @@ type InternalWorkbenchSpec struct {
 	// AuthenticatedRepos enables PPM authenticated repository access for Workbench
 	// +optional
 	AuthenticatedRepos bool `json:"authenticatedRepos,omitempty"`
+
+	// PPMAuthImage specifies the container image for PPM auth init/sidecar containers
+	// +optional
+	PPMAuthImage string `json:"ppmAuthImage,omitempty"`
 }
 
 type InternalWorkbenchExperimentalFeatures struct {

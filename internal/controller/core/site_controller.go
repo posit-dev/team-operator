@@ -314,6 +314,10 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 			l.Error(err, "error reconciling PPM auth ConfigMap")
 			return ctrl.Result{}, err
 		}
+	} else {
+		if err := r.cleanupPPMAuthConfigMap(ctx, req, site); err != nil {
+			l.Error(err, "error cleaning up PPM auth ConfigMap")
+		}
 	}
 
 	// CONNECT
@@ -504,6 +508,18 @@ func (r *SiteReconciler) reconcilePPMAuthConfigMap(ctx context.Context, req ctrl
 	}
 
 	return nil
+}
+
+func (r *SiteReconciler) cleanupPPMAuthConfigMap(ctx context.Context, req ctrl.Request, site *positcov1beta1.Site) error {
+	cm := &corev1.ConfigMap{}
+	key := client.ObjectKey{Name: PPMAuthConfigMapName(site.Name), Namespace: req.Namespace}
+	if err := r.Get(ctx, key, cm); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	return r.Delete(ctx, cm)
 }
 
 // SetupWithManager sets up the controller with the Manager.

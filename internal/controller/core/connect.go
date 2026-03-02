@@ -593,7 +593,7 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 	var ppmAuthInitContainers []corev1.Container
 	var ppmAuthSidecarContainers []corev1.Container
 	if c.Spec.AuthenticatedRepos {
-		ppmURL := fmt.Sprintf("https://%s", c.Spec.PPMUrl)
+		ppmURL := SanitizePPMUrl(c.Spec.PPMUrl)
 		ppmAuthVolumes = PPMAuthVolumes(c.SiteName(), ppmURL)
 		ppmAuthVolumeMounts = PPMAuthVolumeMounts()
 		ppmAuthEnvVars = PPMAuthEnvVars()
@@ -650,7 +650,7 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 					ImagePullSecrets:   pullSecrets,
 					ServiceAccountName: maybeServiceAccountName,
 					// TODO: go back to automounting service token...
-					AutomountServiceAccountToken: ptr.To(c.Spec.AuthenticatedRepos),
+					AutomountServiceAccountToken: ptr.To(false),
 					InitContainers:               ppmAuthInitContainers,
 					Containers: product.ConcatLists([]corev1.Container{
 						{

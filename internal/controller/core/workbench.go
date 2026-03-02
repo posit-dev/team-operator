@@ -752,7 +752,7 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 	var ppmAuthInitContainers []corev1.Container
 	var ppmAuthSidecarContainers []corev1.Container
 	if w.Spec.AuthenticatedRepos {
-		ppmURL := fmt.Sprintf("https://%s", w.Spec.PPMUrl)
+		ppmURL := SanitizePPMUrl(w.Spec.PPMUrl)
 		ppmAuthVolumes = PPMAuthVolumes(w.SiteName(), ppmURL)
 		ppmAuthVolumeMounts = PPMAuthVolumeMounts()
 		ppmAuthEnvVars = PPMAuthEnvVars()

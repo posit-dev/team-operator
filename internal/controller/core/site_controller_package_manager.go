@@ -136,11 +136,15 @@ func (r *SiteReconciler) reconcilePackageManager(
 		// Auto-configure Identity Federation entries based on product flags
 		var idfEntries []v1beta1.PackageManagerIdentityFederationConfig
 		if site.Spec.OIDCIssuerURL != "" {
+			audience := site.Spec.OIDCAudience
+			if audience == "" {
+				audience = "sts.amazonaws.com"
+			}
 			if site.Spec.Connect.AuthenticatedRepos {
 				idfEntries = append(idfEntries, v1beta1.PackageManagerIdentityFederationConfig{
 					Name:     "connect",
 					Issuer:   site.Spec.OIDCIssuerURL,
-					Audience: "sts.amazonaws.com",
+					Audience: audience,
 					Subject:  fmt.Sprintf("system:serviceaccount:%s:%s-connect", req.Namespace, req.Name),
 					Scope:    "repos:read:*",
 				})
@@ -149,7 +153,7 @@ func (r *SiteReconciler) reconcilePackageManager(
 				idfEntries = append(idfEntries, v1beta1.PackageManagerIdentityFederationConfig{
 					Name:     "workbench",
 					Issuer:   site.Spec.OIDCIssuerURL,
-					Audience: "sts.amazonaws.com",
+					Audience: audience,
 					Subject:  fmt.Sprintf("system:serviceaccount:%s:%s-workbench", req.Namespace, req.Name),
 					Scope:    "repos:read:*",
 				})

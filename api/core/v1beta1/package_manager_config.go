@@ -116,6 +116,9 @@ func (configStruct *PackageManagerConfig) GenerateGcfg() (string, error) {
 
 	// Render named IdentityFederation sections (these use the gcfg named subsection syntax)
 	for _, idf := range configStruct.IdentityFederation {
+		if strings.ContainsAny(idf.Name, "\"]\n") {
+			return "", fmt.Errorf("invalid IdentityFederation name %q: must not contain '\"', ']', or newlines", idf.Name)
+		}
 		builder.WriteString(fmt.Sprintf("\n[IdentityFederation \"%s\"]\n", idf.Name))
 		if idf.Issuer != "" {
 			builder.WriteString("Issuer = " + idf.Issuer + "\n")

@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -31,6 +32,9 @@ func PPMAuthTokenExchangeScript() string {
 	return `#!/bin/sh
 set -e
 
+# Install required tools (alpine base image does not include curl or jq)
+apk add --no-cache curl jq >/dev/null 2>&1
+
 SA_TOKEN_PATH="${SA_TOKEN_PATH:-/var/run/secrets/ppm-auth/token}"
 NETRC_PATH="${NETRC_PATH:-/mnt/ppm-auth/netrc}"
 CURLRC_PATH="${CURLRC_PATH:-/mnt/ppm-auth/.curlrc}"
@@ -46,6 +50,12 @@ exchange_token() {
         -d "subject_token_type=urn:ietf:params:oauth:token-type:id_token")
 
     PPM_TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
+
+    if [ -z "$PPM_TOKEN" ] || [ "$PPM_TOKEN" = "null" ]; then
+        echo "ERROR: Failed to extract access_token from PPM response" >&2
+        exit 1
+    fi
+
     PPM_HOST=$(echo "$PPM_URL" | sed 's|https\?://||' | sed 's|/.*||')
 
     # Write netrc (atomic: write to temp, then rename)
@@ -224,4 +234,10 @@ func PPMAuthEnvVars() []corev1.EnvVar {
 			Value: ppmAuthNetrcMountPath,
 		},
 	}
+}
+
+// SanitizePPMUrl strips any existing scheme from the URL and prepends https://
+func SanitizePPMUrl(rawUrl string) string {
+	host := strings.TrimPrefix(strings.TrimPrefix(rawUrl, "https://"), "http://")
+	return fmt.Sprintf("https://%s", host)
 }

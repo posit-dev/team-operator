@@ -257,6 +257,7 @@ func (r *SiteReconciler) reconcileWorkbench(
 			WorkloadSecret:               site.Spec.WorkloadSecret,
 			Replicas:                     product.PassDefaultReplicas(site.Spec.Workbench.Replicas, 1),
 			AuthenticatedRepos:           site.Spec.Workbench.AuthenticatedRepos,
+			PPMAuthImage:                 site.Spec.Workbench.PPMAuthImage,
 			PPMUrl:                       prefixDomain(site.Spec.PackageManager.DomainPrefix, getEffectiveBaseDomain(site.Spec.PackageManager.BaseDomain, site.Spec.Domain), v1beta1.SiteSubDomain),
 		},
 	}
