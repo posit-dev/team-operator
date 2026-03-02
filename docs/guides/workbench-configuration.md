@@ -1,12 +1,12 @@
 # Workbench Configuration Guide
 
-This guide covers comprehensive configuration of Posit Workbench in Team Operator, including all available options, authentication, off-host execution, IDE settings, data integrations, and advanced features.
+This guide covers configuration of Posit Workbench in Team Operator, including options for authentication, off-host execution, IDE settings, data integrations, and advanced features.
 
 ## Overview
 
-Posit Workbench provides an interactive development environment for data science teams. In Team Operator, Workbench runs on Kubernetes with off-host execution enabled by default, meaning user sessions run as separate Kubernetes Jobs rather than on the Workbench server pod itself.
+Posit Workbench provides an interactive development environment for data science teams. In Team Operator, Workbench runs on Kubernetes with off-host execution enabled by default. User sessions run as separate Kubernetes Jobs rather than on the Workbench server pod itself.
 
-When configured via a Site resource, Workbench:
+When configured via a Site resource, Workbench does the following:
 - Uses the Kubernetes Job Launcher for session management
 - Supports multiple IDEs (RStudio, VS Code, Positron, Jupyter)
 - Integrates with Site-level authentication
@@ -223,7 +223,7 @@ The HTML content is mounted at `/etc/rstudio/login.html` and must be less than 6
 
 ## Off-Host Execution / Kubernetes Launcher
 
-Off-host execution runs user sessions as Kubernetes Jobs, providing isolation, resource management, and scalability. **This is enabled by default** in Team Operator.
+Off-host execution runs user sessions as Kubernetes Jobs, providing isolation, resource management, and scalability. This is enabled by default in Team Operator.
 
 ### How It Works
 
@@ -320,7 +320,7 @@ spec:
 
 ### Session Configuration Details
 
-Sessions are configured via launcher templates. The operator manages:
+Sessions are configured via launcher templates. The operator manages these files:
 
 - `job.tpl` - Kubernetes Job template
 - `service.tpl` - Service template for session connectivity
@@ -379,7 +379,7 @@ spec:
 
 ### Positron IDE
 
-Positron is Posit's next-generation IDE. Enable and configure:
+Positron is Posit's next-generation IDE. Enable and configure it:
 
 ```yaml
 spec:
@@ -603,7 +603,7 @@ spec:
 
 ## Non-Root Execution Mode
 
-Enable "maximally rootless" execution for enhanced security:
+Enable "maximally rootless" execution for better security:
 
 ```yaml
 spec:
@@ -630,7 +630,7 @@ When enabled:
 
 ## Experimental Features
 
-The `experimentalFeatures` section contains advanced options. These are subject to change:
+The `experimentalFeatures` section contains advanced options subject to change:
 
 ```yaml
 spec:
@@ -867,54 +867,54 @@ spec:
 
 #### Authentication Failures
 
-1. **Check OIDC configuration:**
-   - Verify issuer URL is accessible from the cluster
-   - Confirm client ID matches IdP configuration
-   - Check that redirect URIs are configured in IdP
+Check OIDC configuration:
+- Verify the issuer URL is accessible from the cluster
+- Confirm the client ID matches IdP configuration
+- Verify redirect URIs are configured in the IdP
 
-2. **View authentication logs:**
-   ```bash
-   kubectl logs -n posit-team deploy/<site-name>-workbench | grep -i auth
-   ```
+View authentication logs:
+```bash
+kubectl logs -n posit-team deploy/<site-name>-workbench | grep -i auth
+```
 
-3. **Verify secrets exist:**
-   ```bash
-   kubectl get secret <site-name>-workbench-config -n posit-team
-   ```
+Verify secrets exist:
+```bash
+kubectl get secret <site-name>-workbench-config -n posit-team
+```
 
 #### Session Resource Issues
 
-1. **Check resource profile configuration:**
-   ```bash
-   kubectl get configmap <site-name>-workbench -n posit-team -o yaml | grep -A 50 "launcher.kubernetes.resources.conf"
-   ```
+Check resource profile configuration:
+```bash
+kubectl get configmap <site-name>-workbench -n posit-team -o yaml | grep -A 50 "launcher.kubernetes.resources.conf"
+```
 
-2. **Verify nodes have capacity:**
-   ```bash
-   kubectl describe nodes | grep -A 10 "Allocated resources"
-   ```
+Verify nodes have capacity:
+```bash
+kubectl describe nodes | grep -A 10 "Allocated resources"
+```
 
-3. **Check session pod events:**
-   ```bash
-   kubectl describe pod <session-pod-name> -n posit-team
-   ```
+Check session pod events:
+```bash
+kubectl describe pod <session-pod-name> -n posit-team
+```
 
 #### Volume Mount Issues
 
-1. **Verify PVC exists and is bound:**
-   ```bash
-   kubectl get pvc -n posit-team | grep workbench
-   ```
+Verify the PVC exists and is bound:
+```bash
+kubectl get pvc -n posit-team | grep workbench
+```
 
-2. **Check volume permissions in session:**
-   ```bash
-   kubectl exec -it <session-pod> -n posit-team -- ls -la /home
-   ```
+Check volume permissions in the session:
+```bash
+kubectl exec -it <session-pod> -n posit-team -- ls -la /home
+```
 
-3. **Verify storage class supports RWX:**
-   ```bash
-   kubectl get storageclass <storage-class-name> -o yaml
-   ```
+Verify the storage class supports RWX:
+```bash
+kubectl get storageclass <storage-class-name> -o yaml
+```
 
 ### Useful Commands
 

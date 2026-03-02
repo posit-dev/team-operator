@@ -1,6 +1,6 @@
 # Connect Configuration Guide
 
-This comprehensive guide covers all configuration options for Posit Connect when deployed via Team Operator.
+This guide covers configuration options for Posit Connect when deployed via Team Operator.
 
 ## Table of Contents
 
@@ -26,7 +26,7 @@ This comprehensive guide covers all configuration options for Posit Connect when
 
 ## Overview
 
-Posit Connect is a publishing and sharing platform that allows data scientists to share their work with stakeholders. When deployed via Team Operator, Connect runs with off-host execution enabled by default, meaning content executes in isolated Kubernetes Jobs rather than on the Connect server itself.
+Posit Connect is a publishing and sharing platform for data science work. When deployed via Team Operator, Connect runs with off-host execution enabled by default. Content executes in isolated Kubernetes Jobs rather than on the Connect server.
 
 ### Architecture in Team Operator
 
@@ -51,10 +51,10 @@ Site CR
 
 Configuration for Connect flows through two paths:
 
-1. **Site-level configuration** (`spec.connect` in Site CR) - Recommended for most deployments
-2. **Direct Connect CR configuration** - For advanced use cases
+1. **Site-level configuration** (`spec.connect` in Site CR) for most deployments
+2. **Direct Connect CR configuration** for advanced use cases
 
-When using a Site resource, the Site controller generates and manages the Connect CR. Changes to `site.spec.connect` automatically propagate to the Connect deployment.
+When using a Site resource, the Site controller generates and manages the Connect CR. Changes to `site.spec.connect` propagate to the Connect deployment.
 
 ---
 
@@ -66,7 +66,7 @@ Connect can be suspended or permanently torn down using the `enabled` and `teard
 
 #### Suspending Connect (non-destructive)
 
-Setting `enabled: false` suspends Connect: the Deployment, Service, and Ingress are removed, but the PVC, database, and secrets are preserved. Re-enabling restores full service with all existing data intact.
+Setting `enabled: false` suspends Connect. The Deployment, Service, and Ingress are removed, but the PVC, database, and secrets remain. Re-enabling restores full service with all existing data.
 
 ```yaml
 spec:
@@ -76,11 +76,11 @@ spec:
 
 **When to use `enabled: false`:**
 
-- Customer does not have a Connect license yet — deploy the site without Connect and enable it once a license is purchased
-- Temporarily pause Connect during a maintenance window or cost-saving period
-- Stop Connect while retaining all content and user data for a possible return
+- Customer lacks a Connect license yet. Deploy the site without Connect and enable it once licensed.
+- Pause Connect during maintenance windows or cost-saving periods
+- Stop Connect while retaining all content and user data
 
-**Re-enabling Connect** after a suspend is as simple as removing the field or setting it back to `true`:
+**Re-enabling Connect** after suspension requires removing the field or setting it back to `true`:
 
 ```yaml
 spec:
@@ -90,7 +90,7 @@ spec:
 
 #### Tearing down Connect (destructive)
 
-To permanently destroy all Connect resources — including the database, secrets, and PVC — set both `enabled: false` and `teardown: true`:
+To permanently destroy all Connect resources, including the database, secrets, and PVC, set both `enabled: false` and `teardown: true`:
 
 ```yaml
 spec:
@@ -99,13 +99,13 @@ spec:
     teardown: true   # DESTRUCTIVE: deletes database, secrets, and PVC
 ```
 
-**This is irreversible.** Re-enabling Connect after a teardown starts completely fresh with a new empty database and no prior content or configuration.
+**This is irreversible.** Re-enabling Connect after teardown starts fresh with a new empty database and no prior content or configuration.
 
 **When to use `teardown: true`:**
 
-- Permanently decommissioning Connect with no intent to restore data
-- Reclaiming cluster storage after migrating to a different Connect instance
-- Explicitly wiping Connect to start fresh
+- Permanently decommission Connect with no intent to restore data
+- Reclaim cluster storage after migrating to a different Connect instance
+- Wipe Connect to start fresh
 
 > **Note:** `teardown: true` has no effect while `enabled` is `true` or unset. You must set `enabled: false` first.
 
@@ -126,7 +126,7 @@ spec:
     sessionImage: "ghcr.io/rstudio/rstudio-connect-content-init:ubuntu2204-2024.06.0"
 ```
 
-**Important:** The `sessionImage` is used as an init container in content execution jobs. It prepares the runtime environment before content runs.
+The `sessionImage` is used as an init container in content execution jobs. It prepares the runtime environment before content runs.
 
 ### Resource Scaling
 
@@ -317,7 +317,7 @@ spec:
       # samlEmailAttribute: "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"
 ```
 
-**Note:** `samlIdPAttributeProfile` and individual SAML attribute mappings are mutually exclusive. The controller will reject configurations that specify both.
+**Note:** `samlIdPAttributeProfile` and individual SAML attribute mappings are mutually exclusive. The controller rejects configurations that specify both.
 
 ### Password Authentication
 
@@ -411,7 +411,7 @@ spec:
 
 ## Off-Host Execution / Kubernetes Launcher
 
-Off-host execution is **enabled by default** when Connect is deployed via Team Operator. Content runs in isolated Kubernetes Jobs rather than on the Connect server.
+Off-host execution is enabled by default when Connect is deployed via Team Operator. Content runs in isolated Kubernetes Jobs rather than on the Connect server.
 
 ### How It Works
 
@@ -557,7 +557,7 @@ images:
           version: "1.3.340"
 ```
 
-**Custom Runtime Images:** To add custom runtime images, you need to modify the Connect CR directly (advanced use case) or use the Connect admin interface after deployment.
+**Custom Runtime Images:** To add custom runtime images, modify the Connect CR directly (advanced use case) or use the Connect admin interface after deployment.
 
 ### Additional Volumes for Sessions
 
@@ -706,7 +706,7 @@ Authorization:
 
 ## Chronicle Integration
 
-Chronicle provides telemetry and metrics collection for Connect. When configured, a Chronicle agent sidecar is automatically injected into the Connect deployment.
+Chronicle provides telemetry and metrics collection for Connect. When configured, a Chronicle agent sidecar is injected into the Connect deployment.
 
 ### Enabling Chronicle
 
@@ -780,9 +780,9 @@ For AWS Secrets Manager, these keys are automatically mapped to the `<site>-conn
 
 ### Email Configuration Notes
 
-- SMTP is considered **experimental** in Team Operator
-- For production email, consider using Connect's built-in email configuration after deployment
-- The `mailTarget` setting is useful for testing to prevent accidental emails to real users
+- SMTP is experimental in Team Operator
+- For production email, use Connect's built-in email configuration after deployment
+- The `mailTarget` setting prevents accidental emails to real users during testing
 
 ---
 
@@ -902,7 +902,7 @@ spec:
           value: "secret://db-password-key"
 ```
 
-**Note:** The `secret://` prefix is special - it triggers the operator to create CSI secret mounts for AWS Secrets Manager values.
+**Note:** The `secret://` prefix triggers the operator to create CSI secret mounts for AWS Secrets Manager values.
 
 ---
 
@@ -1085,9 +1085,9 @@ spec:
    ```
 
 3. **Common issues:**
-   - License not found: Check license secret exists and key is correct
+   - License not found: Verify license secret exists and key is correct
    - Database connection failed: Verify database credentials and connectivity
-   - Volume mount failed: Ensure PVC exists and storage class is available
+   - Volume mount failed: Verify PVC exists and storage class is available
 
 ### Content Sessions Not Running
 
@@ -1102,21 +1102,21 @@ spec:
    ```
 
 3. **Common issues:**
-   - Init container failed: Check session image is accessible
+   - Init container failed: Verify session image is accessible
    - Runtime not found: Verify runtime.yaml configuration
-   - Resource limits exceeded: Check scheduler limits
+   - Resource limits exceeded: Verify scheduler limits
 
 ### Authentication Failures
 
 1. **For OIDC:**
    - Verify client ID and issuer URL
-   - Check client secret is in the correct secret backend
-   - Ensure redirect URIs are configured in your IdP
+   - Verify client secret is in the correct secret backend
+   - Verify redirect URIs are configured in your IdP
    - Enable debug logging: `spec.debug: true`
 
 2. **For SAML:**
    - Verify metadata URL is accessible
-   - Check attribute mappings match your IdP
+   - Verify attribute mappings match your IdP
    - Review Connect logs for SAML assertion errors
 
 ### Database Connection Issues
@@ -1151,8 +1151,8 @@ spec:
    ```
 
 3. **Common issues:**
-   - Missing `agentImage`: Chronicle sidecar won't be created
-   - Network policy blocking: Ensure Chronicle server is reachable
+   - Missing `agentImage`: Chronicle sidecar will not be created
+   - Network policy blocking: Verify Chronicle server is reachable
 
 ### GPU Sessions Not Scheduling
 

@@ -1,6 +1,6 @@
 # Team Operator Troubleshooting Guide
 
-This comprehensive guide covers common issues and their solutions when running Posit Team products via the Team Operator.
+This guide covers common issues and solutions when running Posit Team products via the Team Operator.
 
 ## Table of Contents
 
@@ -25,7 +25,7 @@ This comprehensive guide covers common issues and their solutions when running P
 
 ### Checking Operator Logs
 
-The operator logs are your first stop for diagnosing issues:
+Start diagnosing issues by checking the operator logs:
 
 ```bash
 # View operator logs
@@ -225,13 +225,13 @@ kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
 
 **Cause:**
 
-Kubernetes nodes can have [taints](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) that prevent pods from scheduling unless the pod has a matching toleration. Common scenarios include:
+Kubernetes nodes can have [taints](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) that prevent pods from scheduling unless the pod has a matching toleration. Common scenarios:
 
-- Dedicated node pools for specific workloads (e.g., GPU nodes, session nodes)
+- Dedicated node pools for specific workloads (GPU nodes, session nodes)
 - Nodes reserved for critical system components
 - Cloud provider managed node pools with default taints
 
-If the operator pod doesn't have tolerations matching the node taints, it will remain in `Pending` state.
+Without matching tolerations, the operator pod remains in `Pending` state.
 
 **Solution:**
 
@@ -274,9 +274,9 @@ helm upgrade team-operator ./dist/chart \
 | Cloud provider taints (GKE) | `key: "cloud.google.com/gke-nodepool", operator: "Exists"` |
 | Control plane nodes | `key: "node-role.kubernetes.io/control-plane", operator: "Exists"` |
 
-**Using nodeSelector as an alternative:**
+**Alternative: Using nodeSelector**
 
-If you want the operator to run on specific nodes instead of tolerating taints, use `nodeSelector`:
+To run the operator on specific nodes instead of tolerating taints, use `nodeSelector`:
 
 ```yaml
 controllerManager:
@@ -341,9 +341,9 @@ kubectl logs -n posit-team-system deployment/team-operator-controller-manager | 
 ```
 
 **Solutions:**
-- Verify product is enabled in Site spec (products are created by default)
+- Verify the product is enabled in the Site spec (products are created by default)
 - Check for validation errors in operator logs
-- Ensure all required fields are populated
+- Verify all required fields are populated
 
 ### Status Conditions Not Updating
 
@@ -409,19 +409,19 @@ kubectl get secret <db-secret-name> -n posit-team -o yaml
 
 **Solutions:**
 
-1. **Verify secret exists with correct keys:**
+1. Verify the secret exists with correct keys:
    ```bash
    kubectl get secret <secret-name> -n posit-team -o jsonpath='{.data}' | jq
    ```
 
-2. **Test database connectivity from a pod:**
+2. Test database connectivity from a pod:
    ```bash
    kubectl run -it --rm psql-test --image=postgres:15 --restart=Never -- \
      psql "postgresql://<user>:<password>@<host>/<database>?sslmode=require"
    ```
 
-3. **Check SSL mode configuration:**
-   - Ensure `sslmode` matches your database requirements (require, verify-full, etc.)
+3. Check SSL mode configuration:
+   - Verify `sslmode` matches your database requirements (require, verify-full, etc.)
 
 ### Schema Creation Errors
 
@@ -451,28 +451,28 @@ kubectl logs -n posit-team-system deployment/team-operator-controller-manager | 
 
 **Solutions:**
 
-1. **For AWS Secrets Manager:**
-   ```yaml
-   spec:
-     secret:
-       type: "aws"
-       vaultName: "your-vault-name"
-     mainDatabaseCredentialSecret:
-       type: "aws"
-       vaultName: "rds!db-identifier"
-   ```
+For AWS Secrets Manager:
+```yaml
+spec:
+  secret:
+    type: "aws"
+    vaultName: "your-vault-name"
+  mainDatabaseCredentialSecret:
+    type: "aws"
+    vaultName: "rds!db-identifier"
+```
 
-2. **For Kubernetes Secrets:**
-   ```yaml
-   apiVersion: v1
-   kind: Secret
-   metadata:
-     name: site-secrets
-   stringData:
-     pub-db-password: "<connect-db-password>"
-     dev-db-password: "<workbench-db-password>"
-     pkg-db-password: "<packagemanager-db-password>"
-   ```
+For Kubernetes Secrets:
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: site-secrets
+stringData:
+  pub-db-password: "<connect-db-password>"
+  dev-db-password: "<workbench-db-password>"
+  pkg-db-password: "<packagemanager-db-password>"
+```
 
 ---
 
@@ -561,7 +561,7 @@ kubectl logs -n posit-team deploy/<site-name>-workbench -c workbench | grep -i l
 | Databricks config error | Move Databricks config from `Config` to `SecretConfig` |
 
 **Databricks Configuration Error:**
-If you see `the Databricks configuration should be in SecretConfig, not Config`, update your configuration:
+If you see `the Databricks configuration should be in SecretConfig, not Config`, update your configuration.
 
 ```yaml
 # Wrong
@@ -691,23 +691,23 @@ kubectl logs -n <ingress-namespace> deploy/<ingress-controller>
 
 **Solutions:**
 
-1. **Check certificate secret:**
-   ```bash
-   kubectl get secret -n posit-team | grep tls
-   ```
+Check the certificate secret:
+```bash
+kubectl get secret -n posit-team | grep tls
+```
 
-2. **Verify cert-manager (if used):**
-   ```bash
-   kubectl get certificate -n posit-team
-   kubectl describe certificate <cert-name> -n posit-team
-   ```
+Verify cert-manager (if used):
+```bash
+kubectl get certificate -n posit-team
+kubectl describe certificate <cert-name> -n posit-team
+```
 
-3. **Configure TLS in Ingress:**
-   ```yaml
-   spec:
-     ingressAnnotations:
-       cert-manager.io/cluster-issuer: "letsencrypt-prod"
-   ```
+Configure TLS in Ingress:
+```yaml
+spec:
+  ingressAnnotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+```
 
 ### Service Discovery Issues
 
@@ -801,23 +801,23 @@ kubectl get pod <pod-name> -n posit-team -o jsonpath='{.spec.securityContext}'
 
 **Solutions:**
 
-1. **Set FSGroup in security context:**
-   ```yaml
-   spec:
-     securityContext:
-       fsGroup: 999
-   ```
+Set FSGroup in security context:
+```yaml
+spec:
+  securityContext:
+    fsGroup: 999
+```
 
-2. **Use init container to fix permissions:**
-   ```yaml
-   initContainers:
-     - name: fix-permissions
-       image: busybox
-       command: ["sh", "-c", "chown -R 999:999 /data"]
-       volumeMounts:
-         - name: data
-           mountPath: /data
-   ```
+Use an init container to fix permissions:
+```yaml
+initContainers:
+  - name: fix-permissions
+    image: busybox
+    command: ["sh", "-c", "chown -R 999:999 /data"]
+    volumeMounts:
+      - name: data
+        mountPath: /data
+```
 
 ---
 
@@ -840,25 +840,25 @@ kubectl get configmap <site-name>-connect -n posit-team -o yaml | grep -i callba
 
 **Solutions:**
 
-1. **Verify redirect URIs in IdP:**
-   - Connect: `https://<connect-url>/__login__/callback`
-   - Workbench: `https://<workbench-url>/oidc/callback`
+Verify redirect URIs in your IdP:
+- Connect: `https://<connect-url>/__login__/callback`
+- Workbench: `https://<workbench-url>/oidc/callback`
 
-2. **Check client ID and issuer:**
-   ```yaml
-   spec:
-     connect:
-       auth:
-         type: "oidc"
-         clientId: "your-client-id"  # Must match IdP
-         issuer: "https://your-idp.com"  # Must be exact
-   ```
+Check client ID and issuer:
+```yaml
+spec:
+  connect:
+    auth:
+      type: "oidc"
+      clientId: "your-client-id"  # Must match IdP
+      issuer: "https://your-idp.com"  # Must be exact
+```
 
-3. **Enable debug logging:**
-   ```yaml
-   spec:
-     debug: true
-   ```
+Enable debug logging:
+```yaml
+spec:
+  debug: true
+```
 
 ### SAML Metadata Issues
 
@@ -875,18 +875,18 @@ kubectl run -it --rm curl-test --image=curlimages/curl --restart=Never -- \
 
 **Solutions:**
 
-1. **Ensure metadata URL is correct:**
-   ```yaml
-   spec:
-     connect:
-       auth:
-         type: "saml"
-         samlMetadataUrl: "https://idp.example.com/saml/metadata"
-   ```
+Verify the metadata URL is correct:
+```yaml
+spec:
+  connect:
+    auth:
+      type: "saml"
+      samlMetadataUrl: "https://idp.example.com/saml/metadata"
+```
 
-2. **Check network access from cluster:**
-   - Verify DNS resolution works
-   - Check firewall rules allow outbound HTTPS
+Check network access from the cluster:
+- Verify DNS resolution works
+- Check firewall rules allow outbound HTTPS
 
 **Configuration Conflict Error:**
 ```
@@ -917,33 +917,33 @@ kubectl logs -n posit-team deploy/<site-name>-connect -c connect | grep -i "clai
 
 **Solutions:**
 
-1. **Verify claims configuration:**
-   ```yaml
-   spec:
-     connect:
-       auth:
-         usernameClaim: "preferred_username"
-         emailClaim: "email"
-         groupsClaim: "groups"
-   ```
+Verify claims configuration:
+```yaml
+spec:
+  connect:
+    auth:
+      usernameClaim: "preferred_username"
+      emailClaim: "email"
+      groupsClaim: "groups"
+```
 
-2. **Check scopes include groups:**
-   ```yaml
-   scopes:
-     - "openid"
-     - "profile"
-     - "email"
-     - "groups"
-   ```
+Check scopes include groups:
+```yaml
+scopes:
+  - "openid"
+  - "profile"
+  - "email"
+  - "groups"
+```
 
-3. **Disable groups claim if IdP doesn't support it:**
-   ```yaml
-   disableGroupsClaim: true
-   ```
+Disable groups claim if your IdP doesn't support it:
+```yaml
+disableGroupsClaim: true
+```
 
-4. **Debug JWT tokens:**
-   - Use [jwt.io](https://jwt.io) to inspect tokens
-   - Verify expected claims are present
+Debug JWT tokens:
+- Use [jwt.io](https://jwt.io) to inspect tokens
+- Verify expected claims are present
 
 ---
 
@@ -970,24 +970,24 @@ kubectl logs -n posit-team deploy/<site-name>-connect -c connect | grep -i "clai
 
 ## Getting Help
 
-If you continue to experience issues:
+If issues persist:
 
-1. **Collect diagnostic information:**
-   ```bash
-   kubectl get all -n posit-team -o yaml > posit-team-resources.yaml
-   kubectl logs -n posit-team-system deployment/team-operator-controller-manager > operator.log
-   kubectl get events -n posit-team --sort-by='.lastTimestamp' > events.txt
-   ```
+Collect diagnostic information:
+```bash
+kubectl get all -n posit-team -o yaml > posit-team-resources.yaml
+kubectl logs -n posit-team-system deployment/team-operator-controller-manager > operator.log
+kubectl get events -n posit-team --sort-by='.lastTimestamp' > events.txt
+```
 
-2. **Check Posit documentation:**
-   - [Connect Admin Guide](https://docs.posit.co/connect/admin/)
-   - [Workbench Admin Guide](https://docs.posit.co/ide/server-pro/admin/)
-   - [Package Manager Admin Guide](https://docs.posit.co/rspm/admin/)
+Check Posit documentation:
+- [Connect Admin Guide](https://docs.posit.co/connect/admin/)
+- [Workbench Admin Guide](https://docs.posit.co/ide/server-pro/admin/)
+- [Package Manager Admin Guide](https://docs.posit.co/rspm/admin/)
 
-3. **Contact Posit Support:**
-   - Include diagnostic files
-   - Describe the issue and steps to reproduce
-   - Include operator and product versions
+Contact Posit Support:
+- Include diagnostic files
+- Describe the issue and steps to reproduce
+- Include operator and product versions
 
 ---
 

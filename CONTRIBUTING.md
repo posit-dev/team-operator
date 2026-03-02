@@ -1,6 +1,6 @@
 # Contributing to Team Operator
 
-Welcome! We appreciate your interest in contributing to the Team Operator project. This guide will help you get started with development and understand our contribution workflow.
+This guide covers development setup and contribution workflow for the Team Operator project.
 
 ## Table of Contents
 
@@ -16,7 +16,7 @@ Welcome! We appreciate your interest in contributing to the Team Operator projec
 
 ## Project Overview
 
-Team Operator is a Kubernetes operator built with [Kubebuilder](https://book.kubebuilder.io/) that automates the deployment, configuration, and management of Posit Team products (Workbench, Connect, Package Manager, and Chronicle) within Kubernetes clusters.
+Team Operator is a Kubernetes operator built with [Kubebuilder](https://book.kubebuilder.io/) that automates deployment, configuration, and management of Posit Team products (Workbench, Connect, Package Manager, and Chronicle) within Kubernetes clusters.
 
 > **Note**: This repository is under active development and is not yet ready for production use.
 
@@ -149,13 +149,13 @@ just mtest
    git checkout -b your-feature-name
    ```
 
-2. Keep branch names descriptive and use hyphens (avoid slashes):
+2. Use descriptive branch names with hyphens (avoid slashes):
    - Good: `add-workbench-scaling`, `fix-database-connection`
    - Avoid: `feature/workbench`, `fix/db`
 
 ### PR Title Conventions (Required)
 
-We use [Conventional Commits](https://www.conventionalcommits.org/) and **squash merging**. Your PR title becomes the commit message, so it must follow this format:
+We use [Conventional Commits](https://www.conventionalcommits.org/) and squash merging. Your PR title becomes the commit message and must follow this format:
 
 ```
 <type>(<scope>): <description>
@@ -203,11 +203,11 @@ feat!: change API response format
    go vet ./...
    ```
 
-3. **Follow existing patterns** - New code should look like it belongs in the codebase.
+3. **Follow existing patterns.** New code should match the codebase.
 
-4. **Keep functions focused** - Each function should do one thing well.
+4. **Keep functions focused.** Each function should do one thing well.
 
-5. **Use descriptive names** - Names should reveal intent.
+5. **Use descriptive names.** Names should reveal intent.
 
 ### Adding New CRD Fields
 
@@ -343,13 +343,13 @@ The following checks must pass:
 
 ### Merging
 
-This repository uses **squash and merge**. Your PR title becomes the final commit message on `main`. This is why the PR title format is enforced - semantic-release analyzes these commit messages to determine version bumps.
+This repository uses squash and merge. Your PR title becomes the final commit message on `main`. The PR title format is enforced because semantic-release analyzes commit messages to determine version bumps.
 
 ### Review Expectations
 
 - PRs require at least one approval before merging
-- Address all review comments or explain why you disagree
-- Keep PRs focused - smaller PRs are easier to review
+- Address all review comments or explain disagreements
+- Keep PRs focused. Smaller PRs are easier to review.
 - Respond to feedback promptly
 
 ## Code Review Guidelines
@@ -358,9 +358,9 @@ We follow specific guidelines for code review. For detailed review standards, se
 
 ### Core Principles
 
-- **Simplicity** - Prefer explicit over clever
-- **Maintainability** - Follow existing patterns in the codebase
-- **Security** - Extra scrutiny for credential handling, RBAC, and network operations
+- **Simplicity:** Prefer explicit over clever
+- **Maintainability:** Follow existing patterns in the codebase
+- **Security:** Extra scrutiny for credential handling, RBAC, and network operations
 
 ### Review Checklist by Area
 
@@ -419,12 +419,12 @@ Once installed, roborev will run after each `git commit` and submit a review for
 
 ## Getting Help
 
-If you have questions or need help:
+If you have questions:
 
-1. **Check existing documentation** - README.md, this guide, and inline code comments
-2. **Search existing issues** - Your question may have been answered before
-3. **Open an issue** - For bugs, feature requests, or questions
-4. **Contact Posit** - For production use inquiries, [contact Posit](https://posit.co/schedule-a-call/)
+1. **Check existing documentation:** README.md, this guide, and inline code comments
+2. **Search existing issues:** Your question may have been answered
+3. **Open an issue:** For bugs, feature requests, or questions
+4. **Contact Posit:** For production use inquiries, [contact Posit](https://posit.co/schedule-a-call/)
 
 ## Quick Reference
 
