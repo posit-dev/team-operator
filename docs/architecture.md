@@ -613,7 +613,7 @@ Flightdeck is simple by design:
 - **No database**: Serves static content only
 - **No authentication**: Relies on product-level authentication
 - **Configurable layout**: Shows only enabled products
-- **Optional Academy**: Displays a fourth card for Posit Academy
+- **Optional Academy**: Can display a fourth card for Posit Academy
 
 ### Configuration Options
 
@@ -749,7 +749,7 @@ flowchart TB
 
 ### Sidecar Injection
 
-The Chronicle sidecar injects automatically into product pods when:
+The Chronicle sidecar is automatically injected into product pods when:
 - Chronicle is enabled in the Site spec (`spec.chronicle.enabled: true`)
 - The product has Chronicle integration enabled
 

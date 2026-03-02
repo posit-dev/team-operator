@@ -126,7 +126,7 @@ spec:
     sessionImage: "ghcr.io/rstudio/rstudio-connect-content-init:ubuntu2204-2024.06.0"
 ```
 
-The `sessionImage` is used as an init container in content execution jobs. It prepares the runtime environment before content runs.
+**Important:** The `sessionImage` is used as an init container in content execution jobs. It prepares the runtime environment before content runs.
 
 ### Resource Scaling
 
