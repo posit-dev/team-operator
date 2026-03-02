@@ -19,6 +19,7 @@ type PackageManagerConfigApplyConfiguration struct {
 	Repos            *PackageManagerReposConfigApplyConfiguration     `json:"Repos,omitempty"`
 	Cran             *PackageManagerCRANConfigApplyConfiguration      `json:"CRAN,omitempty"`
 	Debug            *PackageManagerDebugConfigApplyConfiguration     `json:"Debug,omitempty"`
+	OpenIDConnect    *PackageManagerOIDCConfigApplyConfiguration      `json:"OpenIDConnect,omitempty"`
 	AdditionalConfig *string                                          `json:"additionalConfig,omitempty"`
 }
 
@@ -113,6 +114,14 @@ func (b *PackageManagerConfigApplyConfiguration) WithCran(value *PackageManagerC
 // If called multiple times, the Debug field is set to the value of the last call.
 func (b *PackageManagerConfigApplyConfiguration) WithDebug(value *PackageManagerDebugConfigApplyConfiguration) *PackageManagerConfigApplyConfiguration {
 	b.Debug = value
+	return b
+}
+
+// WithOpenIDConnect sets the OpenIDConnect field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the OpenIDConnect field is set to the value of the last call.
+func (b *PackageManagerConfigApplyConfiguration) WithOpenIDConnect(value *PackageManagerOIDCConfigApplyConfiguration) *PackageManagerConfigApplyConfiguration {
+	b.OpenIDConnect = value
 	return b
 }
 

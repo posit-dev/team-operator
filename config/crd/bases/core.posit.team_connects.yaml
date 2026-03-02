@@ -178,6 +178,10 @@ spec:
                       type: string
                     type: array
                 type: object
+              authenticatedRepos:
+                description: AuthenticatedRepos enables PPM authenticated repository
+                  access for Connect
+                type: boolean
               awsAccountId:
                 description: AwsAccountId is the account Id for this AWS Account.
                   It is used to create EKS-to-IAM annotations
@@ -500,6 +504,14 @@ spec:
                 type: object
               offHostExecution:
                 type: boolean
+              ppmAuthImage:
+                description: PPMAuthImage specifies the container image for PPM auth
+                  init/sidecar containers
+                type: string
+              ppmUrl:
+                description: PPMUrl specifies the PPM URL for authenticated repository
+                  access
+                type: string
               registerOnFirstLogin:
                 description: |-
                   RegisterOnFirstLogin controls whether new users are automatically registered

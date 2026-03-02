@@ -47,6 +47,9 @@ type WorkbenchSpecApplyConfiguration struct {
 	DsnSecret                            *string                                   `json:"dsnSecret,omitempty"`
 	ChronicleSidecarProductApiKeyEnabled *bool                                     `json:"chronicleSidecarProductApiKeyEnabled,omitempty"`
 	AuthLoginPageHtml                    *string                                   `json:"authLoginPageHtml,omitempty"`
+	AuthenticatedRepos                   *bool                                     `json:"authenticatedRepos,omitempty"`
+	PPMAuthImage                         *string                                   `json:"ppmAuthImage,omitempty"`
+	PPMUrl                               *string                                   `json:"ppmUrl,omitempty"`
 }
 
 // WorkbenchSpecApplyConfiguration constructs a declarative configuration of the WorkbenchSpec type for use with
@@ -348,5 +351,29 @@ func (b *WorkbenchSpecApplyConfiguration) WithChronicleSidecarProductApiKeyEnabl
 // If called multiple times, the AuthLoginPageHtml field is set to the value of the last call.
 func (b *WorkbenchSpecApplyConfiguration) WithAuthLoginPageHtml(value string) *WorkbenchSpecApplyConfiguration {
 	b.AuthLoginPageHtml = &value
+	return b
+}
+
+// WithAuthenticatedRepos sets the AuthenticatedRepos field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the AuthenticatedRepos field is set to the value of the last call.
+func (b *WorkbenchSpecApplyConfiguration) WithAuthenticatedRepos(value bool) *WorkbenchSpecApplyConfiguration {
+	b.AuthenticatedRepos = &value
+	return b
+}
+
+// WithPPMAuthImage sets the PPMAuthImage field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the PPMAuthImage field is set to the value of the last call.
+func (b *WorkbenchSpecApplyConfiguration) WithPPMAuthImage(value string) *WorkbenchSpecApplyConfiguration {
+	b.PPMAuthImage = &value
+	return b
+}
+
+// WithPPMUrl sets the PPMUrl field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the PPMUrl field is set to the value of the last call.
+func (b *WorkbenchSpecApplyConfiguration) WithPPMUrl(value string) *WorkbenchSpecApplyConfiguration {
+	b.PPMUrl = &value
 	return b
 }

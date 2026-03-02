@@ -36,6 +36,7 @@ type InternalConnectSpecApplyConfiguration struct {
 	ScheduleConcurrency     *int                                                   `json:"scheduleConcurrency,omitempty"`
 	AdditionalRuntimeImages []ConnectRuntimeImageSpecApplyConfiguration            `json:"additionalRuntimeImages,omitempty"`
 	AdditionalConfig        *string                                                `json:"additionalConfig,omitempty"`
+	AuthenticatedRepos      *bool                                                  `json:"authenticatedRepos,omitempty"`
 }
 
 // InternalConnectSpecApplyConfiguration constructs a declarative configuration of the InternalConnectSpec type for use with
@@ -242,5 +243,13 @@ func (b *InternalConnectSpecApplyConfiguration) WithAdditionalRuntimeImages(valu
 // If called multiple times, the AdditionalConfig field is set to the value of the last call.
 func (b *InternalConnectSpecApplyConfiguration) WithAdditionalConfig(value string) *InternalConnectSpecApplyConfiguration {
 	b.AdditionalConfig = &value
+	return b
+}
+
+// WithAuthenticatedRepos sets the AuthenticatedRepos field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the AuthenticatedRepos field is set to the value of the last call.
+func (b *InternalConnectSpecApplyConfiguration) WithAuthenticatedRepos(value bool) *InternalConnectSpecApplyConfiguration {
+	b.AuthenticatedRepos = &value
 	return b
 }

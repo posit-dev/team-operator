@@ -37,6 +37,7 @@ type PackageManagerSpecApplyConfiguration struct {
 	Replicas                     *int                                      `json:"replicas,omitempty"`
 	GitSSHKeys                   []SSHKeyConfigApplyConfiguration          `json:"gitSSHKeys,omitempty"`
 	AzureFiles                   *AzureFilesConfigApplyConfiguration       `json:"azureFiles,omitempty"`
+	OIDCClientSecretKey          *string                                   `json:"oidcClientSecretKey,omitempty"`
 }
 
 // PackageManagerSpecApplyConfiguration constructs a declarative configuration of the PackageManagerSpec type for use with
@@ -259,5 +260,13 @@ func (b *PackageManagerSpecApplyConfiguration) WithGitSSHKeys(values ...*SSHKeyC
 // If called multiple times, the AzureFiles field is set to the value of the last call.
 func (b *PackageManagerSpecApplyConfiguration) WithAzureFiles(value *AzureFilesConfigApplyConfiguration) *PackageManagerSpecApplyConfiguration {
 	b.AzureFiles = value
+	return b
+}
+
+// WithOIDCClientSecretKey sets the OIDCClientSecretKey field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the OIDCClientSecretKey field is set to the value of the last call.
+func (b *PackageManagerSpecApplyConfiguration) WithOIDCClientSecretKey(value string) *PackageManagerSpecApplyConfiguration {
+	b.OIDCClientSecretKey = &value
 	return b
 }

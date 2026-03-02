@@ -308,6 +308,14 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 	workbenchAdditionalVolumes := append([]product.VolumeSpec{}, additionalVolumes...)
 	workbenchAdditionalVolumes = append(workbenchAdditionalVolumes, site.Spec.Workbench.AdditionalVolumes...)
 
+	// PPM AUTH CONFIGMAP
+	if site.Spec.Connect.AuthenticatedRepos || site.Spec.Workbench.AuthenticatedRepos {
+		if err := r.reconcilePPMAuthConfigMap(ctx, req, site); err != nil {
+			l.Error(err, "error reconciling PPM auth ConfigMap")
+			return ctrl.Result{}, err
+		}
+	}
+
 	// CONNECT
 	if connectEnabled {
 		// Connect is enabled - reconcile normally
@@ -471,6 +479,31 @@ func (r *SiteReconciler) cleanupResources(ctx context.Context, req ctrl.Request)
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *SiteReconciler) reconcilePPMAuthConfigMap(ctx context.Context, req ctrl.Request, site *positcov1beta1.Site) error {
+	l := r.GetLogger(ctx).WithValues("event", "reconcile-ppm-auth-configmap")
+
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      PPMAuthConfigMapName(site.Name),
+			Namespace: req.Namespace,
+		},
+	}
+
+	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, cm, site, func() error {
+		cm.Labels = map[string]string{
+			positcov1beta1.ManagedByLabelKey: positcov1beta1.ManagedByLabelValue,
+		}
+		cm.Data = map[string]string{
+			"token-exchange.sh": PPMAuthTokenExchangeScript(),
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

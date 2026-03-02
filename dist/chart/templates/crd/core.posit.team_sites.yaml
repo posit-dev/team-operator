@@ -189,6 +189,10 @@ spec:
                           type: string
                         type: array
                     type: object
+                  authenticatedRepos:
+                    description: AuthenticatedRepos enables PPM authenticated repository
+                      access for Connect
+                    type: boolean
                   baseDomain:
                     description: |-
                       BaseDomain overrides site.Spec.Domain for this product's URL construction.
@@ -643,6 +647,10 @@ spec:
                 maximum: 100
                 minimum: 0
                 type: integer
+              oidcIssuerUrl:
+                description: OIDCIssuerURL is the K8s cluster OIDC issuer URL (for
+                  EKS/AKS Identity Federation)
+                type: string
               packageManager:
                 description: PackageManager contains Posit Package Manager configuration
                 properties:
@@ -654,6 +662,59 @@ spec:
                     description: AdditionalConfig allows appending arbitrary gcfg
                       config content to the generated config.
                     type: string
+                  auth:
+                    description: Auth configures OIDC authentication for Package Manager's
+                      web UI
+                    properties:
+                      administratorRoleMapping:
+                        items:
+                          type: string
+                        type: array
+                      clientId:
+                        type: string
+                      disableGroupsClaim:
+                        type: boolean
+                      emailClaim:
+                        type: string
+                      groups:
+                        type: boolean
+                      groupsClaim:
+                        type: string
+                      issuer:
+                        type: string
+                      publisherRoleMapping:
+                        items:
+                          type: string
+                        type: array
+                      samlEmailAttribute:
+                        type: string
+                      samlFirstNameAttribute:
+                        type: string
+                      samlIdPAttributeProfile:
+                        description: SAML-specific attribute mappings (mutually exclusive
+                          with SamlIdPAttributeProfile)
+                        type: string
+                      samlLastNameAttribute:
+                        type: string
+                      samlMetadataUrl:
+                        type: string
+                      samlUsernameAttribute:
+                        type: string
+                      scopes:
+                        items:
+                          type: string
+                        type: array
+                      type:
+                        type: string
+                      uniqueIdClaim:
+                        type: string
+                      usernameClaim:
+                        type: string
+                      viewerRoleMapping:
+                        items:
+                          type: string
+                        type: array
+                    type: object
                   azureFiles:
                     description: AzureFiles configures Azure Files integration for
                       persistent storage
@@ -783,6 +844,10 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  oidcClientSecretKey:
+                    description: OIDCClientSecretKey is the key in the vault for the
+                      OIDC client secret
+                    type: string
                   replicas:
                     type: integer
                   s3Bucket:
@@ -1077,6 +1142,10 @@ spec:
                   authLoginPageHtml:
                     description: Workbench Auth/Login Landing Page Customization HTML
                     type: string
+                  authenticatedRepos:
+                    description: AuthenticatedRepos enables PPM authenticated repository
+                      access for Workbench
+                    type: boolean
                   baseDomain:
                     description: |-
                       BaseDomain overrides site.Spec.Domain for this product's URL construction.

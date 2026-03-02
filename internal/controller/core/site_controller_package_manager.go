@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/product"
@@ -116,6 +117,47 @@ func (r *SiteReconciler) reconcilePackageManager(
 
 		// Propagate additional config from Site to PackageManager
 		pm.Spec.Config.AdditionalConfig = site.Spec.PackageManager.AdditionalConfig
+
+		// Propagate OIDC authentication configuration
+		if site.Spec.PackageManager.Auth != nil && site.Spec.PackageManager.Auth.Type == v1beta1.AuthTypeOidc {
+			pm.Spec.Config.OpenIDConnect = &v1beta1.PackageManagerOIDCConfig{
+				ClientId:     site.Spec.PackageManager.Auth.ClientId,
+				ClientSecret: "/etc/rstudio-pm/oidc-client-secret",
+				Issuer:       site.Spec.PackageManager.Auth.Issuer,
+				RequireLogin: true,
+			}
+			if site.Spec.PackageManager.Auth.GroupsClaim != "" {
+				pm.Spec.Config.OpenIDConnect.GroupsClaim = site.Spec.PackageManager.Auth.GroupsClaim
+			}
+			// Propagate the OIDC client secret key so the volume factory can mount it
+			pm.Spec.OIDCClientSecretKey = site.Spec.PackageManager.OIDCClientSecretKey
+		}
+
+		// Auto-configure Identity Federation entries based on product flags
+		var idfEntries []v1beta1.PackageManagerIdentityFederationConfig
+		if site.Spec.OIDCIssuerURL != "" {
+			if site.Spec.Connect.AuthenticatedRepos {
+				idfEntries = append(idfEntries, v1beta1.PackageManagerIdentityFederationConfig{
+					Name:     "connect",
+					Issuer:   site.Spec.OIDCIssuerURL,
+					Audience: "sts.amazonaws.com",
+					Subject:  fmt.Sprintf("system:serviceaccount:%s:%s-connect", req.Namespace, req.Name),
+					Scope:    "repos:read:*",
+				})
+			}
+			if site.Spec.Workbench.AuthenticatedRepos {
+				idfEntries = append(idfEntries, v1beta1.PackageManagerIdentityFederationConfig{
+					Name:     "workbench",
+					Issuer:   site.Spec.OIDCIssuerURL,
+					Audience: "sts.amazonaws.com",
+					Subject:  fmt.Sprintf("system:serviceaccount:%s:%s-workbench", req.Namespace, req.Name),
+					Scope:    "repos:read:*",
+				})
+			}
+		}
+		if len(idfEntries) > 0 {
+			pm.Spec.Config.IdentityFederation = idfEntries
+		}
 
 		return nil
 	}); err != nil {

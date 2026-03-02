@@ -147,6 +147,18 @@ type ConnectSpec struct {
 	// ChronicleSidecarProductApiKeyEnabled assumes the api key for this product has been added to a secret and
 	// injects the secret as an environment variable to the sidecar. **EXPERIMENTAL**
 	ChronicleSidecarProductApiKeyEnabled bool `json:"chronicleSidecarProductApiKeyEnabled,omitempty"`
+
+	// AuthenticatedRepos enables PPM authenticated repository access for Connect
+	// +optional
+	AuthenticatedRepos bool `json:"authenticatedRepos,omitempty"`
+
+	// PPMAuthImage specifies the container image for PPM auth init/sidecar containers
+	// +optional
+	PPMAuthImage string `json:"ppmAuthImage,omitempty"`
+
+	// PPMUrl specifies the PPM URL for authenticated repository access
+	// +optional
+	PPMUrl string `json:"ppmUrl,omitempty"`
 }
 
 // TODO: Validation should require Volume definition for off-host-execution...

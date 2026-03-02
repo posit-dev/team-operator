@@ -109,6 +109,18 @@ type WorkbenchSpec struct {
 	// Empty or whitespace-only content will be ignored.
 	// See: https://docs.posit.co/ide/server-pro/admin/authenticating_users/customizing_signin.html
 	AuthLoginPageHtml string `json:"authLoginPageHtml,omitempty"`
+
+	// AuthenticatedRepos enables PPM authenticated repository access for Workbench
+	// +optional
+	AuthenticatedRepos bool `json:"authenticatedRepos,omitempty"`
+
+	// PPMAuthImage specifies the container image for PPM auth init/sidecar containers
+	// +optional
+	PPMAuthImage string `json:"ppmAuthImage,omitempty"`
+
+	// PPMUrl specifies the PPM URL for authenticated repository access
+	// +optional
+	PPMUrl string `json:"ppmUrl,omitempty"`
 }
 
 // TODO: Validation should require Volume definition for off-host-execution...

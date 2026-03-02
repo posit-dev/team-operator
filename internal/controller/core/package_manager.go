@@ -272,6 +272,11 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 			"password": "pkg-db-password",
 		}
 
+		// Add OIDC client secret to SecretProviderClass when configured
+		if pm.Spec.OIDCClientSecretKey != "" {
+			secretRefs["oidc-client-secret"] = pm.Spec.OIDCClientSecretKey
+		}
+
 		if targetSpc, err := product.GetSecretProviderClassForAllSecrets(
 			pm, pm.SecretProviderClassName(),
 			req.Namespace, pm.Spec.Secret.VaultName,

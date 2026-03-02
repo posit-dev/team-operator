@@ -125,6 +125,10 @@ type SiteSpec struct {
 	// Defaults to true.
 	// +kubebuilder:default=true
 	EnableFQDNHealthChecks *bool `json:"enableFqdnHealthChecks,omitempty"`
+
+	// OIDCIssuerURL is the K8s cluster OIDC issuer URL (for EKS/AKS Identity Federation)
+	// +optional
+	OIDCIssuerURL string `json:"oidcIssuerUrl,omitempty"`
 }
 
 type ServiceAccountConfig struct {
@@ -225,6 +229,14 @@ type InternalPackageManagerSpec struct {
 	// AdditionalConfig allows appending arbitrary gcfg config content to the generated config.
 	// +optional
 	AdditionalConfig string `json:"additionalConfig,omitempty"`
+
+	// Auth configures OIDC authentication for Package Manager's web UI
+	// +optional
+	Auth *AuthSpec `json:"auth,omitempty"`
+
+	// OIDCClientSecretKey is the key in the vault for the OIDC client secret
+	// +optional
+	OIDCClientSecretKey string `json:"oidcClientSecretKey,omitempty"`
 }
 
 type InternalConnectSpec struct {
@@ -298,6 +310,10 @@ type InternalConnectSpec struct {
 	// AdditionalConfig allows appending arbitrary gcfg config content to the generated config.
 	// +optional
 	AdditionalConfig string `json:"additionalConfig,omitempty"`
+
+	// AuthenticatedRepos enables PPM authenticated repository access for Connect
+	// +optional
+	AuthenticatedRepos bool `json:"authenticatedRepos,omitempty"`
 }
 
 type DatabaseSettings struct {
@@ -435,6 +451,10 @@ type InternalWorkbenchSpec struct {
 	// Keys are config file names (e.g., "rsession.conf", "repos.conf").
 	// +optional
 	AdditionalSessionConfigs map[string]string `json:"additionalSessionConfigs,omitempty"`
+
+	// AuthenticatedRepos enables PPM authenticated repository access for Workbench
+	// +optional
+	AuthenticatedRepos bool `json:"authenticatedRepos,omitempty"`
 }
 
 type InternalWorkbenchExperimentalFeatures struct {

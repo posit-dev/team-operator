@@ -7,17 +7,19 @@ import (
 )
 
 type PackageManagerConfig struct {
-	Server    *PackageManagerServerConfig    `json:"Server,omitempty"`
-	Http      *PackageManagerHttpConfig      `json:"Http,omitempty"`
-	Git       *PackageManagerGitConfig       `json:"Git,omitempty"`
-	Database  *PackageManagerDatabaseConfig  `json:"Database,omitempty"`
-	Postgres  *PackageManagerPostgresConfig  `json:"Postgres,omitempty"`
-	Storage   *PackageManagerStorageConfig   `json:"Storage,omitempty"`
-	S3Storage *PackageManagerS3StorageConfig `json:"S3Storage,omitempty"`
-	Metrics   *PackageManagerMetricsConfig   `json:"Metrics,omitempty"`
-	Repos     *PackageManagerReposConfig     `json:"Repos,omitempty"`
-	Cran      *PackageManagerCRANConfig      `json:"CRAN,omitempty"`
-	Debug     *PackageManagerDebugConfig     `json:"Debug,omitempty"`
+	Server             *PackageManagerServerConfig              `json:"Server,omitempty"`
+	Http               *PackageManagerHttpConfig                `json:"Http,omitempty"`
+	Git                *PackageManagerGitConfig                 `json:"Git,omitempty"`
+	Database           *PackageManagerDatabaseConfig            `json:"Database,omitempty"`
+	Postgres           *PackageManagerPostgresConfig            `json:"Postgres,omitempty"`
+	Storage            *PackageManagerStorageConfig             `json:"Storage,omitempty"`
+	S3Storage          *PackageManagerS3StorageConfig           `json:"S3Storage,omitempty"`
+	Metrics            *PackageManagerMetricsConfig             `json:"Metrics,omitempty"`
+	Repos              *PackageManagerReposConfig               `json:"Repos,omitempty"`
+	Cran               *PackageManagerCRANConfig                `json:"CRAN,omitempty"`
+	Debug              *PackageManagerDebugConfig               `json:"Debug,omitempty"`
+	OpenIDConnect      *PackageManagerOIDCConfig                `json:"OpenIDConnect,omitempty"`
+	IdentityFederation []PackageManagerIdentityFederationConfig `json:"-"`
 
 	// AdditionalConfig allows appending arbitrary gcfg config content not covered by typed fields.
 	// The value is appended verbatim after the generated config. gcfg parsing naturally handles
@@ -50,6 +52,11 @@ func (configStruct *PackageManagerConfig) GenerateGcfg() (string, error) {
 
 		// Skip the AdditionalConfig string — we handle it at the end
 		if fieldName == "AdditionalConfig" {
+			continue
+		}
+
+		// Skip IdentityFederation - handled specially after the main loop
+		if fieldName == "IdentityFederation" {
 			continue
 		}
 
@@ -104,6 +111,29 @@ func (configStruct *PackageManagerConfig) GenerateGcfg() (string, error) {
 			} else if val, ok := section.values[key]; ok {
 				builder.WriteString(key + " = " + val + "\n")
 			}
+		}
+	}
+
+	// Render named IdentityFederation sections (these use the gcfg named subsection syntax)
+	for _, idf := range configStruct.IdentityFederation {
+		builder.WriteString(fmt.Sprintf("\n[IdentityFederation \"%s\"]\n", idf.Name))
+		if idf.Issuer != "" {
+			builder.WriteString("Issuer = " + idf.Issuer + "\n")
+		}
+		if idf.Audience != "" {
+			builder.WriteString("Audience = " + idf.Audience + "\n")
+		}
+		if idf.Subject != "" {
+			builder.WriteString("Subject = " + idf.Subject + "\n")
+		}
+		if idf.AuthorizedParty != "" {
+			builder.WriteString("AuthorizedParty = " + idf.AuthorizedParty + "\n")
+		}
+		if idf.Scope != "" {
+			builder.WriteString("Scope = " + idf.Scope + "\n")
+		}
+		if idf.TokenLifetime != "" {
+			builder.WriteString("TokenLifetime = " + idf.TokenLifetime + "\n")
 		}
 	}
 
@@ -174,6 +204,26 @@ type PackageManagerMetricsConfig struct {
 
 type PackageManagerDebugConfig struct {
 	Log string `json:"Log,omitempty"`
+}
+
+type PackageManagerOIDCConfig struct {
+	ClientId     string `json:"ClientId,omitempty"`
+	ClientSecret string `json:"ClientSecret,omitempty"`
+	Issuer       string `json:"Issuer,omitempty"`
+	RequireLogin bool   `json:"RequireLogin,omitempty"`
+	Scope        string `json:"Scope,omitempty"`
+	GroupsClaim  string `json:"GroupsClaim,omitempty"`
+	RoleClaim    string `json:"RoleClaim,omitempty"`
+}
+
+type PackageManagerIdentityFederationConfig struct {
+	Name            string `json:"-"`
+	Issuer          string `json:"Issuer,omitempty"`
+	Audience        string `json:"Audience,omitempty"`
+	Subject         string `json:"Subject,omitempty"`
+	AuthorizedParty string `json:"AuthorizedParty,omitempty"`
+	Scope           string `json:"Scope,omitempty"`
+	TokenLifetime   string `json:"TokenLifetime,omitempty"`
 }
 
 // SSHKeyConfig defines SSH key configuration for Git authentication

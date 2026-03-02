@@ -128,6 +128,23 @@ spec:
                       Enabled:
                         type: boolean
                     type: object
+                  OpenIDConnect:
+                    properties:
+                      ClientId:
+                        type: string
+                      ClientSecret:
+                        type: string
+                      GroupsClaim:
+                        type: string
+                      Issuer:
+                        type: string
+                      RequireLogin:
+                        type: boolean
+                      RoleClaim:
+                        type: string
+                      Scope:
+                        type: string
+                    type: object
                   Postgres:
                     properties:
                       URL:
@@ -325,6 +342,11 @@ spec:
                 additionalProperties:
                   type: string
                 type: object
+              oidcClientSecretKey:
+                description: |-
+                  OIDCClientSecretKey is the key name in the vault for the OIDC client secret.
+                  When set, the client secret will be mounted at /etc/rstudio-pm/oidc-client-secret
+                type: string
               replicas:
                 type: integer
               secret:

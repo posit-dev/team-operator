@@ -172,6 +172,10 @@ spec:
                   Empty or whitespace-only content will be ignored.
                   See: https://docs.posit.co/ide/server-pro/admin/authenticating_users/customizing_signin.html
                 type: string
+              authenticatedRepos:
+                description: AuthenticatedRepos enables PPM authenticated repository
+                  access for Workbench
+                type: boolean
               awsAccountId:
                 description: AwsAccountId is the account Id for this AWS Account.
                   It is used to create EKS-to-IAM annotations
@@ -711,6 +715,14 @@ spec:
               offHostExecution:
                 type: boolean
               parentUrl:
+                type: string
+              ppmAuthImage:
+                description: PPMAuthImage specifies the container image for PPM auth
+                  init/sidecar containers
+                type: string
+              ppmUrl:
+                description: PPMUrl specifies the PPM URL for authenticated repository
+                  access
                 type: string
               replicas:
                 type: integer

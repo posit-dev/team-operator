@@ -154,6 +154,8 @@ func (r *SiteReconciler) reconcileConnect(
 			WorkloadSecret:          site.Spec.WorkloadSecret,
 			Debug:                   connectDebugLog,
 			Replicas:                product.PassDefaultReplicas(site.Spec.Connect.Replicas, 1),
+			AuthenticatedRepos:      site.Spec.Connect.AuthenticatedRepos,
+			PPMUrl:                  prefixDomain(site.Spec.PackageManager.DomainPrefix, getEffectiveBaseDomain(site.Spec.PackageManager.BaseDomain, site.Spec.Domain), v1beta1.SiteSubDomain),
 		},
 	}
 
