@@ -323,23 +323,23 @@ go tool cover -func coverage.out
 
 Include the following in your PR description:
 
-1. **Summary** - What does this PR do?
-2. **Motivation** - Why is this change needed?
-3. **Testing** - How was this tested?
-4. **Breaking changes** - Does this introduce any breaking changes?
-5. **Related issues** - Link to any related GitHub issues
+1. **Summary:** What does this PR do?
+2. **Motivation:** Why is this change needed?
+3. **Testing:** How was this tested?
+4. **Breaking changes:** Does this introduce any breaking changes?
+5. **Related issues:** Link to any related GitHub issues
 
 ### CI Checks
 
 The following checks must pass:
 
-- **PR Title Check** - Title must follow conventional commit format (see above)
-- **Build** - The operator must compile successfully
-- **Unit tests** - All tests must pass
-- **Kustomize** - Kustomization must build without errors
-- **Helm lint** - Chart must pass linting
-- **Helm template** - Templates must render correctly
-- **No diff** - Generated files must be committed
+- **PR Title Check:** Title must follow conventional commit format (see above)
+- **Build:** The operator must compile successfully
+- **Unit tests:** All tests must pass
+- **Kustomize:** Kustomization must build without errors
+- **Helm lint:** Chart must pass linting
+- **Helm template:** Templates must render correctly
+- **No diff:** Generated files must be committed
 
 ### Merging
 
