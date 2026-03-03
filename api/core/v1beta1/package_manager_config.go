@@ -18,6 +18,7 @@ type PackageManagerConfig struct {
 	Repos              *PackageManagerReposConfig               `json:"Repos,omitempty"`
 	Cran               *PackageManagerCRANConfig                `json:"CRAN,omitempty"`
 	Debug              *PackageManagerDebugConfig               `json:"Debug,omitempty"`
+	Authentication     *PackageManagerAuthenticationConfig      `json:"Authentication,omitempty"`
 	OpenIDConnect      *PackageManagerOIDCConfig                `json:"OpenIDConnect,omitempty"`
 	IdentityFederation []PackageManagerIdentityFederationConfig `json:"-"`
 
@@ -123,6 +124,9 @@ func (configStruct *PackageManagerConfig) GenerateGcfg() (string, error) {
 		if idf.Issuer != "" {
 			builder.WriteString("Issuer = " + idf.Issuer + "\n")
 		}
+		if idf.Logging {
+			builder.WriteString("Logging = true\n")
+		}
 		if idf.Audience != "" {
 			builder.WriteString("Audience = " + idf.Audience + "\n")
 		}
@@ -134,6 +138,30 @@ func (configStruct *PackageManagerConfig) GenerateGcfg() (string, error) {
 		}
 		if idf.Scope != "" {
 			builder.WriteString("Scope = " + idf.Scope + "\n")
+		}
+		if idf.CustomScope != "" {
+			builder.WriteString("CustomScope = " + idf.CustomScope + "\n")
+		}
+		if idf.NoAutoGroupsScope {
+			builder.WriteString("NoAutoGroupsScope = true\n")
+		}
+		if idf.GroupsClaim != "" {
+			builder.WriteString("GroupsClaim = " + idf.GroupsClaim + "\n")
+		}
+		if idf.GroupsSeparator != "" {
+			builder.WriteString("GroupsSeparator = " + idf.GroupsSeparator + "\n")
+		}
+		if idf.RoleClaim != "" {
+			builder.WriteString("RoleClaim = " + idf.RoleClaim + "\n")
+		}
+		if idf.RolesSeparator != "" {
+			builder.WriteString("RolesSeparator = " + idf.RolesSeparator + "\n")
+		}
+		if idf.UniqueIdClaim != "" {
+			builder.WriteString("UniqueIdClaim = " + idf.UniqueIdClaim + "\n")
+		}
+		if idf.UsernameClaim != "" {
+			builder.WriteString("UsernameClaim = " + idf.UsernameClaim + "\n")
 		}
 		if idf.TokenLifetime != "" {
 			builder.WriteString("TokenLifetime = " + idf.TokenLifetime + "\n")
@@ -209,24 +237,54 @@ type PackageManagerDebugConfig struct {
 	Log string `json:"Log,omitempty"`
 }
 
+type PackageManagerAuthenticationConfig struct {
+	APITokenAuth          bool   `json:"APITokenAuth,omitempty"`
+	DeviceAuthType        string `json:"DeviceAuthType,omitempty"`
+	NewReposAuthByDefault bool   `json:"NewReposAuthByDefault,omitempty"`
+	Lifetime              string `json:"Lifetime,omitempty"`
+	Inactivity            string `json:"Inactivity,omitempty"`
+	CookieSweepDuration   string `json:"CookieSweepDuration,omitempty"`
+}
+
 type PackageManagerOIDCConfig struct {
-	ClientId     string `json:"ClientId,omitempty"`
-	ClientSecret string `json:"ClientSecret,omitempty"`
-	Issuer       string `json:"Issuer,omitempty"`
-	RequireLogin bool   `json:"RequireLogin,omitempty"`
-	Scope        string `json:"Scope,omitempty"`
-	GroupsClaim  string `json:"GroupsClaim,omitempty"`
-	RoleClaim    string `json:"RoleClaim,omitempty"`
+	ClientId             string `json:"ClientId,omitempty"`
+	ClientSecret         string `json:"ClientSecret,omitempty"`
+	ClientSecretFile     string `json:"ClientSecretFile,omitempty"`
+	Issuer               string `json:"Issuer,omitempty"`
+	RequireLogin         bool   `json:"RequireLogin,omitempty"`
+	Logging              bool   `json:"Logging,omitempty"`
+	Scope                string `json:"Scope,omitempty"`
+	CustomScope          string `json:"CustomScope,omitempty"`
+	NoAutoGroupsScope    bool   `json:"NoAutoGroupsScope,omitempty"`
+	GroupsClaim          string `json:"GroupsClaim,omitempty"`
+	GroupsSeparator      string `json:"GroupsSeparator,omitempty"`
+	RoleClaim            string `json:"RoleClaim,omitempty"`
+	RolesSeparator       string `json:"RolesSeparator,omitempty"`
+	UniqueIdClaim        string `json:"UniqueIdClaim,omitempty"`
+	UsernameClaim        string `json:"UsernameClaim,omitempty"`
+	TokenLifetime        string `json:"TokenLifetime,omitempty"`
+	MaxAuthenticationAge string `json:"MaxAuthenticationAge,omitempty"`
+	DisablePKCE          bool   `json:"DisablePKCE,omitempty"`
+	EnableDevicePKCE     bool   `json:"EnableDevicePKCE,omitempty"`
 }
 
 type PackageManagerIdentityFederationConfig struct {
-	Name            string `json:"-"`
-	Issuer          string `json:"Issuer,omitempty"`
-	Audience        string `json:"Audience,omitempty"`
-	Subject         string `json:"Subject,omitempty"`
-	AuthorizedParty string `json:"AuthorizedParty,omitempty"`
-	Scope           string `json:"Scope,omitempty"`
-	TokenLifetime   string `json:"TokenLifetime,omitempty"`
+	Name              string `json:"-"`
+	Issuer            string `json:"Issuer,omitempty"`
+	Logging           bool   `json:"Logging,omitempty"`
+	Audience          string `json:"Audience,omitempty"`
+	Subject           string `json:"Subject,omitempty"`
+	AuthorizedParty   string `json:"AuthorizedParty,omitempty"`
+	Scope             string `json:"Scope,omitempty"`
+	CustomScope       string `json:"CustomScope,omitempty"`
+	NoAutoGroupsScope bool   `json:"NoAutoGroupsScope,omitempty"`
+	GroupsClaim       string `json:"GroupsClaim,omitempty"`
+	GroupsSeparator   string `json:"GroupsSeparator,omitempty"`
+	RoleClaim         string `json:"RoleClaim,omitempty"`
+	RolesSeparator    string `json:"RolesSeparator,omitempty"`
+	UniqueIdClaim     string `json:"UniqueIdClaim,omitempty"`
+	UsernameClaim     string `json:"UsernameClaim,omitempty"`
+	TokenLifetime     string `json:"TokenLifetime,omitempty"`
 }
 
 // SSHKeyConfig defines SSH key configuration for Git authentication
