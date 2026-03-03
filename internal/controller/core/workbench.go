@@ -753,7 +753,7 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 	var ppmAuthSidecarContainers []corev1.Container
 	if w.Spec.AuthenticatedRepos {
 		ppmURL := SanitizePPMUrl(w.Spec.PPMUrl)
-		ppmAuthVolumes = PPMAuthVolumes(w.SiteName(), ppmURL)
+		ppmAuthVolumes = PPMAuthVolumes(w.SiteName(), ppmURL, w.Spec.PPMAuthAudience)
 		ppmAuthVolumeMounts = PPMAuthVolumeMounts()
 		ppmAuthEnvVars = PPMAuthEnvVars()
 		ppmAuthInitContainers = []corev1.Container{

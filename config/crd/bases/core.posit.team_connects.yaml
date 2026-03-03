@@ -504,6 +504,10 @@ spec:
                 type: object
               offHostExecution:
                 type: boolean
+              ppmAuthAudience:
+                description: PPMAuthAudience is the audience claim for the projected
+                  SA token used in PPM Identity Federation
+                type: string
               ppmAuthImage:
                 description: PPMAuthImage specifies the container image for PPM auth
                   init/sidecar containers

@@ -17,11 +17,11 @@ const (
 	ppmAuthNetrcVolumeName  = "ppm-auth"
 	ppmAuthNetrcMountPath   = "/mnt/ppm-auth"
 	ppmAuthNetrcPath        = "/mnt/ppm-auth/netrc"
-	ppmAuthCurlrcPath       = "/mnt/ppm-auth/.curlrc"
 	ppmAuthTokenMountPath   = "/var/run/secrets/ppm-auth"
 	ppmAuthScriptMountPath  = "/scripts"
-	ppmAuthDefaultImage     = "alpine:3"
-	ppmAuthDefaultRefresh   = "3000" // 50 minutes (for 60 min token lifetime)
+	// ppmAuthDefaultImage is expected to have curl and jq pre-installed
+	ppmAuthDefaultImage   = "alpine:3"
+	ppmAuthDefaultRefresh = "3000" // 50 minutes (for 60 min token lifetime)
 )
 
 // PPMAuthTokenExchangeScript returns the shell script content for the token exchange
@@ -31,9 +31,6 @@ const (
 func PPMAuthTokenExchangeScript() string {
 	return `#!/bin/sh
 set -e
-
-# Install required tools (alpine base image does not include curl or jq)
-apk add --no-cache curl jq >/dev/null 2>&1
 
 SA_TOKEN_PATH="${SA_TOKEN_PATH:-/var/run/secrets/ppm-auth/token}"
 NETRC_PATH="${NETRC_PATH:-/mnt/ppm-auth/netrc}"
@@ -74,7 +71,7 @@ exchange_token
 if [ "${MODE}" = "sidecar" ]; then
     while true; do
         sleep "$REFRESH_INTERVAL"
-        exchange_token
+        exchange_token || echo "WARNING: token refresh failed, will retry" >&2
     done
 fi
 `
@@ -165,10 +162,7 @@ func ppmAuthContainerVolumeMounts() []corev1.VolumeMount {
 // 1. Projected SA token volume (for K8s Identity Federation)
 // 2. Shared emptyDir for netrc file
 // 3. ConfigMap volume with the token exchange script
-func PPMAuthVolumes(siteName, ppmURL string) []corev1.Volume {
-	// Extract audience from PPM URL (the PPM URL itself is the audience for the projected token)
-	audience := ppmURL
-
+func PPMAuthVolumes(siteName, ppmURL, audience string) []corev1.Volume {
 	return []corev1.Volume{
 		{
 			Name: ppmAuthTokenVolumeName,

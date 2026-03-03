@@ -17,10 +17,10 @@ func TestPPMAuthTokenExchangeScript(t *testing.T) {
 	require.Contains(t, script, "CURLRC_PATH")
 	require.Contains(t, script, "--netrc-file")
 	require.Contains(t, script, ".curlrc")
-	// Verify curl and jq are installed
-	require.Contains(t, script, "apk add --no-cache curl jq")
 	// Verify null token validation
 	require.Contains(t, script, `[ "$PPM_TOKEN" = "null" ]`)
+	// Verify sidecar resilience
+	require.Contains(t, script, "WARNING: token refresh failed, will retry")
 }
 
 func TestPPMAuthConfigMapName(t *testing.T) {
@@ -62,14 +62,14 @@ func TestPPMAuthSidecarContainerCustomRefresh(t *testing.T) {
 }
 
 func TestPPMAuthVolumes(t *testing.T) {
-	vols := PPMAuthVolumes("mysite", "https://packagemanager.example.com")
+	vols := PPMAuthVolumes("mysite", "https://packagemanager.example.com", "sts.amazonaws.com")
 	require.Len(t, vols, 3)
 
 	// Projected SA token volume
 	require.Equal(t, "ppm-sa-token", vols[0].Name)
 	require.NotNil(t, vols[0].Projected)
 	require.Len(t, vols[0].Projected.Sources, 1)
-	require.Equal(t, "https://packagemanager.example.com", vols[0].Projected.Sources[0].ServiceAccountToken.Audience)
+	require.Equal(t, "sts.amazonaws.com", vols[0].Projected.Sources[0].ServiceAccountToken.Audience)
 
 	// Shared emptyDir
 	require.Equal(t, "ppm-auth", vols[1].Name)

@@ -121,6 +121,10 @@ type WorkbenchSpec struct {
 	// PPMUrl specifies the PPM URL for authenticated repository access
 	// +optional
 	PPMUrl string `json:"ppmUrl,omitempty"`
+
+	// PPMAuthAudience is the audience claim for the projected SA token used in PPM Identity Federation
+	// +optional
+	PPMAuthAudience string `json:"ppmAuthAudience,omitempty"`
 }
 
 // TODO: Validation should require Volume definition for off-host-execution...

@@ -594,7 +594,7 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 	var ppmAuthSidecarContainers []corev1.Container
 	if c.Spec.AuthenticatedRepos {
 		ppmURL := SanitizePPMUrl(c.Spec.PPMUrl)
-		ppmAuthVolumes = PPMAuthVolumes(c.SiteName(), ppmURL)
+		ppmAuthVolumes = PPMAuthVolumes(c.SiteName(), ppmURL, c.Spec.PPMAuthAudience)
 		ppmAuthVolumeMounts = PPMAuthVolumeMounts()
 		ppmAuthEnvVars = PPMAuthEnvVars()
 		ppmAuthInitContainers = []corev1.Container{
@@ -649,7 +649,9 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 					NodeSelector:       c.Spec.NodeSelector,
 					ImagePullSecrets:   pullSecrets,
 					ServiceAccountName: maybeServiceAccountName,
-					// TODO: go back to automounting service token...
+					// AutomountServiceAccountToken is false to avoid mounting the default SA token.
+					// This does NOT affect projected SA token volumes (used by PPM auth), which are
+					// explicit volume mounts independent of the automount setting.
 					AutomountServiceAccountToken: ptr.To(false),
 					InitContainers:               ppmAuthInitContainers,
 					Containers: product.ConcatLists([]corev1.Container{
