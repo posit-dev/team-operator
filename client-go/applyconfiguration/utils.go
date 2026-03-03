@@ -125,6 +125,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &corev1beta1.InternalWorkbenchSpecApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("PackageManager"):
 		return &corev1beta1.PackageManagerApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("PackageManagerAuthenticationConfig"):
+		return &corev1beta1.PackageManagerAuthenticationConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("PackageManagerConfig"):
 		return &corev1beta1.PackageManagerConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("PackageManagerCRANConfig"):

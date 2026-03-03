@@ -50,6 +50,7 @@ type WorkbenchSpecApplyConfiguration struct {
 	AuthenticatedRepos                   *bool                                     `json:"authenticatedRepos,omitempty"`
 	PPMAuthImage                         *string                                   `json:"ppmAuthImage,omitempty"`
 	PPMUrl                               *string                                   `json:"ppmUrl,omitempty"`
+	PPMAuthAudience                      *string                                   `json:"ppmAuthAudience,omitempty"`
 }
 
 // WorkbenchSpecApplyConfiguration constructs a declarative configuration of the WorkbenchSpec type for use with
@@ -375,5 +376,13 @@ func (b *WorkbenchSpecApplyConfiguration) WithPPMAuthImage(value string) *Workbe
 // If called multiple times, the PPMUrl field is set to the value of the last call.
 func (b *WorkbenchSpecApplyConfiguration) WithPPMUrl(value string) *WorkbenchSpecApplyConfiguration {
 	b.PPMUrl = &value
+	return b
+}
+
+// WithPPMAuthAudience sets the PPMAuthAudience field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the PPMAuthAudience field is set to the value of the last call.
+func (b *WorkbenchSpecApplyConfiguration) WithPPMAuthAudience(value string) *WorkbenchSpecApplyConfiguration {
+	b.PPMAuthAudience = &value
 	return b
 }

@@ -8,12 +8,21 @@ package v1beta1
 // PackageManagerIdentityFederationConfigApplyConfiguration represents a declarative configuration of the PackageManagerIdentityFederationConfig type for use
 // with apply.
 type PackageManagerIdentityFederationConfigApplyConfiguration struct {
-	Issuer          *string `json:"Issuer,omitempty"`
-	Audience        *string `json:"Audience,omitempty"`
-	Subject         *string `json:"Subject,omitempty"`
-	AuthorizedParty *string `json:"AuthorizedParty,omitempty"`
-	Scope           *string `json:"Scope,omitempty"`
-	TokenLifetime   *string `json:"TokenLifetime,omitempty"`
+	Issuer            *string `json:"Issuer,omitempty"`
+	Logging           *bool   `json:"Logging,omitempty"`
+	Audience          *string `json:"Audience,omitempty"`
+	Subject           *string `json:"Subject,omitempty"`
+	AuthorizedParty   *string `json:"AuthorizedParty,omitempty"`
+	Scope             *string `json:"Scope,omitempty"`
+	CustomScope       *string `json:"CustomScope,omitempty"`
+	NoAutoGroupsScope *bool   `json:"NoAutoGroupsScope,omitempty"`
+	GroupsClaim       *string `json:"GroupsClaim,omitempty"`
+	GroupsSeparator   *string `json:"GroupsSeparator,omitempty"`
+	RoleClaim         *string `json:"RoleClaim,omitempty"`
+	RolesSeparator    *string `json:"RolesSeparator,omitempty"`
+	UniqueIdClaim     *string `json:"UniqueIdClaim,omitempty"`
+	UsernameClaim     *string `json:"UsernameClaim,omitempty"`
+	TokenLifetime     *string `json:"TokenLifetime,omitempty"`
 }
 
 // PackageManagerIdentityFederationConfigApplyConfiguration constructs a declarative configuration of the PackageManagerIdentityFederationConfig type for use with
@@ -27,6 +36,14 @@ func PackageManagerIdentityFederationConfig() *PackageManagerIdentityFederationC
 // If called multiple times, the Issuer field is set to the value of the last call.
 func (b *PackageManagerIdentityFederationConfigApplyConfiguration) WithIssuer(value string) *PackageManagerIdentityFederationConfigApplyConfiguration {
 	b.Issuer = &value
+	return b
+}
+
+// WithLogging sets the Logging field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Logging field is set to the value of the last call.
+func (b *PackageManagerIdentityFederationConfigApplyConfiguration) WithLogging(value bool) *PackageManagerIdentityFederationConfigApplyConfiguration {
+	b.Logging = &value
 	return b
 }
 
@@ -59,6 +76,70 @@ func (b *PackageManagerIdentityFederationConfigApplyConfiguration) WithAuthorize
 // If called multiple times, the Scope field is set to the value of the last call.
 func (b *PackageManagerIdentityFederationConfigApplyConfiguration) WithScope(value string) *PackageManagerIdentityFederationConfigApplyConfiguration {
 	b.Scope = &value
+	return b
+}
+
+// WithCustomScope sets the CustomScope field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the CustomScope field is set to the value of the last call.
+func (b *PackageManagerIdentityFederationConfigApplyConfiguration) WithCustomScope(value string) *PackageManagerIdentityFederationConfigApplyConfiguration {
+	b.CustomScope = &value
+	return b
+}
+
+// WithNoAutoGroupsScope sets the NoAutoGroupsScope field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the NoAutoGroupsScope field is set to the value of the last call.
+func (b *PackageManagerIdentityFederationConfigApplyConfiguration) WithNoAutoGroupsScope(value bool) *PackageManagerIdentityFederationConfigApplyConfiguration {
+	b.NoAutoGroupsScope = &value
+	return b
+}
+
+// WithGroupsClaim sets the GroupsClaim field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the GroupsClaim field is set to the value of the last call.
+func (b *PackageManagerIdentityFederationConfigApplyConfiguration) WithGroupsClaim(value string) *PackageManagerIdentityFederationConfigApplyConfiguration {
+	b.GroupsClaim = &value
+	return b
+}
+
+// WithGroupsSeparator sets the GroupsSeparator field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the GroupsSeparator field is set to the value of the last call.
+func (b *PackageManagerIdentityFederationConfigApplyConfiguration) WithGroupsSeparator(value string) *PackageManagerIdentityFederationConfigApplyConfiguration {
+	b.GroupsSeparator = &value
+	return b
+}
+
+// WithRoleClaim sets the RoleClaim field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the RoleClaim field is set to the value of the last call.
+func (b *PackageManagerIdentityFederationConfigApplyConfiguration) WithRoleClaim(value string) *PackageManagerIdentityFederationConfigApplyConfiguration {
+	b.RoleClaim = &value
+	return b
+}
+
+// WithRolesSeparator sets the RolesSeparator field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the RolesSeparator field is set to the value of the last call.
+func (b *PackageManagerIdentityFederationConfigApplyConfiguration) WithRolesSeparator(value string) *PackageManagerIdentityFederationConfigApplyConfiguration {
+	b.RolesSeparator = &value
+	return b
+}
+
+// WithUniqueIdClaim sets the UniqueIdClaim field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the UniqueIdClaim field is set to the value of the last call.
+func (b *PackageManagerIdentityFederationConfigApplyConfiguration) WithUniqueIdClaim(value string) *PackageManagerIdentityFederationConfigApplyConfiguration {
+	b.UniqueIdClaim = &value
+	return b
+}
+
+// WithUsernameClaim sets the UsernameClaim field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the UsernameClaim field is set to the value of the last call.
+func (b *PackageManagerIdentityFederationConfigApplyConfiguration) WithUsernameClaim(value string) *PackageManagerIdentityFederationConfigApplyConfiguration {
+	b.UsernameClaim = &value
 	return b
 }
 

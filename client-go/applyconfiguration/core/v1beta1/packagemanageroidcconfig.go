@@ -8,13 +8,25 @@ package v1beta1
 // PackageManagerOIDCConfigApplyConfiguration represents a declarative configuration of the PackageManagerOIDCConfig type for use
 // with apply.
 type PackageManagerOIDCConfigApplyConfiguration struct {
-	ClientId     *string `json:"ClientId,omitempty"`
-	ClientSecret *string `json:"ClientSecret,omitempty"`
-	Issuer       *string `json:"Issuer,omitempty"`
-	RequireLogin *bool   `json:"RequireLogin,omitempty"`
-	Scope        *string `json:"Scope,omitempty"`
-	GroupsClaim  *string `json:"GroupsClaim,omitempty"`
-	RoleClaim    *string `json:"RoleClaim,omitempty"`
+	ClientId             *string `json:"ClientId,omitempty"`
+	ClientSecret         *string `json:"ClientSecret,omitempty"`
+	ClientSecretFile     *string `json:"ClientSecretFile,omitempty"`
+	Issuer               *string `json:"Issuer,omitempty"`
+	RequireLogin         *bool   `json:"RequireLogin,omitempty"`
+	Logging              *bool   `json:"Logging,omitempty"`
+	Scope                *string `json:"Scope,omitempty"`
+	CustomScope          *string `json:"CustomScope,omitempty"`
+	NoAutoGroupsScope    *bool   `json:"NoAutoGroupsScope,omitempty"`
+	GroupsClaim          *string `json:"GroupsClaim,omitempty"`
+	GroupsSeparator      *string `json:"GroupsSeparator,omitempty"`
+	RoleClaim            *string `json:"RoleClaim,omitempty"`
+	RolesSeparator       *string `json:"RolesSeparator,omitempty"`
+	UniqueIdClaim        *string `json:"UniqueIdClaim,omitempty"`
+	UsernameClaim        *string `json:"UsernameClaim,omitempty"`
+	TokenLifetime        *string `json:"TokenLifetime,omitempty"`
+	MaxAuthenticationAge *string `json:"MaxAuthenticationAge,omitempty"`
+	DisablePKCE          *bool   `json:"DisablePKCE,omitempty"`
+	EnableDevicePKCE     *bool   `json:"EnableDevicePKCE,omitempty"`
 }
 
 // PackageManagerOIDCConfigApplyConfiguration constructs a declarative configuration of the PackageManagerOIDCConfig type for use with
@@ -39,6 +51,14 @@ func (b *PackageManagerOIDCConfigApplyConfiguration) WithClientSecret(value stri
 	return b
 }
 
+// WithClientSecretFile sets the ClientSecretFile field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ClientSecretFile field is set to the value of the last call.
+func (b *PackageManagerOIDCConfigApplyConfiguration) WithClientSecretFile(value string) *PackageManagerOIDCConfigApplyConfiguration {
+	b.ClientSecretFile = &value
+	return b
+}
+
 // WithIssuer sets the Issuer field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Issuer field is set to the value of the last call.
@@ -55,11 +75,35 @@ func (b *PackageManagerOIDCConfigApplyConfiguration) WithRequireLogin(value bool
 	return b
 }
 
+// WithLogging sets the Logging field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Logging field is set to the value of the last call.
+func (b *PackageManagerOIDCConfigApplyConfiguration) WithLogging(value bool) *PackageManagerOIDCConfigApplyConfiguration {
+	b.Logging = &value
+	return b
+}
+
 // WithScope sets the Scope field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Scope field is set to the value of the last call.
 func (b *PackageManagerOIDCConfigApplyConfiguration) WithScope(value string) *PackageManagerOIDCConfigApplyConfiguration {
 	b.Scope = &value
+	return b
+}
+
+// WithCustomScope sets the CustomScope field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the CustomScope field is set to the value of the last call.
+func (b *PackageManagerOIDCConfigApplyConfiguration) WithCustomScope(value string) *PackageManagerOIDCConfigApplyConfiguration {
+	b.CustomScope = &value
+	return b
+}
+
+// WithNoAutoGroupsScope sets the NoAutoGroupsScope field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the NoAutoGroupsScope field is set to the value of the last call.
+func (b *PackageManagerOIDCConfigApplyConfiguration) WithNoAutoGroupsScope(value bool) *PackageManagerOIDCConfigApplyConfiguration {
+	b.NoAutoGroupsScope = &value
 	return b
 }
 
@@ -71,10 +115,74 @@ func (b *PackageManagerOIDCConfigApplyConfiguration) WithGroupsClaim(value strin
 	return b
 }
 
+// WithGroupsSeparator sets the GroupsSeparator field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the GroupsSeparator field is set to the value of the last call.
+func (b *PackageManagerOIDCConfigApplyConfiguration) WithGroupsSeparator(value string) *PackageManagerOIDCConfigApplyConfiguration {
+	b.GroupsSeparator = &value
+	return b
+}
+
 // WithRoleClaim sets the RoleClaim field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the RoleClaim field is set to the value of the last call.
 func (b *PackageManagerOIDCConfigApplyConfiguration) WithRoleClaim(value string) *PackageManagerOIDCConfigApplyConfiguration {
 	b.RoleClaim = &value
+	return b
+}
+
+// WithRolesSeparator sets the RolesSeparator field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the RolesSeparator field is set to the value of the last call.
+func (b *PackageManagerOIDCConfigApplyConfiguration) WithRolesSeparator(value string) *PackageManagerOIDCConfigApplyConfiguration {
+	b.RolesSeparator = &value
+	return b
+}
+
+// WithUniqueIdClaim sets the UniqueIdClaim field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the UniqueIdClaim field is set to the value of the last call.
+func (b *PackageManagerOIDCConfigApplyConfiguration) WithUniqueIdClaim(value string) *PackageManagerOIDCConfigApplyConfiguration {
+	b.UniqueIdClaim = &value
+	return b
+}
+
+// WithUsernameClaim sets the UsernameClaim field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the UsernameClaim field is set to the value of the last call.
+func (b *PackageManagerOIDCConfigApplyConfiguration) WithUsernameClaim(value string) *PackageManagerOIDCConfigApplyConfiguration {
+	b.UsernameClaim = &value
+	return b
+}
+
+// WithTokenLifetime sets the TokenLifetime field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the TokenLifetime field is set to the value of the last call.
+func (b *PackageManagerOIDCConfigApplyConfiguration) WithTokenLifetime(value string) *PackageManagerOIDCConfigApplyConfiguration {
+	b.TokenLifetime = &value
+	return b
+}
+
+// WithMaxAuthenticationAge sets the MaxAuthenticationAge field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the MaxAuthenticationAge field is set to the value of the last call.
+func (b *PackageManagerOIDCConfigApplyConfiguration) WithMaxAuthenticationAge(value string) *PackageManagerOIDCConfigApplyConfiguration {
+	b.MaxAuthenticationAge = &value
+	return b
+}
+
+// WithDisablePKCE sets the DisablePKCE field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the DisablePKCE field is set to the value of the last call.
+func (b *PackageManagerOIDCConfigApplyConfiguration) WithDisablePKCE(value bool) *PackageManagerOIDCConfigApplyConfiguration {
+	b.DisablePKCE = &value
+	return b
+}
+
+// WithEnableDevicePKCE sets the EnableDevicePKCE field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the EnableDevicePKCE field is set to the value of the last call.
+func (b *PackageManagerOIDCConfigApplyConfiguration) WithEnableDevicePKCE(value bool) *PackageManagerOIDCConfigApplyConfiguration {
+	b.EnableDevicePKCE = &value
 	return b
 }

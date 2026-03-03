@@ -49,6 +49,7 @@ type ConnectSpecApplyConfiguration struct {
 	AuthenticatedRepos                   *bool                                       `json:"authenticatedRepos,omitempty"`
 	PPMAuthImage                         *string                                     `json:"ppmAuthImage,omitempty"`
 	PPMUrl                               *string                                     `json:"ppmUrl,omitempty"`
+	PPMAuthAudience                      *string                                     `json:"ppmAuthAudience,omitempty"`
 }
 
 // ConnectSpecApplyConfiguration constructs a declarative configuration of the ConnectSpec type for use with
@@ -369,5 +370,13 @@ func (b *ConnectSpecApplyConfiguration) WithPPMAuthImage(value string) *ConnectS
 // If called multiple times, the PPMUrl field is set to the value of the last call.
 func (b *ConnectSpecApplyConfiguration) WithPPMUrl(value string) *ConnectSpecApplyConfiguration {
 	b.PPMUrl = &value
+	return b
+}
+
+// WithPPMAuthAudience sets the PPMAuthAudience field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the PPMAuthAudience field is set to the value of the last call.
+func (b *ConnectSpecApplyConfiguration) WithPPMAuthAudience(value string) *ConnectSpecApplyConfiguration {
+	b.PPMAuthAudience = &value
 	return b
 }
