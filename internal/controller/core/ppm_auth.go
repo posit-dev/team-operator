@@ -241,7 +241,11 @@ func PPMAuthEnvVars() []corev1.EnvVar {
 }
 
 // SanitizePPMUrl strips any existing scheme from the URL and prepends https://
+// Returns an empty string if the input is empty.
 func SanitizePPMUrl(rawUrl string) string {
 	host := strings.TrimPrefix(strings.TrimPrefix(rawUrl, "https://"), "http://")
+	if host == "" {
+		return ""
+	}
 	return fmt.Sprintf("https://%s", host)
 }

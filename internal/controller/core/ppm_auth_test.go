@@ -114,4 +114,6 @@ func TestSanitizePPMUrl(t *testing.T) {
 	require.Equal(t, "https://ppm.example.com", SanitizePPMUrl("ppm.example.com"))
 	require.Equal(t, "https://ppm.example.com", SanitizePPMUrl("https://ppm.example.com"))
 	require.Equal(t, "https://ppm.example.com", SanitizePPMUrl("http://ppm.example.com"))
+	require.Equal(t, "", SanitizePPMUrl(""))
+	require.Equal(t, "https://ppm.example.com:8080/api", SanitizePPMUrl("ppm.example.com:8080/api"))
 }
