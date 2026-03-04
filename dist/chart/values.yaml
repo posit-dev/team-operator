@@ -7,7 +7,7 @@ controllerManager:
   replicas: 1
   container:
     image:
-      repository: posit/team-operator
+      repository: posit/ptd-team-operator
       tag: ""
     args:
       - "--leader-elect"
