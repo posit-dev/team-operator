@@ -81,13 +81,14 @@ spec:
         {{- with $templateData.pod.dynamicLabels }}
         {{- range $rule := . }}
         {{- if hasKey $.Job $rule.field }}
+        {{- $val := index $.Job $rule.field }}
         {{- if $rule.labelKey }}
-        {{ $rule.labelKey }}: {{ index $.Job $rule.field | toString | quote }}
+        {{ $rule.labelKey }}: {{ $val | toString | quote }}
         {{- else if $rule.match }}
-        {{- $str := index $.Job $rule.field | join " " }}
+        {{- $str := (kindIs "slice" $val) | ternary ($val | join " ") ($val | toString) }}
         {{- $matches := regexFindAll $rule.match $str -1 }}
         {{- range $match := $matches }}
-        {{ $rule.labelPrefix }}{{ trimPrefix ($rule.trimPrefix | default "") $match | lower | replace " " "_" | replace "-" "_" }}: {{ $rule.labelValue | default "true" | quote }}
+        {{ trimPrefix ($rule.trimPrefix | default "") $match | lower | replace " " "_" | trunc 63 | printf "%s%s" $rule.labelPrefix }}: {{ $rule.labelValue | default "true" | quote }}
         {{- end }}
         {{- end }}
         {{- end }}

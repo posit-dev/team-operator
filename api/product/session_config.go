@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/posit-dev/team-operator/api/templates"
@@ -67,21 +68,48 @@ type JobConfig struct {
 // +kubebuilder:object:generate=true
 type DynamicLabelRule struct {
 	// Field is the name of a top-level .Job field to read (e.g., "user", "args").
+	// +kubebuilder:validation:MinLength=1
 	Field string `json:"field"`
 	// LabelKey is the label key for direct single-value mapping.
 	// Mutually exclusive with match/labelPrefix.
+	// +kubebuilder:validation:MaxLength=63
 	LabelKey string `json:"labelKey,omitempty"`
 	// Match is a regex pattern applied to the field value. Each match produces a label.
 	// For array fields (like "args"), elements are joined with spaces before matching.
 	// Mutually exclusive with labelKey.
+	// +kubebuilder:validation:MaxLength=256
 	Match string `json:"match,omitempty"`
 	// TrimPrefix is stripped from each regex match before forming the label key suffix.
 	TrimPrefix string `json:"trimPrefix,omitempty"`
 	// LabelPrefix is prepended to the cleaned match to form the label key.
 	// Required when match is set.
+	// +kubebuilder:validation:MaxLength=253
 	LabelPrefix string `json:"labelPrefix,omitempty"`
 	// LabelValue is the static value for all matched labels. Defaults to "true".
+	// +kubebuilder:validation:MaxLength=63
 	LabelValue string `json:"labelValue,omitempty"`
+}
+
+// ValidateDynamicLabelRules validates a slice of DynamicLabelRule, checking for
+// regex compilation errors and mutual exclusivity of labelKey vs match/labelPrefix.
+func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
+	for i, rule := range rules {
+		if rule.LabelKey != "" && rule.Match != "" {
+			return fmt.Errorf("dynamicLabels[%d]: labelKey and match are mutually exclusive", i)
+		}
+		if rule.LabelKey == "" && rule.Match == "" {
+			return fmt.Errorf("dynamicLabels[%d]: one of labelKey or match is required", i)
+		}
+		if rule.Match != "" && rule.LabelPrefix == "" {
+			return fmt.Errorf("dynamicLabels[%d]: labelPrefix is required when match is set", i)
+		}
+		if rule.Match != "" {
+			if _, err := regexp.Compile(rule.Match); err != nil {
+				return fmt.Errorf("dynamicLabels[%d]: invalid regex in match: %w", i, err)
+			}
+		}
+	}
+	return nil
 }
 
 type wrapperTemplateData struct {
@@ -90,6 +118,12 @@ type wrapperTemplateData struct {
 }
 
 func (s *SessionConfig) GenerateSessionConfigTemplate() (string, error) {
+	if s.Pod != nil && len(s.Pod.DynamicLabels) > 0 {
+		if err := ValidateDynamicLabelRules(s.Pod.DynamicLabels); err != nil {
+			return "", err
+		}
+	}
+
 	// build wrapper struct
 	w := wrapperTemplateData{
 		Name:  "rstudio-library.templates.data",

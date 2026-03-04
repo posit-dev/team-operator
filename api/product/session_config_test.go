@@ -109,6 +109,85 @@ func TestSessionConfig_DynamicLabels(t *testing.T) {
 	})
 }
 
+func TestValidateDynamicLabelRules(t *testing.T) {
+	t.Run("valid direct mapping", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: "session.posit.team/user"},
+		})
+		require.Nil(t, err)
+	})
+
+	t.Run("valid regex mapping", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "--ext-[a-z]+", LabelPrefix: "session.posit.team/ext."},
+		})
+		require.Nil(t, err)
+	})
+
+	t.Run("rejects labelKey and match both set", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: "foo", Match: "bar", LabelPrefix: "baz"},
+		})
+		require.ErrorContains(t, err, "mutually exclusive")
+	})
+
+	t.Run("rejects neither labelKey nor match", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user"},
+		})
+		require.ErrorContains(t, err, "one of labelKey or match is required")
+	})
+
+	t.Run("rejects match without labelPrefix", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "--ext-[a-z]+"},
+		})
+		require.ErrorContains(t, err, "labelPrefix is required")
+	})
+
+	t.Run("rejects invalid regex", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "(unclosed", LabelPrefix: "prefix."},
+		})
+		require.ErrorContains(t, err, "invalid regex")
+	})
+
+	t.Run("rejects catastrophic backtracking regex", func(t *testing.T) {
+		// Go's regexp package uses RE2 which doesn't support backreferences,
+		// so patterns like (a+)+$ are safe. But invalid patterns still fail.
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "[a-z]+", LabelPrefix: "prefix."},
+		})
+		require.Nil(t, err)
+	})
+}
+
+func TestGenerateSessionConfigTemplate_DynamicLabels_Validation(t *testing.T) {
+	t.Run("rejects invalid regex at generation time", func(t *testing.T) {
+		config := SessionConfig{
+			Pod: &PodConfig{
+				DynamicLabels: []DynamicLabelRule{
+					{Field: "args", Match: "(unclosed", LabelPrefix: "prefix."},
+				},
+			},
+		}
+		_, err := config.GenerateSessionConfigTemplate()
+		require.ErrorContains(t, err, "invalid regex")
+	})
+
+	t.Run("rejects mutually exclusive fields at generation time", func(t *testing.T) {
+		config := SessionConfig{
+			Pod: &PodConfig{
+				DynamicLabels: []DynamicLabelRule{
+					{Field: "user", LabelKey: "foo", Match: "bar", LabelPrefix: "baz"},
+				},
+			},
+		}
+		_, err := config.GenerateSessionConfigTemplate()
+		require.ErrorContains(t, err, "mutually exclusive")
+	})
+}
+
 func TestSiteSessionVaultName(t *testing.T) {
 	t.Skip("Need to create a TestProduct struct to test this behavior")
 }
