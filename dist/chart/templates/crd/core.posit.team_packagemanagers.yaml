@@ -237,6 +237,41 @@ spec:
                       The value is appended verbatim after the generated config. gcfg parsing naturally handles
                       conflicts: list values are combined, scalar values use the last occurrence.
                     type: string
+                  identityFederation:
+                    items:
+                      properties:
+                        Audience:
+                          type: string
+                        AuthorizedParty:
+                          type: string
+                        CustomScope:
+                          type: string
+                        GroupsClaim:
+                          type: string
+                        GroupsSeparator:
+                          type: string
+                        Issuer:
+                          type: string
+                        Logging:
+                          type: boolean
+                        NoAutoGroupsScope:
+                          type: boolean
+                        RoleClaim:
+                          type: string
+                        RolesSeparator:
+                          type: string
+                        Scope:
+                          type: string
+                        Subject:
+                          type: string
+                        TokenLifetime:
+                          type: string
+                        UniqueIdClaim:
+                          type: string
+                        UsernameClaim:
+                          type: string
+                      type: object
+                    type: array
                 type: object
               databaseConfig:
                 properties:
