@@ -269,7 +269,7 @@ type PackageManagerOIDCConfig struct {
 }
 
 type PackageManagerIdentityFederationConfig struct {
-	Name              string `json:"-"`
+	Name              string `json:"name,omitempty"`
 	Issuer            string `json:"Issuer,omitempty"`
 	Logging           bool   `json:"Logging,omitempty"`
 	Audience          string `json:"Audience,omitempty"`

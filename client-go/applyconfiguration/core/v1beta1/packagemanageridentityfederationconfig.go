@@ -8,6 +8,7 @@ package v1beta1
 // PackageManagerIdentityFederationConfigApplyConfiguration represents a declarative configuration of the PackageManagerIdentityFederationConfig type for use
 // with apply.
 type PackageManagerIdentityFederationConfigApplyConfiguration struct {
+	Name              *string `json:"name,omitempty"`
 	Issuer            *string `json:"Issuer,omitempty"`
 	Logging           *bool   `json:"Logging,omitempty"`
 	Audience          *string `json:"Audience,omitempty"`
@@ -29,6 +30,14 @@ type PackageManagerIdentityFederationConfigApplyConfiguration struct {
 // apply.
 func PackageManagerIdentityFederationConfig() *PackageManagerIdentityFederationConfigApplyConfiguration {
 	return &PackageManagerIdentityFederationConfigApplyConfiguration{}
+}
+
+// WithName sets the Name field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Name field is set to the value of the last call.
+func (b *PackageManagerIdentityFederationConfigApplyConfiguration) WithName(value string) *PackageManagerIdentityFederationConfigApplyConfiguration {
+	b.Name = &value
+	return b
 }
 
 // WithIssuer sets the Issuer field in the declarative configuration to the given value
