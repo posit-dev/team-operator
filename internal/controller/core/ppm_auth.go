@@ -98,6 +98,7 @@ func PPMAuthInitContainer(image, ppmURL string) corev1.Container {
 		VolumeMounts: ppmAuthContainerVolumeMounts(),
 		SecurityContext: &corev1.SecurityContext{
 			RunAsNonRoot:             ptr.To(true),
+			RunAsUser:                ptr.To(int64(65534)), // nobody
 			AllowPrivilegeEscalation: ptr.To(false),
 		},
 	}
@@ -123,6 +124,7 @@ func PPMAuthSidecarContainer(image, ppmURL, refreshInterval string) corev1.Conta
 		VolumeMounts: ppmAuthContainerVolumeMounts(),
 		SecurityContext: &corev1.SecurityContext{
 			RunAsNonRoot:             ptr.To(true),
+			RunAsUser:                ptr.To(int64(65534)), // nobody
 			AllowPrivilegeEscalation: ptr.To(false),
 		},
 		Resources: corev1.ResourceRequirements{

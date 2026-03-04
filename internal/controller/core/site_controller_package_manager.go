@@ -125,6 +125,7 @@ func (r *SiteReconciler) reconcilePackageManager(
 				ClientSecret: "/etc/rstudio-pm/oidc-client-secret",
 				Issuer:       site.Spec.PackageManager.Auth.Issuer,
 				RequireLogin: true,
+				Scope:        "repos:read:*",
 			}
 			if site.Spec.PackageManager.Auth.GroupsClaim != "" {
 				pm.Spec.Config.OpenIDConnect.GroupsClaim = site.Spec.PackageManager.Auth.GroupsClaim

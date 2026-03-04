@@ -38,6 +38,11 @@ func TestPPMAuthInitContainer(t *testing.T) {
 	require.Equal(t, "MODE", c.Env[1].Name)
 	require.Equal(t, "init", c.Env[1].Value)
 	require.Len(t, c.VolumeMounts, 3)
+	// Verify non-root security context (alpine:3 runs as root by default)
+	require.NotNil(t, c.SecurityContext)
+	require.NotNil(t, c.SecurityContext.RunAsUser)
+	require.Equal(t, int64(65534), *c.SecurityContext.RunAsUser)
+	require.True(t, *c.SecurityContext.RunAsNonRoot)
 }
 
 func TestPPMAuthInitContainerCustomImage(t *testing.T) {
@@ -54,6 +59,11 @@ func TestPPMAuthSidecarContainer(t *testing.T) {
 	require.Equal(t, "sidecar", c.Env[1].Value)
 	require.Equal(t, "REFRESH_INTERVAL", c.Env[2].Name)
 	require.Equal(t, "3000", c.Env[2].Value)
+	// Verify non-root security context (alpine:3 runs as root by default)
+	require.NotNil(t, c.SecurityContext)
+	require.NotNil(t, c.SecurityContext.RunAsUser)
+	require.Equal(t, int64(65534), *c.SecurityContext.RunAsUser)
+	require.True(t, *c.SecurityContext.RunAsNonRoot)
 }
 
 func TestPPMAuthSidecarContainerCustomRefresh(t *testing.T) {
