@@ -63,6 +63,52 @@ func TestSessionConfig_GenerateSessionConfigTemplate(t *testing.T) {
 	require.Contains(t, str, "\"mountPath\":\"/mnt/tmp\"")
 }
 
+func TestSessionConfig_DynamicLabels(t *testing.T) {
+	t.Run("direct mapping rule serializes correctly", func(t *testing.T) {
+		config := SessionConfig{
+			Pod: &PodConfig{
+				DynamicLabels: []DynamicLabelRule{
+					{
+						Field:    "user",
+						LabelKey: "session.posit.team/user",
+					},
+				},
+			},
+		}
+
+		str, err := config.GenerateSessionConfigTemplate()
+		require.Nil(t, err)
+		require.Contains(t, str, "\"dynamicLabels\"")
+		require.Contains(t, str, "\"field\":\"user\"")
+		require.Contains(t, str, "\"labelKey\":\"session.posit.team/user\"")
+	})
+
+	t.Run("pattern extraction rule serializes correctly", func(t *testing.T) {
+		config := SessionConfig{
+			Pod: &PodConfig{
+				DynamicLabels: []DynamicLabelRule{
+					{
+						Field:       "args",
+						Match:       "--ext-[a-z]+",
+						TrimPrefix:  "--ext-",
+						LabelPrefix: "session.posit.team/ext.",
+						LabelValue:  "enabled",
+					},
+				},
+			},
+		}
+
+		str, err := config.GenerateSessionConfigTemplate()
+		require.Nil(t, err)
+		require.Contains(t, str, "\"dynamicLabels\"")
+		require.Contains(t, str, "\"field\":\"args\"")
+		require.Contains(t, str, "\"match\":\"--ext-[a-z]+\"")
+		require.Contains(t, str, "\"trimPrefix\":\"--ext-\"")
+		require.Contains(t, str, "\"labelPrefix\":\"session.posit.team/ext.\"")
+		require.Contains(t, str, "\"labelValue\":\"enabled\"")
+	})
+}
+
 func TestSiteSessionVaultName(t *testing.T) {
 	t.Skip("Need to create a TestProduct struct to test this behavior")
 }

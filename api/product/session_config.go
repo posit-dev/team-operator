@@ -34,6 +34,7 @@ type ServiceConfig struct {
 type PodConfig struct {
 	Annotations              map[string]string             `json:"annotations,omitempty"`
 	Labels                   map[string]string             `json:"labels,omitempty"`
+	DynamicLabels            []DynamicLabelRule            `json:"dynamicLabels,omitempty"`
 	ServiceAccountName       string                        `json:"serviceAccountName,omitempty"`
 	Volumes                  []corev1.Volume               `json:"volumes,omitempty"`
 	VolumeMounts             []corev1.VolumeMount          `json:"volumeMounts,omitempty"`
@@ -58,6 +59,29 @@ type PodConfig struct {
 type JobConfig struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 	Labels      map[string]string `json:"labels,omitempty"`
+}
+
+// DynamicLabelRule defines a rule for generating pod labels from runtime session data.
+// Each rule references a field from the .Job template object and either maps it directly
+// to a label (using labelKey) or extracts multiple labels via regex (using match).
+// +kubebuilder:object:generate=true
+type DynamicLabelRule struct {
+	// Field is the name of a top-level .Job field to read (e.g., "user", "args").
+	Field string `json:"field"`
+	// LabelKey is the label key for direct single-value mapping.
+	// Mutually exclusive with match/labelPrefix.
+	LabelKey string `json:"labelKey,omitempty"`
+	// Match is a regex pattern applied to the field value. Each match produces a label.
+	// For array fields (like "args"), elements are joined with spaces before matching.
+	// Mutually exclusive with labelKey.
+	Match string `json:"match,omitempty"`
+	// TrimPrefix is stripped from each regex match before forming the label key suffix.
+	TrimPrefix string `json:"trimPrefix,omitempty"`
+	// LabelPrefix is prepended to the cleaned match to form the label key.
+	// Required when match is set.
+	LabelPrefix string `json:"labelPrefix,omitempty"`
+	// LabelValue is the static value for all matched labels. Defaults to "true".
+	LabelValue string `json:"labelValue,omitempty"`
 }
 
 type wrapperTemplateData struct {

@@ -78,6 +78,21 @@ spec:
         {{ $key }}: {{ toYaml $val | indent 8 | trimPrefix (repeat 8 " ") }}
         {{- end }}
         {{- end }}
+        {{- with $templateData.pod.dynamicLabels }}
+        {{- range $rule := . }}
+        {{- if hasKey $.Job $rule.field }}
+        {{- if $rule.labelKey }}
+        {{ $rule.labelKey }}: {{ index $.Job $rule.field | toString | quote }}
+        {{- else if $rule.match }}
+        {{- $str := index $.Job $rule.field | join " " }}
+        {{- $matches := regexFindAll $rule.match $str -1 }}
+        {{- range $match := $matches }}
+        {{ $rule.labelPrefix }}{{ trimPrefix ($rule.trimPrefix | default "") $match | lower | replace " " "_" | replace "-" "_" }}: {{ $rule.labelValue | default "true" | quote }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
       generateName: {{ toYaml .Job.generateName }}
     spec:
       {{- if .Job.host }}
