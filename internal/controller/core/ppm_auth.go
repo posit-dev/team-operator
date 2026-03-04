@@ -19,7 +19,7 @@ const (
 	ppmAuthNetrcPath        = "/mnt/ppm-auth/netrc"
 	ppmAuthTokenMountPath   = "/var/run/secrets/ppm-auth"
 	ppmAuthScriptMountPath  = "/scripts"
-	// ppmAuthDefaultImage is expected to have curl and jq pre-installed
+	// ppmAuthDefaultImage uses alpine:3 which has wget and sed via BusyBox
 	ppmAuthDefaultImage   = "alpine:3"
 	ppmAuthDefaultRefresh = "3000" // 50 minutes (for 60 min token lifetime)
 )
@@ -38,18 +38,26 @@ CURLRC_PATH="${CURLRC_PATH:-/mnt/ppm-auth/.curlrc}"
 PPM_URL="${PPM_URL}"
 REFRESH_INTERVAL="${REFRESH_INTERVAL:-3000}"
 
+# extract_json_field extracts a string value from a JSON object using only
+# shell builtins and sed. This avoids requiring jq in the container image.
+# Usage: extract_json_field '{"key":"value"}' "key"
+extract_json_field() {
+    echo "$1" | sed -n 's/.*"'"$2"'"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p'
+}
+
 exchange_token() {
     SA_TOKEN=$(cat "$SA_TOKEN_PATH")
-    RESPONSE=$(curl -sf -X POST "${PPM_URL}/__api__/token" \
-        -H "Content-Type: application/x-www-form-urlencoded" \
-        -d "grant_type=urn:ietf:params:oauth:grant-type:token-exchange" \
-        -d "subject_token=${SA_TOKEN}" \
-        -d "subject_token_type=urn:ietf:params:oauth:token-type:id_token")
 
-    PPM_TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
+    # Use wget (BusyBox built-in) instead of curl for zero-dependency operation
+    RESPONSE=$(wget -qO- --header="Content-Type: application/x-www-form-urlencoded" \
+        --post-data="grant_type=urn:ietf:params:oauth:grant-type:token-exchange&subject_token=${SA_TOKEN}&subject_token_type=urn:ietf:params:oauth:token-type:id_token" \
+        "${PPM_URL}/__api__/token")
+
+    PPM_TOKEN=$(extract_json_field "$RESPONSE" "access_token")
 
     if [ -z "$PPM_TOKEN" ] || [ "$PPM_TOKEN" = "null" ]; then
         echo "ERROR: Failed to extract access_token from PPM response" >&2
+        echo "Response was: $RESPONSE" >&2
         exit 1
     fi
 

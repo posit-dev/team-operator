@@ -9,7 +9,7 @@ import (
 func TestPPMAuthTokenExchangeScript(t *testing.T) {
 	script := PPMAuthTokenExchangeScript()
 	require.Contains(t, script, "exchange_token")
-	require.Contains(t, script, "curl")
+	require.Contains(t, script, "wget")
 	require.Contains(t, script, "grant_type=urn:ietf:params:oauth:grant-type:token-exchange")
 	require.Contains(t, script, "sidecar")
 	require.Contains(t, script, "netrc")
@@ -21,6 +21,8 @@ func TestPPMAuthTokenExchangeScript(t *testing.T) {
 	require.Contains(t, script, `[ "$PPM_TOKEN" = "null" ]`)
 	// Verify sidecar resilience
 	require.Contains(t, script, "WARNING: token refresh failed, will retry")
+	// Verify extract_json_field helper is present
+	require.Contains(t, script, "extract_json_field")
 }
 
 func TestPPMAuthConfigMapName(t *testing.T) {
