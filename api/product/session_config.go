@@ -35,6 +35,8 @@ type ServiceConfig struct {
 type PodConfig struct {
 	Annotations              map[string]string             `json:"annotations,omitempty"`
 	Labels                   map[string]string             `json:"labels,omitempty"`
+	// DynamicLabels defines rules for generating pod labels from runtime session data.
+	// Requires template version 2.5.0 or later; ignored by older templates.
 	DynamicLabels            []DynamicLabelRule            `json:"dynamicLabels,omitempty"`
 	ServiceAccountName       string                        `json:"serviceAccountName,omitempty"`
 	Volumes                  []corev1.Volume               `json:"volumes,omitempty"`
@@ -68,6 +70,8 @@ type JobConfig struct {
 // +kubebuilder:object:generate=true
 type DynamicLabelRule struct {
 	// Field is the name of a top-level .Job field to read (e.g., "user", "args").
+	// Any .Job field is addressable — this relies on CRD write access being a privileged
+	// operation. Field values may appear as pod labels visible to anyone with pod read access.
 	// +kubebuilder:validation:MinLength=1
 	Field string `json:"field"`
 	// LabelKey is the label key for direct single-value mapping.
