@@ -121,8 +121,8 @@ func (r *SiteReconciler) reconcilePackageManager(
 		// Propagate OIDC authentication configuration
 		if site.Spec.PackageManager.Auth != nil && site.Spec.PackageManager.Auth.Type == v1beta1.AuthTypeOidc {
 			pm.Spec.Config.OpenIDConnect = &v1beta1.PackageManagerOIDCConfig{
-				ClientId:     site.Spec.PackageManager.Auth.ClientId,
-				ClientSecret: "/etc/rstudio-pm/oidc-client-secret",
+				ClientId:         site.Spec.PackageManager.Auth.ClientId,
+				ClientSecretFile: "/etc/rstudio-pm/oidc-client-secret",
 				Issuer:       site.Spec.PackageManager.Auth.Issuer,
 				RequireLogin: true,
 				Scope:        "repos:read:*",
@@ -143,20 +143,24 @@ func (r *SiteReconciler) reconcilePackageManager(
 			}
 			if site.Spec.Connect.AuthenticatedRepos {
 				idfEntries = append(idfEntries, v1beta1.PackageManagerIdentityFederationConfig{
-					Name:     "connect",
-					Issuer:   site.Spec.OIDCIssuerURL,
-					Audience: audience,
-					Subject:  fmt.Sprintf("system:serviceaccount:%s:%s-connect", req.Namespace, req.Name),
-					Scope:    "repos:read:*",
+					Name:          "connect",
+					Issuer:        site.Spec.OIDCIssuerURL,
+					Audience:      audience,
+					Subject:       fmt.Sprintf("system:serviceaccount:%s:%s-connect", req.Namespace, req.Name),
+					Scope:         "repos:read:*",
+					UniqueIdClaim: "sub",
+					UsernameClaim: "sub",
 				})
 			}
 			if site.Spec.Workbench.AuthenticatedRepos {
 				idfEntries = append(idfEntries, v1beta1.PackageManagerIdentityFederationConfig{
-					Name:     "workbench",
-					Issuer:   site.Spec.OIDCIssuerURL,
-					Audience: audience,
-					Subject:  fmt.Sprintf("system:serviceaccount:%s:%s-workbench", req.Namespace, req.Name),
-					Scope:    "repos:read:*",
+					Name:          "workbench",
+					Issuer:        site.Spec.OIDCIssuerURL,
+					Audience:      audience,
+					Subject:       fmt.Sprintf("system:serviceaccount:%s:%s-workbench", req.Namespace, req.Name),
+					Scope:         "repos:read:*",
+					UniqueIdClaim: "sub",
+					UsernameClaim: "sub",
 				})
 			}
 		}
