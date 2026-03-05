@@ -33,8 +33,8 @@ type ServiceConfig struct {
 // PodConfig is the configuration for session pods
 // +kubebuilder:object:generate=true
 type PodConfig struct {
-	Annotations              map[string]string             `json:"annotations,omitempty"`
-	Labels                   map[string]string             `json:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+	Labels      map[string]string `json:"labels,omitempty"`
 	// DynamicLabels defines rules for generating pod labels from runtime session data.
 	// Requires template version 2.5.0 or later; ignored by older templates.
 	DynamicLabels            []DynamicLabelRule            `json:"dynamicLabels,omitempty"`

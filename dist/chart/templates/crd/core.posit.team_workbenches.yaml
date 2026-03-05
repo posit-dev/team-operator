@@ -2109,6 +2109,55 @@ spec:
                                 type: string
                             type: object
                         type: object
+                      dynamicLabels:
+                        description: |-
+                          DynamicLabels defines rules for generating pod labels from runtime session data.
+                          Requires template version 2.5.0 or later; ignored by older templates.
+                        items:
+                          description: |-
+                            DynamicLabelRule defines a rule for generating pod labels from runtime session data.
+                            Each rule references a field from the .Job template object and either maps it directly
+                            to a label (using labelKey) or extracts multiple labels via regex (using match).
+                          properties:
+                            field:
+                              description: |-
+                                Field is the name of a top-level .Job field to read (e.g., "user", "args").
+                                Any .Job field is addressable — this relies on CRD write access being a privileged
+                                operation. Field values may appear as pod labels visible to anyone with pod read access.
+                              minLength: 1
+                              type: string
+                            labelKey:
+                              description: |-
+                                LabelKey is the label key for direct single-value mapping.
+                                Mutually exclusive with match/labelPrefix.
+                              maxLength: 63
+                              type: string
+                            labelPrefix:
+                              description: |-
+                                LabelPrefix is prepended to the cleaned match to form the label key.
+                                Required when match is set.
+                              maxLength: 253
+                              type: string
+                            labelValue:
+                              description: LabelValue is the static value for all
+                                matched labels. Defaults to "true".
+                              maxLength: 63
+                              type: string
+                            match:
+                              description: |-
+                                Match is a regex pattern applied to the field value. Each match produces a label.
+                                For array fields (like "args"), elements are joined with spaces before matching.
+                                Mutually exclusive with labelKey.
+                              maxLength: 256
+                              type: string
+                            trimPrefix:
+                              description: TrimPrefix is stripped from each regex
+                                match before forming the label key suffix.
+                              type: string
+                          required:
+                          - field
+                          type: object
+                        type: array
                       env:
                         items:
                           description: EnvVar represents an environment variable present
