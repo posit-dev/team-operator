@@ -48,6 +48,41 @@ spec:
                 description: AddEnv adds arbitrary environment variables to the container
                   env
                 type: object
+              additionalRuntimeImages:
+                description: |-
+                  AdditionalRuntimeImages specifies additional runtime images to append to the defaults
+                  for Connect off-host execution. These are added after the built-in default images.
+                items:
+                  description: ConnectRuntimeImageSpec defines a runtime image for
+                    Connect off-host execution
+                  properties:
+                    osVersion:
+                      description: OSVersion is the OS version (e.g., "ubuntu2204")
+                      minLength: 1
+                      type: string
+                    pyVersion:
+                      description: PyVersion is the Python version (e.g., "3.13.9")
+                      minLength: 1
+                      type: string
+                    quartoVersion:
+                      description: QuartoVersion is the Quarto version (e.g., "1.8.25")
+                      minLength: 1
+                      type: string
+                    rVersion:
+                      description: RVersion is the R version (e.g., "4.5.2")
+                      minLength: 1
+                      type: string
+                    repo:
+                      default: ghcr.io/rstudio/content-pro
+                      description: Repo is the container image repository (e.g., "ghcr.io/rstudio/content-pro")
+                      type: string
+                  required:
+                  - osVersion
+                  - pyVersion
+                  - quartoVersion
+                  - rVersion
+                  type: object
+                type: array
               additionalVolumes:
                 description: AdditionalVolumes represents additional VolumeSpec's
                   that can be defined
@@ -276,6 +311,8 @@ spec:
                         type: boolean
                       OpenIDConnectIssuer:
                         type: string
+                      RegisterOnFirstLogin:
+                        type: boolean
                       RequireUsernameClaim:
                         type: boolean
                       UniqueIdClaim:
@@ -358,8 +395,6 @@ spec:
                         type: string
                       DataDir:
                         type: string
-                      DefaultContentListView:
-                        type: string
                       EmailProvider:
                         description: EmailProvider sets the email provider for Connect
                           emails. If set, secrets will be mounted for SMTP connections
@@ -388,6 +423,12 @@ spec:
                       Logging:
                         type: boolean
                     type: object
+                  additionalConfig:
+                    description: |-
+                      AdditionalConfig allows appending arbitrary gcfg config content not covered by typed fields.
+                      The value is appended verbatim after the generated config. gcfg parsing naturally handles
+                      conflicts: list values are combined, scalar values use the last occurrence.
+                    type: string
                 type: object
               databaseConfig:
                 properties:
@@ -458,6 +499,11 @@ spec:
                   type: string
                 type: object
               offHostExecution:
+                type: boolean
+              registerOnFirstLogin:
+                description: |-
+                  RegisterOnFirstLogin controls whether new users are automatically registered
+                  when they first log in via OAuth2/OIDC. Only applies when auth type is "oidc".
                 type: boolean
               replicas:
                 type: integer
@@ -7291,6 +7337,11 @@ spec:
                 description: |-
                   Sleep puts the service to sleep... so you can debug a crash looping container / etc. It is an ugly escape hatch,
                   but can also be useful on occasion
+                type: boolean
+              suspended:
+                description: |-
+                  Suspended indicates Connect should not run serving resources (Deployment, Service, Ingress)
+                  but should preserve data resources (PVC, database, secrets). Set by the Site controller.
                 type: boolean
               url:
                 type: string

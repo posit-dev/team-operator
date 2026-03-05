@@ -18,11 +18,28 @@ type PackageManagerConfig struct {
 	Repos     *PackageManagerReposConfig     `json:"Repos,omitempty"`
 	Cran      *PackageManagerCRANConfig      `json:"CRAN,omitempty"`
 	Debug     *PackageManagerDebugConfig     `json:"Debug,omitempty"`
+
+	// AdditionalConfig allows appending arbitrary gcfg config content not covered by typed fields.
+	// The value is appended verbatim after the generated config. gcfg parsing naturally handles
+	// conflicts: list values are combined, scalar values use the last occurrence.
+	// +optional
+	AdditionalConfig string `json:"additionalConfig,omitempty"`
 }
 
 func (configStruct *PackageManagerConfig) GenerateGcfg() (string, error) {
 
 	var builder strings.Builder
+
+	// Build an intermediate representation: ordered sections with key-value pairs.
+	// We use ordered slices to preserve the deterministic output order from reflection.
+	type sectionEntry struct {
+		name   string
+		keys   []string            // ordered key names (for non-slice values)
+		values map[string]string   // key → value
+		slices map[string][]string // key → multiple values (for gcfg multi-value keys)
+	}
+	sections := []sectionEntry{}
+	sectionIndex := map[string]int{} // section name → index in sections slice
 
 	configStructValsPtr := reflect.ValueOf(configStruct)
 	configStructVals := reflect.Indirect(configStructValsPtr)
@@ -31,11 +48,20 @@ func (configStruct *PackageManagerConfig) GenerateGcfg() (string, error) {
 		fieldName := configStructVals.Type().Field(i).Name
 		fieldValue := configStructVals.Field(i)
 
+		// Skip the AdditionalConfig string — we handle it at the end
+		if fieldName == "AdditionalConfig" {
+			continue
+		}
+
 		if fieldValue.IsNil() {
 			continue
 		}
 
-		builder.WriteString("\n[" + fieldName + "]\n")
+		entry := sectionEntry{
+			name:   fieldName,
+			values: map[string]string{},
+			slices: map[string][]string{},
+		}
 
 		sectionStructVals := reflect.Indirect(fieldValue)
 
@@ -45,19 +71,46 @@ func (configStruct *PackageManagerConfig) GenerateGcfg() (string, error) {
 
 			if sectionStructVals.Field(j).String() != "" {
 				if sectionFieldValue.Kind() == reflect.Slice {
+					var vals []string
 					for k := 0; k < sectionFieldValue.Len(); k++ {
 						arrayValue := sectionFieldValue.Index(k).String()
 						if arrayValue != "" {
-							builder.WriteString(fmt.Sprintf("%v", sectionFieldName) + " = " + fmt.Sprintf("%v", arrayValue) + "\n")
+							vals = append(vals, arrayValue)
 						}
 					}
-
+					if len(vals) > 0 {
+						entry.keys = append(entry.keys, sectionFieldName)
+						entry.slices[sectionFieldName] = vals
+					}
 				} else {
-					builder.WriteString(fmt.Sprintf("%v", sectionFieldName) + " = " + fmt.Sprintf("%v", sectionFieldValue) + "\n")
+					entry.keys = append(entry.keys, sectionFieldName)
+					entry.values[sectionFieldName] = fmt.Sprintf("%v", sectionFieldValue)
 				}
 			}
 		}
+
+		sectionIndex[fieldName] = len(sections)
+		sections = append(sections, entry)
 	}
+
+	// Render sections to gcfg format
+	for _, section := range sections {
+		builder.WriteString("\n[" + section.name + "]\n")
+		for _, key := range section.keys {
+			if vals, isSlice := section.slices[key]; isSlice {
+				for _, v := range vals {
+					builder.WriteString(key + " = " + v + "\n")
+				}
+			} else if val, ok := section.values[key]; ok {
+				builder.WriteString(key + " = " + val + "\n")
+			}
+		}
+	}
+
+	if configStruct.AdditionalConfig != "" {
+		builder.WriteString(configStruct.AdditionalConfig)
+	}
+
 	return builder.String(), nil
 }
 

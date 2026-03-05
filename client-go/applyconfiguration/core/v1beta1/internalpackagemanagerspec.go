@@ -13,17 +13,19 @@ import (
 // InternalPackageManagerSpecApplyConfiguration represents a declarative configuration of the InternalPackageManagerSpec type for use
 // with apply.
 type InternalPackageManagerSpecApplyConfiguration struct {
-	License         *product.LicenseSpec                `json:"license,omitempty"`
-	Volume          *product.VolumeSpec                 `json:"volume,omitempty"`
-	NodeSelector    map[string]string                   `json:"nodeSelector,omitempty"`
-	AddEnv          map[string]string                   `json:"addEnv,omitempty"`
-	Image           *string                             `json:"image,omitempty"`
-	ImagePullPolicy *v1.PullPolicy                      `json:"imagePullPolicy,omitempty"`
-	S3Bucket        *string                             `json:"s3Bucket,omitempty"`
-	Replicas        *int                                `json:"replicas,omitempty"`
-	DomainPrefix    *string                             `json:"domainPrefix,omitempty"`
-	GitSSHKeys      []SSHKeyConfigApplyConfiguration    `json:"gitSSHKeys,omitempty"`
-	AzureFiles      *AzureFilesConfigApplyConfiguration `json:"azureFiles,omitempty"`
+	License          *product.LicenseSpec                `json:"license,omitempty"`
+	Volume           *product.VolumeSpec                 `json:"volume,omitempty"`
+	NodeSelector     map[string]string                   `json:"nodeSelector,omitempty"`
+	AddEnv           map[string]string                   `json:"addEnv,omitempty"`
+	Image            *string                             `json:"image,omitempty"`
+	ImagePullPolicy  *v1.PullPolicy                      `json:"imagePullPolicy,omitempty"`
+	S3Bucket         *string                             `json:"s3Bucket,omitempty"`
+	Replicas         *int                                `json:"replicas,omitempty"`
+	DomainPrefix     *string                             `json:"domainPrefix,omitempty"`
+	BaseDomain       *string                             `json:"baseDomain,omitempty"`
+	GitSSHKeys       []SSHKeyConfigApplyConfiguration    `json:"gitSSHKeys,omitempty"`
+	AzureFiles       *AzureFilesConfigApplyConfiguration `json:"azureFiles,omitempty"`
+	AdditionalConfig *string                             `json:"additionalConfig,omitempty"`
 }
 
 // InternalPackageManagerSpecApplyConfiguration constructs a declarative configuration of the InternalPackageManagerSpec type for use with
@@ -116,6 +118,14 @@ func (b *InternalPackageManagerSpecApplyConfiguration) WithDomainPrefix(value st
 	return b
 }
 
+// WithBaseDomain sets the BaseDomain field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the BaseDomain field is set to the value of the last call.
+func (b *InternalPackageManagerSpecApplyConfiguration) WithBaseDomain(value string) *InternalPackageManagerSpecApplyConfiguration {
+	b.BaseDomain = &value
+	return b
+}
+
 // WithGitSSHKeys adds the given value to the GitSSHKeys field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the GitSSHKeys field.
@@ -134,5 +144,13 @@ func (b *InternalPackageManagerSpecApplyConfiguration) WithGitSSHKeys(values ...
 // If called multiple times, the AzureFiles field is set to the value of the last call.
 func (b *InternalPackageManagerSpecApplyConfiguration) WithAzureFiles(value *AzureFilesConfigApplyConfiguration) *InternalPackageManagerSpecApplyConfiguration {
 	b.AzureFiles = value
+	return b
+}
+
+// WithAdditionalConfig sets the AdditionalConfig field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the AdditionalConfig field is set to the value of the last call.
+func (b *InternalPackageManagerSpecApplyConfiguration) WithAdditionalConfig(value string) *InternalPackageManagerSpecApplyConfiguration {
+	b.AdditionalConfig = &value
 	return b
 }

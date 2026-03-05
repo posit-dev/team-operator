@@ -43,14 +43,23 @@ func (r *SiteReconciler) reconcileNetworkPolicies(ctx context.Context, req ctrl.
 		return err
 	}
 
-	if err := r.reconcileConnectNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
-		l.Error(err, "error ensuring connect network policy")
-		return err
-	}
-
-	if err := r.reconcileConnectSessionNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
-		l.Error(err, "error ensuring connect session network policy")
-		return err
+	// Connect network policies
+	connectEnabled := site.Spec.Connect.Enabled == nil || *site.Spec.Connect.Enabled
+	if connectEnabled {
+		if err := r.reconcileConnectNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
+			l.Error(err, "error ensuring connect network policy")
+			return err
+		}
+		if err := r.reconcileConnectSessionNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
+			l.Error(err, "error ensuring connect session network policy")
+			return err
+		}
+	} else {
+		// Clean up Connect network policies when disabled (regardless of teardown)
+		if err := r.cleanupConnectNetworkPolicies(ctx, req, l); err != nil {
+			l.Error(err, "error cleaning up connect network policies")
+			return err
+		}
 	}
 
 	if err := r.reconcileHomeNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
@@ -78,6 +87,11 @@ func (r *SiteReconciler) reconcileNetworkPolicies(ctx context.Context, req ctrl.
 		return err
 	}
 
+	if err := r.reconcileFlightdeckNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
+		l.Error(err, "error ensuring flightdeck network policy")
+		return err
+	}
+
 	return nil
 }
 
@@ -90,6 +104,7 @@ func (r *SiteReconciler) cleanupNetworkPolicies(ctx context.Context, req ctrl.Re
 		"chronicle",
 		"connect",
 		"connect-session",
+		"flightdeck",
 		"home",
 		"keycloak",
 		"packagemanager",
@@ -722,4 +737,68 @@ func (r *SiteReconciler) reconcileWorkbenchSessionNetworkPolicy(ctx context.Cont
 		return nil
 	})
 	return err
+}
+
+func (r *SiteReconciler) reconcileFlightdeckNetworkPolicy(ctx context.Context, namespace string, l logr.Logger, site *v1beta1.Site) error {
+	policyName := site.Name + "-flightdeck"
+
+	policy := &networkingv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      policyName,
+			Namespace: namespace,
+		},
+	}
+	_, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, policy, site, func() error {
+		policy.Labels = site.KubernetesLabels()
+		policy.Spec = networkingv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					v1beta1.SiteLabelKey:               site.Name,
+					v1beta1.KubernetesInstanceLabelKey: policyName,
+				},
+			},
+			PolicyTypes: []networkingv1.PolicyType{
+				networkingv1.PolicyTypeEgress,
+				networkingv1.PolicyTypeIngress,
+			},
+			Egress: []networkingv1.NetworkPolicyEgressRule{
+				{},
+			},
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
+				{
+					From: []networkingv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									v1beta1.KubernetesMetadataNameKey: "traefik",
+								},
+							},
+						},
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									v1beta1.KubernetesMetadataNameKey: grafanaAlloyNamespace,
+								},
+							},
+						},
+					},
+					Ports: []networkingv1.NetworkPolicyPort{
+						internal.DefaultPortFlightdeckHTTP.NetworkPolicyPort(),
+					},
+				},
+			},
+		}
+		return nil
+	})
+	return err
+}
+
+func (r *SiteReconciler) cleanupConnectNetworkPolicies(ctx context.Context, req ctrl.Request, l logr.Logger) error {
+	for _, suffix := range []string{"connect", "connect-session"} {
+		key := client.ObjectKey{Name: req.Name + "-" + suffix, Namespace: req.Namespace}
+		if err := internal.BasicDelete(ctx, r, l, key, &networkingv1.NetworkPolicy{}); err != nil {
+			return err
+		}
+	}
+	return nil
 }

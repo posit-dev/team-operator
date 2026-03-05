@@ -15,8 +15,12 @@ db_url_secret := "team-operator-main-db-url"
 default: build test
 
 # Install dependencies
-deps:
+deps: install-git-hooks
   go get -t ./...
+
+# Install git hooks via pre-commit (fails silently in CI)
+install-git-hooks:
+  -uvx pre-commit install
 
 # Update dependencies
 deps-up:
@@ -45,6 +49,10 @@ mbuild:
 # Format code
 format:
   go fmt ./...
+
+# Static analysis
+vet:
+  go vet ./...
 
 create-db-url-secret:
   #!/bin/bash

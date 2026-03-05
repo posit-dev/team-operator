@@ -9,11 +9,13 @@ import (
 	"github.com/posit-dev/team-operator/api/keycloak/v2alpha1"
 	"github.com/posit-dev/team-operator/api/localtest"
 	"github.com/posit-dev/team-operator/api/product"
+	"github.com/rstudio/goex/ptr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/traefik/traefik/v3/pkg/provider/kubernetes/crd/traefikio/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -343,6 +345,13 @@ func getMiddleware(t *testing.T, cli client.Client, siteNamespace, siteName stri
 	return middleware
 }
 
+func getPodDisruptionBudget(t *testing.T, cli client.Client, namespace, name string) *policyv1.PodDisruptionBudget {
+	pdb := &policyv1.PodDisruptionBudget{}
+	err := cli.Get(context.TODO(), client.ObjectKey{Name: name, Namespace: namespace}, pdb, &client.GetOptions{})
+	assert.Nil(t, err)
+	return pdb
+}
+
 func TestSiteReconcileWithTolerations(t *testing.T) {
 	siteName := "tolerations-site"
 	siteNamespace := "posit-team"
@@ -400,6 +409,80 @@ func TestSiteReconcileWithSharedDirectory(t *testing.T) {
 	assert.Equal(t, siteNamespace, pvc.Namespace)
 	assert.Equal(t, corev1.PersistentVolumeAccessMode("ReadWriteMany"), pvc.Spec.AccessModes[0])
 	assert.Equal(t, resource.MustParse("10Gi"), pvc.Spec.Resources.Requests[corev1.ResourceStorage])
+}
+
+func TestSiteAuditedJobsConfiguration(t *testing.T) {
+	siteName := "audited-jobs-config-site"
+	siteNamespace := "posit-team"
+
+	// Helper function to create int pointers
+	intPtr := func(i int) *int {
+		return &i
+	}
+
+	site := defaultSite(siteName)
+	site.Spec.Workbench.AuditedJobs = &v1beta1.AuditedJobsConfig{
+		Enabled:            intPtr(1),
+		StoragePath:        "/mnt/shared-storage/audited-jobs",
+		PrivateKeyPath:     "/etc/rstudio/audited-jobs-private-key.pem",
+		PublicKeyPaths:     "/etc/rstudio/audited-jobs-public-key.pem",
+		LogLimit:           intPtr(5000),
+		DeletionExpiry:     intPtr(60),
+		VanillaRequired:    intPtr(1),
+		DetailsEnvironment: intPtr(1),
+		DetailsUserDefined: intPtr(0),
+	}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+
+	// Verify that the Audited Jobs configuration was applied to the RServer config
+	assert.NotNil(t, testWorkbench.Spec.Config.RServer)
+	assert.Equal(t, intPtr(1), testWorkbench.Spec.Config.RServer.AuditedJobs)
+	assert.Equal(t, "/mnt/shared-storage/audited-jobs", testWorkbench.Spec.Config.RServer.AuditedJobsStoragePath)
+	assert.Equal(t, "/etc/rstudio/audited-jobs-private-key.pem", testWorkbench.Spec.Config.RServer.AuditedJobsPrivateKeyPath)
+	assert.Equal(t, "/etc/rstudio/audited-jobs-public-key.pem", testWorkbench.Spec.Config.RServer.AuditedJobsPublicKeyPaths)
+	assert.Equal(t, intPtr(5000), testWorkbench.Spec.Config.RServer.AuditedJobsLogLimit)
+	assert.Equal(t, intPtr(60), testWorkbench.Spec.Config.RServer.AuditedJobsDeletionExpiry)
+	assert.Equal(t, intPtr(1), testWorkbench.Spec.Config.RServer.AuditedJobsVanillaRequired)
+	assert.Equal(t, intPtr(1), testWorkbench.Spec.Config.RServer.AuditedJobsDetailsEnvironment)
+	assert.Equal(t, intPtr(0), testWorkbench.Spec.Config.RServer.AuditedJobsDetailsUserDefined)
+}
+
+func TestSiteAuditedJobsPartialConfiguration(t *testing.T) {
+	siteName := "audited-jobs-partial-site"
+	siteNamespace := "posit-team"
+
+	intPtr := func(i int) *int {
+		return &i
+	}
+
+	site := defaultSite(siteName)
+	site.Spec.Workbench.AuditedJobs = &v1beta1.AuditedJobsConfig{
+		Enabled:     intPtr(1),
+		StoragePath: "/mnt/shared-storage/audited-jobs",
+	}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+
+	assert.NotNil(t, testWorkbench.Spec.Config.RServer)
+	// Set fields should be propagated
+	assert.Equal(t, intPtr(1), testWorkbench.Spec.Config.RServer.AuditedJobs)
+	assert.Equal(t, "/mnt/shared-storage/audited-jobs", testWorkbench.Spec.Config.RServer.AuditedJobsStoragePath)
+	// Unset string fields remain empty string
+	assert.Equal(t, "", testWorkbench.Spec.Config.RServer.AuditedJobsPrivateKeyPath)
+	assert.Equal(t, "", testWorkbench.Spec.Config.RServer.AuditedJobsPublicKeyPaths)
+	// Unset *int fields should be nil
+	assert.Nil(t, testWorkbench.Spec.Config.RServer.AuditedJobsLogLimit)
+	assert.Nil(t, testWorkbench.Spec.Config.RServer.AuditedJobsDeletionExpiry)
+	assert.Nil(t, testWorkbench.Spec.Config.RServer.AuditedJobsVanillaRequired)
+	assert.Nil(t, testWorkbench.Spec.Config.RServer.AuditedJobsDetailsEnvironment)
+	assert.Nil(t, testWorkbench.Spec.Config.RServer.AuditedJobsDetailsUserDefined)
 }
 
 func TestSiteJupyterConfiguration(t *testing.T) {
@@ -1002,4 +1085,231 @@ func TestSiteReconciler_PythonPPMUrlWithLauncherEnvPath(t *testing.T) {
 	assert.Contains(t, testWorkbench.Spec.Config.WorkbenchDcfConfig.LauncherEnv.Environment, "PIP_INDEX_URL")
 	assert.Equal(t, "/opt/custom/bin:/usr/bin", testWorkbench.Spec.Config.WorkbenchDcfConfig.LauncherEnv.Environment["PATH"])
 	assert.Equal(t, "https://packagemanager.example.posit.co/pypi/latest/simple", testWorkbench.Spec.Config.WorkbenchDcfConfig.LauncherEnv.Environment["PIP_INDEX_URL"])
+}
+
+func TestSiteReconciler_RegisterOnFirstLoginPropagation(t *testing.T) {
+	siteName := "register-on-first-login"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Connect.RegisterOnFirstLogin = ptr.To(true)
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testConnect := getConnect(t, cli, siteNamespace, siteName)
+	require.NotNil(t, testConnect.Spec.RegisterOnFirstLogin)
+	assert.True(t, *testConnect.Spec.RegisterOnFirstLogin)
+}
+
+func TestSiteReconciler_RegisterOnFirstLoginDefaultNil(t *testing.T) {
+	siteName := "register-on-first-login-default"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testConnect := getConnect(t, cli, siteNamespace, siteName)
+	assert.Nil(t, testConnect.Spec.RegisterOnFirstLogin)
+}
+
+func TestSiteReconciler_BaseDomainNotSet(t *testing.T) {
+	siteName := "base-domain-not-set"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Domain = "example.com"
+	site.Spec.Connect.DomainPrefix = "connect"
+	site.Spec.Workbench.DomainPrefix = "workbench"
+	site.Spec.PackageManager.DomainPrefix = "packagemanager"
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	// Verify default behavior is preserved when BaseDomain is not set
+	testConnect := getConnect(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "connect.example.com", testConnect.Spec.Url)
+
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "workbench.example.com", testWorkbench.Spec.Url)
+	// Verify DefaultRSConnectServer uses site domain when BaseDomain not set
+	assert.Equal(t, "https://connect.example.com", testWorkbench.Spec.Config.RSession.DefaultRSConnectServer)
+
+	testPackageManager := getPackageManager(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "packagemanager.example.com", testPackageManager.Spec.Url)
+}
+
+func TestSiteReconciler_BaseDomainConnectOnly(t *testing.T) {
+	siteName := "base-domain-connect-only"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Domain = "example.com"
+	site.Spec.Connect.DomainPrefix = "connect"
+	site.Spec.Connect.BaseDomain = "connect-custom.com"
+	site.Spec.Workbench.DomainPrefix = "workbench"
+	site.Spec.PackageManager.DomainPrefix = "packagemanager"
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	// Verify Connect uses custom BaseDomain
+	testConnect := getConnect(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "connect.connect-custom.com", testConnect.Spec.Url)
+
+	// Verify Workbench uses site domain (not custom)
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "workbench.example.com", testWorkbench.Spec.Url)
+	// Verify DefaultRSConnectServer uses Connect's BaseDomain
+	assert.Equal(t, "https://connect.connect-custom.com", testWorkbench.Spec.Config.RSession.DefaultRSConnectServer)
+
+	// Verify PackageManager uses site domain (not custom)
+	testPackageManager := getPackageManager(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "packagemanager.example.com", testPackageManager.Spec.Url)
+}
+
+func TestSiteReconciler_BaseDomainAllProducts(t *testing.T) {
+	siteName := "base-domain-all-products"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Domain = "example.com"
+	site.Spec.Connect.DomainPrefix = "connect"
+	site.Spec.Connect.BaseDomain = "connect-domain.com"
+	site.Spec.Workbench.DomainPrefix = "workbench"
+	site.Spec.Workbench.BaseDomain = "workbench-domain.com"
+	site.Spec.PackageManager.DomainPrefix = "packagemanager"
+	site.Spec.PackageManager.BaseDomain = "pm-domain.com"
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	// Verify all products use their custom BaseDomains
+	testConnect := getConnect(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "connect.connect-domain.com", testConnect.Spec.Url)
+
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "workbench.workbench-domain.com", testWorkbench.Spec.Url)
+	// Verify DefaultRSConnectServer uses Connect's BaseDomain
+	assert.Equal(t, "https://connect.connect-domain.com", testWorkbench.Spec.Config.RSession.DefaultRSConnectServer)
+
+	testPackageManager := getPackageManager(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "packagemanager.pm-domain.com", testPackageManager.Spec.Url)
+}
+
+func TestSiteReconciler_BaseDomainWithCustomPrefix(t *testing.T) {
+	siteName := "base-domain-custom-prefix"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Domain = "example.com"
+	site.Spec.Connect.DomainPrefix = "rsc"
+	site.Spec.Connect.BaseDomain = "custom-domain.com"
+	site.Spec.Workbench.DomainPrefix = "workbench"
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	// Verify custom prefix is preserved with BaseDomain
+	testConnect := getConnect(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "rsc.custom-domain.com", testConnect.Spec.Url)
+
+	// Verify Workbench's DefaultRSConnectServer uses custom prefix and BaseDomain
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+	assert.Equal(t, "https://rsc.custom-domain.com", testWorkbench.Spec.Config.RSession.DefaultRSConnectServer)
+}
+
+// TestSiteConnectDisableNeverEnabled verifies that setting enabled=false when Connect was
+// never enabled is a no-op: no Connect CR is created.
+func TestSiteConnectDisableNeverEnabled(t *testing.T) {
+	siteName := "never-enabled-connect"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	enabled := false
+	site.Spec.Connect.Enabled = &enabled
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.NoError(t, err)
+
+	// Connect CR should NOT exist — disable with no prior enablement is a no-op
+	connect := &v1beta1.Connect{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, connect)
+	assert.Error(t, err, "expected Connect CR to not exist when disabled without ever being enabled")
+}
+
+// TestSiteConnectSuspendAfterEnable verifies that setting enabled=false after Connect was running
+// suspends the Connect CR (Suspended=true) rather than deleting it, preserving data.
+// It also verifies that re-enabling clears Suspended and restores full reconciliation,
+// confirming that reconcileConnect's full spec replace via controllerutil.CreateOrUpdate
+// correctly overwrites Suspended=true back to nil.
+func TestSiteConnectSuspendAfterEnable(t *testing.T) {
+	siteName := "suspend-connect"
+	siteNamespace := "posit-team"
+
+	// Share a single fake environment across all reconcile passes.
+	fakeClient := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeClient.Start(loadSchemes)
+	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
+
+	// Pass 1: Connect enabled (default)
+	site := defaultSite(siteName)
+	_, err := rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	connect := &v1beta1.Connect{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, connect)
+	assert.NoError(t, err, "Connect CR should exist after first reconcile")
+	assert.Nil(t, connect.Spec.Suspended)
+
+	// Pass 2: disable Connect without teardown
+	enabled := false
+	site.Spec.Connect.Enabled = &enabled
+	_, err = rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, connect)
+	assert.NoError(t, err, "Connect CR should still exist when disabled without teardown")
+	assert.NotNil(t, connect.Spec.Suspended)
+	assert.True(t, *connect.Spec.Suspended)
+
+	// Pass 3: re-enable Connect — reconcileConnect does a full spec replace via
+	// controllerutil.CreateOrUpdate, so Suspended must be cleared back to nil.
+	site.Spec.Connect.Enabled = nil
+	_, err = rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, connect)
+	assert.NoError(t, err, "Connect CR should still exist after re-enable")
+	assert.Nil(t, connect.Spec.Suspended, "Suspended should be cleared after re-enable")
+}
+
+// TestSiteConnectTeardown verifies that setting enabled=false + teardown=true causes the
+// Connect CR to be deleted (triggering the destructive finalizer path).
+// The CR must be pre-created to confirm it is actually deleted (not just absent from the start).
+func TestSiteConnectTeardown(t *testing.T) {
+	siteName := "teardown-connect"
+	siteNamespace := "posit-team"
+
+	fakeClient := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeClient.Start(loadSchemes)
+	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
+
+	// Pass 1: establish a running Connect CR
+	site := defaultSite(siteName)
+	_, err := rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	connect := &v1beta1.Connect{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, connect)
+	assert.NoError(t, err, "Connect CR should exist before teardown")
+
+	// Pass 2: teardown
+	enabled := false
+	teardown := true
+	site.Spec.Connect.Enabled = &enabled
+	site.Spec.Connect.Teardown = &teardown
+	_, err = rec.reconcileResources(context.TODO(), req, site)
+	assert.NoError(t, err)
+
+	// Connect CR should NOT exist after teardown
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, connect)
+	assert.Error(t, err, "Connect CR should not exist after teardown=true")
 }

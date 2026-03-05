@@ -3,10 +3,6 @@ kind: Deployment
 metadata:
   name: team-operator-controller-manager
   namespace: {{ .Release.Namespace }}
-{{- if .Values.resourcePolicy.keep }}
-  annotations:
-    helm.sh/resource-policy: keep
-{{- end }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
     control-plane: controller-manager
@@ -37,10 +33,11 @@ spec:
             {{- end }}
           command:
             - /team-operator
-          {{- if hasPrefix "@" .Values.controllerManager.container.image.tag }}
-          image: {{ .Values.controllerManager.container.image.repository }}{{ .Values.controllerManager.container.image.tag }}
+          {{- $tag := .Values.controllerManager.container.image.tag | default .Chart.AppVersion }}
+          {{- if hasPrefix "@" $tag }}
+          image: {{ .Values.controllerManager.container.image.repository }}{{ $tag }}
           {{- else }}
-          image: {{ .Values.controllerManager.container.image.repository }}:{{ .Values.controllerManager.container.image.tag }}
+          image: {{ .Values.controllerManager.container.image.repository }}:{{ $tag }}
           {{- end }}
           {{- if .Values.controllerManager.container.env }}
           env:

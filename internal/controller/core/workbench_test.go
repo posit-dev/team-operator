@@ -262,3 +262,130 @@ func TestWorkbenchAuthSamlMissingMetadata(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "SAML authentication requires a metadata URL")
 }
+
+func TestWorkbenchLoadBalancingInitContainer(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-lb"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	wb := defineDefaultWorkbench(t, ns, name)
+	// Enable load balancing
+	wb.Spec.Config.RServer = &positcov1beta1.WorkbenchRServerConfig{
+		LoadBalancingEnabled: 1,
+	}
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	// Get the deployment and verify init container exists
+	deployment := getDeployment(t, cli, ns, name+"-workbench")
+
+	// Verify init container is present
+	require.Len(t, deployment.Spec.Template.Spec.InitContainers, 1, "Should have one init container when load balancing is enabled")
+	initContainer := deployment.Spec.Template.Spec.InitContainers[0]
+	assert.Equal(t, "load-balancer-init", initContainer.Name)
+	assert.Equal(t, "busybox:1.36", initContainer.Image)
+	assert.Contains(t, initContainer.Args[0], "www-host-name=$(hostname -i)")
+	assert.Contains(t, initContainer.Args[0], "delete-node-on-exit=1")
+
+	// Verify volume mount on init container
+	require.Len(t, initContainer.VolumeMounts, 1, "Init container should have volume mount")
+	assert.Equal(t, "load-balancer-config", initContainer.VolumeMounts[0].Name)
+	assert.Equal(t, "/mnt/load-balancer", initContainer.VolumeMounts[0].MountPath)
+
+	// Verify the main container has the volume mount
+	mainContainer := deployment.Spec.Template.Spec.Containers[0]
+	var foundLbMount bool
+	for _, vm := range mainContainer.VolumeMounts {
+		if vm.Name == "load-balancer-config" {
+			foundLbMount = true
+			assert.Equal(t, "/mnt/load-balancer", vm.MountPath)
+			break
+		}
+	}
+	assert.True(t, foundLbMount, "Main container should have load-balancer-config volume mount")
+
+	// Verify the emptyDir volume is defined
+	var foundLbVolume bool
+	for _, v := range deployment.Spec.Template.Spec.Volumes {
+		if v.Name == "load-balancer-config" {
+			foundLbVolume = true
+			assert.NotNil(t, v.EmptyDir, "load-balancer-config should be an emptyDir volume")
+			break
+		}
+	}
+	assert.True(t, foundLbVolume, "Deployment should have load-balancer-config volume")
+}
+
+func TestWorkbenchLoadBalancingDisabled(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-no-lb"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	wb := defineDefaultWorkbench(t, ns, name)
+	// Do NOT enable load balancing - leave RServer config nil
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	// Get the deployment and verify NO init container exists
+	deployment := getDeployment(t, cli, ns, name+"-workbench")
+
+	// Verify no init containers when load balancing is disabled
+	assert.Empty(t, deployment.Spec.Template.Spec.InitContainers, "Should have no init containers when load balancing is disabled")
+
+	// Verify no load-balancer-config volume exists
+	for _, v := range deployment.Spec.Template.Spec.Volumes {
+		assert.NotEqual(t, "load-balancer-config", v.Name, "Should not have load-balancer-config volume when load balancing is disabled")
+	}
+}
+
+func TestWorkbenchPodDisruptionBudgets(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-pdb"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	wb := defineDefaultWorkbench(t, ns, name)
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	// Verify session PDB is created
+	sessionPdb := getPodDisruptionBudget(t, cli, ns, name+"-workbench-sessions")
+	require.NotNil(t, sessionPdb, "Session PDB should be created")
+	assert.Equal(t, name+"-workbench-sessions", sessionPdb.Name)
+
+	// Verify session PDB has correct selector to target session pods
+	require.NotNil(t, sessionPdb.Spec.Selector, "Session PDB should have a selector")
+	assert.Equal(t, wb.ComponentName(), sessionPdb.Spec.Selector.MatchLabels["launcher-instance-id"],
+		"Session PDB should select pods with launcher-instance-id label matching workbench component name")
+
+	// Verify session PDB has maxUnavailable=0 to prevent any evictions
+	require.NotNil(t, sessionPdb.Spec.MaxUnavailable, "Session PDB should have maxUnavailable set")
+	assert.Equal(t, int32(0), sessionPdb.Spec.MaxUnavailable.IntVal,
+		"Session PDB should have maxUnavailable=0 to prevent session evictions")
+}

@@ -34,6 +34,8 @@ func (s *Server) setupRoutes() {
 	Home(s.mux, s.siteClient, s.config)
 	Config(s.mux, s.siteClient, s.config)
 	Help(s.mux, s.config)
+	Health(s.mux)
+	Ready(s.mux, s.siteClient, s.config)
 }
 
 func (s *Server) Start() error {
@@ -65,8 +67,9 @@ func requestLoggingMiddleware(next http.Handler) http.Handler {
 
 		duration := time.Since(start)
 
-		// Skip logging for static assets at debug level
-		if len(r.URL.Path) > 7 && r.URL.Path[:8] == "/static/" {
+		// Skip logging for static assets and health check endpoints at debug level
+		if (len(r.URL.Path) > 7 && r.URL.Path[:8] == "/static/") ||
+			r.URL.Path == "/healthz" || r.URL.Path == "/readyz" {
 			slog.Debug("request",
 				"method", r.Method,
 				"path", r.URL.Path,
@@ -118,10 +121,44 @@ func Config(mux *http.ServeMux, getter internal.SiteInterface, config *internal.
 			return nil, err
 		}
 		slog.Debug("rendering config page", "site", config.SiteName)
-		return html.SiteConfigPage(site, config), nil
+		return html.CRDConfigPage(site, config), nil
 	}))
 }
 
 func Static(mux *http.ServeMux) {
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("public"))))
+}
+
+// Health handles liveness probe at /healthz
+// This endpoint only checks that the process is alive and can serve HTTP requests
+// It does not check any external dependencies
+func Health(mux *http.ServeMux) {
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		slog.Debug("health check requested")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+}
+
+// Ready handles readiness probe at /readyz
+// This endpoint checks that the k8s API is reachable and Site CR can be fetched (if Sites exist)
+func Ready(mux *http.ServeMux, getter internal.SiteInterface, config *internal.ServerConfig) {
+	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
+		slog.Debug("readiness check requested")
+
+		// Try to fetch the Site CR to verify k8s API connectivity
+		// Note: If Sites CRD doesn't exist, the Get method returns an empty Site and no error
+		_, err := getter.Get(config.SiteName, config.Namespace, metav1.GetOptions{}, r.Context())
+		if err != nil {
+			// Only fail readiness if there's a real error (not just missing CRD)
+			slog.Warn("readiness check failed", "error", err)
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte("Not Ready"))
+			return
+		}
+
+		// If we got here, either the Site exists or the CRD doesn't exist (which is OK)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Ready"))
+	})
 }

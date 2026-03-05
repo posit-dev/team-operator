@@ -76,6 +76,47 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  additionalConfig:
+                    description: AdditionalConfig allows appending arbitrary gcfg
+                      config content to the generated config.
+                    type: string
+                  additionalRuntimeImages:
+                    description: |-
+                      AdditionalRuntimeImages specifies additional runtime images to append to the defaults
+                      for Connect off-host execution
+                    items:
+                      description: ConnectRuntimeImageSpec defines a runtime image
+                        for Connect off-host execution
+                      properties:
+                        osVersion:
+                          description: OSVersion is the OS version (e.g., "ubuntu2204")
+                          minLength: 1
+                          type: string
+                        pyVersion:
+                          description: PyVersion is the Python version (e.g., "3.13.9")
+                          minLength: 1
+                          type: string
+                        quartoVersion:
+                          description: QuartoVersion is the Quarto version (e.g.,
+                            "1.8.25")
+                          minLength: 1
+                          type: string
+                        rVersion:
+                          description: RVersion is the R version (e.g., "4.5.2")
+                          minLength: 1
+                          type: string
+                        repo:
+                          default: ghcr.io/rstudio/content-pro
+                          description: Repo is the container image repository (e.g.,
+                            "ghcr.io/rstudio/content-pro")
+                          type: string
+                      required:
+                      - osVersion
+                      - pyVersion
+                      - quartoVersion
+                      - rVersion
+                      type: object
+                    type: array
                   auth:
                     properties:
                       administratorRoleMapping:
@@ -127,6 +168,11 @@ spec:
                           type: string
                         type: array
                     type: object
+                  baseDomain:
+                    description: |-
+                      BaseDomain overrides site.Spec.Domain for this product's URL construction.
+                      When set, the product URL will be: domainPrefix.baseDomain
+                    type: string
                   databaseSettings:
                     properties:
                       instrumentationSchema:
@@ -148,6 +194,14 @@ spec:
                   domainPrefix:
                     default: connect
                     type: string
+                  enabled:
+                    default: true
+                    description: |-
+                      Enabled controls whether Connect is running. Defaults to true.
+                      Setting to false suspends Connect: stops pods and removes ingress/service,
+                      but preserves PVC, database, and secrets so data is retained.
+                      Re-enabling restores full service without data loss.
+                    type: boolean
                   experimentalFeatures:
                     properties:
                       chronicleSidecarProductApiKeyEnabled:
@@ -378,6 +432,11 @@ spec:
                     type: object
                   publicWarning:
                     type: string
+                  registerOnFirstLogin:
+                    description: |-
+                      RegisterOnFirstLogin controls whether new users are automatically registered
+                      when they first log in via OAuth2/OIDC. Only applies when auth type is "oidc".
+                    type: boolean
                   replicas:
                     type: integer
                   scheduleConcurrency:
@@ -386,6 +445,13 @@ spec:
                     type: integer
                   sessionImage:
                     type: string
+                  teardown:
+                    default: false
+                    description: |-
+                      Teardown permanently destroys all Connect resources including the database,
+                      secrets, and persistent volume claim. Only takes effect when Enabled is false.
+                      Re-enabling after teardown starts fresh with a new empty database.
+                    type: boolean
                   volume:
                     description: VolumeSpec is a specification for a PersistentVolumeClaim
                       to be created (and/or mounted)
@@ -563,6 +629,10 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  additionalConfig:
+                    description: AdditionalConfig allows appending arbitrary gcfg
+                      config content to the generated config.
+                    type: string
                   azureFiles:
                     description: AzureFiles configures Azure Files integration for
                       persistent storage
@@ -576,6 +646,11 @@ spec:
                           StorageClass that uses the Azure Files CSI driver
                         type: string
                     type: object
+                  baseDomain:
+                    description: |-
+                      BaseDomain overrides site.Spec.Domain for this product's URL construction.
+                      When set, the product URL will be: domainPrefix.baseDomain
+                    type: string
                   domainPrefix:
                     default: packagemanager
                     type: string
@@ -789,6 +864,20 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  additionalConfigs:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      AdditionalConfigs allows appending arbitrary content to Workbench server config files.
+                      Keys are config file names (e.g., "rserver.conf", "launcher.conf").
+                    type: object
+                  additionalSessionConfigs:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      AdditionalSessionConfigs allows appending arbitrary content to Workbench session config files.
+                      Keys are config file names (e.g., "rsession.conf", "repos.conf").
+                    type: object
                   additionalVolumes:
                     description: AdditionalVolumes represents additional VolumeSpec's
                       that can be defined for Workbench
@@ -859,6 +948,67 @@ spec:
                       workbenchApiSuperAdminEnabled:
                         type: integer
                     type: object
+                  auditedJobs:
+                    description: |-
+                      AuditedJobs configures Workbench Audited Jobs for tracking execution details
+                      alongside job output, including digital signatures and environment data.
+                      Requires the Advanced product tier.
+                      See: https://docs.posit.co/ide/server-pro/admin/auditing_and_monitoring/audited_workbench_jobs.html
+                    properties:
+                      deletionExpiry:
+                        description: |-
+                          DeletionExpiry sets the number of days before completed audited jobs are deleted
+                          Maps to rserver.conf: audited-jobs-deletion-expiry
+                        type: integer
+                      detailsEnvironment:
+                        description: |-
+                          DetailsEnvironment enables capturing environment information (0=disabled, 1=enabled)
+                          Maps to rserver.conf: audited-jobs-details-environment
+                        maximum: 1
+                        minimum: 0
+                        type: integer
+                      detailsUserDefined:
+                        description: |-
+                          DetailsUserDefined enables capturing user-defined data (0=disabled, 1=enabled)
+                          Maps to rserver.conf: audited-jobs-details-user-defined
+                        maximum: 1
+                        minimum: 0
+                        type: integer
+                      enabled:
+                        description: |-
+                          Enabled enables audited jobs support (0=disabled, 1=enabled)
+                          Maps to rserver.conf: audited-jobs
+                        maximum: 1
+                        minimum: 0
+                        type: integer
+                      logLimit:
+                        description: |-
+                          LogLimit sets the maximum number of audit log entries
+                          Maps to rserver.conf: audited-jobs-log-limit
+                        type: integer
+                      privateKeyPath:
+                        description: |-
+                          PrivateKeyPath sets the path to the RSA private key for digital signatures
+                          Maps to rserver.conf: audited-jobs-private-key-path
+                        type: string
+                      publicKeyPaths:
+                        description: |-
+                          PublicKeyPaths sets the path(s) to RSA public keys for signature verification
+                          Maps to rserver.conf: audited-jobs-public-key-paths
+                        type: string
+                      storagePath:
+                        description: |-
+                          StoragePath sets the directory for audited job data
+                          Maps to rserver.conf: audited-jobs-storage-path
+                        type: string
+                      vanillaRequired:
+                        description: |-
+                          VanillaRequired requires --vanilla flag for R jobs (0=disabled, 1=enabled)
+                          Maps to rserver.conf: audited-jobs-vanilla-required
+                        maximum: 1
+                        minimum: 0
+                        type: integer
+                    type: object
                   auth:
                     properties:
                       administratorRoleMapping:
@@ -912,6 +1062,11 @@ spec:
                     type: object
                   authLoginPageHtml:
                     description: Workbench Auth/Login Landing Page Customization HTML
+                    type: string
+                  baseDomain:
+                    description: |-
+                      BaseDomain overrides site.Spec.Domain for this product's URL construction.
+                      When set, the product URL will be: domainPrefix.baseDomain
                     type: string
                   createUsersAutomatically:
                     type: boolean

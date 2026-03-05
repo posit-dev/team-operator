@@ -119,18 +119,70 @@ test: manifests generate-all fmt vet go-test cov ## Run generation and test comm
 .PHONY: go-test
 go-test: envtest ## Run only the go tests.
 	KUBEBUILDER_ASSETS="$(shell "$(ENVTEST)" use "$(ENVTEST_K8S_VERSION)" --bin-dir "$(LOCALBIN)" -p path)" \
-		go test -v ./... -race -covermode=atomic -coverprofile coverage.out
+		sh -c 'go test -buildvcs=false -v $$(go list -buildvcs=false -f '\''{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}'\'' ./...) -race -covermode=atomic -coverprofile coverage.out'
 
 .PHONY: cov
 cov: ## Show the coverage report at the function level.
 	$(SED) -i '/team-operator\/client-go/d' coverage.out
 	go tool cover -func coverage.out
 
+##@ Integration Testing
+
+KIND_CLUSTER_NAME ?= team-operator-test
+
+.PHONY: kind-create
+kind-create: ## Create a kind cluster for integration testing.
+	@if kind get clusters | grep -q "^$(KIND_CLUSTER_NAME)$$"; then \
+		echo "Kind cluster '$(KIND_CLUSTER_NAME)' already exists"; \
+	else \
+		echo "Creating kind cluster '$(KIND_CLUSTER_NAME)'..."; \
+		kind create cluster --name $(KIND_CLUSTER_NAME) --wait 60s; \
+	fi
+
+.PHONY: kind-delete
+kind-delete: ## Delete the kind cluster.
+	kind delete cluster --name $(KIND_CLUSTER_NAME) || true
+
+.PHONY: kind-load-image
+kind-load-image: docker-build ## Load the operator image into kind cluster.
+	kind load docker-image $(IMG) --name $(KIND_CLUSTER_NAME)
+
+.PHONY: kind-setup
+kind-setup: kind-create docker-build helm-generate ## Set up kind cluster and deploy operator (run once, or after code changes to reload).
+	@echo "Setting up kind cluster '$(KIND_CLUSTER_NAME)'..."
+	./hack/test-kind.sh $(KIND_CLUSTER_NAME) setup
+
+.PHONY: kind-test
+kind-test: ## Run integration tests against an existing kind cluster (requires kind-setup first).
+	./hack/test-kind.sh $(KIND_CLUSTER_NAME) test
+
+.PHONY: kind-teardown
+kind-teardown: ## Tear down the kind cluster and remove all test resources.
+	./hack/test-kind.sh $(KIND_CLUSTER_NAME) teardown
+	kind delete cluster --name $(KIND_CLUSTER_NAME) || true
+
+.PHONY: test-kind
+test-kind: kind-create docker-build helm-generate ## Build operator image and run integration tests on a kind cluster.
+	@echo "Running integration tests on kind cluster '$(KIND_CLUSTER_NAME)'..."
+	./hack/test-kind.sh $(KIND_CLUSTER_NAME)
+
+.PHONY: test-kind-full
+test-kind-full: kind-delete kind-create test-kind ## Run full integration tests (clean cluster).
+	@echo "Full integration test completed."
+
+.PHONY: test-integration
+test-integration: go-test test-kind ## Run all tests (unit + integration).
+	@echo "All tests completed."
+
 ##@ Build
 
 .PHONY: build
 build: manifests generate-all fmt vet ## Build manager binary.
 	go build -o bin/team-operator ./cmd/team-operator/main.go
+
+.PHONY: docker-build
+docker-build: build ## Build the operator Docker image.
+	docker build -t $(IMG) .
 
 .PHONY: distclean
 distclean:
@@ -174,8 +226,19 @@ CHART_DIR ?= dist/chart
 CHART_NAME ?= team-operator
 
 .PHONY: helm-generate
-helm-generate: manifests ## Regenerate Helm chart from kustomize
-	kubebuilder edit --plugins=helm.kubebuilder.io/v1-alpha
+helm-generate: manifests kubebuilder ## Regenerate Helm chart from kustomize
+	$(KUBEBUILDER) edit --plugins=helm.kubebuilder.io/v1-alpha
+	# Fix generated files that kubebuilder doesn't template correctly
+	$(SED) -i 's/team-operator-metrics-service/{{ .Values.controllerManager.serviceAccountName }}-metrics-service/g' dist/chart/templates/certmanager/certificate.yaml
+	$(SED) -i 's/team-operator-controller-manager-metrics-service/{{ .Values.controllerManager.serviceAccountName }}-metrics-service/g' dist/chart/templates/metrics/metrics-service.yaml
+	# Fix RoleBinding namespace to use watchNamespace value
+	$(SED) -i '/kind: RoleBinding/,/roleRef:/{s/namespace: posit-team/namespace: {{ .Values.watchNamespace }}/}' dist/chart/templates/rbac/role_binding.yaml
+	# Remove duplicate metrics service that kubebuilder generates - we already have one in dist/chart/templates/metrics/
+	# This was causing "services 'team-operator-controller-manager-metrics-service' already exists" errors
+	# The correct metrics service is gated on .Values.metrics.enable, not .Values.rbac.enable
+	rm -f dist/chart/templates/rbac/auth_proxy_service.yaml
+	# Remove kubebuilder-generated test workflow - we use our own CI workflows
+	rm -f .github/workflows/test-chart.yml
 
 .PHONY: helm-lint
 helm-lint: ## Lint the Helm chart
@@ -206,6 +269,7 @@ $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
 ## Tool Binaries
+KUBEBUILDER ?= $(LOCALBIN)/kubebuilder
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 APPLYCONFIGURATION_GEN ?= $(LOCALBIN)/applyconfiguration-gen
@@ -216,6 +280,7 @@ ENVTEST ?= $(LOCALBIN)/setup-envtest
 KUBE_CODEGEN ?= $(LOCALBIN)/kube_codegen.sh
 
 ## Tool Versions
+KUBEBUILDER_VERSION ?= v4.5.1
 KUSTOMIZE_VERSION ?= v3.8.7
 CONTROLLER_TOOLS_VERSION ?= v0.17.0
 KUBE_CODEGEN_VERSION ?= v0.30.1
@@ -241,6 +306,15 @@ controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessar
 $(CONTROLLER_GEN): $(LOCALBIN)
 	test -s $(LOCALBIN)/controller-gen && $(LOCALBIN)/controller-gen --version | grep -q $(CONTROLLER_TOOLS_VERSION) || \
 	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+
+.PHONY: kubebuilder
+kubebuilder: $(KUBEBUILDER) ## Download kubebuilder locally if necessary.
+$(KUBEBUILDER): $(LOCALBIN)
+	@if ! test -s $(LOCALBIN)/kubebuilder || ! $(LOCALBIN)/kubebuilder version | grep -q $(KUBEBUILDER_VERSION); then \
+		OS=$$(go env GOOS) && ARCH=$$(go env GOARCH) && \
+		curl -sSL -o $(LOCALBIN)/kubebuilder "https://github.com/kubernetes-sigs/kubebuilder/releases/download/$(KUBEBUILDER_VERSION)/kubebuilder_$${OS}_$${ARCH}" && \
+		chmod +x $(LOCALBIN)/kubebuilder; \
+	fi
 
 .PHONY: kube-codgen
 kube-codegen: $(LOCALBIN)

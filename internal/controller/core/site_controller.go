@@ -89,6 +89,13 @@ func prefixDomain(prefix, domain string, domainType positcov1beta1.SiteDomainTyp
 	return fmt.Sprintf("%s.%s", prefix, domain)
 }
 
+func getEffectiveBaseDomain(baseDomain, fallbackDomain string) string {
+	if baseDomain != "" {
+		return baseDomain
+	}
+	return fallbackDomain
+}
+
 func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Request, site *positcov1beta1.Site) (ctrl.Result, error) {
 
 	l := r.GetLogger(ctx).WithValues(
@@ -125,9 +132,21 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 
 	// Default to subdomain type since SiteHome is removed
 	domainType := positcov1beta1.SiteSubDomain
-	packageManagerUrl := prefixDomain(site.Spec.PackageManager.DomainPrefix, site.Spec.Domain, domainType)
-	connectUrl := prefixDomain(site.Spec.Connect.DomainPrefix, site.Spec.Domain, domainType)
-	workbenchUrl := prefixDomain(site.Spec.Workbench.DomainPrefix, site.Spec.Domain, domainType)
+	packageManagerUrl := prefixDomain(
+		site.Spec.PackageManager.DomainPrefix,
+		getEffectiveBaseDomain(site.Spec.PackageManager.BaseDomain, site.Spec.Domain),
+		domainType,
+	)
+	connectUrl := prefixDomain(
+		site.Spec.Connect.DomainPrefix,
+		getEffectiveBaseDomain(site.Spec.Connect.BaseDomain, site.Spec.Domain),
+		domainType,
+	)
+	workbenchUrl := prefixDomain(
+		site.Spec.Workbench.DomainPrefix,
+		getEffectiveBaseDomain(site.Spec.Workbench.BaseDomain, site.Spec.Domain),
+		domainType,
+	)
 
 	packageManagerRepoUrl := fmt.Sprintf("https://%s/cran/__linux__/jammy/latest", packageManagerUrl) // TODO: don't hardcode OS
 	if site.Spec.PackageManagerUrl != "" {
@@ -141,6 +160,13 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 	}
 
 	// VOLUMES
+
+	// Determine if Connect is enabled (used for volume provisioning and later for reconciliation)
+	connectEnabled := site.Spec.Connect.Enabled == nil || *site.Spec.Connect.Enabled
+	connectTeardown := site.Spec.Connect.Teardown != nil && *site.Spec.Connect.Teardown
+	if connectTeardown && connectEnabled {
+		l.Info("connect.teardown is set but connect.enabled is not false; teardown has no effect until enabled=false")
+	}
 
 	connectVolumeName := fmt.Sprintf("%s-connect", site.Name)
 	connectStorageClassName := connectVolumeName
@@ -164,8 +190,11 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 				return ctrl.Result{}, err
 			}
 
-			if err := r.provisionFsxVolume(ctx, site, connectVolumeName, "connect", connectVolumeSize); err != nil {
-				return ctrl.Result{}, err
+			// Only provision Connect volume if Connect is enabled
+			if connectEnabled {
+				if err := r.provisionFsxVolume(ctx, site, connectVolumeName, "connect", connectVolumeSize); err != nil {
+					return ctrl.Result{}, err
+				}
 			}
 
 			if err := r.provisionFsxVolume(ctx, site, devVolumeName, "workbench", connectVolumeSize); err != nil {
@@ -196,10 +225,13 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 				return ctrl.Result{}, err
 			}
 
-			connectStorageClassName = fmt.Sprintf("%s-nfs", connectVolumeName)
+			// Only provision Connect volume if Connect is enabled
+			if connectEnabled {
+				connectStorageClassName = fmt.Sprintf("%s-nfs", connectVolumeName)
 
-			if err := r.provisionNfsVolume(ctx, site, connectVolumeName, "connect", connectStorageClassName, connectVolumeSize); err != nil {
-				return ctrl.Result{}, err
+				if err := r.provisionNfsVolume(ctx, site, connectVolumeName, "connect", connectStorageClassName, connectVolumeSize); err != nil {
+					return ctrl.Result{}, err
+				}
 			}
 
 			devStorageClassName = fmt.Sprintf("%s-nfs", devVolumeName)
@@ -283,20 +315,38 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 	workbenchAdditionalVolumes = append(workbenchAdditionalVolumes, site.Spec.Workbench.AdditionalVolumes...)
 
 	// CONNECT
-	if err := r.reconcileConnect(
-		ctx,
-		req,
-		site,
-		dbUrl.Host,
-		sslMode,
-		connectVolumeName,
-		connectStorageClassName,
-		additionalVolumes,
-		packageManagerRepoUrl,
-		connectUrl,
-	); err != nil {
-		l.Error(err, "error reconciling connect")
-		return ctrl.Result{}, err
+	if connectEnabled {
+		// Connect is enabled - reconcile normally
+		if err := r.reconcileConnect(
+			ctx,
+			req,
+			site,
+			dbUrl.Host,
+			sslMode,
+			connectVolumeName,
+			connectStorageClassName,
+			additionalVolumes,
+			packageManagerRepoUrl,
+			connectUrl,
+		); err != nil {
+			l.Error(err, "error reconciling connect")
+			return ctrl.Result{}, err
+		}
+	} else if connectTeardown {
+		// Connect is disabled with teardown=true - DESTRUCTIVE cleanup
+		// This triggers permanent deletion of the Connect CRD, which causes
+		// the Connect finalizer to destroy the database, secrets, and all resources.
+		if err := r.cleanupConnect(ctx, req, l); err != nil {
+			l.Error(err, "error tearing down connect resources")
+			return ctrl.Result{}, err
+		}
+	} else {
+		// Connect is disabled but teardown=false - non-destructive suspend
+		// Removes serving resources (Deployment/Service/Ingress) but preserves data
+		if err := r.disableConnect(ctx, req, l); err != nil {
+			l.Error(err, "error disabling connect")
+			return ctrl.Result{}, err
+		}
 	}
 
 	// PACKAGE MANAGER

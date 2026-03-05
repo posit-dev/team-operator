@@ -23,6 +23,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 	// Group=core, Version=v1beta1
 	case v1beta1.SchemeGroupVersion.WithKind("ApiSettingsConfig"):
 		return &corev1beta1.ApiSettingsConfigApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("AuditedJobsConfig"):
+		return &corev1beta1.AuditedJobsConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("AuthSpec"):
 		return &corev1beta1.AuthSpecApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("AzureFilesConfig"):
@@ -77,6 +79,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &corev1beta1.ConnectQuartoConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ConnectRConfig"):
 		return &corev1beta1.ConnectRConfigApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("ConnectRuntimeImageSpec"):
+		return &corev1beta1.ConnectRuntimeImageSpecApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ConnectSamlConfig"):
 		return &corev1beta1.ConnectSamlConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ConnectSchedulerConfig"):
@@ -207,8 +211,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &corev1beta1.WorkbenchLauncherKubernetesConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("WorkbenchLauncherKubernetesProfilesConfigSection"):
 		return &corev1beta1.WorkbenchLauncherKubernetesProfilesConfigSectionApplyConfiguration{}
-	case v1beta1.SchemeGroupVersion.WithKind("WorkbenchLauncherKubnernetesResourcesConfigSection"):
-		return &corev1beta1.WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("WorkbenchLauncherKubernetesResourcesConfigSection"):
+		return &corev1beta1.WorkbenchLauncherKubernetesResourcesConfigSectionApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("WorkbenchLauncherLocalConfig"):
 		return &corev1beta1.WorkbenchLauncherLocalConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("WorkbenchLauncherServerConfig"):

@@ -1,4 +1,4 @@
-ARG GO_VERSION=1.24
+ARG GO_VERSION=1.25
 # Build the team-operator binary
 FROM golang:${GO_VERSION} AS builder
 ARG TARGETOS

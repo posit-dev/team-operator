@@ -13,36 +13,39 @@ import (
 // ConnectSpecApplyConfiguration represents a declarative configuration of the ConnectSpec type for use
 // with apply.
 type ConnectSpecApplyConfiguration struct {
-	License                              *product.LicenseSpec                      `json:"license,omitempty"`
-	Config                               *ConnectConfigApplyConfiguration          `json:"config,omitempty"`
-	SessionConfig                        *product.SessionConfig                    `json:"sessionConfig,omitempty"`
-	Volume                               *product.VolumeSpec                       `json:"volume,omitempty"`
-	SecretType                           *product.SiteSecretType                   `json:"secretType,omitempty"`
-	Auth                                 *AuthSpecApplyConfiguration               `json:"auth,omitempty"`
-	Url                                  *string                                   `json:"url,omitempty"`
-	DatabaseConfig                       *PostgresDatabaseConfigApplyConfiguration `json:"databaseConfig,omitempty"`
-	IngressClass                         *string                                   `json:"ingressClass,omitempty"`
-	IngressAnnotations                   map[string]string                         `json:"ingressAnnotations,omitempty"`
-	ImagePullSecrets                     []string                                  `json:"imagePullSecrets,omitempty"`
-	NodeSelector                         map[string]string                         `json:"nodeSelector,omitempty"`
-	AddEnv                               map[string]string                         `json:"addEnv,omitempty"`
-	OffHostExecution                     *bool                                     `json:"offHostExecution,omitempty"`
-	Image                                *string                                   `json:"image,omitempty"`
-	ImagePullPolicy                      *v1.PullPolicy                            `json:"imagePullPolicy,omitempty"`
-	Sleep                                *bool                                     `json:"sleep,omitempty"`
-	SessionImage                         *string                                   `json:"sessionImage,omitempty"`
-	AwsAccountId                         *string                                   `json:"awsAccountId,omitempty"`
-	ClusterDate                          *string                                   `json:"clusterDate,omitempty"`
-	WorkloadCompoundName                 *string                                   `json:"workloadCompoundName,omitempty"`
-	ChronicleAgentImage                  *string                                   `json:"chronicleImage,omitempty"`
-	AdditionalVolumes                    []product.VolumeSpec                      `json:"additionalVolumes,omitempty"`
-	Secret                               *SecretConfigApplyConfiguration           `json:"secret,omitempty"`
-	WorkloadSecret                       *SecretConfigApplyConfiguration           `json:"workloadSecret,omitempty"`
-	MainDatabaseCredentialSecret         *SecretConfigApplyConfiguration           `json:"mainDatabaseCredentialSecret,omitempty"`
-	Debug                                *bool                                     `json:"debug,omitempty"`
-	Replicas                             *int                                      `json:"replicas,omitempty"`
-	DsnSecret                            *string                                   `json:"dsnSecret,omitempty"`
-	ChronicleSidecarProductApiKeyEnabled *bool                                     `json:"chronicleSidecarProductApiKeyEnabled,omitempty"`
+	License                              *product.LicenseSpec                        `json:"license,omitempty"`
+	Config                               *ConnectConfigApplyConfiguration            `json:"config,omitempty"`
+	SessionConfig                        *product.SessionConfig                      `json:"sessionConfig,omitempty"`
+	Volume                               *product.VolumeSpec                         `json:"volume,omitempty"`
+	SecretType                           *product.SiteSecretType                     `json:"secretType,omitempty"`
+	Auth                                 *AuthSpecApplyConfiguration                 `json:"auth,omitempty"`
+	Url                                  *string                                     `json:"url,omitempty"`
+	DatabaseConfig                       *PostgresDatabaseConfigApplyConfiguration   `json:"databaseConfig,omitempty"`
+	IngressClass                         *string                                     `json:"ingressClass,omitempty"`
+	IngressAnnotations                   map[string]string                           `json:"ingressAnnotations,omitempty"`
+	ImagePullSecrets                     []string                                    `json:"imagePullSecrets,omitempty"`
+	NodeSelector                         map[string]string                           `json:"nodeSelector,omitempty"`
+	AddEnv                               map[string]string                           `json:"addEnv,omitempty"`
+	OffHostExecution                     *bool                                       `json:"offHostExecution,omitempty"`
+	AdditionalRuntimeImages              []ConnectRuntimeImageSpecApplyConfiguration `json:"additionalRuntimeImages,omitempty"`
+	Image                                *string                                     `json:"image,omitempty"`
+	ImagePullPolicy                      *v1.PullPolicy                              `json:"imagePullPolicy,omitempty"`
+	Sleep                                *bool                                       `json:"sleep,omitempty"`
+	Suspended                            *bool                                       `json:"suspended,omitempty"`
+	SessionImage                         *string                                     `json:"sessionImage,omitempty"`
+	AwsAccountId                         *string                                     `json:"awsAccountId,omitempty"`
+	ClusterDate                          *string                                     `json:"clusterDate,omitempty"`
+	WorkloadCompoundName                 *string                                     `json:"workloadCompoundName,omitempty"`
+	ChronicleAgentImage                  *string                                     `json:"chronicleImage,omitempty"`
+	AdditionalVolumes                    []product.VolumeSpec                        `json:"additionalVolumes,omitempty"`
+	Secret                               *SecretConfigApplyConfiguration             `json:"secret,omitempty"`
+	WorkloadSecret                       *SecretConfigApplyConfiguration             `json:"workloadSecret,omitempty"`
+	MainDatabaseCredentialSecret         *SecretConfigApplyConfiguration             `json:"mainDatabaseCredentialSecret,omitempty"`
+	RegisterOnFirstLogin                 *bool                                       `json:"registerOnFirstLogin,omitempty"`
+	Debug                                *bool                                       `json:"debug,omitempty"`
+	Replicas                             *int                                        `json:"replicas,omitempty"`
+	DsnSecret                            *string                                     `json:"dsnSecret,omitempty"`
+	ChronicleSidecarProductApiKeyEnabled *bool                                       `json:"chronicleSidecarProductApiKeyEnabled,omitempty"`
 }
 
 // ConnectSpecApplyConfiguration constructs a declarative configuration of the ConnectSpec type for use with
@@ -183,6 +186,19 @@ func (b *ConnectSpecApplyConfiguration) WithOffHostExecution(value bool) *Connec
 	return b
 }
 
+// WithAdditionalRuntimeImages adds the given value to the AdditionalRuntimeImages field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the AdditionalRuntimeImages field.
+func (b *ConnectSpecApplyConfiguration) WithAdditionalRuntimeImages(values ...*ConnectRuntimeImageSpecApplyConfiguration) *ConnectSpecApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithAdditionalRuntimeImages")
+		}
+		b.AdditionalRuntimeImages = append(b.AdditionalRuntimeImages, *values[i])
+	}
+	return b
+}
+
 // WithImage sets the Image field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Image field is set to the value of the last call.
@@ -204,6 +220,14 @@ func (b *ConnectSpecApplyConfiguration) WithImagePullPolicy(value v1.PullPolicy)
 // If called multiple times, the Sleep field is set to the value of the last call.
 func (b *ConnectSpecApplyConfiguration) WithSleep(value bool) *ConnectSpecApplyConfiguration {
 	b.Sleep = &value
+	return b
+}
+
+// WithSuspended sets the Suspended field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Suspended field is set to the value of the last call.
+func (b *ConnectSpecApplyConfiguration) WithSuspended(value bool) *ConnectSpecApplyConfiguration {
+	b.Suspended = &value
 	return b
 }
 
@@ -278,6 +302,14 @@ func (b *ConnectSpecApplyConfiguration) WithWorkloadSecret(value *SecretConfigAp
 // If called multiple times, the MainDatabaseCredentialSecret field is set to the value of the last call.
 func (b *ConnectSpecApplyConfiguration) WithMainDatabaseCredentialSecret(value *SecretConfigApplyConfiguration) *ConnectSpecApplyConfiguration {
 	b.MainDatabaseCredentialSecret = value
+	return b
+}
+
+// WithRegisterOnFirstLogin sets the RegisterOnFirstLogin field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the RegisterOnFirstLogin field is set to the value of the last call.
+func (b *ConnectSpecApplyConfiguration) WithRegisterOnFirstLogin(value bool) *ConnectSpecApplyConfiguration {
+	b.RegisterOnFirstLogin = &value
 	return b
 }
 

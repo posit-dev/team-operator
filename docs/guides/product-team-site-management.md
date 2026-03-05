@@ -243,6 +243,12 @@ spec:
 ```yaml
 spec:
   connect:
+    # Enable/disable Connect deployment (default: true).
+    # Setting enabled: false suspends Connect (preserves data).
+    # Use teardown: true to permanently delete all Connect data.
+    # See the Connect Configuration Guide for details.
+    enabled: true
+
     image: "ghcr.io/posit-dev/connect:ubuntu22-2024.10.0"
     imagePullPolicy: IfNotPresent
     replicas: 1
