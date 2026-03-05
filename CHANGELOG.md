@@ -1,3 +1,10 @@
+## [1.16.2](https://github.com/posit-dev/team-operator/compare/v1.16.1...v1.16.2) (2026-03-04)
+
+
+### Bug Fixes
+
+* mismatched image tags causing ImagePullBackOff ([#108](https://github.com/posit-dev/team-operator/issues/108)) ([4181072](https://github.com/posit-dev/team-operator/commit/418107279bb0bf10168f7e6f7d65901269666b2d))
+
 ## [1.16.1](https://github.com/posit-dev/team-operator/compare/v1.16.0...v1.16.1) (2026-02-27)
 
 
