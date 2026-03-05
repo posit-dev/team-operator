@@ -586,25 +586,6 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 	volumeFactory := c.CreateVolumeFactory(configCopy)
 	secretVolumeFactory := c.CreateSecretVolumeFactory(configCopy)
 
-	// PPM authenticated repos support
-	var ppmAuthVolumes []corev1.Volume
-	var ppmAuthVolumeMounts []corev1.VolumeMount
-	var ppmAuthEnvVars []corev1.EnvVar
-	var ppmAuthInitContainers []corev1.Container
-	var ppmAuthSidecarContainers []corev1.Container
-	if c.Spec.AuthenticatedRepos {
-		ppmURL := SanitizePPMUrl(c.Spec.PPMUrl)
-		ppmAuthVolumes = PPMAuthVolumes(c.SiteName(), ppmURL, c.Spec.PPMAuthAudience)
-		ppmAuthVolumeMounts = PPMAuthVolumeMounts()
-		ppmAuthEnvVars = PPMAuthEnvVars()
-		ppmAuthInitContainers = []corev1.Container{
-			PPMAuthInitContainer(c.Spec.PPMAuthImage, ppmURL),
-		}
-		ppmAuthSidecarContainers = []corev1.Container{
-			PPMAuthSidecarContainer(c.Spec.PPMAuthImage, ppmURL, ""),
-		}
-	}
-
 	var chronicleSeededEnv []corev1.EnvVar
 	if c.Spec.ChronicleSidecarProductApiKeyEnabled {
 		chronicleSeededEnv = []corev1.EnvVar{
@@ -649,11 +630,8 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 					NodeSelector:       c.Spec.NodeSelector,
 					ImagePullSecrets:   pullSecrets,
 					ServiceAccountName: maybeServiceAccountName,
-					// AutomountServiceAccountToken is false to avoid mounting the default SA token.
-					// This does NOT affect projected SA token volumes (used by PPM auth), which are
-					// explicit volume mounts independent of the automount setting.
+					// TODO: go back to automounting service token...
 					AutomountServiceAccountToken: ptr.To(false),
-					InitContainers:               ppmAuthInitContainers,
 					Containers: product.ConcatLists([]corev1.Container{
 						{
 							Name:            "connect",
@@ -665,7 +643,6 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 								volumeFactory.EnvVars(),
 								secretVolumeFactory.EnvVars(),
 								product.StringMapToEnvVars(c.Spec.AddEnv),
-								ppmAuthEnvVars,
 								[]corev1.EnvVar{
 									{
 										Name:  "LAUNCHER_INSTANCE_ID",
@@ -693,7 +670,6 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 								volumeFactory.VolumeMounts(),
 								secretVolumeFactory.VolumeMounts(),
 								c.TokenVolumeMounts(),
-								ppmAuthVolumeMounts,
 							),
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
@@ -726,7 +702,6 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 						},
 					},
 						product.ChronicleSidecar(c, chronicleSeededEnv),
-						ppmAuthSidecarContainers,
 					),
 					Affinity: &corev1.Affinity{
 						PodAntiAffinity: positcov1beta1.ComponentSpecPodAntiAffinity(c, req.Namespace),
@@ -738,7 +713,6 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 						volumeFactory.Volumes(),
 						secretVolumeFactory.Volumes(),
 						c.TokenVolumes(),
-						ppmAuthVolumes,
 					),
 				},
 			},

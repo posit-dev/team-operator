@@ -46,10 +46,6 @@ type ConnectSpecApplyConfiguration struct {
 	Replicas                             *int                                        `json:"replicas,omitempty"`
 	DsnSecret                            *string                                     `json:"dsnSecret,omitempty"`
 	ChronicleSidecarProductApiKeyEnabled *bool                                       `json:"chronicleSidecarProductApiKeyEnabled,omitempty"`
-	AuthenticatedRepos                   *bool                                       `json:"authenticatedRepos,omitempty"`
-	PPMAuthImage                         *string                                     `json:"ppmAuthImage,omitempty"`
-	PPMUrl                               *string                                     `json:"ppmUrl,omitempty"`
-	PPMAuthAudience                      *string                                     `json:"ppmAuthAudience,omitempty"`
 }
 
 // ConnectSpecApplyConfiguration constructs a declarative configuration of the ConnectSpec type for use with
@@ -346,37 +342,5 @@ func (b *ConnectSpecApplyConfiguration) WithDsnSecret(value string) *ConnectSpec
 // If called multiple times, the ChronicleSidecarProductApiKeyEnabled field is set to the value of the last call.
 func (b *ConnectSpecApplyConfiguration) WithChronicleSidecarProductApiKeyEnabled(value bool) *ConnectSpecApplyConfiguration {
 	b.ChronicleSidecarProductApiKeyEnabled = &value
-	return b
-}
-
-// WithAuthenticatedRepos sets the AuthenticatedRepos field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the AuthenticatedRepos field is set to the value of the last call.
-func (b *ConnectSpecApplyConfiguration) WithAuthenticatedRepos(value bool) *ConnectSpecApplyConfiguration {
-	b.AuthenticatedRepos = &value
-	return b
-}
-
-// WithPPMAuthImage sets the PPMAuthImage field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the PPMAuthImage field is set to the value of the last call.
-func (b *ConnectSpecApplyConfiguration) WithPPMAuthImage(value string) *ConnectSpecApplyConfiguration {
-	b.PPMAuthImage = &value
-	return b
-}
-
-// WithPPMUrl sets the PPMUrl field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the PPMUrl field is set to the value of the last call.
-func (b *ConnectSpecApplyConfiguration) WithPPMUrl(value string) *ConnectSpecApplyConfiguration {
-	b.PPMUrl = &value
-	return b
-}
-
-// WithPPMAuthAudience sets the PPMAuthAudience field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the PPMAuthAudience field is set to the value of the last call.
-func (b *ConnectSpecApplyConfiguration) WithPPMAuthAudience(value string) *ConnectSpecApplyConfiguration {
-	b.PPMAuthAudience = &value
 	return b
 }

@@ -43,8 +43,6 @@ type SiteSpecApplyConfiguration struct {
 	EFSEnabled                   *bool                                         `json:"efsEnabled,omitempty"`
 	VPCCIDR                      *string                                       `json:"vpcCIDR,omitempty"`
 	EnableFQDNHealthChecks       *bool                                         `json:"enableFqdnHealthChecks,omitempty"`
-	OIDCIssuerURL                *string                                       `json:"oidcIssuerUrl,omitempty"`
-	OIDCAudience                 *string                                       `json:"oidcAudience,omitempty"`
 }
 
 // SiteSpecApplyConfiguration constructs a declarative configuration of the SiteSpec type for use with
@@ -303,21 +301,5 @@ func (b *SiteSpecApplyConfiguration) WithVPCCIDR(value string) *SiteSpecApplyCon
 // If called multiple times, the EnableFQDNHealthChecks field is set to the value of the last call.
 func (b *SiteSpecApplyConfiguration) WithEnableFQDNHealthChecks(value bool) *SiteSpecApplyConfiguration {
 	b.EnableFQDNHealthChecks = &value
-	return b
-}
-
-// WithOIDCIssuerURL sets the OIDCIssuerURL field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the OIDCIssuerURL field is set to the value of the last call.
-func (b *SiteSpecApplyConfiguration) WithOIDCIssuerURL(value string) *SiteSpecApplyConfiguration {
-	b.OIDCIssuerURL = &value
-	return b
-}
-
-// WithOIDCAudience sets the OIDCAudience field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the OIDCAudience field is set to the value of the last call.
-func (b *SiteSpecApplyConfiguration) WithOIDCAudience(value string) *SiteSpecApplyConfiguration {
-	b.OIDCAudience = &value
 	return b
 }

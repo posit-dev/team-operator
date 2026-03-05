@@ -81,65 +81,6 @@ func TestPackageManagerConfig_OpenIDConnect(t *testing.T) {
 	require.Contains(t, str, "RequireLogin = true")
 }
 
-func TestPackageManagerConfig_IdentityFederation(t *testing.T) {
-	cfg := PackageManagerConfig{
-		IdentityFederation: []PackageManagerIdentityFederationConfig{
-			{
-				Name:     "connect",
-				Issuer:   "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE",
-				Audience: "sts.amazonaws.com",
-				Subject:  "system:serviceaccount:posit-team:mysite-connect",
-				Scope:    "repos:read:*",
-			},
-			{
-				Name:     "workbench",
-				Issuer:   "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE",
-				Audience: "sts.amazonaws.com",
-				Subject:  "system:serviceaccount:posit-team:mysite-workbench",
-				Scope:    "repos:read:*",
-			},
-		},
-	}
-	str, err := cfg.GenerateGcfg()
-	require.Nil(t, err)
-	require.Contains(t, str, `[IdentityFederation "connect"]`)
-	require.Contains(t, str, `[IdentityFederation "workbench"]`)
-	require.Contains(t, str, "Issuer = https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE")
-	require.Contains(t, str, "Audience = sts.amazonaws.com")
-	require.Contains(t, str, "Subject = system:serviceaccount:posit-team:mysite-connect")
-	require.Contains(t, str, "Scope = repos:read:*")
-}
-
-func TestPackageManagerConfig_OpenIDConnectAndIdentityFederation(t *testing.T) {
-	cfg := PackageManagerConfig{
-		Server: &PackageManagerServerConfig{
-			Address: "https://packagemanager.example.com",
-		},
-		OpenIDConnect: &PackageManagerOIDCConfig{
-			ClientId:     "ppm-client",
-			ClientSecret: "/etc/rstudio-pm/oidc-client-secret",
-			Issuer:       "https://login.example.com",
-			RequireLogin: true,
-		},
-		IdentityFederation: []PackageManagerIdentityFederationConfig{
-			{
-				Name:          "connect",
-				Issuer:        "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE",
-				Audience:      "sts.amazonaws.com",
-				Subject:       "system:serviceaccount:posit-team:.*-connect",
-				Scope:         "repos:read:*",
-				TokenLifetime: "1h",
-			},
-		},
-	}
-	str, err := cfg.GenerateGcfg()
-	require.Nil(t, err)
-	require.Contains(t, str, "[Server]")
-	require.Contains(t, str, "[OpenIDConnect]")
-	require.Contains(t, str, `[IdentityFederation "connect"]`)
-	require.Contains(t, str, "TokenLifetime = 1h")
-}
-
 func TestPackageManagerConfig_Authentication(t *testing.T) {
 	cfg := PackageManagerConfig{
 		Authentication: &PackageManagerAuthenticationConfig{
@@ -198,41 +139,4 @@ func TestPackageManagerConfig_OIDCNewFields(t *testing.T) {
 	require.Contains(t, str, "CustomScope = profile email groups")
 	require.Contains(t, str, "NoAutoGroupsScope = true")
 	require.Contains(t, str, "EnableDevicePKCE = true")
-}
-
-func TestPackageManagerConfig_IdentityFederationNewFields(t *testing.T) {
-	cfg := PackageManagerConfig{
-		IdentityFederation: []PackageManagerIdentityFederationConfig{
-			{
-				Name:              "my-idp",
-				Issuer:            "https://issuer.example.com",
-				Logging:           true,
-				Audience:          "my-audience",
-				CustomScope:       "read write",
-				NoAutoGroupsScope: true,
-				GroupsClaim:       "groups",
-				GroupsSeparator:   ",",
-				RoleClaim:         "roles",
-				RolesSeparator:    ";",
-				UniqueIdClaim:     "sub",
-				UsernameClaim:     "preferred_username",
-				TokenLifetime:     "2h",
-			},
-		},
-	}
-	str, err := cfg.GenerateGcfg()
-	require.Nil(t, err)
-	require.Contains(t, str, `[IdentityFederation "my-idp"]`)
-	require.Contains(t, str, "Issuer = https://issuer.example.com")
-	require.Contains(t, str, "Logging = true")
-	require.Contains(t, str, "Audience = my-audience")
-	require.Contains(t, str, "CustomScope = read write")
-	require.Contains(t, str, "NoAutoGroupsScope = true")
-	require.Contains(t, str, "GroupsClaim = groups")
-	require.Contains(t, str, "GroupsSeparator = ,")
-	require.Contains(t, str, "RoleClaim = roles")
-	require.Contains(t, str, "RolesSeparator = ;")
-	require.Contains(t, str, "UniqueIdClaim = sub")
-	require.Contains(t, str, "UsernameClaim = preferred_username")
-	require.Contains(t, str, "TokenLifetime = 2h")
 }

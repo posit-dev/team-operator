@@ -139,8 +139,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &corev1beta1.PackageManagerGitConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("PackageManagerHttpConfig"):
 		return &corev1beta1.PackageManagerHttpConfigApplyConfiguration{}
-	case v1beta1.SchemeGroupVersion.WithKind("PackageManagerIdentityFederationConfig"):
-		return &corev1beta1.PackageManagerIdentityFederationConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("PackageManagerMetricsConfig"):
 		return &corev1beta1.PackageManagerMetricsConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("PackageManagerOIDCConfig"):

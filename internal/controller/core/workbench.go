@@ -745,25 +745,6 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 	workbenchVolumeFactory := w.CreateVolumeFactory(configCopy)
 	workbenchSecretVolumeFactory := w.CreateSecretVolumeFactory()
 
-	// PPM authenticated repos support
-	var ppmAuthVolumes []corev1.Volume
-	var ppmAuthVolumeMounts []corev1.VolumeMount
-	var ppmAuthEnvVars []corev1.EnvVar
-	var ppmAuthInitContainers []corev1.Container
-	var ppmAuthSidecarContainers []corev1.Container
-	if w.Spec.AuthenticatedRepos {
-		ppmURL := SanitizePPMUrl(w.Spec.PPMUrl)
-		ppmAuthVolumes = PPMAuthVolumes(w.SiteName(), ppmURL, w.Spec.PPMAuthAudience)
-		ppmAuthVolumeMounts = PPMAuthVolumeMounts()
-		ppmAuthEnvVars = PPMAuthEnvVars()
-		ppmAuthInitContainers = []corev1.Container{
-			PPMAuthInitContainer(w.Spec.PPMAuthImage, ppmURL),
-		}
-		ppmAuthSidecarContainers = []corev1.Container{
-			PPMAuthSidecarContainer(w.Spec.PPMAuthImage, ppmURL, ""),
-		}
-	}
-
 	var chronicleSeededEnv []corev1.EnvVar
 	if w.Spec.ChronicleSidecarProductApiKeyEnabled {
 		chronicleSeededEnv = []corev1.EnvVar{
@@ -813,10 +794,7 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 					ImagePullSecrets:             pullSecrets,
 					ServiceAccountName:           maybeServiceAccountName,
 					AutomountServiceAccountToken: ptr.To(true),
-					InitContainers: product.ConcatLists(
-						r.buildWorkbenchInitContainers(w),
-						ppmAuthInitContainers,
-					),
+					InitContainers:               r.buildWorkbenchInitContainers(w),
 					Containers: product.ConcatLists(
 						[]corev1.Container{
 							{
@@ -828,7 +806,6 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 									workbenchSecretVolumeFactory.EnvVars(),
 									chronicleFactory.EnvVars(),
 									product.StringMapToEnvVars(w.Spec.AddEnv),
-									ppmAuthEnvVars,
 									[]corev1.EnvVar{
 										{
 											Name:  "LAUNCHER_INSTANCE_ID",
@@ -858,7 +835,6 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 									workbenchSecretVolumeFactory.VolumeMounts(),
 									chronicleFactory.VolumeMounts(),
 									r.buildLoadBalancerVolumeMounts(w),
-									ppmAuthVolumeMounts,
 								),
 								Resources: corev1.ResourceRequirements{
 									Requests: corev1.ResourceList{
@@ -890,7 +866,6 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 							},
 						},
 						chronicleFactory.Sidecars(),
-						ppmAuthSidecarContainers,
 					),
 					Affinity: &corev1.Affinity{
 						PodAntiAffinity: positcov1beta1.ComponentSpecPodAntiAffinity(w, req.Namespace),
@@ -904,7 +879,6 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 						workbenchSecretVolumeFactory.Volumes(),
 						chronicleFactory.Volumes(),
 						r.buildLoadBalancerVolumes(w),
-						ppmAuthVolumes,
 					),
 				},
 			},

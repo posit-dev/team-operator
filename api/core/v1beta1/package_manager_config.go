@@ -20,7 +20,6 @@ type PackageManagerConfig struct {
 	Debug              *PackageManagerDebugConfig               `json:"Debug,omitempty"`
 	Authentication     *PackageManagerAuthenticationConfig      `json:"Authentication,omitempty"`
 	OpenIDConnect      *PackageManagerOIDCConfig                `json:"OpenIDConnect,omitempty"`
-	IdentityFederation []PackageManagerIdentityFederationConfig `json:"identityFederation,omitempty"`
 
 	// AdditionalConfig allows appending arbitrary gcfg config content not covered by typed fields.
 	// The value is appended verbatim after the generated config. gcfg parsing naturally handles
@@ -53,11 +52,6 @@ func (configStruct *PackageManagerConfig) GenerateGcfg() (string, error) {
 
 		// Skip the AdditionalConfig string — we handle it at the end
 		if fieldName == "AdditionalConfig" {
-			continue
-		}
-
-		// Skip IdentityFederation - handled specially after the main loop
-		if fieldName == "IdentityFederation" {
 			continue
 		}
 
@@ -112,59 +106,6 @@ func (configStruct *PackageManagerConfig) GenerateGcfg() (string, error) {
 			} else if val, ok := section.values[key]; ok {
 				builder.WriteString(key + " = " + val + "\n")
 			}
-		}
-	}
-
-	// Render named IdentityFederation sections (these use the gcfg named subsection syntax)
-	for _, idf := range configStruct.IdentityFederation {
-		if strings.ContainsAny(idf.Name, "\"]\n") {
-			return "", fmt.Errorf("invalid IdentityFederation name %q: must not contain '\"', ']', or newlines", idf.Name)
-		}
-		builder.WriteString(fmt.Sprintf("\n[IdentityFederation \"%s\"]\n", idf.Name))
-		if idf.Issuer != "" {
-			builder.WriteString("Issuer = " + idf.Issuer + "\n")
-		}
-		if idf.Logging {
-			builder.WriteString("Logging = true\n")
-		}
-		if idf.Audience != "" {
-			builder.WriteString("Audience = " + idf.Audience + "\n")
-		}
-		if idf.Subject != "" {
-			builder.WriteString("Subject = " + idf.Subject + "\n")
-		}
-		if idf.AuthorizedParty != "" {
-			builder.WriteString("AuthorizedParty = " + idf.AuthorizedParty + "\n")
-		}
-		if idf.Scope != "" {
-			builder.WriteString("Scope = " + idf.Scope + "\n")
-		}
-		if idf.CustomScope != "" {
-			builder.WriteString("CustomScope = " + idf.CustomScope + "\n")
-		}
-		if idf.NoAutoGroupsScope {
-			builder.WriteString("NoAutoGroupsScope = true\n")
-		}
-		if idf.GroupsClaim != "" {
-			builder.WriteString("GroupsClaim = " + idf.GroupsClaim + "\n")
-		}
-		if idf.GroupsSeparator != "" {
-			builder.WriteString("GroupsSeparator = " + idf.GroupsSeparator + "\n")
-		}
-		if idf.RoleClaim != "" {
-			builder.WriteString("RoleClaim = " + idf.RoleClaim + "\n")
-		}
-		if idf.RolesSeparator != "" {
-			builder.WriteString("RolesSeparator = " + idf.RolesSeparator + "\n")
-		}
-		if idf.UniqueIdClaim != "" {
-			builder.WriteString("UniqueIdClaim = " + idf.UniqueIdClaim + "\n")
-		}
-		if idf.UsernameClaim != "" {
-			builder.WriteString("UsernameClaim = " + idf.UsernameClaim + "\n")
-		}
-		if idf.TokenLifetime != "" {
-			builder.WriteString("TokenLifetime = " + idf.TokenLifetime + "\n")
 		}
 	}
 
@@ -266,25 +207,6 @@ type PackageManagerOIDCConfig struct {
 	MaxAuthenticationAge string `json:"MaxAuthenticationAge,omitempty"`
 	DisablePKCE          bool   `json:"DisablePKCE,omitempty"`
 	EnableDevicePKCE     bool   `json:"EnableDevicePKCE,omitempty"`
-}
-
-type PackageManagerIdentityFederationConfig struct {
-	Name              string `json:"name,omitempty"`
-	Issuer            string `json:"Issuer,omitempty"`
-	Logging           bool   `json:"Logging,omitempty"`
-	Audience          string `json:"Audience,omitempty"`
-	Subject           string `json:"Subject,omitempty"`
-	AuthorizedParty   string `json:"AuthorizedParty,omitempty"`
-	Scope             string `json:"Scope,omitempty"`
-	CustomScope       string `json:"CustomScope,omitempty"`
-	NoAutoGroupsScope bool   `json:"NoAutoGroupsScope,omitempty"`
-	GroupsClaim       string `json:"GroupsClaim,omitempty"`
-	GroupsSeparator   string `json:"GroupsSeparator,omitempty"`
-	RoleClaim         string `json:"RoleClaim,omitempty"`
-	RolesSeparator    string `json:"RolesSeparator,omitempty"`
-	UniqueIdClaim     string `json:"UniqueIdClaim,omitempty"`
-	UsernameClaim     string `json:"UsernameClaim,omitempty"`
-	TokenLifetime     string `json:"TokenLifetime,omitempty"`
 }
 
 // SSHKeyConfig defines SSH key configuration for Git authentication

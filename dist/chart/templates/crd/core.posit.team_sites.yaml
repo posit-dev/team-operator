@@ -189,10 +189,6 @@ spec:
                           type: string
                         type: array
                     type: object
-                  authenticatedRepos:
-                    description: AuthenticatedRepos enables PPM authenticated repository
-                      access for Connect
-                    type: boolean
                   baseDomain:
                     description: |-
                       BaseDomain overrides site.Spec.Domain for this product's URL construction.
@@ -455,10 +451,6 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
-                  ppmAuthImage:
-                    description: PPMAuthImage specifies the container image for PPM
-                      auth init/sidecar containers
-                    type: string
                   publicWarning:
                     type: string
                   registerOnFirstLogin:
@@ -651,15 +643,6 @@ spec:
                 maximum: 100
                 minimum: 0
                 type: integer
-              oidcAudience:
-                description: |-
-                  OIDCAudience is the audience claim for the OIDC token used in Identity Federation.
-                  For EKS this is typically "sts.amazonaws.com", for AKS it varies by configuration.
-                type: string
-              oidcIssuerUrl:
-                description: OIDCIssuerURL is the K8s cluster OIDC issuer URL (for
-                  EKS/AKS Identity Federation)
-                type: string
               packageManager:
                 description: PackageManager contains Posit Package Manager configuration
                 properties:
@@ -1151,10 +1134,6 @@ spec:
                   authLoginPageHtml:
                     description: Workbench Auth/Login Landing Page Customization HTML
                     type: string
-                  authenticatedRepos:
-                    description: AuthenticatedRepos enables PPM authenticated repository
-                      access for Workbench
-                    type: boolean
                   baseDomain:
                     description: |-
                       BaseDomain overrides site.Spec.Domain for this product's URL construction.
@@ -1560,10 +1539,6 @@ spec:
                           x-kubernetes-preserve-unknown-fields: true
                         type: object
                     type: object
-                  ppmAuthImage:
-                    description: PPMAuthImage specifies the container image for PPM
-                      auth init/sidecar containers
-                    type: string
                   replicas:
                     type: integer
                   sessionInitContainerImageName:
