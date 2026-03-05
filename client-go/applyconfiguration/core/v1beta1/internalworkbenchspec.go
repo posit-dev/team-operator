@@ -45,6 +45,8 @@ type InternalWorkbenchSpecApplyConfiguration struct {
 	AuthLoginPageHtml             *string                                                  `json:"authLoginPageHtml,omitempty"`
 	AuditedJobs                   *AuditedJobsConfigApplyConfiguration                     `json:"auditedJobs,omitempty"`
 	JupyterConfig                 *WorkbenchJupyterConfigApplyConfiguration                `json:"jupyterConfig,omitempty"`
+	AdditionalConfigs             map[string]string                                        `json:"additionalConfigs,omitempty"`
+	AdditionalSessionConfigs      map[string]string                                        `json:"additionalSessionConfigs,omitempty"`
 }
 
 // InternalWorkbenchSpecApplyConfiguration constructs a declarative configuration of the InternalWorkbenchSpec type for use with
@@ -336,5 +338,33 @@ func (b *InternalWorkbenchSpecApplyConfiguration) WithAuditedJobs(value *Audited
 // If called multiple times, the JupyterConfig field is set to the value of the last call.
 func (b *InternalWorkbenchSpecApplyConfiguration) WithJupyterConfig(value *WorkbenchJupyterConfigApplyConfiguration) *InternalWorkbenchSpecApplyConfiguration {
 	b.JupyterConfig = value
+	return b
+}
+
+// WithAdditionalConfigs puts the entries into the AdditionalConfigs field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, the entries provided by each call will be put on the AdditionalConfigs field,
+// overwriting an existing map entries in AdditionalConfigs field with the same key.
+func (b *InternalWorkbenchSpecApplyConfiguration) WithAdditionalConfigs(entries map[string]string) *InternalWorkbenchSpecApplyConfiguration {
+	if b.AdditionalConfigs == nil && len(entries) > 0 {
+		b.AdditionalConfigs = make(map[string]string, len(entries))
+	}
+	for k, v := range entries {
+		b.AdditionalConfigs[k] = v
+	}
+	return b
+}
+
+// WithAdditionalSessionConfigs puts the entries into the AdditionalSessionConfigs field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, the entries provided by each call will be put on the AdditionalSessionConfigs field,
+// overwriting an existing map entries in AdditionalSessionConfigs field with the same key.
+func (b *InternalWorkbenchSpecApplyConfiguration) WithAdditionalSessionConfigs(entries map[string]string) *InternalWorkbenchSpecApplyConfiguration {
+	if b.AdditionalSessionConfigs == nil && len(entries) > 0 {
+		b.AdditionalSessionConfigs = make(map[string]string, len(entries))
+	}
+	for k, v := range entries {
+		b.AdditionalSessionConfigs[k] = v
+	}
 	return b
 }

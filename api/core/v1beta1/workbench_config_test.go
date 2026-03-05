@@ -110,8 +110,8 @@ func TestWorkbenchConfig_GenerateConfigmap(t *testing.T) {
 				LauncherSessionsInitContainerImageTag:  "v1.0.0",
 				AuthOpenidScopes:                       []string{"openid", "profile", "email", "offline_access"},
 			},
-			Resources: map[string]*WorkbenchLauncherKubnernetesResourcesConfigSection{
-				"*": &WorkbenchLauncherKubnernetesResourcesConfigSection{
+			Resources: map[string]*WorkbenchLauncherKubernetesResourcesConfigSection{
+				"*": &WorkbenchLauncherKubernetesResourcesConfigSection{
 					Name: "test-name",
 					Cpus: "6CPUS",
 				},
@@ -301,6 +301,115 @@ func TestWorkbenchConfig_GenerateSessionConfigmap(t *testing.T) {
 	require.Contains(t, cm["positron.conf"], "exe=/some/path")
 }
 
+func TestWorkbenchIniConfig_AdditionalConfigs(t *testing.T) {
+	t.Run("appends to existing config file", func(t *testing.T) {
+		wb := WorkbenchIniConfig{
+			RServer: &WorkbenchRServerConfig{
+				AdminEnabled: 1,
+				AdminGroup:   "workbench-admin",
+			},
+			AdditionalConfigs: map[string]string{
+				"rserver.conf": "custom-option=value\nanother-option=123\n",
+			},
+		}
+
+		cm := wb.GenerateConfigMap()
+		require.Contains(t, cm["rserver.conf"], "admin-enabled=1")
+		require.Contains(t, cm["rserver.conf"], "admin-group=workbench-admin")
+		require.Contains(t, cm["rserver.conf"], "custom-option=value")
+		require.Contains(t, cm["rserver.conf"], "another-option=123")
+
+		// Verify the custom configs are appended after the generated ones
+		idx1 := strings.Index(cm["rserver.conf"], "admin-enabled=1")
+		idx2 := strings.Index(cm["rserver.conf"], "custom-option=value")
+		require.Less(t, idx1, idx2, "Additional configs should be appended after generated configs")
+	})
+
+	t.Run("adds new config file", func(t *testing.T) {
+		wb := WorkbenchIniConfig{
+			AdditionalConfigs: map[string]string{
+				"custom.conf": "setting1=value1\nsetting2=value2\n",
+			},
+		}
+
+		cm := wb.GenerateConfigMap()
+		require.Contains(t, cm, "custom.conf")
+		require.Equal(t, "setting1=value1\nsetting2=value2\n", cm["custom.conf"])
+	})
+
+	t.Run("empty additional configs has no effect", func(t *testing.T) {
+		wb := WorkbenchIniConfig{
+			RServer: &WorkbenchRServerConfig{
+				AdminEnabled: 1,
+			},
+			AdditionalConfigs: map[string]string{},
+		}
+
+		cm := wb.GenerateConfigMap()
+		require.Contains(t, cm["rserver.conf"], "admin-enabled=1")
+		require.Len(t, cm, 1) // Only rserver.conf should exist
+	})
+
+	t.Run("nil additional configs has no effect", func(t *testing.T) {
+		wb := WorkbenchIniConfig{
+			RServer: &WorkbenchRServerConfig{
+				AdminEnabled: 1,
+			},
+		}
+
+		cm := wb.GenerateConfigMap()
+		require.Contains(t, cm["rserver.conf"], "admin-enabled=1")
+		require.Len(t, cm, 1) // Only rserver.conf should exist
+	})
+}
+
+func TestWorkbenchSessionIniConfig_AdditionalConfigs(t *testing.T) {
+	t.Run("appends to existing session config file", func(t *testing.T) {
+		wb := WorkbenchSessionIniConfig{
+			RSession: &WorkbenchRSessionConfig{
+				SessionSaveActionDefault: "ask",
+			},
+			AdditionalConfigs: map[string]string{
+				"rsession.conf": "custom-session-option=value\n",
+			},
+		}
+
+		cm := wb.GenerateConfigMap()
+		require.Contains(t, cm["rsession.conf"], "session-save-action-default=ask")
+		require.Contains(t, cm["rsession.conf"], "custom-session-option=value")
+
+		// Verify the custom configs are appended after the generated ones
+		idx1 := strings.Index(cm["rsession.conf"], "session-save-action-default=ask")
+		idx2 := strings.Index(cm["rsession.conf"], "custom-session-option=value")
+		require.Less(t, idx1, idx2, "Additional configs should be appended after generated configs")
+	})
+
+	t.Run("adds new session config file", func(t *testing.T) {
+		wb := WorkbenchSessionIniConfig{
+			AdditionalConfigs: map[string]string{
+				"custom-session.conf": "session-setting=value\n",
+			},
+		}
+
+		cm := wb.GenerateConfigMap()
+		require.Contains(t, cm, "custom-session.conf")
+		require.Equal(t, "session-setting=value\n", cm["custom-session.conf"])
+	})
+
+	t.Run("empty additional session configs has no effect", func(t *testing.T) {
+		wb := WorkbenchSessionIniConfig{
+			RSession: &WorkbenchRSessionConfig{
+				SessionSaveActionDefault: "ask",
+			},
+			AdditionalConfigs: map[string]string{},
+		}
+
+		cm := wb.GenerateConfigMap()
+		require.Contains(t, cm["rsession.conf"], "session-save-action-default=ask")
+		require.Len(t, cm, 1) // Only rsession.conf should exist
+	})
+}
+
 func TestWorkbenchConfig_GenerateDcfConfigmap(t *testing.T) {
 	wbc := WorkbenchConfig{
 		WorkbenchDcfConfig: WorkbenchDcfConfig{
@@ -380,18 +489,18 @@ func TestParseResourceQuantity(t *testing.T) {
 func TestCompareResourceProfiles(t *testing.T) {
 	tests := []struct {
 		name     string
-		profile1 *WorkbenchLauncherKubnernetesResourcesConfigSection
-		profile2 *WorkbenchLauncherKubnernetesResourcesConfigSection
+		profile1 *WorkbenchLauncherKubernetesResourcesConfigSection
+		profile2 *WorkbenchLauncherKubernetesResourcesConfigSection
 		expected bool // true if profile1 should come before profile2
 	}{
 		{
 			name: "lower CPU comes first",
-			profile1: &WorkbenchLauncherKubnernetesResourcesConfigSection{
+			profile1: &WorkbenchLauncherKubernetesResourcesConfigSection{
 				Name:  "small",
 				Cpus:  "1",
 				MemMb: "1024",
 			},
-			profile2: &WorkbenchLauncherKubnernetesResourcesConfigSection{
+			profile2: &WorkbenchLauncherKubernetesResourcesConfigSection{
 				Name:  "large",
 				Cpus:  "2",
 				MemMb: "1024",
@@ -400,12 +509,12 @@ func TestCompareResourceProfiles(t *testing.T) {
 		},
 		{
 			name: "equal CPU, lower memory comes first",
-			profile1: &WorkbenchLauncherKubnernetesResourcesConfigSection{
+			profile1: &WorkbenchLauncherKubernetesResourcesConfigSection{
 				Name:  "small",
 				Cpus:  "1",
 				MemMb: "512",
 			},
-			profile2: &WorkbenchLauncherKubnernetesResourcesConfigSection{
+			profile2: &WorkbenchLauncherKubernetesResourcesConfigSection{
 				Name:  "medium",
 				Cpus:  "1",
 				MemMb: "1024",
@@ -414,12 +523,12 @@ func TestCompareResourceProfiles(t *testing.T) {
 		},
 		{
 			name: "millicores comparison",
-			profile1: &WorkbenchLauncherKubnernetesResourcesConfigSection{
+			profile1: &WorkbenchLauncherKubernetesResourcesConfigSection{
 				Name:  "small",
 				Cpus:  "500m",
 				MemMb: "1024",
 			},
-			profile2: &WorkbenchLauncherKubnernetesResourcesConfigSection{
+			profile2: &WorkbenchLauncherKubernetesResourcesConfigSection{
 				Name:  "medium",
 				Cpus:  "1",
 				MemMb: "1024",
@@ -428,13 +537,13 @@ func TestCompareResourceProfiles(t *testing.T) {
 		},
 		{
 			name: "use request if higher than limit",
-			profile1: &WorkbenchLauncherKubnernetesResourcesConfigSection{
+			profile1: &WorkbenchLauncherKubernetesResourcesConfigSection{
 				Name:        "profile1",
 				Cpus:        "0.5",
 				CpusRequest: "1", // Higher request should be used
 				MemMb:       "1024",
 			},
-			profile2: &WorkbenchLauncherKubnernetesResourcesConfigSection{
+			profile2: &WorkbenchLauncherKubernetesResourcesConfigSection{
 				Name:        "profile2",
 				Cpus:        "2",
 				CpusRequest: "0.5",
@@ -444,12 +553,12 @@ func TestCompareResourceProfiles(t *testing.T) {
 		},
 		{
 			name: "equal resources, sort by name",
-			profile1: &WorkbenchLauncherKubnernetesResourcesConfigSection{
+			profile1: &WorkbenchLauncherKubernetesResourcesConfigSection{
 				Name:  "a-profile",
 				Cpus:  "1",
 				MemMb: "1024",
 			},
-			profile2: &WorkbenchLauncherKubnernetesResourcesConfigSection{
+			profile2: &WorkbenchLauncherKubernetesResourcesConfigSection{
 				Name:  "b-profile",
 				Cpus:  "1",
 				MemMb: "1024",
@@ -477,23 +586,23 @@ func TestCompareResourceProfiles(t *testing.T) {
 func TestWorkbenchConfig_GenerateConfigmap_ResourcesSorted(t *testing.T) {
 	wb := WorkbenchConfig{
 		WorkbenchIniConfig: WorkbenchIniConfig{
-			Resources: map[string]*WorkbenchLauncherKubnernetesResourcesConfigSection{
-				"large": &WorkbenchLauncherKubnernetesResourcesConfigSection{
+			Resources: map[string]*WorkbenchLauncherKubernetesResourcesConfigSection{
+				"large": &WorkbenchLauncherKubernetesResourcesConfigSection{
 					Name:  "Large Instance",
 					Cpus:  "4",
 					MemMb: "8192",
 				},
-				"small": &WorkbenchLauncherKubnernetesResourcesConfigSection{
+				"small": &WorkbenchLauncherKubernetesResourcesConfigSection{
 					Name:  "Small Instance",
 					Cpus:  "1",
 					MemMb: "1024",
 				},
-				"medium": &WorkbenchLauncherKubnernetesResourcesConfigSection{
+				"medium": &WorkbenchLauncherKubernetesResourcesConfigSection{
 					Name:  "Medium Instance",
 					Cpus:  "2",
 					MemMb: "4096",
 				},
-				"tiny": &WorkbenchLauncherKubnernetesResourcesConfigSection{
+				"tiny": &WorkbenchLauncherKubernetesResourcesConfigSection{
 					Name:  "Tiny Instance",
 					Cpus:  "500m",
 					MemMb: "512",
@@ -553,18 +662,18 @@ func TestGetEffectiveResource(t *testing.T) {
 func TestWorkbenchConfig_GenerateConfigmap_DefaultProfileFirst(t *testing.T) {
 	wb := WorkbenchConfig{
 		WorkbenchIniConfig: WorkbenchIniConfig{
-			Resources: map[string]*WorkbenchLauncherKubnernetesResourcesConfigSection{
-				"large": &WorkbenchLauncherKubnernetesResourcesConfigSection{
+			Resources: map[string]*WorkbenchLauncherKubernetesResourcesConfigSection{
+				"large": &WorkbenchLauncherKubernetesResourcesConfigSection{
 					Name:  "Large Instance",
 					Cpus:  "4",
 					MemMb: "8192",
 				},
-				"default": &WorkbenchLauncherKubnernetesResourcesConfigSection{
+				"default": &WorkbenchLauncherKubernetesResourcesConfigSection{
 					Name:  "Default Instance",
 					Cpus:  "2", // Medium-sized, but should still appear first
 					MemMb: "2048",
 				},
-				"tiny": &WorkbenchLauncherKubnernetesResourcesConfigSection{
+				"tiny": &WorkbenchLauncherKubernetesResourcesConfigSection{
 					Name:  "Tiny Instance",
 					Cpus:  "500m",
 					MemMb: "512",
@@ -599,23 +708,23 @@ func TestWorkbenchConfig_GenerateConfigmap_DefaultProfileFirst(t *testing.T) {
 func TestWorkbenchConfig_GenerateConfigmap_MemoryUnits(t *testing.T) {
 	wb := WorkbenchConfig{
 		WorkbenchIniConfig: WorkbenchIniConfig{
-			Resources: map[string]*WorkbenchLauncherKubnernetesResourcesConfigSection{
-				"xlarge": &WorkbenchLauncherKubnernetesResourcesConfigSection{
+			Resources: map[string]*WorkbenchLauncherKubernetesResourcesConfigSection{
+				"xlarge": &WorkbenchLauncherKubernetesResourcesConfigSection{
 					Name:  "XLarge Instance",
 					Cpus:  "8",
 					MemMb: "16Gi", // 16384 Mi
 				},
-				"small": &WorkbenchLauncherKubnernetesResourcesConfigSection{
+				"small": &WorkbenchLauncherKubernetesResourcesConfigSection{
 					Name:  "Small Instance",
 					Cpus:  "1",
 					MemMb: "512Mi", // 512 Mi
 				},
-				"medium": &WorkbenchLauncherKubnernetesResourcesConfigSection{
+				"medium": &WorkbenchLauncherKubernetesResourcesConfigSection{
 					Name:  "Medium Instance",
 					Cpus:  "2",
 					MemMb: "2Gi", // 2048 Mi
 				},
-				"large": &WorkbenchLauncherKubnernetesResourcesConfigSection{
+				"large": &WorkbenchLauncherKubernetesResourcesConfigSection{
 					Name:  "Large Instance",
 					Cpus:  "4",
 					MemMb: "8Gi", // 8192 Mi
@@ -858,15 +967,15 @@ func TestValidateConstraintFormat(t *testing.T) {
 func TestWorkbenchConfig_GenerateConfigmap_WithPlacementConstraintsSync(t *testing.T) {
 	wb := WorkbenchConfig{
 		WorkbenchIniConfig: WorkbenchIniConfig{
-			Resources: map[string]*WorkbenchLauncherKubnernetesResourcesConfigSection{
-				"gpu-enabled": &WorkbenchLauncherKubnernetesResourcesConfigSection{
+			Resources: map[string]*WorkbenchLauncherKubernetesResourcesConfigSection{
+				"gpu-enabled": &WorkbenchLauncherKubernetesResourcesConfigSection{
 					Name:                 "GPU Instance",
 					Cpus:                 "4",
 					MemMb:                "8192",
 					NvidiaGpus:           "1",
 					PlacementConstraints: "node-type=gpu,gpu-vendor=nvidia",
 				},
-				"compute-heavy": &WorkbenchLauncherKubnernetesResourcesConfigSection{
+				"compute-heavy": &WorkbenchLauncherKubernetesResourcesConfigSection{
 					Name:                 "Compute Heavy",
 					Cpus:                 "16",
 					MemMb:                "32768",
@@ -904,8 +1013,8 @@ func TestWorkbenchConfig_GenerateConfigmap_WithPlacementConstraintsSync(t *testi
 func TestWorkbenchConfig_GenerateConfigmap_PreservesExistingConstraints(t *testing.T) {
 	wb := WorkbenchConfig{
 		WorkbenchIniConfig: WorkbenchIniConfig{
-			Resources: map[string]*WorkbenchLauncherKubnernetesResourcesConfigSection{
-				"gpu-enabled": &WorkbenchLauncherKubnernetesResourcesConfigSection{
+			Resources: map[string]*WorkbenchLauncherKubernetesResourcesConfigSection{
+				"gpu-enabled": &WorkbenchLauncherKubernetesResourcesConfigSection{
 					Name:                 "GPU Instance",
 					Cpus:                 "4",
 					MemMb:                "8192",
@@ -942,20 +1051,20 @@ func TestWorkbenchConfig_GenerateConfigmap_PreservesExistingConstraints(t *testi
 func TestWorkbenchConfig_GenerateConfigmap_WithColonFormat(t *testing.T) {
 	wb := WorkbenchConfig{
 		WorkbenchIniConfig: WorkbenchIniConfig{
-			Resources: map[string]*WorkbenchLauncherKubnernetesResourcesConfigSection{
-				"default": &WorkbenchLauncherKubnernetesResourcesConfigSection{
+			Resources: map[string]*WorkbenchLauncherKubernetesResourcesConfigSection{
+				"default": &WorkbenchLauncherKubernetesResourcesConfigSection{
 					Name:                 "Default Instance",
 					Cpus:                 "1.0",
 					MemMb:                "2048",
 					PlacementConstraints: "kubernetes.io/hostname:k8s-control",
 				},
-				"small": &WorkbenchLauncherKubnernetesResourcesConfigSection{
+				"small": &WorkbenchLauncherKubernetesResourcesConfigSection{
 					Name:                 "Small Instance",
 					Cpus:                 "1.0",
 					MemMb:                "512",
 					PlacementConstraints: "kubernetes.io/hostname:k8s-worker2",
 				},
-				"medium": &WorkbenchLauncherKubnernetesResourcesConfigSection{
+				"medium": &WorkbenchLauncherKubernetesResourcesConfigSection{
 					Name:                 "Medium Instance",
 					Cpus:                 "2.0",
 					MemMb:                "4096",
@@ -993,14 +1102,14 @@ func TestWorkbenchConfig_GenerateConfigmap_WithColonFormat(t *testing.T) {
 func TestWorkbenchConfig_GenerateConfigmap_HandlesEmptyConstraints(t *testing.T) {
 	wb := WorkbenchConfig{
 		WorkbenchIniConfig: WorkbenchIniConfig{
-			Resources: map[string]*WorkbenchLauncherKubnernetesResourcesConfigSection{
-				"basic": &WorkbenchLauncherKubnernetesResourcesConfigSection{
+			Resources: map[string]*WorkbenchLauncherKubernetesResourcesConfigSection{
+				"basic": &WorkbenchLauncherKubernetesResourcesConfigSection{
 					Name:                 "Basic Instance",
 					Cpus:                 "2",
 					MemMb:                "4096",
 					PlacementConstraints: "", // Empty constraints
 				},
-				"standard": &WorkbenchLauncherKubnernetesResourcesConfigSection{
+				"standard": &WorkbenchLauncherKubernetesResourcesConfigSection{
 					Name:  "Standard Instance",
 					Cpus:  "4",
 					MemMb: "8192",

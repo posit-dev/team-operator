@@ -1,3 +1,52 @@
+## [1.16.2](https://github.com/posit-dev/team-operator/compare/v1.16.1...v1.16.2) (2026-03-04)
+
+
+### Bug Fixes
+
+* mismatched image tags causing ImagePullBackOff ([#108](https://github.com/posit-dev/team-operator/issues/108)) ([4181072](https://github.com/posit-dev/team-operator/commit/418107279bb0bf10168f7e6f7d65901269666b2d))
+
+## [1.16.1](https://github.com/posit-dev/team-operator/compare/v1.16.0...v1.16.1) (2026-02-27)
+
+
+### Bug Fixes
+
+* default operator image tag to chart appVersion instead of latest ([#107](https://github.com/posit-dev/team-operator/issues/107)) ([0ee55c1](https://github.com/posit-dev/team-operator/commit/0ee55c1a37992bfa5591875b001985c7a4cef2dd))
+
+# [1.16.0](https://github.com/posit-dev/team-operator/compare/v1.15.0...v1.16.0) (2026-02-26)
+
+
+### Features
+
+* auto-generate Edit Config page from Site CRD ([#39](https://github.com/posit-dev/team-operator/issues/39)) ([#79](https://github.com/posit-dev/team-operator/issues/79)) ([101dab1](https://github.com/posit-dev/team-operator/commit/101dab1f6e675ee0c35b0d12747ed6dc7b545677))
+
+# [1.15.0](https://github.com/posit-dev/team-operator/compare/v1.14.0...v1.15.0) (2026-02-24)
+
+
+### Features
+
+* add local integration testing infrastructure (envtest + kind) ([#54](https://github.com/posit-dev/team-operator/issues/54)) ([a5b5751](https://github.com/posit-dev/team-operator/commit/a5b5751fec092a3d830d159b37ae557214902c89))
+
+# [1.14.0](https://github.com/posit-dev/team-operator/compare/v1.13.0...v1.14.0) (2026-02-23)
+
+
+### Features
+
+* allow disabling Connect without data loss, add explicit teardown field ([#93](https://github.com/posit-dev/team-operator/issues/93)) ([5fab352](https://github.com/posit-dev/team-operator/commit/5fab35203c93835404e8dd8f67d455baad092ee9))
+
+# [1.13.0](https://github.com/posit-dev/team-operator/compare/v1.12.0...v1.13.0) (2026-02-20)
+
+
+### Features
+
+* add passthrough config mechanism for Connect, Package Manager, and Workbench ([#75](https://github.com/posit-dev/team-operator/issues/75)) ([e42c2b9](https://github.com/posit-dev/team-operator/commit/e42c2b91468a891b994fa1304497ed0098fab12f))
+
+# [1.12.0](https://github.com/posit-dev/team-operator/compare/v1.11.2...v1.12.0) (2026-02-19)
+
+
+### Features
+
+* migrate from aws-sdk-go v1 to v2 ([#50](https://github.com/posit-dev/team-operator/issues/50)) ([55708e7](https://github.com/posit-dev/team-operator/commit/55708e7526ebd9da56b70de30d2a302b29fb417c))
+
 ## [1.11.2](https://github.com/posit-dev/team-operator/compare/v1.11.1...v1.11.2) (2026-02-19)
 
 

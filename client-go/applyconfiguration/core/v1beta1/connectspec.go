@@ -31,6 +31,7 @@ type ConnectSpecApplyConfiguration struct {
 	Image                                *string                                     `json:"image,omitempty"`
 	ImagePullPolicy                      *v1.PullPolicy                              `json:"imagePullPolicy,omitempty"`
 	Sleep                                *bool                                       `json:"sleep,omitempty"`
+	Suspended                            *bool                                       `json:"suspended,omitempty"`
 	SessionImage                         *string                                     `json:"sessionImage,omitempty"`
 	AwsAccountId                         *string                                     `json:"awsAccountId,omitempty"`
 	ClusterDate                          *string                                     `json:"clusterDate,omitempty"`
@@ -219,6 +220,14 @@ func (b *ConnectSpecApplyConfiguration) WithImagePullPolicy(value v1.PullPolicy)
 // If called multiple times, the Sleep field is set to the value of the last call.
 func (b *ConnectSpecApplyConfiguration) WithSleep(value bool) *ConnectSpecApplyConfiguration {
 	b.Sleep = &value
+	return b
+}
+
+// WithSuspended sets the Suspended field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Suspended field is set to the value of the last call.
+func (b *ConnectSpecApplyConfiguration) WithSuspended(value bool) *ConnectSpecApplyConfiguration {
+	b.Suspended = &value
 	return b
 }
 

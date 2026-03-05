@@ -5,9 +5,9 @@
 
 package v1beta1
 
-// WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration represents a declarative configuration of the WorkbenchLauncherKubnernetesResourcesConfigSection type for use
+// WorkbenchLauncherKubernetesResourcesConfigSectionApplyConfiguration represents a declarative configuration of the WorkbenchLauncherKubernetesResourcesConfigSection type for use
 // with apply.
-type WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration struct {
+type WorkbenchLauncherKubernetesResourcesConfigSectionApplyConfiguration struct {
 	Name                 *string `json:"name,omitempty"`
 	Cpus                 *string `json:"cpus,omitempty"`
 	CpusRequest          *string `json:"cpus-request,omitempty"`
@@ -18,16 +18,16 @@ type WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration struct
 	PlacementConstraints *string `json:"placement-constraints,omitempty"`
 }
 
-// WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration constructs a declarative configuration of the WorkbenchLauncherKubnernetesResourcesConfigSection type for use with
+// WorkbenchLauncherKubernetesResourcesConfigSectionApplyConfiguration constructs a declarative configuration of the WorkbenchLauncherKubernetesResourcesConfigSection type for use with
 // apply.
-func WorkbenchLauncherKubnernetesResourcesConfigSection() *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration {
-	return &WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration{}
+func WorkbenchLauncherKubernetesResourcesConfigSection() *WorkbenchLauncherKubernetesResourcesConfigSectionApplyConfiguration {
+	return &WorkbenchLauncherKubernetesResourcesConfigSectionApplyConfiguration{}
 }
 
 // WithName sets the Name field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Name field is set to the value of the last call.
-func (b *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration) WithName(value string) *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration {
+func (b *WorkbenchLauncherKubernetesResourcesConfigSectionApplyConfiguration) WithName(value string) *WorkbenchLauncherKubernetesResourcesConfigSectionApplyConfiguration {
 	b.Name = &value
 	return b
 }
@@ -35,7 +35,7 @@ func (b *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration) W
 // WithCpus sets the Cpus field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Cpus field is set to the value of the last call.
-func (b *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration) WithCpus(value string) *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration {
+func (b *WorkbenchLauncherKubernetesResourcesConfigSectionApplyConfiguration) WithCpus(value string) *WorkbenchLauncherKubernetesResourcesConfigSectionApplyConfiguration {
 	b.Cpus = &value
 	return b
 }
@@ -43,7 +43,7 @@ func (b *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration) W
 // WithCpusRequest sets the CpusRequest field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the CpusRequest field is set to the value of the last call.
-func (b *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration) WithCpusRequest(value string) *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration {
+func (b *WorkbenchLauncherKubernetesResourcesConfigSectionApplyConfiguration) WithCpusRequest(value string) *WorkbenchLauncherKubernetesResourcesConfigSectionApplyConfiguration {
 	b.CpusRequest = &value
 	return b
 }
@@ -51,7 +51,7 @@ func (b *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration) W
 // WithMemMb sets the MemMb field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the MemMb field is set to the value of the last call.
-func (b *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration) WithMemMb(value string) *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration {
+func (b *WorkbenchLauncherKubernetesResourcesConfigSectionApplyConfiguration) WithMemMb(value string) *WorkbenchLauncherKubernetesResourcesConfigSectionApplyConfiguration {
 	b.MemMb = &value
 	return b
 }
@@ -59,7 +59,7 @@ func (b *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration) W
 // WithMemMbRequest sets the MemMbRequest field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the MemMbRequest field is set to the value of the last call.
-func (b *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration) WithMemMbRequest(value string) *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration {
+func (b *WorkbenchLauncherKubernetesResourcesConfigSectionApplyConfiguration) WithMemMbRequest(value string) *WorkbenchLauncherKubernetesResourcesConfigSectionApplyConfiguration {
 	b.MemMbRequest = &value
 	return b
 }
@@ -67,7 +67,7 @@ func (b *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration) W
 // WithNvidiaGpus sets the NvidiaGpus field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the NvidiaGpus field is set to the value of the last call.
-func (b *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration) WithNvidiaGpus(value string) *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration {
+func (b *WorkbenchLauncherKubernetesResourcesConfigSectionApplyConfiguration) WithNvidiaGpus(value string) *WorkbenchLauncherKubernetesResourcesConfigSectionApplyConfiguration {
 	b.NvidiaGpus = &value
 	return b
 }
@@ -75,7 +75,7 @@ func (b *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration) W
 // WithAmdGpus sets the AmdGpus field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the AmdGpus field is set to the value of the last call.
-func (b *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration) WithAmdGpus(value string) *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration {
+func (b *WorkbenchLauncherKubernetesResourcesConfigSectionApplyConfiguration) WithAmdGpus(value string) *WorkbenchLauncherKubernetesResourcesConfigSectionApplyConfiguration {
 	b.AmdGpus = &value
 	return b
 }
@@ -83,7 +83,7 @@ func (b *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration) W
 // WithPlacementConstraints sets the PlacementConstraints field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the PlacementConstraints field is set to the value of the last call.
-func (b *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration) WithPlacementConstraints(value string) *WorkbenchLauncherKubnernetesResourcesConfigSectionApplyConfiguration {
+func (b *WorkbenchLauncherKubernetesResourcesConfigSectionApplyConfiguration) WithPlacementConstraints(value string) *WorkbenchLauncherKubernetesResourcesConfigSectionApplyConfiguration {
 	b.PlacementConstraints = &value
 	return b
 }

@@ -221,9 +221,28 @@ type InternalPackageManagerSpec struct {
 	// AzureFiles configures Azure Files integration for persistent storage
 	// +optional
 	AzureFiles *AzureFilesConfig `json:"azureFiles,omitempty"`
+
+	// AdditionalConfig allows appending arbitrary gcfg config content to the generated config.
+	// +optional
+	AdditionalConfig string `json:"additionalConfig,omitempty"`
 }
 
 type InternalConnectSpec struct {
+	// Enabled controls whether Connect is running. Defaults to true.
+	// Setting to false suspends Connect: stops pods and removes ingress/service,
+	// but preserves PVC, database, and secrets so data is retained.
+	// Re-enabling restores full service without data loss.
+	// +kubebuilder:default=true
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Teardown permanently destroys all Connect resources including the database,
+	// secrets, and persistent volume claim. Only takes effect when Enabled is false.
+	// Re-enabling after teardown starts fresh with a new empty database.
+	// +kubebuilder:default=false
+	// +optional
+	Teardown *bool `json:"teardown,omitempty"`
+
 	License product.LicenseSpec `json:"license,omitempty"`
 
 	Volume *product.VolumeSpec `json:"volume,omitempty"`
@@ -275,6 +294,10 @@ type InternalConnectSpec struct {
 	// for Connect off-host execution
 	// +optional
 	AdditionalRuntimeImages []ConnectRuntimeImageSpec `json:"additionalRuntimeImages,omitempty"`
+
+	// AdditionalConfig allows appending arbitrary gcfg config content to the generated config.
+	// +optional
+	AdditionalConfig string `json:"additionalConfig,omitempty"`
 }
 
 type DatabaseSettings struct {
@@ -402,6 +425,16 @@ type InternalWorkbenchSpec struct {
 
 	// JupyterConfig contains Jupyter configuration for Workbench
 	JupyterConfig *WorkbenchJupyterConfig `json:"jupyterConfig,omitempty"`
+
+	// AdditionalConfigs allows appending arbitrary content to Workbench server config files.
+	// Keys are config file names (e.g., "rserver.conf", "launcher.conf").
+	// +optional
+	AdditionalConfigs map[string]string `json:"additionalConfigs,omitempty"`
+
+	// AdditionalSessionConfigs allows appending arbitrary content to Workbench session config files.
+	// Keys are config file names (e.g., "rsession.conf", "repos.conf").
+	// +optional
+	AdditionalSessionConfigs map[string]string `json:"additionalSessionConfigs,omitempty"`
 }
 
 type InternalWorkbenchExperimentalFeatures struct {
@@ -442,7 +475,7 @@ type InternalWorkbenchExperimentalFeatures struct {
 	VsCodeExtensionsDir string `json:"vsCodeExtensionsDir,omitempty"`
 
 	// ResourceProfiles for use by Workbench. If not provided, a default will be used
-	ResourceProfiles map[string]*WorkbenchLauncherKubnernetesResourcesConfigSection `json:"resourceProfiles,omitempty"`
+	ResourceProfiles map[string]*WorkbenchLauncherKubernetesResourcesConfigSection `json:"resourceProfiles,omitempty"`
 
 	// CpuRequestRatio defines the ratio of CPU requests to limits for session pods
 	// Value must be a decimal number between 0 and 1 (e.g., "0.6" means requests are 60% of limits)
