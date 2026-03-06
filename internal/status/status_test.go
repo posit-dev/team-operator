@@ -52,6 +52,11 @@ func TestExtractVersion(t *testing.T) {
 			expected: "",
 		},
 		{
+			name:     "empty string",
+			image:    "",
+			expected: "",
+		},
+		{
 			name:     "complex registry with port and tag",
 			image:    "registry.example.com:443/organization/repo:v2.3.4",
 			expected: "v2.3.4",
