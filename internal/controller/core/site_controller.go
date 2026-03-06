@@ -630,6 +630,8 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 			// Flightdeck is stateless — disable deletes the CR entirely, so if
 			// the CR still exists during a race between delete and aggregation,
 			// treat it as ready since the delete will complete on the next reconcile.
+			// A stuck delete surfaces as a reconcile error from disableFlightdeck,
+			// not from this status field.
 			site.Status.FlightdeckReady = true
 		} else {
 			site.Status.FlightdeckReady = status.IsReady(flightdeck.Status.Conditions)
