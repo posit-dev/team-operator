@@ -125,12 +125,12 @@ func PatchSuspendedStatus(ctx context.Context, statusWriter client.StatusWriter,
 }
 
 // PatchErrorStatus is a best-effort helper that sets Ready and Progressing to False
-// with ReasonReconcileError, then patches the status subresource. The patch error is
-// intentionally discarded so the caller can return the original reconcile error.
+// with ReasonReconcileError, then patches the status subresource. The caller should
+// log the returned error but still return the original reconcile error.
 // If the status patch itself fails (e.g., due to a conflict), the conditions will be
 // set on the in-memory object but not persisted; the next reconcile will retry.
-func PatchErrorStatus(ctx context.Context, statusWriter client.StatusWriter, obj client.Object, patchBase client.Patch, conditions *[]metav1.Condition, generation int64, reconcileErr error) {
+func PatchErrorStatus(ctx context.Context, statusWriter client.StatusWriter, obj client.Object, patchBase client.Patch, conditions *[]metav1.Condition, generation int64, reconcileErr error) error {
 	SetReady(conditions, generation, metav1.ConditionFalse, ReasonReconcileError, reconcileErr.Error())
 	SetProgressing(conditions, generation, metav1.ConditionFalse, ReasonReconcileError, reconcileErr.Error())
-	_ = statusWriter.Patch(ctx, obj, patchBase)
+	return statusWriter.Patch(ctx, obj, patchBase)
 }

@@ -44,7 +44,9 @@ func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Reque
 		patchBase := client.MergeFrom(c.DeepCopy())
 		res, err := r.suspendDeployedService(ctx, req, c)
 		if err != nil {
-			status.PatchErrorStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, err)
+			if patchErr := status.PatchErrorStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, err); patchErr != nil {
+				l.Error(patchErr, "Error patching error status")
+			}
 			return res, err
 		}
 		if patchErr := status.PatchSuspendedStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, &c.Status.ObservedGeneration, &c.Status.Ready); patchErr != nil {
