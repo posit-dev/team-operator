@@ -30,6 +30,12 @@ func isProductEnabled(b *bool) bool {
 	return b == nil || *b
 }
 
+// isProductDisabled returns true if the product is explicitly disabled (Enabled=false).
+// Returns false when Enabled is nil (default-enabled) or true.
+func isProductDisabled(b *bool) bool {
+	return b != nil && !*b
+}
+
 // SiteReconciler reconciles a Site object
 type SiteReconciler struct {
 	client.Client
@@ -551,15 +557,13 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	// Connect
 	connect := &positcov1beta1.Connect{}
 	if err := r.Get(ctx, key, connect); err == nil {
-		// If explicitly disabled, treat as ready regardless of CR conditions (e.g. suspended)
-		if site.Spec.Connect.Enabled != nil && !*site.Spec.Connect.Enabled {
+		if isProductDisabled(site.Spec.Connect.Enabled) {
 			site.Status.ConnectReady = true
 		} else {
 			site.Status.ConnectReady = status.IsReady(connect.Status.Conditions)
 		}
 	} else if apierrors.IsNotFound(err) {
-		// Ready only if explicitly disabled; nil or true means the CR is expected but missing
-		site.Status.ConnectReady = site.Spec.Connect.Enabled != nil && !*site.Spec.Connect.Enabled
+		site.Status.ConnectReady = isProductDisabled(site.Spec.Connect.Enabled)
 	} else {
 		if firstErr == nil {
 			firstErr = fmt.Errorf("fetching Connect for status aggregation: %w", err)
@@ -570,14 +574,13 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	// Workbench
 	workbench := &positcov1beta1.Workbench{}
 	if err := r.Get(ctx, key, workbench); err == nil {
-		if site.Spec.Workbench.Enabled != nil && !*site.Spec.Workbench.Enabled {
+		if isProductDisabled(site.Spec.Workbench.Enabled) {
 			site.Status.WorkbenchReady = true
 		} else {
 			site.Status.WorkbenchReady = status.IsReady(workbench.Status.Conditions)
 		}
 	} else if apierrors.IsNotFound(err) {
-		// Ready only if explicitly disabled; nil or true means the CR is expected but missing
-		site.Status.WorkbenchReady = site.Spec.Workbench.Enabled != nil && !*site.Spec.Workbench.Enabled
+		site.Status.WorkbenchReady = isProductDisabled(site.Spec.Workbench.Enabled)
 	} else {
 		if firstErr == nil {
 			firstErr = fmt.Errorf("fetching Workbench for status aggregation: %w", err)
@@ -588,14 +591,13 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	// PackageManager
 	pm := &positcov1beta1.PackageManager{}
 	if err := r.Get(ctx, key, pm); err == nil {
-		if site.Spec.PackageManager.Enabled != nil && !*site.Spec.PackageManager.Enabled {
+		if isProductDisabled(site.Spec.PackageManager.Enabled) {
 			site.Status.PackageManagerReady = true
 		} else {
 			site.Status.PackageManagerReady = status.IsReady(pm.Status.Conditions)
 		}
 	} else if apierrors.IsNotFound(err) {
-		// Ready only if explicitly disabled; nil or true means the CR is expected but missing
-		site.Status.PackageManagerReady = site.Spec.PackageManager.Enabled != nil && !*site.Spec.PackageManager.Enabled
+		site.Status.PackageManagerReady = isProductDisabled(site.Spec.PackageManager.Enabled)
 	} else {
 		if firstErr == nil {
 			firstErr = fmt.Errorf("fetching PackageManager for status aggregation: %w", err)
@@ -604,20 +606,15 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	}
 
 	// Chronicle
-	// Chronicle is enabled by default (Enabled=nil means enabled via isProductEnabled).
-	// If the CR exists, derive readiness from its conditions.
-	// If the CR is absent, it is only considered ready when explicitly disabled (Enabled=false).
-	// When Enabled=nil, the CR is expected (because isProductEnabled returns true) so absence means not ready yet.
 	chronicle := &positcov1beta1.Chronicle{}
 	if err := r.Get(ctx, key, chronicle); err == nil {
-		if site.Spec.Chronicle.Enabled != nil && !*site.Spec.Chronicle.Enabled {
+		if isProductDisabled(site.Spec.Chronicle.Enabled) {
 			site.Status.ChronicleReady = true
 		} else {
 			site.Status.ChronicleReady = status.IsReady(chronicle.Status.Conditions)
 		}
 	} else if apierrors.IsNotFound(err) {
-		// CR absent: ready only if explicitly disabled
-		site.Status.ChronicleReady = site.Spec.Chronicle.Enabled != nil && !*site.Spec.Chronicle.Enabled
+		site.Status.ChronicleReady = isProductDisabled(site.Spec.Chronicle.Enabled)
 	} else {
 		if firstErr == nil {
 			firstErr = fmt.Errorf("fetching Chronicle for status aggregation: %w", err)
@@ -626,19 +623,15 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	}
 
 	// Flightdeck
-	// Default-enabled (Enabled=nil means enabled via isProductEnabled).
-	// If the CR exists, derive readiness from its conditions.
-	// If the CR is absent, it is only considered ready when explicitly disabled (Enabled=false).
 	flightdeck := &positcov1beta1.Flightdeck{}
 	if err := r.Get(ctx, key, flightdeck); err == nil {
-		if site.Spec.Flightdeck.Enabled != nil && !*site.Spec.Flightdeck.Enabled {
+		if isProductDisabled(site.Spec.Flightdeck.Enabled) {
 			site.Status.FlightdeckReady = true
 		} else {
 			site.Status.FlightdeckReady = status.IsReady(flightdeck.Status.Conditions)
 		}
 	} else if apierrors.IsNotFound(err) {
-		// CR absent: ready only if explicitly disabled
-		site.Status.FlightdeckReady = site.Spec.Flightdeck.Enabled != nil && !*site.Spec.Flightdeck.Enabled
+		site.Status.FlightdeckReady = isProductDisabled(site.Spec.Flightdeck.Enabled)
 	} else {
 		if firstErr == nil {
 			firstErr = fmt.Errorf("fetching Flightdeck for status aggregation: %w", err)

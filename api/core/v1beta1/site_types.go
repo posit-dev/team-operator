@@ -147,6 +147,9 @@ type AzureFilesConfig struct {
 	ShareSizeGiB int `json:"shareSizeGiB,omitempty"`
 }
 
+// InternalFlightdeckSpec configures Flightdeck within a Site.
+// Flightdeck is stateless, so there is no Teardown field: disabling removes all resources
+// immediately (equivalent to teardown for stateful products).
 type InternalFlightdeckSpec struct {
 	// Enabled controls whether Flightdeck is deployed. Defaults to true if not specified.
 	// Set to false to explicitly disable Flightdeck deployment.
