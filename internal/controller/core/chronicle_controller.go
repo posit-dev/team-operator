@@ -108,8 +108,7 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 			return res, err
 		}
 		patchBase := client.MergeFrom(c.DeepCopy())
-		c.Status.ObservedGeneration = c.Generation
-		if patchErr := status.PatchSuspendedStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, &c.Status.Ready); patchErr != nil {
+		if patchErr := status.PatchSuspendedStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, &c.Status.ObservedGeneration, &c.Status.Ready); patchErr != nil {
 			l.Error(patchErr, "Error patching suspended status")
 		}
 		return res, nil

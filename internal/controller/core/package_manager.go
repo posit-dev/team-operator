@@ -147,8 +147,7 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 			return res, err
 		}
 		patchBase := client.MergeFrom(pm.DeepCopy())
-		pm.Status.ObservedGeneration = pm.Generation
-		if patchErr := status.PatchSuspendedStatus(ctx, r.Status(), pm, patchBase, &pm.Status.Conditions, pm.Generation, &pm.Status.Ready); patchErr != nil {
+		if patchErr := status.PatchSuspendedStatus(ctx, r.Status(), pm, patchBase, &pm.Status.Conditions, pm.Generation, &pm.Status.ObservedGeneration, &pm.Status.Ready); patchErr != nil {
 			l.Error(patchErr, "Error patching suspended status")
 		}
 		return res, nil
