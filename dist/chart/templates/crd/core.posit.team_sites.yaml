@@ -830,8 +830,15 @@ spec:
                 type: object
               packageManagerUrl:
                 description: |-
-                  PackageManagerUrl specifies the Package Manager URL for Workbench to use
+                  PackageManagerUrl specifies the Package Manager URL for Workbench to use for R packages (CRAN)
                   If empty, Workbench will use the local Package Manager URL by default
+                  Example: https://packagemanager.example.com/cran/__linux__/jammy/latest
+                type: string
+              pythonPackageManagerUrl:
+                description: |-
+                  PythonPackageManagerUrl specifies the Package Manager URL for Workbench to use for Python packages (PyPI)
+                  If empty, Workbench will derive it from the Package Manager domain: https://{domain}/pypi/latest/simple
+                  Example: https://packagemanager.example.com/pypi/latest/simple
                 type: string
               secret:
                 description: Secret configures the secret management for this Site
