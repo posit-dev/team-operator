@@ -262,17 +262,18 @@ func TestSetStatefulSetHealth(t *testing.T) {
 	})
 }
 
-// fakeStatusWriter is a no-op StatusWriter for testing functions that
-// modify in-memory state before calling Patch.
-type fakeStatusWriter struct{}
+type fakeStatusWriter struct {
+	patchCalled bool
+}
 
-func (f fakeStatusWriter) Create(_ context.Context, _ client.Object, _ client.Object, _ ...client.SubResourceCreateOption) error {
+func (f *fakeStatusWriter) Create(_ context.Context, _ client.Object, _ client.Object, _ ...client.SubResourceCreateOption) error {
 	return nil
 }
-func (f fakeStatusWriter) Update(_ context.Context, _ client.Object, _ ...client.SubResourceUpdateOption) error {
+func (f *fakeStatusWriter) Update(_ context.Context, _ client.Object, _ ...client.SubResourceUpdateOption) error {
 	return nil
 }
-func (f fakeStatusWriter) Patch(_ context.Context, _ client.Object, _ client.Patch, _ ...client.SubResourcePatchOption) error {
+func (f *fakeStatusWriter) Patch(_ context.Context, _ client.Object, _ client.Patch, _ ...client.SubResourcePatchOption) error {
+	f.patchCalled = true
 	return nil
 }
 
@@ -283,15 +284,17 @@ func TestPatchSuspendedStatus(t *testing.T) {
 		ready := true
 		version := "2024.06.0"
 
+		sw := &fakeStatusWriter{}
 		err := PatchSuspendedStatus(
 			context.Background(),
-			fakeStatusWriter{},
+			sw,
 			&metav1.PartialObjectMetadata{ObjectMeta: metav1.ObjectMeta{Name: "test", UID: types.UID("test-uid")}},
 			client.MergeFrom(&metav1.PartialObjectMetadata{ObjectMeta: metav1.ObjectMeta{Name: "test", UID: types.UID("test-uid")}}),
 			&conditions, 3, &observedGen, &ready, &version,
 		)
 
 		require.NoError(t, err)
+		assert.True(t, sw.patchCalled, "expected status Patch to be called")
 		assert.Equal(t, int64(3), observedGen)
 		assert.False(t, ready)
 		assert.Empty(t, version)
