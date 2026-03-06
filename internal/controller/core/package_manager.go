@@ -142,11 +142,11 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 
 	// If suspended, clean up serving resources but preserve data
 	if pm.Spec.Suspended != nil && *pm.Spec.Suspended {
-		patchBase := client.MergeFrom(pm.DeepCopy())
 		res, err := r.suspendDeployedService(ctx, req, pm)
 		if err != nil {
 			return res, err
 		}
+		patchBase := client.MergeFrom(pm.DeepCopy())
 		if patchErr := status.PatchSuspendedStatus(ctx, r.Status(), pm, patchBase, &pm.Status.Conditions, pm.Generation, &pm.Status.ObservedGeneration, &pm.Status.Ready); patchErr != nil {
 			l.Error(patchErr, "Error patching suspended status")
 			return res, patchErr
