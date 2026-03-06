@@ -191,3 +191,70 @@ func TestSetProgressing(t *testing.T) {
 		assert.True(t, progressing, "Progressing condition should be added")
 	})
 }
+
+func TestSetDeploymentHealth(t *testing.T) {
+	t.Run("ready when replicas meet desired", func(t *testing.T) {
+		conditions := []metav1.Condition{}
+		SetDeploymentHealth(&conditions, 3, 2, 2)
+
+		readyCond := findCondition(conditions, TypeReady)
+		assert.Equal(t, metav1.ConditionTrue, readyCond.Status)
+		assert.Equal(t, ReasonDeploymentReady, readyCond.Reason)
+
+		progCond := findCondition(conditions, TypeProgressing)
+		assert.Equal(t, metav1.ConditionFalse, progCond.Status)
+		assert.Equal(t, ReasonReconcileComplete, progCond.Reason)
+	})
+
+	t.Run("not ready when replicas below desired", func(t *testing.T) {
+		conditions := []metav1.Condition{}
+		SetDeploymentHealth(&conditions, 3, 1, 3)
+
+		readyCond := findCondition(conditions, TypeReady)
+		assert.Equal(t, metav1.ConditionFalse, readyCond.Status)
+		assert.Equal(t, ReasonDeploymentNotReady, readyCond.Reason)
+		assert.Contains(t, readyCond.Message, "1/3")
+
+		progCond := findCondition(conditions, TypeProgressing)
+		assert.Equal(t, metav1.ConditionTrue, progCond.Status)
+		assert.Equal(t, ReasonReconciling, progCond.Reason)
+	})
+}
+
+func TestSetStatefulSetHealth(t *testing.T) {
+	t.Run("ready when replicas meet desired", func(t *testing.T) {
+		conditions := []metav1.Condition{}
+		SetStatefulSetHealth(&conditions, 5, 3, 3)
+
+		readyCond := findCondition(conditions, TypeReady)
+		assert.Equal(t, metav1.ConditionTrue, readyCond.Status)
+		assert.Equal(t, ReasonStatefulSetReady, readyCond.Reason)
+
+		progCond := findCondition(conditions, TypeProgressing)
+		assert.Equal(t, metav1.ConditionFalse, progCond.Status)
+		assert.Equal(t, ReasonReconcileComplete, progCond.Reason)
+	})
+
+	t.Run("not ready when replicas below desired", func(t *testing.T) {
+		conditions := []metav1.Condition{}
+		SetStatefulSetHealth(&conditions, 5, 0, 1)
+
+		readyCond := findCondition(conditions, TypeReady)
+		assert.Equal(t, metav1.ConditionFalse, readyCond.Status)
+		assert.Equal(t, ReasonStatefulSetNotReady, readyCond.Reason)
+		assert.Contains(t, readyCond.Message, "0/1")
+
+		progCond := findCondition(conditions, TypeProgressing)
+		assert.Equal(t, metav1.ConditionTrue, progCond.Status)
+		assert.Equal(t, ReasonReconciling, progCond.Reason)
+	})
+}
+
+func findCondition(conditions []metav1.Condition, condType string) *metav1.Condition {
+	for i := range conditions {
+		if conditions[i].Type == condType {
+			return &conditions[i]
+		}
+	}
+	return nil
+}

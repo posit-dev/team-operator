@@ -113,14 +113,15 @@ func SetStatefulSetHealth(conditions *[]metav1.Condition, generation int64, read
 
 // PatchSuspendedStatus is a best-effort helper that sets ObservedGeneration, Ready
 // and Progressing to False with ReasonSuspended, then patches the status subresource.
-// It also sets the product-level ready bool to false via the provided pointer. If the
-// status patch fails, the conditions will be set on the in-memory object but not
-// persisted; the next reconcile will retry.
-func PatchSuspendedStatus(ctx context.Context, statusWriter client.StatusWriter, obj client.Object, patchBase client.Patch, conditions *[]metav1.Condition, generation int64, observedGeneration *int64, ready *bool) error {
+// It also sets the product-level ready bool to false and clears the version string
+// via the provided pointers. If the status patch fails, the conditions will be set
+// on the in-memory object but not persisted; the next reconcile will retry.
+func PatchSuspendedStatus(ctx context.Context, statusWriter client.StatusWriter, obj client.Object, patchBase client.Patch, conditions *[]metav1.Condition, generation int64, observedGeneration *int64, ready *bool, version *string) error {
 	*observedGeneration = generation
 	SetReady(conditions, generation, metav1.ConditionFalse, ReasonSuspended, "Product is suspended")
 	SetProgressing(conditions, generation, metav1.ConditionFalse, ReasonSuspended, "Product is suspended")
 	*ready = false
+	*version = ""
 	return statusWriter.Patch(ctx, obj, patchBase)
 }
 

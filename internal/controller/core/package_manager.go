@@ -151,7 +151,7 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 			}
 			return res, err
 		}
-		if patchErr := status.PatchSuspendedStatus(ctx, r.Status(), pm, patchBase, &pm.Status.Conditions, pm.Generation, &pm.Status.ObservedGeneration, &pm.Status.Ready); patchErr != nil {
+		if patchErr := status.PatchSuspendedStatus(ctx, r.Status(), pm, patchBase, &pm.Status.Conditions, pm.Generation, &pm.Status.ObservedGeneration, &pm.Status.Ready, &pm.Status.Version); patchErr != nil {
 			l.Error(patchErr, "Error patching suspended status")
 			return res, patchErr
 		}

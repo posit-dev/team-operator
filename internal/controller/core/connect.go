@@ -49,7 +49,7 @@ func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Reque
 			}
 			return res, err
 		}
-		if patchErr := status.PatchSuspendedStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, &c.Status.ObservedGeneration, &c.Status.Ready); patchErr != nil {
+		if patchErr := status.PatchSuspendedStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, &c.Status.ObservedGeneration, &c.Status.Ready, &c.Status.Version); patchErr != nil {
 			l.Error(patchErr, "Error patching suspended status")
 			return res, patchErr
 		}
