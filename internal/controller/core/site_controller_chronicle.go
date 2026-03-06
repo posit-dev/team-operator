@@ -151,9 +151,5 @@ func (r *SiteReconciler) cleanupChronicle(ctx context.Context, req controllerrun
 	l = l.WithValues("event", "cleanup-chronicle")
 
 	chronicleKey := client.ObjectKey{Name: req.Name, Namespace: req.Namespace}
-	if err := internal.BasicDelete(ctx, r, l, chronicleKey, &v1beta1.Chronicle{}); err != nil {
-		return err
-	}
-
-	return nil
+	return internal.BasicDelete(ctx, r, l, chronicleKey, &v1beta1.Chronicle{})
 }
