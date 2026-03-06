@@ -1,3 +1,24 @@
+## [1.16.2](https://github.com/posit-dev/team-operator/compare/v1.16.1...v1.16.2) (2026-03-04)
+
+
+### Bug Fixes
+
+* mismatched image tags causing ImagePullBackOff ([#108](https://github.com/posit-dev/team-operator/issues/108)) ([4181072](https://github.com/posit-dev/team-operator/commit/418107279bb0bf10168f7e6f7d65901269666b2d))
+
+## [1.16.1](https://github.com/posit-dev/team-operator/compare/v1.16.0...v1.16.1) (2026-02-27)
+
+
+### Bug Fixes
+
+* default operator image tag to chart appVersion instead of latest ([#107](https://github.com/posit-dev/team-operator/issues/107)) ([0ee55c1](https://github.com/posit-dev/team-operator/commit/0ee55c1a37992bfa5591875b001985c7a4cef2dd))
+
+# [1.16.0](https://github.com/posit-dev/team-operator/compare/v1.15.0...v1.16.0) (2026-02-26)
+
+
+### Features
+
+* auto-generate Edit Config page from Site CRD ([#39](https://github.com/posit-dev/team-operator/issues/39)) ([#79](https://github.com/posit-dev/team-operator/issues/79)) ([101dab1](https://github.com/posit-dev/team-operator/commit/101dab1f6e675ee0c35b0d12747ed6dc7b545677))
+
 # [1.15.0](https://github.com/posit-dev/team-operator/compare/v1.14.0...v1.15.0) (2026-02-24)
 
 

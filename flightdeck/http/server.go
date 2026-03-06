@@ -121,7 +121,7 @@ func Config(mux *http.ServeMux, getter internal.SiteInterface, config *internal.
 			return nil, err
 		}
 		slog.Debug("rendering config page", "site", config.SiteName)
-		return html.SiteConfigPage(site, config), nil
+		return html.CRDConfigPage(site, config), nil
 	}))
 }
 
