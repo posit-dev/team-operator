@@ -201,7 +201,7 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 	// VOLUMES
 
 	// Determine if Connect is enabled (used for volume provisioning and later for reconciliation)
-	connectEnabled := site.Spec.Connect.Enabled == nil || *site.Spec.Connect.Enabled
+	connectEnabled := isProductEnabled(site.Spec.Connect.Enabled)
 	connectTeardown := site.Spec.Connect.Teardown != nil && *site.Spec.Connect.Teardown
 	if connectTeardown && connectEnabled {
 		l.Info("connect.teardown is set but connect.enabled is not false; teardown has no effect until enabled=false")
@@ -661,6 +661,12 @@ func (r *SiteReconciler) cleanupResources(ctx context.Context, req ctrl.Request)
 	pmKey := client.ObjectKey{Name: req.Name, Namespace: req.Namespace}
 	if err := internal.BasicDelete(ctx, r, l, pmKey, &existingPackageManager); err != nil {
 		l.Error(err, "error cleaning up package manager", "product", "package-manager")
+	}
+
+	existingChronicle := positcov1beta1.Chronicle{}
+	chronicleKey := client.ObjectKey{Name: req.Name, Namespace: req.Namespace}
+	if err := internal.BasicDelete(ctx, r, l, chronicleKey, &existingChronicle); err != nil {
+		l.Error(err, "error cleaning up chronicle", "product", "chronicle")
 	}
 
 	existingFlightdeck := positcov1beta1.Flightdeck{}

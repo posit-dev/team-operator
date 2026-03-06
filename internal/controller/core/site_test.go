@@ -1764,7 +1764,8 @@ func TestAggregateChildStatusContinuesOnTransientError(t *testing.T) {
 }
 
 // TestSiteOptionalComponentsNilEnabledNoCR verifies that Chronicle and Flightdeck with Enabled=nil
-// and no CR present are treated as ready (not opted in + absent CR = ready).
+// and no CR present are treated as not ready (Enabled=nil means enabled via isProductEnabled,
+// so the CR is expected but missing → not ready yet).
 func TestSiteOptionalComponentsNilEnabledNoCR(t *testing.T) {
 	siteName := "optional-nil-no-cr"
 	siteNamespace := "posit-team"
@@ -1781,8 +1782,8 @@ func TestSiteOptionalComponentsNilEnabledNoCR(t *testing.T) {
 	err := rec.aggregateChildStatus(context.TODO(), req, site, log)
 	assert.NoError(t, err)
 
-	assert.True(t, site.Status.ChronicleReady, "ChronicleReady should be true when Enabled=nil and no CR exists")
-	assert.True(t, site.Status.FlightdeckReady, "FlightdeckReady should be true when Enabled=nil and no CR exists")
+	assert.False(t, site.Status.ChronicleReady, "ChronicleReady should be false when Enabled=nil and no CR exists (CR expected but missing)")
+	assert.False(t, site.Status.FlightdeckReady, "FlightdeckReady should be false when Enabled=nil and no CR exists (CR expected but missing)")
 }
 
 // TestSiteOptionalComponentsNilEnabledWithCR verifies that when Enabled=nil but a CR already
