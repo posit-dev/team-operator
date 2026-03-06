@@ -251,9 +251,7 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 	}
 
 	// Extract version from image
-	if pm.Spec.Image != "" {
-		pm.Status.Version = status.ExtractVersion(pm.Spec.Image)
-	}
+	pm.Status.Version = status.ExtractVersion(pm.Spec.Image)
 
 	// Derive Ready bool from condition
 	pm.Status.Ready = status.IsReady(pm.Status.Conditions)

@@ -118,6 +118,9 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 
 	if reconcileErr != nil {
+		if aggregateErr != nil {
+			l.Error(aggregateErr, "Error aggregating child status (returning reconcile error instead)")
+		}
 		return result, reconcileErr
 	}
 	return result, aggregateErr
