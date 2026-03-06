@@ -188,6 +188,15 @@ manager:
 | `manager.imagePullSecrets` | Image pull secrets | `[]` | No |
 | `manager.serviceAccount.annotations` | ServiceAccount annotations | `{}` | No |
 
+### Manager Probes
+
+Liveness and readiness probes are configured with fixed defaults and are not customizable via values:
+
+| Probe | Path | Port | Initial Delay | Period |
+|-------|------|------|---------------|--------|
+| Liveness | `/healthz` | `8081` | `15s` | `20s` |
+| Readiness | `/readyz` | `8081` | `5s` | `10s` |
+
 ### Manager Security Context
 
 | Parameter | Description | Default | Required |
@@ -296,6 +305,8 @@ manager:
     annotations:
       azure.workload.identity/client-id: "<AZURE_CLIENT_ID>"
 ```
+
+> **Note**: Azure Workload Identity also requires the label `azure.workload.identity/use: "true"` on pods. The chart does not currently support custom pod labels, so you will need to apply this label separately (e.g., via a mutating admission webhook or by customizing the chart template).
 
 ```bash
 helm install team-operator ./dist/chart \
