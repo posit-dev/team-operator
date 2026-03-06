@@ -180,7 +180,7 @@ manager:
 | `controllerManager.container.args` | Container arguments | See values.yaml | No |
 | `controllerManager.container.env` | Environment variables | See values.yaml | No |
 | `controllerManager.container.resources.limits.cpu` | CPU limit | `500m` | No |
-| `controllerManager.container.resources.limits.memory` | Memory limit | `128Mi` | No |
+| `controllerManager.container.resources.limits.memory` | Memory limit | `256Mi` | No |
 | `controllerManager.container.resources.requests.cpu` | CPU request | `10m` | No |
 | `controllerManager.container.resources.requests.memory` | Memory request | `64Mi` | No |
 
