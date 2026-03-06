@@ -9,10 +9,13 @@ import (
 	localtest "github.com/posit-dev/team-operator/api/localtest"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
+	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -523,4 +526,45 @@ func TestConnectReconciler_OIDC_DisableGroupsClaim(t *testing.T) {
 	assert.Contains(t, config, "GroupsClaim = ", "GroupsClaim should be explicitly set to empty")
 	// Ensure it's not set to a non-empty value
 	assert.NotContains(t, config, "GroupsClaim = groups", "GroupsClaim should not have the default 'groups' value")
+}
+
+// TestConnectReconciler_Suspended verifies that when Connect has Suspended=true,
+// ReconcileConnect does not create serving resources (Deployment, Service, Ingress).
+func TestConnectReconciler_Suspended(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "connect-suspended"
+
+	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
+
+	c := defineDefaultConnect(t, ns, name)
+	suspended := true
+	c.Spec.Suspended = &suspended
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	require.NoError(t, err)
+
+	c = getConnect(t, cli, ns, name)
+
+	res, err := r.ReconcileConnect(ctx, req, c)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	// No Deployment should be created when suspended
+	dep := &appsv1.Deployment{}
+	err = cli.Get(ctx, client.ObjectKey{Name: c.ComponentName(), Namespace: ns}, dep)
+	assert.Error(t, err, "Deployment should not exist when Connect is suspended")
+
+	// Status should reflect the suspended state
+	updated := &positcov1beta1.Connect{}
+	require.NoError(t, cli.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, updated))
+	assert.False(t, updated.Status.Ready, "Ready bool should be false when suspended")
+	readyCond := apimeta.FindStatusCondition(updated.Status.Conditions, status.TypeReady)
+	require.NotNil(t, readyCond, "Ready condition should be set when suspended")
+	assert.Equal(t, metav1.ConditionFalse, readyCond.Status)
+	assert.Equal(t, status.ReasonSuspended, readyCond.Reason)
+	progressCond := apimeta.FindStatusCondition(updated.Status.Conditions, status.TypeProgressing)
+	require.NotNil(t, progressCond, "Progressing condition should be set when suspended")
+	assert.Equal(t, metav1.ConditionFalse, progressCond.Status)
+	assert.Equal(t, status.ReasonSuspended, progressCond.Reason)
 }

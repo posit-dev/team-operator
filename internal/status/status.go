@@ -61,6 +61,12 @@ func IsReady(conditions []metav1.Condition) bool {
 	return apimeta.IsStatusConditionTrue(conditions, TypeReady)
 }
 
+// IsSuspended returns true if the Ready condition exists with ReasonSuspended.
+func IsSuspended(conditions []metav1.Condition) bool {
+	c := apimeta.FindStatusCondition(conditions, TypeReady)
+	return c != nil && c.Reason == ReasonSuspended
+}
+
 // ExtractVersion extracts a version string from a container image reference.
 // For example, "ghcr.io/rstudio/rstudio-connect:2024.06.0" returns "2024.06.0".
 // Also handles digest references: "image:2024.06.0@sha256:abc" returns "2024.06.0".
@@ -125,13 +131,25 @@ func PatchSuspendedStatus(ctx context.Context, statusWriter client.StatusWriter,
 	return statusWriter.Patch(ctx, obj, patchBase)
 }
 
+// maxConditionMessageLength is the maximum length for condition messages to avoid
+// leaking verbose internal details (connection strings, hostnames, etc.) in status.
+const maxConditionMessageLength = 256
+
 // PatchErrorStatus is a best-effort helper that sets Ready and Progressing to False
 // with ReasonReconcileError, then patches the status subresource. The caller should
 // log the returned error but still return the original reconcile error.
 // If the status patch itself fails (e.g., due to a conflict), the conditions will be
 // set on the in-memory object but not persisted; the next reconcile will retry.
 func PatchErrorStatus(ctx context.Context, statusWriter client.StatusWriter, obj client.Object, patchBase client.Patch, conditions *[]metav1.Condition, generation int64, reconcileErr error) error {
-	SetReady(conditions, generation, metav1.ConditionFalse, ReasonReconcileError, reconcileErr.Error())
-	SetProgressing(conditions, generation, metav1.ConditionFalse, ReasonReconcileError, reconcileErr.Error())
+	msg := truncateMessage(reconcileErr.Error())
+	SetReady(conditions, generation, metav1.ConditionFalse, ReasonReconcileError, msg)
+	SetProgressing(conditions, generation, metav1.ConditionFalse, ReasonReconcileError, msg)
 	return statusWriter.Patch(ctx, obj, patchBase)
+}
+
+func truncateMessage(msg string) string {
+	if len(msg) <= maxConditionMessageLength {
+		return msg
+	}
+	return msg[:maxConditionMessageLength-3] + "..."
 }

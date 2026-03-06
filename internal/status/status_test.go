@@ -5,6 +5,8 @@ package status
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -308,6 +310,93 @@ func TestPatchSuspendedStatus(t *testing.T) {
 		require.NotNil(t, progCond, "expected Progressing condition to be set")
 		assert.Equal(t, metav1.ConditionFalse, progCond.Status)
 		assert.Equal(t, ReasonSuspended, progCond.Reason)
+	})
+}
+
+func TestIsSuspended(t *testing.T) {
+	tests := []struct {
+		name       string
+		conditions []metav1.Condition
+		expected   bool
+	}{
+		{
+			name: "Ready condition with Suspended reason",
+			conditions: []metav1.Condition{
+				{Type: TypeReady, Status: metav1.ConditionFalse, Reason: ReasonSuspended},
+			},
+			expected: true,
+		},
+		{
+			name: "Ready condition with different reason",
+			conditions: []metav1.Condition{
+				{Type: TypeReady, Status: metav1.ConditionFalse, Reason: ReasonReconcileError},
+			},
+			expected: false,
+		},
+		{
+			name:       "No conditions",
+			conditions: []metav1.Condition{},
+			expected:   false,
+		},
+		{
+			name: "Ready condition True is not suspended",
+			conditions: []metav1.Condition{
+				{Type: TypeReady, Status: metav1.ConditionTrue, Reason: ReasonDeploymentReady},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := IsSuspended(tt.conditions)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestPatchErrorStatus_TruncatesLongMessages(t *testing.T) {
+	t.Run("short message is preserved", func(t *testing.T) {
+		conditions := []metav1.Condition{}
+		sw := &fakeStatusWriter{}
+		shortErr := fmt.Errorf("short error")
+
+		err := PatchErrorStatus(
+			context.Background(),
+			sw,
+			&metav1.PartialObjectMetadata{ObjectMeta: metav1.ObjectMeta{Name: "test", UID: types.UID("test-uid")}},
+			client.MergeFrom(&metav1.PartialObjectMetadata{ObjectMeta: metav1.ObjectMeta{Name: "test", UID: types.UID("test-uid")}}),
+			&conditions, 1, shortErr,
+		)
+
+		require.NoError(t, err)
+		readyCond := findCondition(conditions, TypeReady)
+		require.NotNil(t, readyCond)
+		assert.Equal(t, "short error", readyCond.Message)
+	})
+
+	t.Run("long message is truncated", func(t *testing.T) {
+		conditions := []metav1.Condition{}
+		sw := &fakeStatusWriter{}
+		longMsg := ""
+		for i := 0; i < 300; i++ {
+			longMsg += "x"
+		}
+		longErr := fmt.Errorf("%s", longMsg)
+
+		err := PatchErrorStatus(
+			context.Background(),
+			sw,
+			&metav1.PartialObjectMetadata{ObjectMeta: metav1.ObjectMeta{Name: "test", UID: types.UID("test-uid")}},
+			client.MergeFrom(&metav1.PartialObjectMetadata{ObjectMeta: metav1.ObjectMeta{Name: "test", UID: types.UID("test-uid")}}),
+			&conditions, 1, longErr,
+		)
+
+		require.NoError(t, err)
+		readyCond := findCondition(conditions, TypeReady)
+		require.NotNil(t, readyCond)
+		assert.Len(t, readyCond.Message, maxConditionMessageLength)
+		assert.True(t, strings.HasSuffix(readyCond.Message, "..."))
 	})
 }
 

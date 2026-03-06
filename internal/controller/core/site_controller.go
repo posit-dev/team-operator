@@ -558,7 +558,7 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	connect := &positcov1beta1.Connect{}
 	if err := r.Get(ctx, key, connect); err == nil {
 		if isProductDisabled(site.Spec.Connect.Enabled) {
-			site.Status.ConnectReady = true
+			site.Status.ConnectReady = status.IsSuspended(connect.Status.Conditions)
 		} else {
 			site.Status.ConnectReady = status.IsReady(connect.Status.Conditions)
 		}
@@ -575,7 +575,7 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	workbench := &positcov1beta1.Workbench{}
 	if err := r.Get(ctx, key, workbench); err == nil {
 		if isProductDisabled(site.Spec.Workbench.Enabled) {
-			site.Status.WorkbenchReady = true
+			site.Status.WorkbenchReady = status.IsSuspended(workbench.Status.Conditions)
 		} else {
 			site.Status.WorkbenchReady = status.IsReady(workbench.Status.Conditions)
 		}
@@ -592,7 +592,7 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	pm := &positcov1beta1.PackageManager{}
 	if err := r.Get(ctx, key, pm); err == nil {
 		if isProductDisabled(site.Spec.PackageManager.Enabled) {
-			site.Status.PackageManagerReady = true
+			site.Status.PackageManagerReady = status.IsSuspended(pm.Status.Conditions)
 		} else {
 			site.Status.PackageManagerReady = status.IsReady(pm.Status.Conditions)
 		}
@@ -609,7 +609,7 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	chronicle := &positcov1beta1.Chronicle{}
 	if err := r.Get(ctx, key, chronicle); err == nil {
 		if isProductDisabled(site.Spec.Chronicle.Enabled) {
-			site.Status.ChronicleReady = true
+			site.Status.ChronicleReady = status.IsSuspended(chronicle.Status.Conditions)
 		} else {
 			site.Status.ChronicleReady = status.IsReady(chronicle.Status.Conditions)
 		}
@@ -626,7 +626,7 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	flightdeck := &positcov1beta1.Flightdeck{}
 	if err := r.Get(ctx, key, flightdeck); err == nil {
 		if isProductDisabled(site.Spec.Flightdeck.Enabled) {
-			site.Status.FlightdeckReady = true
+			site.Status.FlightdeckReady = status.IsSuspended(flightdeck.Status.Conditions)
 		} else {
 			site.Status.FlightdeckReady = status.IsReady(flightdeck.Status.Conditions)
 		}
