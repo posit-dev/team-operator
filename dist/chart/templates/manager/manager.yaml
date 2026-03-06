@@ -56,7 +56,8 @@ spec:
                     {{- else }}
                     []
                     {{- end }}
-                  image: "{{ .Values.manager.image.repository }}:{{ .Values.manager.image.tag }}"
+                  {{- $tag := .Values.manager.image.tag | default .Chart.AppVersion }}
+                  image: "{{ .Values.manager.image.repository }}:{{ $tag }}"
                   imagePullPolicy: {{ .Values.manager.image.pullPolicy }}
                   livenessProbe:
                     httpGet:

@@ -16,8 +16,8 @@ manager:
   replicas: 1
 
   image:
-    repository: posit/team-operator
-    tag: latest
+    repository: posit/ptd-team-operator
+    tag: ""
     pullPolicy: IfNotPresent
 
   ## Arguments passed to the manager binary (in addition to metrics and health-probe

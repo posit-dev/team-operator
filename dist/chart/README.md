@@ -78,7 +78,7 @@ helm install team-operator ./dist/chart \
 helm install team-operator ./dist/chart \
   --namespace posit-team-system \
   --create-namespace \
-  --set manager.image.repository=posit/team-operator \
+  --set manager.image.repository=posit/ptd-team-operator \
   --set manager.image.tag=v1.2.0 \
   --set watchNamespace=my-posit-team
 ```
@@ -174,8 +174,8 @@ manager:
 
 | Parameter | Description | Default | Required |
 |-----------|-------------|---------|----------|
-| `manager.image.repository` | Operator image repository | `posit/team-operator` | No |
-| `manager.image.tag` | Operator image tag | `latest` | No |
+| `manager.image.repository` | Operator image repository | `posit/ptd-team-operator` | No |
+| `manager.image.tag` | Operator image tag (defaults to chart appVersion if empty) | `""` | No |
 | `manager.image.pullPolicy` | Image pull policy | `IfNotPresent` | No |
 | `manager.args` | Container arguments | See values.yaml | No |
 | `manager.env` | Environment variables | See values.yaml | No |
@@ -267,7 +267,7 @@ watchNamespace: posit-team
 
 manager:
   image:
-    repository: posit/team-operator
+    repository: posit/ptd-team-operator
     tag: v1.2.0
   env:
     - name: WATCH_NAMESPACES
@@ -296,7 +296,7 @@ watchNamespace: posit-team
 
 manager:
   image:
-    repository: posit/team-operator
+    repository: posit/ptd-team-operator
     tag: v1.2.0
   env:
     - name: WATCH_NAMESPACES

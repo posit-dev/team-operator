@@ -418,4 +418,31 @@ else
 echo "  - Migration guide already present in README.md, skipping..."
 fi
 
+# Issue 9: Fix image defaults in values.yaml
+# - Use ptd-team-operator (matches CI publish target)
+# - Default tag to empty string so Chart.AppVersion is used as fallback
+echo "  - Fixing image defaults in values.yaml..."
+$SED -i 's|repository: posit/team-operator|repository: posit/ptd-team-operator|' "$CHART_DIR/values.yaml"
+$SED -i 's/tag: latest/tag: ""/' "$CHART_DIR/values.yaml"
+
+# Issue 10: Fix image tag template in manager.yaml to fall back to Chart.AppVersion
+echo "  - Fixing image tag fallback in manager.yaml..."
+$SED -i 's|image: "{{ .Values.manager.image.repository }}:{{ .Values.manager.image.tag }}"|{{- \$tag := .Values.manager.image.tag | default .Chart.AppVersion }}\n                  image: "{{ .Values.manager.image.repository }}:{{ \$tag }}"|' "$CHART_DIR/templates/manager/manager.yaml"
+
+# Issue 11: Add labels to ClusterRole in manager-role.yaml
+echo "  - Adding labels to ClusterRole in manager-role.yaml..."
+$SED -i '0,/^    name: {{ include "team-operator.resourceName".*"manager-role"/{
+  /^kind: ClusterRole/,/^    name: {{ include "team-operator.resourceName".*"manager-role"/ {
+    /^metadata:$/a\
+\    labels:\
+\        app.kubernetes.io/component: rbac\
+\        app.kubernetes.io/created-by: team-operator\
+\        app.kubernetes.io/instance: manager-role\
+\        app.kubernetes.io/managed-by: {{ .Release.Service }}\
+\        app.kubernetes.io/name: clusterrole\
+\        helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}\
+\        app.kubernetes.io/part-of: team-operator
+  }
+}' "$CHART_DIR/templates/rbac/manager-role.yaml"
+
 echo "Post-generation customizations complete!"

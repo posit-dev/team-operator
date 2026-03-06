@@ -88,14 +88,14 @@ helm install team-operator ./dist/chart \
 # With custom image
 helm install team-operator ./dist/chart \
   --namespace posit-team-system --create-namespace \
-  --set controllerManager.container.image.repository=posit/team-operator \
+  --set controllerManager.container.image.repository=posit/ptd-team-operator \
   --set controllerManager.container.image.tag=latest
 ```
 
 #### Via Kustomize (Development)
 
 ```bash
-make deploy IMG=posit/team-operator:latest
+make deploy IMG=posit/ptd-team-operator:latest
 ```
 
 ### Local Development

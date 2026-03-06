@@ -445,7 +445,7 @@ HELM_EXTRA_ARGS ?=
 install-helm: ## Install the latest version of Helm.
 	@command -v $(HELM) >/dev/null 2>&1 || { \
 		echo "Installing Helm..." && \
-		curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4 | bash; \
+		curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash; \
 	}
 
 .PHONY: helm-deploy
