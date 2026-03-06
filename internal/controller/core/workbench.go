@@ -87,6 +87,7 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 		patchBase := client.MergeFrom(w.DeepCopy())
 		if patchErr := status.PatchSuspendedStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, &w.Status.ObservedGeneration, &w.Status.Ready); patchErr != nil {
 			l.Error(patchErr, "Error patching suspended status")
+			return res, patchErr
 		}
 		return res, nil
 	}

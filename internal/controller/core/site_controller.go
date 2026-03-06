@@ -331,10 +331,17 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 	}
 
 	// FLIGHTDECK
-
-	if err := r.reconcileFlightdeck(ctx, req, site); err != nil {
-		l.Error(err, "error reconciling flightdeck")
-		return ctrl.Result{}, err
+	flightdeckEnabled := isProductEnabled(site.Spec.Flightdeck.Enabled)
+	if flightdeckEnabled {
+		if err := r.reconcileFlightdeck(ctx, req, site); err != nil {
+			l.Error(err, "error reconciling flightdeck")
+			return ctrl.Result{}, err
+		}
+	} else {
+		if err := r.disableFlightdeck(ctx, req, l); err != nil {
+			l.Error(err, "error disabling flightdeck")
+			return ctrl.Result{}, err
+		}
 	}
 
 	// ADDITIONAL SHARED DIRECTORY
@@ -529,9 +536,10 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 // On transient error, all products are still evaluated so the status snapshot is as complete as possible.
 //
 // Products fall into two tiers with different "missing CR" semantics:
-//   - Required (Connect, Workbench, PackageManager): missing CR is ready only when explicitly
-//     disabled (Enabled != nil && !*Enabled). If Enabled is nil the product is expected → not ready.
-//   - Optional (Chronicle, Flightdeck): missing CR is ready when the user has not opted in
+//   - Default-enabled (Connect, Workbench, PackageManager, Chronicle): missing CR is ready only
+//     when explicitly disabled (Enabled != nil && !*Enabled). If Enabled is nil the product is
+//     expected → not ready.
+//   - Optional (Flightdeck): missing CR is ready when the user has not opted in
 //     (Enabled == nil || !*Enabled). These are off-by-default, so absence is the normal state.
 func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Request, site *positcov1beta1.Site, _ logr.Logger) error {
 	// Child CRs (Connect, Workbench, etc.) are created by reconcileResources with the same
@@ -583,15 +591,16 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	}
 
 	// Chronicle
-	// Optional: if the CR exists (even mid-teardown), derive readiness from its conditions.
-	// Only if the CR is absent and the user has not opted in (Enabled=nil or false) is the
-	// component considered ready without a CR.
+	// Chronicle is enabled by default (Enabled=nil means enabled via isProductEnabled).
+	// If the CR exists, derive readiness from its conditions.
+	// If the CR is absent, it is only considered ready when explicitly disabled (Enabled=false).
+	// When Enabled=nil, the CR is expected (because isProductEnabled returns true) so absence means not ready yet.
 	chronicle := &positcov1beta1.Chronicle{}
 	if err := r.Get(ctx, key, chronicle); err == nil {
 		site.Status.ChronicleReady = status.IsReady(chronicle.Status.Conditions)
 	} else if apierrors.IsNotFound(err) {
-		// CR absent: ready only if not opted in
-		site.Status.ChronicleReady = site.Spec.Chronicle.Enabled == nil || !*site.Spec.Chronicle.Enabled
+		// CR absent: ready only if explicitly disabled
+		site.Status.ChronicleReady = site.Spec.Chronicle.Enabled != nil && !*site.Spec.Chronicle.Enabled
 	} else {
 		if firstErr == nil {
 			firstErr = fmt.Errorf("fetching Chronicle for status aggregation: %w", err)

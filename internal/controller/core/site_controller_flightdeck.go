@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/internal"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	controllerruntime "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -44,12 +47,6 @@ func (r *SiteReconciler) reconcileFlightdeck(
 	l := r.GetLogger(ctx).WithValues(
 		"event", "reconcile-flightdeck",
 	)
-
-	// Skip Flightdeck reconciliation if explicitly disabled
-	if site.Spec.Flightdeck.Enabled != nil && !*site.Spec.Flightdeck.Enabled {
-		l.V(1).Info("skipping Flightdeck reconciliation: explicitly disabled via Site.Spec.Flightdeck.Enabled=false")
-		return nil
-	}
 
 	// Resolve the Flightdeck image (defaults to docker.io/posit/ptd-flightdeck:latest)
 	flightdeckImage := ResolveFlightdeckImage(site.Spec.Flightdeck.Image)
@@ -119,4 +116,33 @@ func (r *SiteReconciler) reconcileFlightdeck(
 	l.V(1).Info("successfully created or updated Flightdeck CRD")
 
 	return nil
+}
+
+// cleanupFlightdeck deletes the Flightdeck CR entirely (destructive teardown).
+func (r *SiteReconciler) cleanupFlightdeck(ctx context.Context, req controllerruntime.Request, l logr.Logger) error {
+	l = l.WithValues("event", "cleanup-flightdeck")
+
+	flightdeckKey := client.ObjectKey{Name: req.Name, Namespace: req.Namespace}
+	if err := internal.BasicDelete(ctx, r, l, flightdeckKey, &v1beta1.Flightdeck{}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// disableFlightdeck deletes the Flightdeck CR when disabled.
+// Flightdeck is stateless, so disable and teardown have the same effect.
+func (r *SiteReconciler) disableFlightdeck(ctx context.Context, req controllerruntime.Request, l logr.Logger) error {
+	l = l.WithValues("event", "disable-flightdeck")
+
+	flightdeck := &v1beta1.Flightdeck{}
+	if err := r.Get(ctx, client.ObjectKey{Name: req.Name, Namespace: req.Namespace}, flightdeck); err != nil {
+		if apierrors.IsNotFound(err) {
+			l.Info("Flightdeck CR not found, nothing to disable")
+			return nil
+		}
+		return err
+	}
+
+	return r.cleanupFlightdeck(ctx, req, l)
 }

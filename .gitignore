@@ -36,4 +36,3 @@ go.work.sum
 
 # Claude Code cache
 .claude/tsc-cache/
-.claude/tsc-cache/
