@@ -149,12 +149,7 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	desiredReplicas := int32(1)
-	if sts.Spec.Replicas != nil {
-		desiredReplicas = *sts.Spec.Replicas
-	}
-
-	status.SetStatefulSetHealth(&c.Status.Conditions, c.Generation, sts.Status.ReadyReplicas, desiredReplicas)
+	status.SetStatefulSetHealth(&c.Status.Conditions, c.Generation, sts.Status.ReadyReplicas, status.DesiredReplicas(sts.Spec.Replicas))
 	c.Status.Version = status.ExtractVersion(c.Spec.Image)
 	c.Status.Ready = status.IsReady(c.Status.Conditions)
 

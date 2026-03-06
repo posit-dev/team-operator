@@ -151,12 +151,7 @@ func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	desiredReplicas := int32(1)
-	if deploy.Spec.Replicas != nil {
-		desiredReplicas = *deploy.Spec.Replicas
-	}
-
-	status.SetDeploymentHealth(&c.Status.Conditions, c.Generation, deploy.Status.ReadyReplicas, desiredReplicas)
+	status.SetDeploymentHealth(&c.Status.Conditions, c.Generation, deploy.Status.ReadyReplicas, status.DesiredReplicas(deploy.Spec.Replicas))
 	c.Status.Version = status.ExtractVersion(c.Spec.Image)
 	c.Status.Ready = status.IsReady(c.Status.Conditions)
 

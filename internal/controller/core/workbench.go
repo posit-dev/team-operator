@@ -186,12 +186,7 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	desiredReplicas := int32(1)
-	if deploy.Spec.Replicas != nil {
-		desiredReplicas = *deploy.Spec.Replicas
-	}
-
-	status.SetDeploymentHealth(&w.Status.Conditions, w.Generation, deploy.Status.ReadyReplicas, desiredReplicas)
+	status.SetDeploymentHealth(&w.Status.Conditions, w.Generation, deploy.Status.ReadyReplicas, status.DesiredReplicas(deploy.Spec.Replicas))
 	w.Status.Version = status.ExtractVersion(w.Spec.Image)
 	w.Status.Ready = status.IsReady(w.Status.Conditions)
 

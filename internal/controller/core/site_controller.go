@@ -97,12 +97,13 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	result, reconcileErr := r.reconcileResources(ctx, req, s)
 
 	// Aggregate child component status
-	aggregateErr := r.aggregateChildStatus(ctx, req, s, l)
+	aggregateErr := r.aggregateChildStatus(ctx, req, s)
 
 	// Update status based on reconciliation result
 	if reconcileErr != nil {
-		status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconcileError, reconcileErr.Error())
-		status.SetProgressing(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconcileError, reconcileErr.Error())
+		msg := status.TruncateMessage(reconcileErr.Error())
+		status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconcileError, msg)
+		status.SetProgressing(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconcileError, msg)
 	} else {
 		// Overall Ready is true only if all children are ready
 		allReady := s.Status.ConnectReady && s.Status.WorkbenchReady && s.Status.PackageManagerReady && s.Status.ChronicleReady && s.Status.FlightdeckReady
@@ -547,7 +548,7 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 // Products are default-enabled (Connect, Workbench, PackageManager, Chronicle, Flightdeck):
 // missing CR is ready only when explicitly disabled (Enabled != nil && !*Enabled). If Enabled
 // is nil the product is expected → not ready.
-func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Request, site *positcov1beta1.Site, _ logr.Logger) error {
+func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Request, site *positcov1beta1.Site) error {
 	// Child CRs (Connect, Workbench, etc.) are created by reconcileResources with the same
 	// name as the parent Site. See site_controller_connect.go, site_controller_workbench.go, etc.
 	key := client.ObjectKey{Name: site.Name, Namespace: req.Namespace}

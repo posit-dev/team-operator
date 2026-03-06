@@ -93,12 +93,7 @@ func (r *FlightdeckReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
-	desiredReplicas := int32(1)
-	if deploy.Spec.Replicas != nil {
-		desiredReplicas = *deploy.Spec.Replicas
-	}
-
-	status.SetDeploymentHealth(&fd.Status.Conditions, fd.Generation, deploy.Status.ReadyReplicas, desiredReplicas)
+	status.SetDeploymentHealth(&fd.Status.Conditions, fd.Generation, deploy.Status.ReadyReplicas, status.DesiredReplicas(deploy.Spec.Replicas))
 	fd.Status.Version = status.ExtractVersion(fd.Spec.Image)
 	fd.Status.Ready = status.IsReady(fd.Status.Conditions)
 

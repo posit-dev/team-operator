@@ -1661,7 +1661,7 @@ func TestSiteNilEnabledMissingCR(t *testing.T) {
 	site := defaultSite(siteName)
 	// Connect.Enabled is nil — product is expected but CR does not yet exist
 
-	err := rec.aggregateChildStatus(context.TODO(), req, site, log)
+	err := rec.aggregateChildStatus(context.TODO(), req, site)
 	assert.NoError(t, err)
 
 	assert.False(t, site.Status.ConnectReady, "ConnectReady should be false when Enabled=nil and Connect CR does not exist")
@@ -1750,7 +1750,7 @@ func TestAggregateChildStatusContinuesOnTransientError(t *testing.T) {
 	rec := SiteReconciler{Client: errCli, Scheme: scheme, Log: log}
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
 
-	err := rec.aggregateChildStatus(context.TODO(), req, site, log)
+	err := rec.aggregateChildStatus(context.TODO(), req, site)
 
 	// Error should be propagated
 	assert.Error(t, err, "transient API error should be returned")
@@ -1779,7 +1779,7 @@ func TestSiteOptionalComponentsNilEnabledNoCR(t *testing.T) {
 	site := defaultSite(siteName)
 	// Chronicle.Enabled and Flightdeck.Enabled are nil by default
 
-	err := rec.aggregateChildStatus(context.TODO(), req, site, log)
+	err := rec.aggregateChildStatus(context.TODO(), req, site)
 	assert.NoError(t, err)
 
 	assert.False(t, site.Status.ChronicleReady, "ChronicleReady should be false when Enabled=nil and no CR exists (CR expected but missing)")
@@ -1815,7 +1815,7 @@ func TestSiteOptionalComponentsNilEnabledWithCR(t *testing.T) {
 	// Enabled=nil — CRs exist (simulating transition/teardown)
 	site := defaultSite(siteName)
 
-	err = rec.aggregateChildStatus(context.TODO(), req, site, log)
+	err = rec.aggregateChildStatus(context.TODO(), req, site)
 	assert.NoError(t, err)
 
 	// CRs exist but have no Ready condition → IsReady returns false
@@ -1835,24 +1835,28 @@ func TestAggregateChildStatusDisabledWithExistingCR(t *testing.T) {
 	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
 
-	// Pre-create Connect CR with Ready=False (simulates suspended state)
+	// Pre-create Connect CR with suspended status (simulates disabled state)
 	connect := &v1beta1.Connect{
 		ObjectMeta: metav1.ObjectMeta{Namespace: siteNamespace, Name: siteName},
 	}
 	require.NoError(t, cli.Create(context.TODO(), connect))
+	status.SetReady(&connect.Status.Conditions, 0, metav1.ConditionFalse, status.ReasonSuspended, "Product is suspended")
+	require.NoError(t, cli.Status().Update(context.TODO(), connect))
 
-	// Pre-create Chronicle CR with Ready=False
+	// Pre-create Chronicle CR with suspended status
 	chronicle := &v1beta1.Chronicle{
 		ObjectMeta: metav1.ObjectMeta{Namespace: siteNamespace, Name: siteName},
 	}
 	require.NoError(t, cli.Create(context.TODO(), chronicle))
+	status.SetReady(&chronicle.Status.Conditions, 0, metav1.ConditionFalse, status.ReasonSuspended, "Product is suspended")
+	require.NoError(t, cli.Status().Update(context.TODO(), chronicle))
 
 	site := defaultSite(siteName)
 	// Explicitly disable Connect and Chronicle
 	site.Spec.Connect.Enabled = ptr.To(false)
 	site.Spec.Chronicle.Enabled = ptr.To(false)
 
-	err := rec.aggregateChildStatus(context.TODO(), req, site, log)
+	err := rec.aggregateChildStatus(context.TODO(), req, site)
 	assert.NoError(t, err)
 
 	// Disabled products with existing CRs should be treated as ready

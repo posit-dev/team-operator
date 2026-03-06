@@ -62,10 +62,25 @@ func IsReady(conditions []metav1.Condition) bool {
 	return apimeta.IsStatusConditionTrue(conditions, TypeReady)
 }
 
-// IsSuspended returns true if the Ready condition exists with ReasonSuspended.
+// IsSuspended returns true if the Ready condition is False with ReasonSuspended.
 func IsSuspended(conditions []metav1.Condition) bool {
 	c := apimeta.FindStatusCondition(conditions, TypeReady)
-	return c != nil && c.Reason == ReasonSuspended
+	return c != nil && c.Status == metav1.ConditionFalse && c.Reason == ReasonSuspended
+}
+
+// DesiredReplicas returns the desired replica count from a replica pointer,
+// defaulting to 1 when nil (matching Kubernetes Deployment/StatefulSet behavior).
+func DesiredReplicas(replicas *int32) int32 {
+	if replicas != nil {
+		return *replicas
+	}
+	return 1
+}
+
+// TruncateMessage truncates a message to maxConditionMessageLength to avoid
+// leaking verbose internal details in status conditions.
+func TruncateMessage(msg string) string {
+	return truncateMessage(msg)
 }
 
 // ExtractVersion extracts a version string from a container image reference.

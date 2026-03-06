@@ -250,12 +250,7 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 		return ctrl.Result{}, err
 	}
 
-	desiredReplicas := int32(1)
-	if deploy.Spec.Replicas != nil {
-		desiredReplicas = *deploy.Spec.Replicas
-	}
-
-	status.SetDeploymentHealth(&pm.Status.Conditions, pm.Generation, deploy.Status.ReadyReplicas, desiredReplicas)
+	status.SetDeploymentHealth(&pm.Status.Conditions, pm.Generation, deploy.Status.ReadyReplicas, status.DesiredReplicas(deploy.Spec.Replicas))
 	pm.Status.Version = status.ExtractVersion(pm.Spec.Image)
 	pm.Status.Ready = status.IsReady(pm.Status.Conditions)
 
