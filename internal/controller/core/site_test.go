@@ -1220,34 +1220,47 @@ func TestSiteConnectSuspendAfterEnable(t *testing.T) {
 // enabled=true (or defaulting to true) does NOT trigger destructive cleanup. The Connect CR
 // should continue to exist and not be suspended.
 func TestSiteConnectTeardownIgnoredWhenEnabled(t *testing.T) {
-	siteName := "teardown-ignored"
-	siteNamespace := "posit-team"
+	tests := []struct {
+		name    string
+		enabled *bool
+	}{
+		{"enabled defaults to true", nil},
+		{"enabled explicitly true", func() *bool { b := true; return &b }()},
+	}
 
-	fakeClient := localtest.FakeTestEnv{}
-	cli, scheme, log := fakeClient.Start(loadSchemes)
-	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
-	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			siteName := "teardown-ignored"
+			siteNamespace := "posit-team"
 
-	// Pass 1: establish a running Connect CR
-	site := defaultSite(siteName)
-	_, err := rec.reconcileResources(context.TODO(), req, site)
-	assert.NoError(t, err)
+			fakeClient := localtest.FakeTestEnv{}
+			cli, scheme, log := fakeClient.Start(loadSchemes)
+			rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
+			req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
 
-	connect := &v1beta1.Connect{}
-	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, connect)
-	assert.NoError(t, err, "Connect CR should exist after initial reconcile")
+			// Pass 1: establish a running Connect CR
+			site := defaultSite(siteName)
+			_, err := rec.reconcileResources(context.TODO(), req, site)
+			assert.NoError(t, err)
 
-	// Pass 2: set teardown=true but leave enabled defaulting to true
-	teardown := true
-	site.Spec.Connect.Teardown = &teardown
-	_, err = rec.reconcileResources(context.TODO(), req, site)
-	assert.NoError(t, err)
+			connect := &v1beta1.Connect{}
+			err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, connect)
+			assert.NoError(t, err, "Connect CR should exist after initial reconcile")
 
-	// Connect CR should still exist and NOT be suspended
-	connect = &v1beta1.Connect{}
-	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, connect)
-	assert.NoError(t, err, "Connect CR should still exist when teardown=true but enabled=true")
-	assert.Nil(t, connect.Spec.Suspended, "Connect should not be suspended when enabled=true")
+			// Pass 2: set teardown=true with the given enabled value
+			teardown := true
+			site.Spec.Connect.Teardown = &teardown
+			site.Spec.Connect.Enabled = tt.enabled
+			_, err = rec.reconcileResources(context.TODO(), req, site)
+			assert.NoError(t, err)
+
+			// Connect CR should still exist and NOT be suspended
+			connect = &v1beta1.Connect{}
+			err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, connect)
+			assert.NoError(t, err, "Connect CR should still exist when teardown=true but enabled=true")
+			assert.Nil(t, connect.Spec.Suspended, "Connect should not be suspended when enabled=true")
+		})
+	}
 }
 
 // TestSiteConnectTeardown verifies that setting enabled=false + teardown=true causes the
