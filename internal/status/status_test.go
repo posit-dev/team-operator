@@ -397,6 +397,40 @@ func TestPatchErrorStatus_TruncatesLongMessages(t *testing.T) {
 	})
 }
 
+func TestTruncateMessage(t *testing.T) {
+	t.Run("short message unchanged", func(t *testing.T) {
+		assert.Equal(t, "hello", TruncateMessage("hello"))
+	})
+
+	t.Run("exactly at limit unchanged", func(t *testing.T) {
+		msg := strings.Repeat("a", maxConditionMessageLength)
+		assert.Equal(t, msg, TruncateMessage(msg))
+	})
+
+	t.Run("long ASCII message truncated", func(t *testing.T) {
+		msg := strings.Repeat("x", 300)
+		result := TruncateMessage(msg)
+		assert.Len(t, result, maxConditionMessageLength)
+		assert.True(t, strings.HasSuffix(result, "..."))
+	})
+
+	t.Run("multi-byte UTF-8 at boundary is not split", func(t *testing.T) {
+		// Each '日' is 3 bytes. Fill up to near the limit with multi-byte chars
+		// so that a naive byte-slice would split a rune.
+		prefix := strings.Repeat("a", maxConditionMessageLength-5) // 251 ASCII bytes
+		// Add two 3-byte runes (6 bytes total) → 257 bytes, over limit
+		msg := prefix + "日日"
+		result := TruncateMessage(msg)
+		assert.True(t, len(result) <= maxConditionMessageLength)
+		assert.True(t, strings.HasSuffix(result, "..."))
+		// Verify the result is valid UTF-8 (no split runes)
+		assert.True(t, len(result) > 0)
+		for _, r := range result {
+			assert.NotEqual(t, rune(65533), r, "should not contain replacement character")
+		}
+	})
+}
+
 func findCondition(conditions []metav1.Condition, condType string) *metav1.Condition {
 	for i := range conditions {
 		if conditions[i].Type == condType {

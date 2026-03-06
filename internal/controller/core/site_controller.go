@@ -627,7 +627,10 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	flightdeck := &positcov1beta1.Flightdeck{}
 	if err := r.Get(ctx, key, flightdeck); err == nil {
 		if isProductDisabled(site.Spec.Flightdeck.Enabled) {
-			site.Status.FlightdeckReady = status.IsSuspended(flightdeck.Status.Conditions)
+			// Flightdeck is stateless — disable deletes the CR entirely, so if
+			// the CR still exists during a race between delete and aggregation,
+			// treat it as ready since the delete will complete on the next reconcile.
+			site.Status.FlightdeckReady = true
 		} else {
 			site.Status.FlightdeckReady = status.IsReady(flightdeck.Status.Conditions)
 		}

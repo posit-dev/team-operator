@@ -93,8 +93,9 @@ func (r *PostgresDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// Update status based on result
 	if createErr != nil {
-		status.SetReady(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionFalse, status.ReasonReconcileError, createErr.Error())
-		status.SetProgressing(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionFalse, status.ReasonReconcileError, createErr.Error())
+		msg := status.TruncateMessage(createErr.Error())
+		status.SetReady(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionFalse, status.ReasonReconcileError, msg)
+		status.SetProgressing(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionFalse, status.ReasonReconcileError, msg)
 	} else {
 		status.SetReady(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionTrue, status.ReasonDatabaseReady, "Database provisioned successfully")
 		status.SetProgressing(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionFalse, status.ReasonReconcileComplete, "Reconciliation complete")
