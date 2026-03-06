@@ -154,7 +154,7 @@ func truncateMessage(msg string) string {
 	}
 	// Truncate at a rune boundary to avoid splitting multi-byte UTF-8 characters.
 	truncated := msg[:maxConditionMessageLength-3]
-	for len(truncated) > 0 && !utf8.Valid([]byte(truncated)) {
+	for len(truncated) > 0 && !utf8.ValidString(truncated) {
 		truncated = truncated[:len(truncated)-1]
 	}
 	return truncated + "..."
