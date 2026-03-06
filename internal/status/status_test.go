@@ -4,10 +4,14 @@
 package status
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func TestExtractVersion(t *testing.T) {
@@ -198,10 +202,12 @@ func TestSetDeploymentHealth(t *testing.T) {
 		SetDeploymentHealth(&conditions, 3, 2, 2)
 
 		readyCond := findCondition(conditions, TypeReady)
+		require.NotNil(t, readyCond, "expected Ready condition to be set")
 		assert.Equal(t, metav1.ConditionTrue, readyCond.Status)
 		assert.Equal(t, ReasonDeploymentReady, readyCond.Reason)
 
 		progCond := findCondition(conditions, TypeProgressing)
+		require.NotNil(t, progCond, "expected Progressing condition to be set")
 		assert.Equal(t, metav1.ConditionFalse, progCond.Status)
 		assert.Equal(t, ReasonReconcileComplete, progCond.Reason)
 	})
@@ -211,11 +217,13 @@ func TestSetDeploymentHealth(t *testing.T) {
 		SetDeploymentHealth(&conditions, 3, 1, 3)
 
 		readyCond := findCondition(conditions, TypeReady)
+		require.NotNil(t, readyCond, "expected Ready condition to be set")
 		assert.Equal(t, metav1.ConditionFalse, readyCond.Status)
 		assert.Equal(t, ReasonDeploymentNotReady, readyCond.Reason)
 		assert.Contains(t, readyCond.Message, "1/3")
 
 		progCond := findCondition(conditions, TypeProgressing)
+		require.NotNil(t, progCond, "expected Progressing condition to be set")
 		assert.Equal(t, metav1.ConditionTrue, progCond.Status)
 		assert.Equal(t, ReasonReconciling, progCond.Reason)
 	})
@@ -227,10 +235,12 @@ func TestSetStatefulSetHealth(t *testing.T) {
 		SetStatefulSetHealth(&conditions, 5, 3, 3)
 
 		readyCond := findCondition(conditions, TypeReady)
+		require.NotNil(t, readyCond, "expected Ready condition to be set")
 		assert.Equal(t, metav1.ConditionTrue, readyCond.Status)
 		assert.Equal(t, ReasonStatefulSetReady, readyCond.Reason)
 
 		progCond := findCondition(conditions, TypeProgressing)
+		require.NotNil(t, progCond, "expected Progressing condition to be set")
 		assert.Equal(t, metav1.ConditionFalse, progCond.Status)
 		assert.Equal(t, ReasonReconcileComplete, progCond.Reason)
 	})
@@ -240,13 +250,61 @@ func TestSetStatefulSetHealth(t *testing.T) {
 		SetStatefulSetHealth(&conditions, 5, 0, 1)
 
 		readyCond := findCondition(conditions, TypeReady)
+		require.NotNil(t, readyCond, "expected Ready condition to be set")
 		assert.Equal(t, metav1.ConditionFalse, readyCond.Status)
 		assert.Equal(t, ReasonStatefulSetNotReady, readyCond.Reason)
 		assert.Contains(t, readyCond.Message, "0/1")
 
 		progCond := findCondition(conditions, TypeProgressing)
+		require.NotNil(t, progCond, "expected Progressing condition to be set")
 		assert.Equal(t, metav1.ConditionTrue, progCond.Status)
 		assert.Equal(t, ReasonReconciling, progCond.Reason)
+	})
+}
+
+// fakeStatusWriter is a no-op StatusWriter for testing functions that
+// modify in-memory state before calling Patch.
+type fakeStatusWriter struct{}
+
+func (f fakeStatusWriter) Create(_ context.Context, _ client.Object, _ client.Object, _ ...client.SubResourceCreateOption) error {
+	return nil
+}
+func (f fakeStatusWriter) Update(_ context.Context, _ client.Object, _ ...client.SubResourceUpdateOption) error {
+	return nil
+}
+func (f fakeStatusWriter) Patch(_ context.Context, _ client.Object, _ client.Patch, _ ...client.SubResourcePatchOption) error {
+	return nil
+}
+
+func TestPatchSuspendedStatus(t *testing.T) {
+	t.Run("clears version and sets ready to false", func(t *testing.T) {
+		conditions := []metav1.Condition{}
+		var observedGen int64
+		ready := true
+		version := "2024.06.0"
+
+		err := PatchSuspendedStatus(
+			context.Background(),
+			fakeStatusWriter{},
+			&metav1.PartialObjectMetadata{ObjectMeta: metav1.ObjectMeta{Name: "test", UID: types.UID("test-uid")}},
+			client.MergeFrom(&metav1.PartialObjectMetadata{ObjectMeta: metav1.ObjectMeta{Name: "test", UID: types.UID("test-uid")}}),
+			&conditions, 3, &observedGen, &ready, &version,
+		)
+
+		require.NoError(t, err)
+		assert.Equal(t, int64(3), observedGen)
+		assert.False(t, ready)
+		assert.Empty(t, version)
+
+		readyCond := findCondition(conditions, TypeReady)
+		require.NotNil(t, readyCond, "expected Ready condition to be set")
+		assert.Equal(t, metav1.ConditionFalse, readyCond.Status)
+		assert.Equal(t, ReasonSuspended, readyCond.Reason)
+
+		progCond := findCondition(conditions, TypeProgressing)
+		require.NotNil(t, progCond, "expected Progressing condition to be set")
+		assert.Equal(t, metav1.ConditionFalse, progCond.Status)
+		assert.Equal(t, ReasonSuspended, progCond.Reason)
 	})
 }
 
