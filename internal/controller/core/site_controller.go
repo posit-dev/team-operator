@@ -535,12 +535,9 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 // Returns a non-nil error only for transient API errors (not NotFound), so the reconciler can requeue.
 // On transient error, all products are still evaluated so the status snapshot is as complete as possible.
 //
-// Products fall into two tiers with different "missing CR" semantics:
-//   - Default-enabled (Connect, Workbench, PackageManager, Chronicle): missing CR is ready only
-//     when explicitly disabled (Enabled != nil && !*Enabled). If Enabled is nil the product is
-//     expected → not ready.
-//   - Optional (Flightdeck): missing CR is ready when the user has not opted in
-//     (Enabled == nil || !*Enabled). These are off-by-default, so absence is the normal state.
+// Products are default-enabled (Connect, Workbench, PackageManager, Chronicle, Flightdeck):
+// missing CR is ready only when explicitly disabled (Enabled != nil && !*Enabled). If Enabled
+// is nil the product is expected → not ready.
 func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Request, site *positcov1beta1.Site, _ logr.Logger) error {
 	// Child CRs (Connect, Workbench, etc.) are created by reconcileResources with the same
 	// name as the parent Site. See site_controller_connect.go, site_controller_workbench.go, etc.
@@ -609,15 +606,15 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	}
 
 	// Flightdeck
-	// Optional: if the CR exists (even mid-teardown), derive readiness from its conditions.
-	// Only if the CR is absent and the user has not opted in (Enabled=nil or false) is the
-	// component considered ready without a CR.
+	// Default-enabled (Enabled=nil means enabled via isProductEnabled).
+	// If the CR exists, derive readiness from its conditions.
+	// If the CR is absent, it is only considered ready when explicitly disabled (Enabled=false).
 	flightdeck := &positcov1beta1.Flightdeck{}
 	if err := r.Get(ctx, key, flightdeck); err == nil {
 		site.Status.FlightdeckReady = status.IsReady(flightdeck.Status.Conditions)
 	} else if apierrors.IsNotFound(err) {
-		// CR absent: ready only if not opted in
-		site.Status.FlightdeckReady = site.Spec.Flightdeck.Enabled == nil || !*site.Spec.Flightdeck.Enabled
+		// CR absent: ready only if explicitly disabled
+		site.Status.FlightdeckReady = site.Spec.Flightdeck.Enabled != nil && !*site.Spec.Flightdeck.Enabled
 	} else {
 		if firstErr == nil {
 			firstErr = fmt.Errorf("fetching Flightdeck for status aggregation: %w", err)
