@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -151,5 +152,10 @@ func truncateMessage(msg string) string {
 	if len(msg) <= maxConditionMessageLength {
 		return msg
 	}
-	return msg[:maxConditionMessageLength-3] + "..."
+	// Truncate at a rune boundary to avoid splitting multi-byte UTF-8 characters.
+	truncated := msg[:maxConditionMessageLength-3]
+	for len(truncated) > 0 && !utf8.Valid([]byte(truncated)) {
+		truncated = truncated[:len(truncated)-1]
+	}
+	return truncated + "..."
 }

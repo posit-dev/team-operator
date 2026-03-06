@@ -378,10 +378,7 @@ func TestPatchErrorStatus_TruncatesLongMessages(t *testing.T) {
 	t.Run("long message is truncated", func(t *testing.T) {
 		conditions := []metav1.Condition{}
 		sw := &fakeStatusWriter{}
-		longMsg := ""
-		for i := 0; i < 300; i++ {
-			longMsg += "x"
-		}
+		longMsg := strings.Repeat("x", 300)
 		longErr := fmt.Errorf("%s", longMsg)
 
 		err := PatchErrorStatus(
