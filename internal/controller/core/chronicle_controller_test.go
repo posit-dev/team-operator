@@ -10,10 +10,12 @@ import (
 	"github.com/go-logr/logr"
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/localtest"
+	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -63,13 +65,16 @@ func TestChronicleReconciler_Suspended(t *testing.T) {
 	err = cli.Get(ctx, client.ObjectKey{Name: c.ComponentName(), Namespace: ns}, sts)
 	assert.True(t, apierrors.IsNotFound(err), "expected not-found error, got: %v", err)
 
-	// SetProgressing should not be applied when suspended
+	// Status should reflect the suspended state
 	updated := &positcov1beta1.Chronicle{}
 	require.NoError(t, cli.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, updated))
-	assert.Empty(t, updated.Status.Conditions,
-		"no status conditions should be set when suspended")
-	for _, cond := range updated.Status.Conditions {
-		assert.NotEqual(t, "Progressing", cond.Type,
-			"SetProgressing should not be applied when suspended")
-	}
+	assert.False(t, updated.Status.Ready, "Ready bool should be false when suspended")
+	readyCond := apimeta.FindStatusCondition(updated.Status.Conditions, status.TypeReady)
+	require.NotNil(t, readyCond, "Ready condition should be set when suspended")
+	assert.Equal(t, metav1.ConditionFalse, readyCond.Status)
+	assert.Equal(t, status.ReasonSuspended, readyCond.Reason)
+	progressCond := apimeta.FindStatusCondition(updated.Status.Conditions, status.TypeProgressing)
+	require.NotNil(t, progressCond, "Progressing condition should be set when suspended")
+	assert.Equal(t, metav1.ConditionFalse, progressCond.Status)
+	assert.Equal(t, status.ReasonSuspended, progressCond.Reason)
 }

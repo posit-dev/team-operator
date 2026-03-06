@@ -103,7 +103,19 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 
 	// If suspended, clean up serving resources but preserve configuration
 	if c.Spec.Suspended != nil && *c.Spec.Suspended {
-		return r.suspendDeployedService(ctx, req, c)
+		patchBase := client.MergeFrom(c.DeepCopy())
+		res, err := r.suspendDeployedService(ctx, req, c)
+		if err != nil {
+			return res, err
+		}
+		c.Status.ObservedGeneration = c.Generation
+		status.SetReady(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonSuspended, "Product is suspended")
+		status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonSuspended, "Product is suspended")
+		c.Status.Ready = false
+		if patchErr := r.Status().Patch(ctx, c, patchBase); patchErr != nil {
+			l.Error(patchErr, "Error patching suspended status")
+		}
+		return res, nil
 	}
 
 	// Save a copy for status patching

@@ -30,6 +30,7 @@ const (
 	ReasonAllComponentsReady  = "AllComponentsReady"
 	ReasonComponentsNotReady  = "ComponentsNotReady"
 	ReasonDatabaseReady       = "DatabaseReady"
+	ReasonSuspended           = "Suspended"
 )
 
 // SetReady sets the Ready condition on the given conditions slice.
@@ -85,9 +86,11 @@ func ExtractVersion(image string) string {
 	return ""
 }
 
-// PatchErrorStatus sets Ready and Progressing to False with ReasonReconcileError,
-// then patches the status subresource. The patch error is intentionally discarded
-// so the original reconcile error is returned to the caller.
+// PatchErrorStatus is a best-effort helper that sets Ready and Progressing to False
+// with ReasonReconcileError, then patches the status subresource. The patch error is
+// intentionally discarded so the caller can return the original reconcile error.
+// If the status patch itself fails (e.g., due to a conflict), the conditions will be
+// set on the in-memory object but not persisted; the next reconcile will retry.
 func PatchErrorStatus(ctx context.Context, statusWriter client.StatusWriter, obj client.Object, patchBase client.Patch, conditions *[]metav1.Condition, generation int64, reconcileErr error) {
 	SetReady(conditions, generation, metav1.ConditionFalse, ReasonReconcileError, reconcileErr.Error())
 	SetProgressing(conditions, generation, metav1.ConditionFalse, ReasonReconcileError, reconcileErr.Error())

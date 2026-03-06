@@ -527,6 +527,12 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 // aggregateChildStatus fetches each child CR and populates per-component readiness bools on the Site status.
 // Returns a non-nil error only for transient API errors (not NotFound), so the reconciler can requeue.
 // On transient error, all products are still evaluated so the status snapshot is as complete as possible.
+//
+// Products fall into two tiers with different "missing CR" semantics:
+//   - Required (Connect, Workbench, PackageManager): missing CR is ready only when explicitly
+//     disabled (Enabled != nil && !*Enabled). If Enabled is nil the product is expected → not ready.
+//   - Optional (Chronicle, Flightdeck): missing CR is ready when the user has not opted in
+//     (Enabled == nil || !*Enabled). These are off-by-default, so absence is the normal state.
 func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Request, site *positcov1beta1.Site, _ logr.Logger) error {
 	// Child CRs (Connect, Workbench, etc.) are created by reconcileResources with the same
 	// name as the parent Site. See site_controller_connect.go, site_controller_workbench.go, etc.
