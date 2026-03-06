@@ -587,23 +587,16 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 	secretVolumeFactory := c.CreateSecretVolumeFactory(configCopy)
 
 	// PPM authenticated repos support
-	var ppmAuthVolumes []corev1.Volume
-	var ppmAuthVolumeMounts []corev1.VolumeMount
-	var ppmAuthEnvVars []corev1.EnvVar
-	var ppmAuthInitContainers []corev1.Container
-	var ppmAuthSidecarContainers []corev1.Container
-	if c.Spec.AuthenticatedRepos {
-		ppmURL := SanitizePPMUrl(c.Spec.PPMUrl)
-		ppmAuthVolumes = PPMAuthVolumes(c.SiteName(), ppmURL, c.Spec.PPMAuthAudience)
-		ppmAuthVolumeMounts = PPMAuthVolumeMounts()
-		ppmAuthEnvVars = PPMAuthEnvVars()
-		ppmAuthInitContainers = []corev1.Container{
-			PPMAuthInitContainer(c.Spec.PPMAuthImage, ppmURL),
-		}
-		ppmAuthSidecarContainers = []corev1.Container{
-			PPMAuthSidecarContainer(c.Spec.PPMAuthImage, ppmURL, ""),
-		}
-	}
+	ppmAuthVolumes, ppmAuthVolumeMounts, ppmAuthEnvVars, ppmAuthInitContainers, ppmAuthSidecarContainers := UnpackPPMAuthSetup(
+		SetupPPMAuth(
+			c.Spec.AuthenticatedRepos,
+			c.Spec.PPMUrl,
+			c.Spec.PPMAuthImage,
+			c.Spec.PPMAuthAudience,
+			c.SiteName(),
+			l,
+		),
+	)
 
 	var chronicleSeededEnv []corev1.EnvVar
 	if c.Spec.ChronicleSidecarProductApiKeyEnabled {

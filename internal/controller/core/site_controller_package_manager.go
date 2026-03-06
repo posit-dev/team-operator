@@ -140,6 +140,7 @@ func (r *SiteReconciler) reconcilePackageManager(
 			audience := site.Spec.OIDCAudience
 			if audience == "" {
 				audience = "sts.amazonaws.com"
+				l.Info("Using default OIDC audience for EKS clusters", "audience", audience, "reason", "OIDCAudience not specified in Site spec")
 			}
 			if site.Spec.Connect.AuthenticatedRepos {
 				idfEntries = append(idfEntries, v1beta1.PackageManagerIdentityFederationConfig{
@@ -163,6 +164,8 @@ func (r *SiteReconciler) reconcilePackageManager(
 					UsernameClaim: "sub",
 				})
 			}
+		} else if site.Spec.Connect.AuthenticatedRepos || site.Spec.Workbench.AuthenticatedRepos {
+			l.Info("AuthenticatedRepos is enabled but OIDCIssuerURL is empty; Identity Federation will not be configured")
 		}
 		if len(idfEntries) > 0 {
 			pm.Spec.Config.IdentityFederation = idfEntries

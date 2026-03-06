@@ -74,7 +74,7 @@ func TestPPMAuthSidecarContainerCustomRefresh(t *testing.T) {
 }
 
 func TestPPMAuthVolumes(t *testing.T) {
-	vols := PPMAuthVolumes("mysite", "https://packagemanager.example.com", "sts.amazonaws.com")
+	vols := PPMAuthVolumes("mysite", "sts.amazonaws.com")
 	require.Len(t, vols, 3)
 
 	// Projected SA token volume

@@ -511,6 +511,8 @@ func (r *SiteReconciler) reconcilePPMAuthConfigMap(ctx context.Context, req ctrl
 }
 
 func (r *SiteReconciler) cleanupPPMAuthConfigMap(ctx context.Context, req ctrl.Request, site *positcov1beta1.Site) error {
+	l := r.GetLogger(ctx).WithValues("event", "cleanup-ppm-auth-configmap")
+
 	cm := &corev1.ConfigMap{}
 	key := client.ObjectKey{Name: PPMAuthConfigMapName(site.Name), Namespace: req.Namespace}
 	if err := r.Get(ctx, key, cm); err != nil {
@@ -519,6 +521,13 @@ func (r *SiteReconciler) cleanupPPMAuthConfigMap(ctx context.Context, req ctrl.R
 		}
 		return err
 	}
+
+	// Only delete if we own it (check ManagedByLabelKey)
+	if cm.Labels[positcov1beta1.ManagedByLabelKey] != positcov1beta1.ManagedByLabelValue {
+		l.Info("Skipping deletion of PPM auth ConfigMap - not managed by operator", "configmap", cm.Name, "label", cm.Labels[positcov1beta1.ManagedByLabelKey])
+		return nil
+	}
+
 	return r.Delete(ctx, cm)
 }
 
