@@ -103,6 +103,7 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 
 	// If suspended, clean up serving resources but preserve configuration
 	if c.Spec.Suspended != nil && *c.Spec.Suspended {
+		// Capture patch base before suspend so any future in-memory mutations are included in the diff
 		patchBase := client.MergeFrom(c.DeepCopy())
 		res, err := r.suspendDeployedService(ctx, req, c)
 		if err != nil {

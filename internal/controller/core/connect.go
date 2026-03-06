@@ -40,6 +40,7 @@ func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Reque
 
 	// If suspended, clean up serving resources (Deployment/Service/Ingress) but preserve data
 	if c.Spec.Suspended != nil && *c.Spec.Suspended {
+		// Capture patch base before suspend so any future in-memory mutations are included in the diff
 		patchBase := client.MergeFrom(c.DeepCopy())
 		res, err := r.suspendDeployedService(ctx, req, c)
 		if err != nil {

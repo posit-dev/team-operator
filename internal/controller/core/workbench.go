@@ -80,6 +80,7 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 
 	// If suspended, clean up serving resources but preserve data
 	if w.Spec.Suspended != nil && *w.Spec.Suspended {
+		// Capture patch base before suspend so any future in-memory mutations are included in the diff
 		patchBase := client.MergeFrom(w.DeepCopy())
 		res, err := r.suspendDeployedService(ctx, req, w)
 		if err != nil {
