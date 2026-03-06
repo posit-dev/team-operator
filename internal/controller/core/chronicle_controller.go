@@ -133,7 +133,9 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 	res, err := r.ensureDeployedService(ctx, req, c)
 	if err != nil {
 		l.Error(err, "error deploying service")
-		status.PatchErrorStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, err)
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
+		}
 		return res, err
 	}
 
@@ -141,7 +143,9 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 	sts := &v1.StatefulSet{}
 	if err := r.Get(ctx, client.ObjectKey{Name: c.ComponentName(), Namespace: req.Namespace}, sts); err != nil {
 		l.Error(err, "error fetching statefulset for status")
-		status.PatchErrorStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, err)
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
+		}
 		return ctrl.Result{}, err
 	}
 

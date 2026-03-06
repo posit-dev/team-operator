@@ -77,7 +77,9 @@ func (r *FlightdeckReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	if res, err := r.reconcileFlightdeckResources(ctx, req, fd, l); err != nil {
 		l.Error(err, "failed to reconcile flightdeck resources")
-		status.PatchErrorStatus(ctx, r.Status(), fd, patchBase, &fd.Status.Conditions, fd.Generation, err)
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), fd, patchBase, &fd.Status.Conditions, fd.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
+		}
 		return res, err
 	}
 
@@ -85,7 +87,9 @@ func (r *FlightdeckReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	deploy := &appsv1.Deployment{}
 	if err := r.Get(ctx, client.ObjectKey{Name: fd.ComponentName(), Namespace: req.Namespace}, deploy); err != nil {
 		l.Error(err, "error fetching deployment for status")
-		status.PatchErrorStatus(ctx, r.Status(), fd, patchBase, &fd.Status.Conditions, fd.Generation, err)
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), fd, patchBase, &fd.Status.Conditions, fd.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
+		}
 		return ctrl.Result{}, err
 	}
 

@@ -183,9 +183,5 @@ func (r *SiteReconciler) cleanupPackageManager(ctx context.Context, req controll
 	l = l.WithValues("event", "cleanup-package-manager")
 
 	pmKey := client.ObjectKey{Name: req.Name, Namespace: req.Namespace}
-	if err := internal.BasicDelete(ctx, r, l, pmKey, &v1beta1.PackageManager{}); err != nil {
-		return err
-	}
-
-	return nil
+	return internal.BasicDelete(ctx, r, l, pmKey, &v1beta1.PackageManager{})
 }
