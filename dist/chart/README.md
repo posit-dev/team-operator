@@ -78,8 +78,8 @@ helm install team-operator ./dist/chart \
 helm install team-operator ./dist/chart \
   --namespace posit-team-system \
   --create-namespace \
-  --set controllerManager.container.image.repository=posit/team-operator \
-  --set controllerManager.container.image.tag=v1.2.0 \
+  --set manager.image.repository=posit/team-operator \
+  --set manager.image.tag=v1.2.0 \
   --set watchNamespace=my-posit-team
 ```
 
@@ -161,56 +161,47 @@ manager:
 |-----------|-------------|---------|----------|
 | `watchNamespace` | Namespace where the operator watches for Site CRs | `posit-team` | No |
 
-### Controller Manager
+### Manager
 
 | Parameter | Description | Default | Required |
 |-----------|-------------|---------|----------|
-| `controllerManager.replicas` | Number of operator replicas | `1` | No |
-| `controllerManager.serviceAccountName` | Name of the ServiceAccount | `team-operator-controller-manager` | No |
-| `controllerManager.terminationGracePeriodSeconds` | Grace period for pod termination | `10` | No |
-| `controllerManager.tolerations` | Pod tolerations for scheduling | `[]` | No |
-| `controllerManager.nodeSelector` | Node selector for pod placement | `{}` | No |
+| `manager.replicas` | Number of operator replicas | `1` | No |
+| `manager.tolerations` | Pod tolerations for scheduling | `[]` | No |
+| `manager.nodeSelector` | Node selector for pod placement | `{}` | No |
+| `manager.affinity` | Pod affinity rules | `{}` | No |
 
-### Controller Manager Container
-
-| Parameter | Description | Default | Required |
-|-----------|-------------|---------|----------|
-| `controllerManager.container.image.repository` | Operator image repository | `posit/team-operator` | No |
-| `controllerManager.container.image.tag` | Operator image tag | `latest` | No |
-| `controllerManager.container.args` | Container arguments | See values.yaml | No |
-| `controllerManager.container.env` | Environment variables | See values.yaml | No |
-| `controllerManager.container.resources.limits.cpu` | CPU limit | `500m` | No |
-| `controllerManager.container.resources.limits.memory` | Memory limit | `256Mi` | No |
-| `controllerManager.container.resources.requests.cpu` | CPU request | `10m` | No |
-| `controllerManager.container.resources.requests.memory` | Memory request | `64Mi` | No |
-
-### Controller Manager Probes
+### Manager Container
 
 | Parameter | Description | Default | Required |
 |-----------|-------------|---------|----------|
-| `controllerManager.container.livenessProbe.initialDelaySeconds` | Initial delay for liveness probe | `15` | No |
-| `controllerManager.container.livenessProbe.periodSeconds` | Period for liveness probe | `20` | No |
-| `controllerManager.container.livenessProbe.httpGet.path` | Liveness probe path | `/healthz` | No |
-| `controllerManager.container.livenessProbe.httpGet.port` | Liveness probe port | `8081` | No |
-| `controllerManager.container.readinessProbe.initialDelaySeconds` | Initial delay for readiness probe | `5` | No |
-| `controllerManager.container.readinessProbe.periodSeconds` | Period for readiness probe | `10` | No |
-| `controllerManager.container.readinessProbe.httpGet.path` | Readiness probe path | `/readyz` | No |
-| `controllerManager.container.readinessProbe.httpGet.port` | Readiness probe port | `8081` | No |
+| `manager.image.repository` | Operator image repository | `posit/team-operator` | No |
+| `manager.image.tag` | Operator image tag | `latest` | No |
+| `manager.image.pullPolicy` | Image pull policy | `IfNotPresent` | No |
+| `manager.args` | Container arguments | See values.yaml | No |
+| `manager.env` | Environment variables | See values.yaml | No |
+| `manager.resources.limits.cpu` | CPU limit | `500m` | No |
+| `manager.resources.limits.memory` | Memory limit | `256Mi` | No |
+| `manager.resources.requests.cpu` | CPU request | `10m` | No |
+| `manager.resources.requests.memory` | Memory request | `64Mi` | No |
+| `manager.securityContext` | Container-level security context | See values.yaml | No |
+| `manager.podSecurityContext` | Pod-level security context | See values.yaml | No |
+| `manager.imagePullSecrets` | Image pull secrets | `[]` | No |
+| `manager.serviceAccount.annotations` | ServiceAccount annotations | `{}` | No |
 
-### Controller Manager Security Context
+### Manager Security Context
 
 | Parameter | Description | Default | Required |
 |-----------|-------------|---------|----------|
-| `controllerManager.container.securityContext.allowPrivilegeEscalation` | Allow privilege escalation | `false` | No |
-| `controllerManager.container.securityContext.capabilities.drop` | Capabilities to drop | `["ALL"]` | No |
-| `controllerManager.securityContext.runAsNonRoot` | Run as non-root user | `true` | No |
-| `controllerManager.securityContext.seccompProfile.type` | Seccomp profile type | `RuntimeDefault` | No |
+| `manager.securityContext.allowPrivilegeEscalation` | Allow privilege escalation | `false` | No |
+| `manager.securityContext.capabilities.drop` | Capabilities to drop | `["ALL"]` | No |
+| `manager.podSecurityContext.runAsNonRoot` | Run as non-root user | `true` | No |
+| `manager.podSecurityContext.seccompProfile.type` | Seccomp profile type | `RuntimeDefault` | No |
 
 ### Service Account
 
 | Parameter | Description | Default | Required |
 |-----------|-------------|---------|----------|
-| `controllerManager.serviceAccount.annotations` | Annotations for the ServiceAccount (e.g., for IAM roles) | `{}` | No |
+| `manager.serviceAccount.annotations` | Annotations for the ServiceAccount (e.g., for IAM roles) | `{}` | No |
 
 ### RBAC
 
@@ -265,14 +256,15 @@ For AWS deployments using IAM Roles for Service Accounts (IRSA):
 # aws-values.yaml
 watchNamespace: posit-team
 
-controllerManager:
-  container:
-    image:
-      repository: posit/team-operator
-      tag: v1.2.0
-    env:
-      WATCH_NAMESPACES: "posit-team"
-      AWS_REGION: "us-east-1"
+manager:
+  image:
+    repository: posit/team-operator
+    tag: v1.2.0
+  env:
+    - name: WATCH_NAMESPACES
+      value: "posit-team"
+    - name: AWS_REGION
+      value: "us-east-1"
   serviceAccount:
     annotations:
       eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/team-operator-role"
@@ -293,19 +285,16 @@ For Azure deployments using Workload Identity:
 # azure-values.yaml
 watchNamespace: posit-team
 
-controllerManager:
-  container:
-    image:
-      repository: posit/team-operator
-      tag: v1.2.0
-    env:
-      WATCH_NAMESPACES: "posit-team"
+manager:
+  image:
+    repository: posit/team-operator
+    tag: v1.2.0
+  env:
+    - name: WATCH_NAMESPACES
+      value: "posit-team"
   serviceAccount:
     annotations:
       azure.workload.identity/client-id: "<AZURE_CLIENT_ID>"
-  pod:
-    labels:
-      azure.workload.identity/use: "true"
 ```
 
 ```bash
@@ -321,15 +310,14 @@ For production deployments with increased resource limits:
 
 ```yaml
 # production-values.yaml
-controllerManager:
-  container:
-    resources:
-      limits:
-        cpu: "1"
-        memory: 512Mi
-      requests:
-        cpu: 100m
-        memory: 128Mi
+manager:
+  resources:
+    limits:
+      cpu: "1"
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
 ```
 
 ### Multi-Namespace Watching
@@ -340,10 +328,10 @@ To watch multiple namespaces for Site CRs:
 # multi-namespace-values.yaml
 watchNamespace: posit-team
 
-controllerManager:
-  container:
-    env:
-      WATCH_NAMESPACES: "posit-team,posit-team-staging,posit-team-prod"
+manager:
+  env:
+    - name: WATCH_NAMESPACES
+      value: "posit-team,posit-team-staging,posit-team-prod"
 ```
 
 > **Note**: The operator needs appropriate RBAC permissions in each watched namespace.
@@ -354,7 +342,7 @@ To schedule the operator on specific nodes:
 
 ```yaml
 # node-placement-values.yaml
-controllerManager:
+manager:
   nodeSelector:
     kubernetes.io/os: linux
     node-role.kubernetes.io/control-plane: ""
