@@ -7,19 +7,19 @@ import (
 )
 
 type PackageManagerConfig struct {
-	Server             *PackageManagerServerConfig              `json:"Server,omitempty"`
-	Http               *PackageManagerHttpConfig                `json:"Http,omitempty"`
-	Git                *PackageManagerGitConfig                 `json:"Git,omitempty"`
-	Database           *PackageManagerDatabaseConfig            `json:"Database,omitempty"`
-	Postgres           *PackageManagerPostgresConfig            `json:"Postgres,omitempty"`
-	Storage            *PackageManagerStorageConfig             `json:"Storage,omitempty"`
-	S3Storage          *PackageManagerS3StorageConfig           `json:"S3Storage,omitempty"`
-	Metrics            *PackageManagerMetricsConfig             `json:"Metrics,omitempty"`
-	Repos              *PackageManagerReposConfig               `json:"Repos,omitempty"`
-	Cran               *PackageManagerCRANConfig                `json:"CRAN,omitempty"`
-	Debug              *PackageManagerDebugConfig               `json:"Debug,omitempty"`
-	Authentication     *PackageManagerAuthenticationConfig      `json:"Authentication,omitempty"`
-	OpenIDConnect      *PackageManagerOIDCConfig                `json:"OpenIDConnect,omitempty"`
+	Server         *PackageManagerServerConfig         `json:"Server,omitempty"`
+	Http           *PackageManagerHttpConfig           `json:"Http,omitempty"`
+	Git            *PackageManagerGitConfig            `json:"Git,omitempty"`
+	Database       *PackageManagerDatabaseConfig       `json:"Database,omitempty"`
+	Postgres       *PackageManagerPostgresConfig       `json:"Postgres,omitempty"`
+	Storage        *PackageManagerStorageConfig        `json:"Storage,omitempty"`
+	S3Storage      *PackageManagerS3StorageConfig      `json:"S3Storage,omitempty"`
+	Metrics        *PackageManagerMetricsConfig        `json:"Metrics,omitempty"`
+	Repos          *PackageManagerReposConfig          `json:"Repos,omitempty"`
+	Cran           *PackageManagerCRANConfig           `json:"CRAN,omitempty"`
+	Debug          *PackageManagerDebugConfig          `json:"Debug,omitempty"`
+	Authentication *PackageManagerAuthenticationConfig `json:"Authentication,omitempty"`
+	OpenIDConnect  *PackageManagerOIDCConfig           `json:"OpenIDConnect,omitempty"`
 
 	// AdditionalConfig allows appending arbitrary gcfg config content not covered by typed fields.
 	// The value is appended verbatim after the generated config. gcfg parsing naturally handles
