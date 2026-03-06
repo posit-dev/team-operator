@@ -80,16 +80,13 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 
 	// If suspended, clean up serving resources but preserve data
 	if w.Spec.Suspended != nil && *w.Spec.Suspended {
-		patchBase := client.MergeFrom(w.DeepCopy())
 		res, err := r.suspendDeployedService(ctx, req, w)
 		if err != nil {
 			return res, err
 		}
+		patchBase := client.MergeFrom(w.DeepCopy())
 		w.Status.ObservedGeneration = w.Generation
-		status.SetReady(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonSuspended, "Product is suspended")
-		status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionFalse, status.ReasonSuspended, "Product is suspended")
-		w.Status.Ready = false
-		if patchErr := r.Status().Patch(ctx, w, patchBase); patchErr != nil {
+		if patchErr := status.PatchSuspendedStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, &w.Status.Ready); patchErr != nil {
 			l.Error(patchErr, "Error patching suspended status")
 		}
 		return res, nil
