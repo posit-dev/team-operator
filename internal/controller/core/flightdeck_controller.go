@@ -5,7 +5,6 @@ package core
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
@@ -95,19 +94,8 @@ func (r *FlightdeckReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		desiredReplicas = *deploy.Spec.Replicas
 	}
 
-	if deploy.Status.ReadyReplicas >= desiredReplicas {
-		status.SetReady(&fd.Status.Conditions, fd.Generation, metav1.ConditionTrue, status.ReasonDeploymentReady, "Deployment has minimum availability")
-		status.SetProgressing(&fd.Status.Conditions, fd.Generation, metav1.ConditionFalse, status.ReasonReconcileComplete, "Reconciliation complete")
-	} else {
-		status.SetReady(&fd.Status.Conditions, fd.Generation, metav1.ConditionFalse, status.ReasonDeploymentNotReady,
-			fmt.Sprintf("Deployment has %d/%d ready replicas", deploy.Status.ReadyReplicas, desiredReplicas))
-		status.SetProgressing(&fd.Status.Conditions, fd.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Deployment rollout in progress")
-	}
-
-	// Extract version from image
+	status.SetDeploymentHealth(&fd.Status.Conditions, fd.Generation, deploy.Status.ReadyReplicas, desiredReplicas)
 	fd.Status.Version = status.ExtractVersion(fd.Spec.Image)
-
-	// Derive Ready bool from condition
 	fd.Status.Ready = status.IsReady(fd.Status.Conditions)
 
 	// Patch status

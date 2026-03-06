@@ -5,6 +5,7 @@ package status
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -84,6 +85,30 @@ func ExtractVersion(image string) string {
 		return tag
 	}
 	return ""
+}
+
+// SetDeploymentHealth sets Ready and Progressing conditions based on Deployment replica counts.
+func SetDeploymentHealth(conditions *[]metav1.Condition, generation int64, readyReplicas, desiredReplicas int32) {
+	if readyReplicas >= desiredReplicas {
+		SetReady(conditions, generation, metav1.ConditionTrue, ReasonDeploymentReady, "Deployment has minimum availability")
+		SetProgressing(conditions, generation, metav1.ConditionFalse, ReasonReconcileComplete, "Reconciliation complete")
+	} else {
+		SetReady(conditions, generation, metav1.ConditionFalse, ReasonDeploymentNotReady,
+			fmt.Sprintf("Deployment has %d/%d ready replicas", readyReplicas, desiredReplicas))
+		SetProgressing(conditions, generation, metav1.ConditionTrue, ReasonReconciling, "Deployment rollout in progress")
+	}
+}
+
+// SetStatefulSetHealth sets Ready and Progressing conditions based on StatefulSet replica counts.
+func SetStatefulSetHealth(conditions *[]metav1.Condition, generation int64, readyReplicas, desiredReplicas int32) {
+	if readyReplicas >= desiredReplicas {
+		SetReady(conditions, generation, metav1.ConditionTrue, ReasonStatefulSetReady, "StatefulSet has minimum availability")
+		SetProgressing(conditions, generation, metav1.ConditionFalse, ReasonReconcileComplete, "Reconciliation complete")
+	} else {
+		SetReady(conditions, generation, metav1.ConditionFalse, ReasonStatefulSetNotReady,
+			fmt.Sprintf("StatefulSet has %d/%d ready replicas", readyReplicas, desiredReplicas))
+		SetProgressing(conditions, generation, metav1.ConditionTrue, ReasonReconciling, "StatefulSet rollout in progress")
+	}
 }
 
 // PatchSuspendedStatus is a best-effort helper that sets ObservedGeneration, Ready

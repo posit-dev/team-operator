@@ -40,11 +40,11 @@ func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Reque
 
 	// If suspended, clean up serving resources (Deployment/Service/Ingress) but preserve data
 	if c.Spec.Suspended != nil && *c.Spec.Suspended {
+		patchBase := client.MergeFrom(c.DeepCopy())
 		res, err := r.suspendDeployedService(ctx, req, c)
 		if err != nil {
 			return res, err
 		}
-		patchBase := client.MergeFrom(c.DeepCopy())
 		if patchErr := status.PatchSuspendedStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, &c.Status.ObservedGeneration, &c.Status.Ready); patchErr != nil {
 			l.Error(patchErr, "Error patching suspended status")
 			return res, patchErr
@@ -144,19 +144,8 @@ func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Reque
 		desiredReplicas = *deploy.Spec.Replicas
 	}
 
-	if deploy.Status.ReadyReplicas >= desiredReplicas {
-		status.SetReady(&c.Status.Conditions, c.Generation, metav1.ConditionTrue, status.ReasonDeploymentReady, "Deployment has minimum availability")
-		status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonReconcileComplete, "Reconciliation complete")
-	} else {
-		status.SetReady(&c.Status.Conditions, c.Generation, metav1.ConditionFalse, status.ReasonDeploymentNotReady,
-			fmt.Sprintf("Deployment has %d/%d ready replicas", deploy.Status.ReadyReplicas, desiredReplicas))
-		status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Deployment rollout in progress")
-	}
-
-	// Extract version from image
+	status.SetDeploymentHealth(&c.Status.Conditions, c.Generation, deploy.Status.ReadyReplicas, desiredReplicas)
 	c.Status.Version = status.ExtractVersion(c.Spec.Image)
-
-	// Derive Ready bool from condition
 	c.Status.Ready = status.IsReady(c.Status.Conditions)
 
 	// Patch status

@@ -1822,3 +1822,100 @@ func TestSiteOptionalComponentsNilEnabledWithCR(t *testing.T) {
 	assert.False(t, site.Status.ChronicleReady, "ChronicleReady should reflect CR conditions, not be unconditionally true when CR exists")
 	assert.False(t, site.Status.FlightdeckReady, "FlightdeckReady should reflect CR conditions, not be unconditionally true when CR exists")
 }
+
+// TestAggregateChildStatusDisabledWithExistingCR verifies that when a product is explicitly
+// disabled (Enabled=false) but the CR still exists (e.g. suspended), aggregateChildStatus
+// treats it as ready from the Site's perspective.
+func TestAggregateChildStatusDisabledWithExistingCR(t *testing.T) {
+	siteName := "disabled-with-cr"
+	siteNamespace := "posit-team"
+
+	fakeClient := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeClient.Start(loadSchemes)
+	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
+
+	// Pre-create Connect CR with Ready=False (simulates suspended state)
+	connect := &v1beta1.Connect{
+		ObjectMeta: metav1.ObjectMeta{Namespace: siteNamespace, Name: siteName},
+	}
+	require.NoError(t, cli.Create(context.TODO(), connect))
+
+	// Pre-create Chronicle CR with Ready=False
+	chronicle := &v1beta1.Chronicle{
+		ObjectMeta: metav1.ObjectMeta{Namespace: siteNamespace, Name: siteName},
+	}
+	require.NoError(t, cli.Create(context.TODO(), chronicle))
+
+	site := defaultSite(siteName)
+	// Explicitly disable Connect and Chronicle
+	site.Spec.Connect.Enabled = ptr.To(false)
+	site.Spec.Chronicle.Enabled = ptr.To(false)
+
+	err := rec.aggregateChildStatus(context.TODO(), req, site, log)
+	assert.NoError(t, err)
+
+	// Disabled products with existing CRs should be treated as ready
+	assert.True(t, site.Status.ConnectReady, "ConnectReady should be true when explicitly disabled, even if CR exists")
+	assert.True(t, site.Status.ChronicleReady, "ChronicleReady should be true when explicitly disabled, even if CR exists")
+
+	// Products with Enabled=nil (default, not disabled) and no CR should be not ready
+	assert.False(t, site.Status.WorkbenchReady, "WorkbenchReady should be false when Enabled=nil and no CR")
+	assert.False(t, site.Status.PackageManagerReady, "PackageManagerReady should be false when Enabled=nil and no CR")
+}
+
+// TestSiteFlightdeckDisableReenableCycle verifies that Flightdeck CR is deleted when disabled
+// and recreated when re-enabled.
+func TestSiteFlightdeckDisableReenableCycle(t *testing.T) {
+	siteName := "flightdeck-cycle"
+	siteNamespace := "posit-team"
+
+	fakeClient := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeClient.Start(loadSchemes)
+	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
+
+	// Create site with Flightdeck enabled (default)
+	site := defaultSite(siteName)
+	require.NoError(t, cli.Create(context.TODO(), site))
+
+	// First reconcile: Flightdeck CR should be created
+	_, err := rec.Reconcile(context.TODO(), req)
+	assert.NoError(t, err)
+
+	fd := &v1beta1.Flightdeck{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, fd)
+	assert.NoError(t, err, "Flightdeck CR should exist after initial reconcile")
+
+	// Disable Flightdeck
+	fetchedSite := &v1beta1.Site{}
+	require.NoError(t, cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, fetchedSite))
+	fetchedSite.Spec.Flightdeck.Enabled = ptr.To(false)
+	require.NoError(t, cli.Update(context.TODO(), fetchedSite))
+
+	// Reconcile with Flightdeck disabled
+	_, err = rec.Reconcile(context.TODO(), req)
+	assert.NoError(t, err)
+
+	// Flightdeck CR should be deleted
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, fd)
+	assert.Error(t, err, "Flightdeck CR should not exist after disabling")
+
+	// Verify FlightdeckReady is true for disabled product
+	fetchedSite = &v1beta1.Site{}
+	require.NoError(t, cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, fetchedSite))
+	assert.True(t, fetchedSite.Status.FlightdeckReady, "FlightdeckReady should be true when Flightdeck is disabled")
+
+	// Re-enable Flightdeck
+	fetchedSite.Spec.Flightdeck.Enabled = nil
+	require.NoError(t, cli.Update(context.TODO(), fetchedSite))
+
+	// Reconcile with Flightdeck re-enabled
+	_, err = rec.Reconcile(context.TODO(), req)
+	assert.NoError(t, err)
+
+	// Flightdeck CR should be recreated
+	fd = &v1beta1.Flightdeck{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, fd)
+	assert.NoError(t, err, "Flightdeck CR should be recreated after re-enabling")
+}

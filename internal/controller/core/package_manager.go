@@ -142,11 +142,11 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 
 	// If suspended, clean up serving resources but preserve data
 	if pm.Spec.Suspended != nil && *pm.Spec.Suspended {
+		patchBase := client.MergeFrom(pm.DeepCopy())
 		res, err := r.suspendDeployedService(ctx, req, pm)
 		if err != nil {
 			return res, err
 		}
-		patchBase := client.MergeFrom(pm.DeepCopy())
 		if patchErr := status.PatchSuspendedStatus(ctx, r.Status(), pm, patchBase, &pm.Status.Conditions, pm.Generation, &pm.Status.ObservedGeneration, &pm.Status.Ready); patchErr != nil {
 			l.Error(patchErr, "Error patching suspended status")
 			return res, patchErr
@@ -241,19 +241,8 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 		desiredReplicas = *deploy.Spec.Replicas
 	}
 
-	if deploy.Status.ReadyReplicas >= desiredReplicas {
-		status.SetReady(&pm.Status.Conditions, pm.Generation, metav1.ConditionTrue, status.ReasonDeploymentReady, "Deployment has minimum availability")
-		status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonReconcileComplete, "Reconciliation complete")
-	} else {
-		status.SetReady(&pm.Status.Conditions, pm.Generation, metav1.ConditionFalse, status.ReasonDeploymentNotReady,
-			fmt.Sprintf("Deployment has %d/%d ready replicas", deploy.Status.ReadyReplicas, desiredReplicas))
-		status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Deployment rollout in progress")
-	}
-
-	// Extract version from image
+	status.SetDeploymentHealth(&pm.Status.Conditions, pm.Generation, deploy.Status.ReadyReplicas, desiredReplicas)
 	pm.Status.Version = status.ExtractVersion(pm.Spec.Image)
-
-	// Derive Ready bool from condition
 	pm.Status.Ready = status.IsReady(pm.Status.Conditions)
 
 	// Patch status
