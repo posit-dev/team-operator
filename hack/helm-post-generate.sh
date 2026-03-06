@@ -427,7 +427,9 @@ $SED -i 's/tag: latest/tag: ""/' "$CHART_DIR/values.yaml"
 
 # Issue 10: Fix image tag template in manager.yaml to fall back to Chart.AppVersion
 echo "  - Fixing image tag fallback in manager.yaml..."
-$SED -i 's|image: "{{ .Values.manager.image.repository }}:{{ .Values.manager.image.tag }}"|{{- \$tag := .Values.manager.image.tag | default .Chart.AppVersion }}\n                  image: "{{ .Values.manager.image.repository }}:{{ \$tag }}"|' "$CHART_DIR/templates/manager/manager.yaml"
+$SED -i '/image: "{{ .Values.manager.image.repository }}:{{ .Values.manager.image.tag }}"/c\
+                  {{- $tag := .Values.manager.image.tag | default .Chart.AppVersion }}\
+                  image: "{{ .Values.manager.image.repository }}:{{ $tag }}"' "$CHART_DIR/templates/manager/manager.yaml"
 
 # Issue 11: Add labels to ClusterRole in manager-role.yaml
 echo "  - Adding labels to ClusterRole in manager-role.yaml..."
