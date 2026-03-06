@@ -140,8 +140,8 @@ deploy_operator() {
     # Install or upgrade the operator using the chart's value path
     helm upgrade --install "${RELEASE_NAME}" "${CHART_DIR}" \
         --namespace "${NAMESPACE}" \
-        --set "controllerManager.container.image.repository=${image_repo}" \
-        --set "controllerManager.container.image.tag=${image_tag}" \
+        --set "manager.image.repository=${image_repo}" \
+        --set "manager.image.tag=${image_tag}" \
         --wait \
         --timeout "${TIMEOUT}" || {
             log_warn "Helm install failed, checking pod status..."
