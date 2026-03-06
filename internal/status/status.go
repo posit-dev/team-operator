@@ -77,12 +77,6 @@ func DesiredReplicas(replicas *int32) int32 {
 	return 1
 }
 
-// TruncateMessage truncates a message to maxConditionMessageLength to avoid
-// leaking verbose internal details in status conditions.
-func TruncateMessage(msg string) string {
-	return truncateMessage(msg)
-}
-
 // ExtractVersion extracts a version string from a container image reference.
 // For example, "ghcr.io/rstudio/rstudio-connect:2024.06.0" returns "2024.06.0".
 // Also handles digest references: "image:2024.06.0@sha256:abc" returns "2024.06.0".
@@ -157,13 +151,15 @@ const maxConditionMessageLength = 256
 // If the status patch itself fails (e.g., due to a conflict), the conditions will be
 // set on the in-memory object but not persisted; the next reconcile will retry.
 func PatchErrorStatus(ctx context.Context, statusWriter client.StatusWriter, obj client.Object, patchBase client.Patch, conditions *[]metav1.Condition, generation int64, reconcileErr error) error {
-	msg := truncateMessage(reconcileErr.Error())
+	msg := TruncateMessage(reconcileErr.Error())
 	SetReady(conditions, generation, metav1.ConditionFalse, ReasonReconcileError, msg)
 	SetProgressing(conditions, generation, metav1.ConditionFalse, ReasonReconcileError, msg)
 	return statusWriter.Patch(ctx, obj, patchBase)
 }
 
-func truncateMessage(msg string) string {
+// TruncateMessage truncates a message to maxConditionMessageLength to avoid
+// leaking verbose internal details in status conditions.
+func TruncateMessage(msg string) string {
 	if len(msg) <= maxConditionMessageLength {
 		return msg
 	}
