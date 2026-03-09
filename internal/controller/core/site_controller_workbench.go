@@ -586,5 +586,9 @@ func (r *SiteReconciler) cleanupWorkbench(ctx context.Context, req controllerrun
 	l = l.WithValues("event", "cleanup-workbench")
 
 	workbenchKey := client.ObjectKey{Name: req.Name, Namespace: req.Namespace}
-	return internal.BasicDelete(ctx, r, l, workbenchKey, &v1beta1.Workbench{})
+	if err := internal.BasicDelete(ctx, r, l, workbenchKey, &v1beta1.Workbench{}); err != nil {
+		return err
+	}
+
+	return nil
 }

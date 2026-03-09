@@ -243,6 +243,14 @@ type InternalPackageManagerSpec struct {
 	// AdditionalConfig allows appending arbitrary gcfg config content to the generated config.
 	// +optional
 	AdditionalConfig string `json:"additionalConfig,omitempty"`
+
+	// Auth configures OIDC authentication for Package Manager's web UI
+	// +optional
+	Auth *AuthSpec `json:"auth,omitempty"`
+
+	// OIDCClientSecretKey is the key in the vault for the OIDC client secret
+	// +optional
+	OIDCClientSecretKey string `json:"oidcClientSecretKey,omitempty"`
 }
 
 type InternalConnectSpec struct {

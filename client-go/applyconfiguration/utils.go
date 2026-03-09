@@ -127,6 +127,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &corev1beta1.InternalWorkbenchSpecApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("PackageManager"):
 		return &corev1beta1.PackageManagerApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("PackageManagerAuthenticationConfig"):
+		return &corev1beta1.PackageManagerAuthenticationConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("PackageManagerConfig"):
 		return &corev1beta1.PackageManagerConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("PackageManagerCRANConfig"):
@@ -141,6 +143,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &corev1beta1.PackageManagerHttpConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("PackageManagerMetricsConfig"):
 		return &corev1beta1.PackageManagerMetricsConfigApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("PackageManagerOIDCConfig"):
+		return &corev1beta1.PackageManagerOIDCConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("PackageManagerPostgresConfig"):
 		return &corev1beta1.PackageManagerPostgresConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("PackageManagerReposConfig"):

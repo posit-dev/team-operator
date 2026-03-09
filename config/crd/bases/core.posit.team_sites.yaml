@@ -654,6 +654,59 @@ spec:
                     description: AdditionalConfig allows appending arbitrary gcfg
                       config content to the generated config.
                     type: string
+                  auth:
+                    description: Auth configures OIDC authentication for Package Manager's
+                      web UI
+                    properties:
+                      administratorRoleMapping:
+                        items:
+                          type: string
+                        type: array
+                      clientId:
+                        type: string
+                      disableGroupsClaim:
+                        type: boolean
+                      emailClaim:
+                        type: string
+                      groups:
+                        type: boolean
+                      groupsClaim:
+                        type: string
+                      issuer:
+                        type: string
+                      publisherRoleMapping:
+                        items:
+                          type: string
+                        type: array
+                      samlEmailAttribute:
+                        type: string
+                      samlFirstNameAttribute:
+                        type: string
+                      samlIdPAttributeProfile:
+                        description: SAML-specific attribute mappings (mutually exclusive
+                          with SamlIdPAttributeProfile)
+                        type: string
+                      samlLastNameAttribute:
+                        type: string
+                      samlMetadataUrl:
+                        type: string
+                      samlUsernameAttribute:
+                        type: string
+                      scopes:
+                        items:
+                          type: string
+                        type: array
+                      type:
+                        type: string
+                      uniqueIdClaim:
+                        type: string
+                      usernameClaim:
+                        type: string
+                      viewerRoleMapping:
+                        items:
+                          type: string
+                        type: array
+                    type: object
                   azureFiles:
                     description: AzureFiles configures Azure Files integration for
                       persistent storage
@@ -791,6 +844,10 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  oidcClientSecretKey:
+                    description: OIDCClientSecretKey is the key in the vault for the
+                      OIDC client secret
+                    type: string
                   replicas:
                     type: integer
                   s3Bucket:

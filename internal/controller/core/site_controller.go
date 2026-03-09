@@ -25,6 +25,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+// checkBool dereferences a bool pointer, returning defaultVal if nil.
+func checkBool(b *bool, defaultVal bool) bool {
+	if b == nil {
+		return defaultVal
+	}
+	return *b
+}
+
 // isProductEnabled returns true if the product is enabled (nil defaults to enabled).
 func isProductEnabled(b *bool) bool {
 	return b == nil || *b
@@ -211,26 +219,26 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 	// VOLUMES
 
 	// Determine if Connect is enabled (used for volume provisioning and later for reconciliation)
-	connectEnabled := isProductEnabled(site.Spec.Connect.Enabled)
-	connectTeardown := site.Spec.Connect.Teardown != nil && *site.Spec.Connect.Teardown
+	connectEnabled := checkBool(site.Spec.Connect.Enabled, true)
+	connectTeardown := checkBool(site.Spec.Connect.Teardown, false)
 	if connectTeardown && connectEnabled {
 		l.Info("connect.teardown is set but connect.enabled is not false; teardown has no effect until enabled=false")
 	}
 
-	workbenchEnabled := isProductEnabled(site.Spec.Workbench.Enabled)
-	workbenchTeardown := site.Spec.Workbench.Teardown != nil && *site.Spec.Workbench.Teardown
+	workbenchEnabled := checkBool(site.Spec.Workbench.Enabled, true)
+	workbenchTeardown := checkBool(site.Spec.Workbench.Teardown, false)
 	if workbenchTeardown && workbenchEnabled {
 		l.Info("workbench.teardown is set but workbench.enabled is not false; teardown has no effect until enabled=false")
 	}
 
-	pmEnabled := isProductEnabled(site.Spec.PackageManager.Enabled)
-	pmTeardown := site.Spec.PackageManager.Teardown != nil && *site.Spec.PackageManager.Teardown
+	pmEnabled := checkBool(site.Spec.PackageManager.Enabled, true)
+	pmTeardown := checkBool(site.Spec.PackageManager.Teardown, false)
 	if pmTeardown && pmEnabled {
 		l.Info("packageManager.teardown is set but packageManager.enabled is not false; teardown has no effect until enabled=false")
 	}
 
-	chronicleEnabled := isProductEnabled(site.Spec.Chronicle.Enabled)
-	chronicleTeardown := site.Spec.Chronicle.Teardown != nil && *site.Spec.Chronicle.Teardown
+	chronicleEnabled := checkBool(site.Spec.Chronicle.Enabled, true)
+	chronicleTeardown := checkBool(site.Spec.Chronicle.Teardown, false)
 	if chronicleTeardown && chronicleEnabled {
 		l.Info("chronicle.teardown is set but chronicle.enabled is not false; teardown has no effect until enabled=false")
 	}

@@ -9,11 +9,14 @@ import (
 	localtest "github.com/posit-dev/team-operator/api/localtest"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
+	"github.com/posit-dev/team-operator/internal/db"
 	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -415,10 +418,18 @@ func TestWorkbenchReconciler_Suspended(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
-	// No Deployment should be created when suspended
+	// No serving resources should be created when suspended
 	dep := &appsv1.Deployment{}
 	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, dep)
 	assert.Error(t, err, "Deployment should not exist when Workbench is suspended")
+
+	svc := &corev1.Service{}
+	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, svc)
+	assert.Error(t, err, "Service should not exist when Workbench is suspended")
+
+	ing := &networkingv1.Ingress{}
+	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, ing)
+	assert.Error(t, err, "Ingress should not exist when Workbench is suspended")
 
 	// Status should reflect the suspended state
 	updated := &positcov1beta1.Workbench{}
@@ -459,6 +470,16 @@ func TestWorkbenchReconciler_SuspendRemovesDeployment(t *testing.T) {
 	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, dep)
 	require.NoError(t, err, "Deployment should exist after normal reconcile")
 
+	// Pre-create DB password secret to verify it is preserved during suspension
+	pwSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      db.PasswordSecretName(wb.ComponentName()),
+			Namespace: ns,
+		},
+	}
+	err = cli.Create(ctx, pwSecret)
+	require.NoError(t, err)
+
 	// Pass 2: suspend — Deployment should be removed
 	wb = getWorkbench(t, cli, ns, name)
 	suspended := true
@@ -474,4 +495,63 @@ func TestWorkbenchReconciler_SuspendRemovesDeployment(t *testing.T) {
 	dep = &appsv1.Deployment{}
 	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, dep)
 	assert.Error(t, err, "Deployment should be removed when Workbench is suspended")
+
+	svc := &corev1.Service{}
+	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, svc)
+	assert.Error(t, err, "Service should be removed when Workbench is suspended")
+
+	ing := &networkingv1.Ingress{}
+	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, ing)
+	assert.Error(t, err, "Ingress should be removed when Workbench is suspended")
+
+	// Data resources must be preserved during suspension
+	loginCm := &corev1.ConfigMap{}
+	err = cli.Get(ctx, client.ObjectKey{Name: wb.LoginConfigmapName(), Namespace: ns}, loginCm)
+	assert.NoError(t, err, "Login ConfigMap should be preserved when Workbench is suspended")
+
+	// DB password secret must also be preserved during suspension
+	err = cli.Get(ctx, client.ObjectKey{Name: db.PasswordSecretName(wb.ComponentName()), Namespace: ns}, pwSecret)
+	assert.NoError(t, err, "DB password secret should be preserved when Workbench is suspended")
+}
+
+// TestWorkbenchReconciler_CleanupDeletesDatabasePasswordSecret verifies that CleanupWorkbench
+// deletes the DB password secret.
+func TestWorkbenchReconciler_CleanupDeletesDatabasePasswordSecret(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-cleanup-db-secret"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	wb := defineDefaultWorkbench(t, ns, name)
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	// Pre-create the DB password secret
+	secretName := db.PasswordSecretName(wb.ComponentName())
+	pwSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: ns,
+		},
+	}
+	err = cli.Create(ctx, pwSecret)
+	require.NoError(t, err)
+
+	// Verify it exists before cleanup
+	existing := &corev1.Secret{}
+	err = cli.Get(ctx, client.ObjectKey{Name: secretName, Namespace: ns}, existing)
+	require.NoError(t, err, "DB password secret should exist before cleanup")
+
+	// Run CleanupWorkbench
+	_, err = r.CleanupWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+
+	// Assert the secret is gone
+	deleted := &corev1.Secret{}
+	err = cli.Get(ctx, client.ObjectKey{Name: secretName, Namespace: ns}, deleted)
+	assert.True(t, apierrors.IsNotFound(err), "DB password secret should be deleted after CleanupWorkbench")
 }

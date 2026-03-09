@@ -179,7 +179,14 @@ func EnsureDatabaseExists(
 	return nil
 }
 
+// PasswordSecretName returns the Kubernetes Secret name used to store the database password
+// for a component identified by name.
+func PasswordSecretName(name string) string {
+	return fmt.Sprintf("%s-db-password", name)
+}
+
 func CleanupDatabasePasswordSecret(ctx context.Context, r product.SomeReconciler, req ctrl.Request, name string) error {
+	secretName := PasswordSecretName(name)
 	l := r.GetLogger(ctx).WithValues(
 		"event", "cleanup-database-password-secret",
 		"database", name,
@@ -190,7 +197,7 @@ func CleanupDatabasePasswordSecret(ctx context.Context, r product.SomeReconciler
 	// Kubernetes
 	s := &corev1.Secret{}
 
-	if err := r.Get(ctx, client.ObjectKey{Name: name, Namespace: req.Namespace}, s); err != nil && apierrors.IsNotFound(err) {
+	if err := r.Get(ctx, client.ObjectKey{Name: secretName, Namespace: req.Namespace}, s); err != nil && apierrors.IsNotFound(err) {
 		// secret is missing, move on and clean up any other secrets
 	} else if err != nil {
 		l.Error(err, "error trying to get kubernetes secret before deletion")
@@ -229,7 +236,7 @@ func EnsureDatabasePasswordSecretAndReturnIt(ctx context.Context, r product.Some
 	switch secretType {
 	case product.SiteSecretKubernetes:
 		secretData, err := internal.EnsureSecretKubernetes(
-			ctx, r, req, owner, name, generatePasswordSecretData,
+			ctx, r, req, owner, PasswordSecretName(name), generatePasswordSecretData,
 		)
 		if err != nil {
 			l.Error(err, "error creating secret in kubernetes")
