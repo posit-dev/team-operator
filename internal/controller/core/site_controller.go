@@ -33,17 +33,6 @@ func checkBool(b *bool, defaultVal bool) bool {
 	return *b
 }
 
-// isProductEnabled returns true if the product is enabled (nil defaults to enabled).
-func isProductEnabled(b *bool) bool {
-	return b == nil || *b
-}
-
-// isProductDisabled returns true if the product is explicitly disabled (Enabled=false).
-// Returns false when Enabled is nil (default-enabled) or true.
-func isProductDisabled(b *bool) bool {
-	return b != nil && !*b
-}
-
 // SiteReconciler reconciles a Site object
 type SiteReconciler struct {
 	client.Client
@@ -349,7 +338,7 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 	}
 
 	// FLIGHTDECK
-	flightdeckEnabled := isProductEnabled(site.Spec.Flightdeck.Enabled)
+	flightdeckEnabled := checkBool(site.Spec.Flightdeck.Enabled, true)
 	if flightdeckEnabled {
 		if err := r.reconcileFlightdeck(ctx, req, site); err != nil {
 			l.Error(err, "error reconciling flightdeck")
@@ -566,13 +555,13 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	// Connect
 	connect := &positcov1beta1.Connect{}
 	if err := r.Get(ctx, key, connect); err == nil {
-		if isProductDisabled(site.Spec.Connect.Enabled) {
+		if !checkBool(site.Spec.Connect.Enabled, true) {
 			site.Status.ConnectReady = status.IsSuspended(connect.Status.Conditions)
 		} else {
 			site.Status.ConnectReady = status.IsReady(connect.Status.Conditions)
 		}
 	} else if apierrors.IsNotFound(err) {
-		site.Status.ConnectReady = isProductDisabled(site.Spec.Connect.Enabled)
+		site.Status.ConnectReady = !checkBool(site.Spec.Connect.Enabled, true)
 	} else {
 		if firstErr == nil {
 			firstErr = fmt.Errorf("fetching Connect for status aggregation: %w", err)
@@ -583,13 +572,13 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	// Workbench
 	workbench := &positcov1beta1.Workbench{}
 	if err := r.Get(ctx, key, workbench); err == nil {
-		if isProductDisabled(site.Spec.Workbench.Enabled) {
+		if !checkBool(site.Spec.Workbench.Enabled, true) {
 			site.Status.WorkbenchReady = status.IsSuspended(workbench.Status.Conditions)
 		} else {
 			site.Status.WorkbenchReady = status.IsReady(workbench.Status.Conditions)
 		}
 	} else if apierrors.IsNotFound(err) {
-		site.Status.WorkbenchReady = isProductDisabled(site.Spec.Workbench.Enabled)
+		site.Status.WorkbenchReady = !checkBool(site.Spec.Workbench.Enabled, true)
 	} else {
 		if firstErr == nil {
 			firstErr = fmt.Errorf("fetching Workbench for status aggregation: %w", err)
@@ -600,13 +589,13 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	// PackageManager
 	pm := &positcov1beta1.PackageManager{}
 	if err := r.Get(ctx, key, pm); err == nil {
-		if isProductDisabled(site.Spec.PackageManager.Enabled) {
+		if !checkBool(site.Spec.PackageManager.Enabled, true) {
 			site.Status.PackageManagerReady = status.IsSuspended(pm.Status.Conditions)
 		} else {
 			site.Status.PackageManagerReady = status.IsReady(pm.Status.Conditions)
 		}
 	} else if apierrors.IsNotFound(err) {
-		site.Status.PackageManagerReady = isProductDisabled(site.Spec.PackageManager.Enabled)
+		site.Status.PackageManagerReady = !checkBool(site.Spec.PackageManager.Enabled, true)
 	} else {
 		if firstErr == nil {
 			firstErr = fmt.Errorf("fetching PackageManager for status aggregation: %w", err)
@@ -617,13 +606,13 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	// Chronicle
 	chronicle := &positcov1beta1.Chronicle{}
 	if err := r.Get(ctx, key, chronicle); err == nil {
-		if isProductDisabled(site.Spec.Chronicle.Enabled) {
+		if !checkBool(site.Spec.Chronicle.Enabled, true) {
 			site.Status.ChronicleReady = status.IsSuspended(chronicle.Status.Conditions)
 		} else {
 			site.Status.ChronicleReady = status.IsReady(chronicle.Status.Conditions)
 		}
 	} else if apierrors.IsNotFound(err) {
-		site.Status.ChronicleReady = isProductDisabled(site.Spec.Chronicle.Enabled)
+		site.Status.ChronicleReady = !checkBool(site.Spec.Chronicle.Enabled, true)
 	} else {
 		if firstErr == nil {
 			firstErr = fmt.Errorf("fetching Chronicle for status aggregation: %w", err)
@@ -634,7 +623,7 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 	// Flightdeck
 	flightdeck := &positcov1beta1.Flightdeck{}
 	if err := r.Get(ctx, key, flightdeck); err == nil {
-		if isProductDisabled(site.Spec.Flightdeck.Enabled) {
+		if !checkBool(site.Spec.Flightdeck.Enabled, true) {
 			// Flightdeck is stateless — disable deletes the CR entirely, so if
 			// the CR still exists during a race between delete and aggregation,
 			// treat it as ready since the delete will complete on the next reconcile.
@@ -645,7 +634,7 @@ func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Requ
 			site.Status.FlightdeckReady = status.IsReady(flightdeck.Status.Conditions)
 		}
 	} else if apierrors.IsNotFound(err) {
-		site.Status.FlightdeckReady = isProductDisabled(site.Spec.Flightdeck.Enabled)
+		site.Status.FlightdeckReady = !checkBool(site.Spec.Flightdeck.Enabled, true)
 	} else {
 		if firstErr == nil {
 			firstErr = fmt.Errorf("fetching Flightdeck for status aggregation: %w", err)

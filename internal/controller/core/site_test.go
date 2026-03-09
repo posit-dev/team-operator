@@ -1764,7 +1764,7 @@ func TestAggregateChildStatusContinuesOnTransientError(t *testing.T) {
 }
 
 // TestSiteOptionalComponentsNilEnabledNoCR verifies that Chronicle and Flightdeck with Enabled=nil
-// and no CR present are treated as not ready (Enabled=nil means enabled via isProductEnabled,
+// and no CR present are treated as not ready (Enabled=nil means enabled via checkBool,
 // so the CR is expected but missing → not ready yet).
 func TestSiteOptionalComponentsNilEnabledNoCR(t *testing.T) {
 	siteName := "optional-nil-no-cr"
