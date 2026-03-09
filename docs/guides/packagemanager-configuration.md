@@ -25,6 +25,57 @@ When you configure Package Manager in a Site spec, the Site controller creates a
 
 ## Basic Configuration
 
+### Enabling/Disabling Package Manager
+
+Package Manager can be suspended or permanently torn down using the `enabled` and `teardown` fields.
+
+#### Suspending Package Manager (non-destructive)
+
+Setting `enabled: false` suspends Package Manager: the Deployment, Service, and Ingress are removed, but the PVC, database, and secrets are preserved. Re-enabling restores full service with all existing data intact.
+
+```yaml
+spec:
+  packageManager:
+    enabled: false   # suspend — data is preserved
+```
+
+**When to use `enabled: false`:**
+
+- Customer does not have a Package Manager license yet — deploy the site without Package Manager and enable it once a license is purchased
+- Temporarily pause Package Manager during a maintenance window or cost-saving period
+- Stop Package Manager while retaining all package data and configuration for a possible return
+
+**Re-enabling Package Manager** after a suspend is as simple as removing the field or setting it back to `true`:
+
+```yaml
+spec:
+  packageManager:
+    enabled: true   # or omit the field entirely — defaults to true
+```
+
+#### Tearing down Package Manager (destructive)
+
+To permanently destroy all Package Manager resources — including the database, secrets, and PVC — set both `enabled: false` and `teardown: true`:
+
+```yaml
+spec:
+  packageManager:
+    enabled: false
+    teardown: true   # DESTRUCTIVE: deletes database, secrets, and PVC
+```
+
+**This is irreversible.** Re-enabling Package Manager after a teardown starts completely fresh with a new empty database and no prior package repositories or configuration.
+
+**When to use `teardown: true`:**
+
+- Permanently decommissioning Package Manager with no intent to restore data
+- Reclaiming cluster storage after migrating to a different Package Manager instance
+- Explicitly wiping Package Manager to start fresh
+
+> **Note:** `teardown: true` has no effect while `enabled` is `true` or unset. You must set `enabled: false` first.
+
+---
+
 ### Minimal Configuration
 
 ```yaml

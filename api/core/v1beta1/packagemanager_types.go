@@ -16,6 +16,11 @@ import (
 
 // PackageManagerSpec defines the desired state of PackageManager
 type PackageManagerSpec struct {
+	// Suspended indicates Package Manager should not run serving resources (Deployment, Service, Ingress)
+	// but should preserve data resources (PVC, database, secrets). Set by the Site controller.
+	// +optional
+	Suspended *bool `json:"suspended,omitempty"`
+
 	License    product.LicenseSpec    `json:"license,omitempty"`
 	Config     *PackageManagerConfig  `json:"config,omitempty"`
 	Volume     *product.VolumeSpec    `json:"volume,omitempty"`

@@ -25,6 +25,11 @@ const MaxLoginPageHtmlSize = 64 * 1024
 
 // WorkbenchSpec defines the desired state of Workbench
 type WorkbenchSpec struct {
+	// Suspended indicates Workbench should not run serving resources (Deployment, Service, Ingress)
+	// but should preserve data resources (PVC, database, secrets). Set by the Site controller.
+	// +optional
+	Suspended *bool `json:"suspended,omitempty"`
+
 	License       product.LicenseSpec    `json:"license,omitempty"`
 	Config        WorkbenchConfig        `json:"config,omitempty"`
 	SecretConfig  WorkbenchSecretConfig  `json:"secretConfig,omitempty"`
