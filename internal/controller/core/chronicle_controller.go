@@ -99,6 +99,11 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 		"product", "chronicle",
 	)
 
+	// If suspended, clean up serving resources but preserve configuration
+	if c.Spec.Suspended != nil && *c.Spec.Suspended {
+		return r.suspendDeployedService(ctx, req, c)
+	}
+
 	// default config settings not in the original object
 	// ...
 
@@ -328,7 +333,53 @@ func (r *ChronicleReconciler) ensureDeployedService(ctx context.Context, req ctr
 }
 
 func (r *ChronicleReconciler) CleanupChronicle(ctx context.Context, req ctrl.Request, c *positcov1beta1.Chronicle) (ctrl.Result, error) {
-	// TODO: some cleanup...?
+	l := r.GetLogger(ctx).WithValues(
+		"event", "cleanup-chronicle",
+		"product", "chronicle",
+	)
+
+	key := client.ObjectKey{Name: c.ComponentName(), Namespace: req.Namespace}
+
+	// NOTE: Chronicle's StatefulSet does not use VolumeClaimTemplates (it uses EmptyDir or S3).
+	// If VolumeClaimTemplates are added in the future, their PVCs must be deleted explicitly
+	// here because Kubernetes does not garbage-collect StatefulSet PVCs automatically.
+	if err := internal.BatchDelete(ctx, r, l, key,
+		&corev1.Service{},
+		&v1.StatefulSet{},
+		&corev1.ConfigMap{},
+		&corev1.ServiceAccount{},
+	); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Read-only service account
+	readOnlyKey := client.ObjectKey{
+		Name:      fmt.Sprintf("%s-read-only", c.ComponentName()),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, readOnlyKey, &corev1.ServiceAccount{}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	l.Info("Chronicle cleanup complete")
+	return ctrl.Result{}, nil
+}
+
+// suspendDeployedService removes serving resources (StatefulSet, Service)
+// when Chronicle is suspended.
+func (r *ChronicleReconciler) suspendDeployedService(ctx context.Context, req ctrl.Request, c *positcov1beta1.Chronicle) (ctrl.Result, error) {
+	l := r.GetLogger(ctx).WithValues("event", "suspend-service", "product", "chronicle")
+
+	key := client.ObjectKey{Name: c.ComponentName(), Namespace: req.Namespace}
+
+	if err := internal.BatchDelete(ctx, r, l, key,
+		&corev1.Service{},
+		&v1.StatefulSet{}, // Chronicle uses StatefulSet, not Deployment
+	); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	l.Info("Chronicle serving resources suspended")
 	return ctrl.Result{}, nil
 }
 

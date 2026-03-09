@@ -14,6 +14,8 @@ import (
 // InternalWorkbenchSpecApplyConfiguration represents a declarative configuration of the InternalWorkbenchSpec type for use
 // with apply.
 type InternalWorkbenchSpecApplyConfiguration struct {
+	Enabled                       *bool                                                    `json:"enabled,omitempty"`
+	Teardown                      *bool                                                    `json:"teardown,omitempty"`
 	Databricks                    map[string]DatabricksConfigApplyConfiguration            `json:"databricks,omitempty"`
 	Snowflake                     *SnowflakeConfigApplyConfiguration                       `json:"snowflake,omitempty"`
 	License                       *product.LicenseSpec                                     `json:"license,omitempty"`
@@ -53,6 +55,22 @@ type InternalWorkbenchSpecApplyConfiguration struct {
 // apply.
 func InternalWorkbenchSpec() *InternalWorkbenchSpecApplyConfiguration {
 	return &InternalWorkbenchSpecApplyConfiguration{}
+}
+
+// WithEnabled sets the Enabled field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Enabled field is set to the value of the last call.
+func (b *InternalWorkbenchSpecApplyConfiguration) WithEnabled(value bool) *InternalWorkbenchSpecApplyConfiguration {
+	b.Enabled = &value
+	return b
+}
+
+// WithTeardown sets the Teardown field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Teardown field is set to the value of the last call.
+func (b *InternalWorkbenchSpecApplyConfiguration) WithTeardown(value bool) *InternalWorkbenchSpecApplyConfiguration {
+	b.Teardown = &value
+	return b
 }
 
 // WithDatabricks puts the entries into the Databricks field in the declarative configuration

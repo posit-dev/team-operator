@@ -13,6 +13,7 @@ import (
 // WorkbenchSpecApplyConfiguration represents a declarative configuration of the WorkbenchSpec type for use
 // with apply.
 type WorkbenchSpecApplyConfiguration struct {
+	Suspended                            *bool                                     `json:"suspended,omitempty"`
 	License                              *product.LicenseSpec                      `json:"license,omitempty"`
 	Config                               *WorkbenchConfigApplyConfiguration        `json:"config,omitempty"`
 	SecretConfig                         *WorkbenchSecretConfigApplyConfiguration  `json:"secretConfig,omitempty"`
@@ -53,6 +54,14 @@ type WorkbenchSpecApplyConfiguration struct {
 // apply.
 func WorkbenchSpec() *WorkbenchSpecApplyConfiguration {
 	return &WorkbenchSpecApplyConfiguration{}
+}
+
+// WithSuspended sets the Suspended field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Suspended field is set to the value of the last call.
+func (b *WorkbenchSpecApplyConfiguration) WithSuspended(value bool) *WorkbenchSpecApplyConfiguration {
+	b.Suspended = &value
+	return b
 }
 
 // WithLicense sets the License field in the declarative configuration to the given value

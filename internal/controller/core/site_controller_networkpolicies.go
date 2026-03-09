@@ -38,13 +38,22 @@ func (r *SiteReconciler) reconcileNetworkPolicies(ctx context.Context, req ctrl.
 		return nil
 	}
 
-	if err := r.reconcileChronicleNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
-		l.Error(err, "error ensuring chronicle network policy")
-		return err
+	// Chronicle network policy
+	chronicleEnabled := checkBool(site.Spec.Chronicle.Enabled, true)
+	if chronicleEnabled {
+		if err := r.reconcileChronicleNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
+			l.Error(err, "error ensuring chronicle network policy")
+			return err
+		}
+	} else {
+		if err := r.cleanupChronicleNetworkPolicies(ctx, req, l); err != nil {
+			l.Error(err, "error cleaning up chronicle network policies")
+			return err
+		}
 	}
 
 	// Connect network policies
-	connectEnabled := site.Spec.Connect.Enabled == nil || *site.Spec.Connect.Enabled
+	connectEnabled := checkBool(site.Spec.Connect.Enabled, true)
 	if connectEnabled {
 		if err := r.reconcileConnectNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
 			l.Error(err, "error ensuring connect network policy")
@@ -72,19 +81,37 @@ func (r *SiteReconciler) reconcileNetworkPolicies(ctx context.Context, req ctrl.
 		return err
 	}
 
-	if err := r.reconcilePackageManagerNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
-		l.Error(err, "error ensuring package manager network policy")
-		return err
+	// Package Manager network policy
+	pmEnabled := checkBool(site.Spec.PackageManager.Enabled, true)
+	if pmEnabled {
+		if err := r.reconcilePackageManagerNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
+			l.Error(err, "error ensuring package manager network policy")
+			return err
+		}
+	} else {
+		if err := r.cleanupPackageManagerNetworkPolicies(ctx, req, l); err != nil {
+			l.Error(err, "error cleaning up package manager network policies")
+			return err
+		}
 	}
 
-	if err := r.reconcileWorkbenchNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
-		l.Error(err, "error ensuring workbench network policy")
-		return err
-	}
+	// Workbench network policies
+	workbenchEnabled := checkBool(site.Spec.Workbench.Enabled, true)
+	if workbenchEnabled {
+		if err := r.reconcileWorkbenchNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
+			l.Error(err, "error ensuring workbench network policy")
+			return err
+		}
 
-	if err := r.reconcileWorkbenchSessionNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
-		l.Error(err, "error ensuring workbench session network policy")
-		return err
+		if err := r.reconcileWorkbenchSessionNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
+			l.Error(err, "error ensuring workbench session network policy")
+			return err
+		}
+	} else {
+		if err := r.cleanupWorkbenchNetworkPolicies(ctx, req, l); err != nil {
+			l.Error(err, "error cleaning up workbench network policies")
+			return err
+		}
 	}
 
 	if err := r.reconcileFlightdeckNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
@@ -801,4 +828,24 @@ func (r *SiteReconciler) cleanupConnectNetworkPolicies(ctx context.Context, req 
 		}
 	}
 	return nil
+}
+
+func (r *SiteReconciler) cleanupChronicleNetworkPolicies(ctx context.Context, req ctrl.Request, l logr.Logger) error {
+	key := client.ObjectKey{Name: req.Name + "-chronicle", Namespace: req.Namespace}
+	return internal.BasicDelete(ctx, r, l, key, &networkingv1.NetworkPolicy{})
+}
+
+func (r *SiteReconciler) cleanupWorkbenchNetworkPolicies(ctx context.Context, req ctrl.Request, l logr.Logger) error {
+	for _, suffix := range []string{"workbench", "workbench-session"} {
+		key := client.ObjectKey{Name: req.Name + "-" + suffix, Namespace: req.Namespace}
+		if err := internal.BasicDelete(ctx, r, l, key, &networkingv1.NetworkPolicy{}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *SiteReconciler) cleanupPackageManagerNetworkPolicies(ctx context.Context, req ctrl.Request, l logr.Logger) error {
+	key := client.ObjectKey{Name: req.Name + "-packagemanager", Namespace: req.Namespace}
+	return internal.BasicDelete(ctx, r, l, key, &networkingv1.NetworkPolicy{})
 }

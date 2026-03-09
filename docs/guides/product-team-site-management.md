@@ -309,6 +309,12 @@ spec:
 ```yaml
 spec:
   workbench:
+    # Enable/disable Workbench deployment (default: true).
+    # Setting enabled: false suspends Workbench (preserves data).
+    # Use teardown: true to permanently delete all Workbench data.
+    # See the Workbench Configuration Guide for details.
+    enabled: true
+
     image: "ghcr.io/posit-dev/workbench:jammy-2024.12.0"
     imagePullPolicy: IfNotPresent
     replicas: 1
@@ -416,6 +422,12 @@ spec:
 ```yaml
 spec:
   packageManager:
+    # Enable/disable Package Manager deployment (default: true).
+    # Setting enabled: false suspends Package Manager (preserves data).
+    # Use teardown: true to permanently delete all Package Manager data.
+    # See the Package Manager Configuration Guide for details.
+    enabled: true
+
     image: "ghcr.io/posit-dev/package-manager:jammy-2024.08.0"
     imagePullPolicy: IfNotPresent
     replicas: 1
@@ -451,6 +463,11 @@ spec:
 ```yaml
 spec:
   chronicle:
+    # Enable/disable Chronicle deployment (default: true).
+    # Setting enabled: false suspends Chronicle.
+    # Use teardown: true to permanently delete all Chronicle data.
+    enabled: true
+
     image: "ghcr.io/posit-dev/chronicle:2024.11.0"
     imagePullPolicy: IfNotPresent
 

@@ -189,6 +189,21 @@ type FeatureEnablerConfig struct {
 }
 
 type InternalPackageManagerSpec struct {
+	// Enabled controls whether Package Manager is running. Defaults to true.
+	// Setting to false suspends Package Manager: stops pods and removes ingress/service,
+	// but preserves PVC, database, and secrets so data is retained.
+	// Re-enabling restores full service without data loss.
+	// +kubebuilder:default=true
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Teardown permanently destroys all Package Manager resources including the database,
+	// secrets, and persistent volume claim. Only takes effect when Enabled is false.
+	// Re-enabling after teardown starts fresh with a new empty database.
+	// +kubebuilder:default=false
+	// +optional
+	Teardown *bool `json:"teardown,omitempty"`
+
 	License product.LicenseSpec `json:"license,omitempty"`
 
 	Volume *product.VolumeSpec `json:"volume,omitempty"`
@@ -341,6 +356,21 @@ type InternalConnectExperimentalFeatures struct {
 }
 
 type InternalWorkbenchSpec struct {
+	// Enabled controls whether Workbench is running. Defaults to true.
+	// Setting to false suspends Workbench: stops pods and removes ingress/service,
+	// but preserves PVC, database, and secrets so data is retained.
+	// Re-enabling restores full service without data loss.
+	// +kubebuilder:default=true
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Teardown permanently destroys all Workbench resources including the database,
+	// secrets, and persistent volume claim. Only takes effect when Enabled is false.
+	// Re-enabling after teardown starts fresh with a new empty database.
+	// +kubebuilder:default=false
+	// +optional
+	Teardown *bool `json:"teardown,omitempty"`
+
 	Databricks map[string]DatabricksConfig `json:"databricks,omitempty"`
 
 	Snowflake SnowflakeConfig `json:"snowflake,omitempty"`
@@ -509,6 +539,20 @@ type InternalWorkbenchExperimentalFeatures struct {
 }
 
 type InternalChronicleSpec struct {
+	// Enabled controls whether Chronicle is running. Defaults to true.
+	// Setting to false suspends Chronicle: stops the StatefulSet and removes the service.
+	// Re-enabling restores full service.
+	// +kubebuilder:default=true
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Teardown permanently destroys all Chronicle resources.
+	// Only takes effect when Enabled is false.
+	// Re-enabling after teardown starts fresh.
+	// +kubebuilder:default=false
+	// +optional
+	Teardown *bool `json:"teardown,omitempty"`
+
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
 	Image string `json:"image,omitempty"`
