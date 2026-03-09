@@ -7,17 +7,19 @@ import (
 )
 
 type PackageManagerConfig struct {
-	Server    *PackageManagerServerConfig    `json:"Server,omitempty"`
-	Http      *PackageManagerHttpConfig      `json:"Http,omitempty"`
-	Git       *PackageManagerGitConfig       `json:"Git,omitempty"`
-	Database  *PackageManagerDatabaseConfig  `json:"Database,omitempty"`
-	Postgres  *PackageManagerPostgresConfig  `json:"Postgres,omitempty"`
-	Storage   *PackageManagerStorageConfig   `json:"Storage,omitempty"`
-	S3Storage *PackageManagerS3StorageConfig `json:"S3Storage,omitempty"`
-	Metrics   *PackageManagerMetricsConfig   `json:"Metrics,omitempty"`
-	Repos     *PackageManagerReposConfig     `json:"Repos,omitempty"`
-	Cran      *PackageManagerCRANConfig      `json:"CRAN,omitempty"`
-	Debug     *PackageManagerDebugConfig     `json:"Debug,omitempty"`
+	Server         *PackageManagerServerConfig         `json:"Server,omitempty"`
+	Http           *PackageManagerHttpConfig           `json:"Http,omitempty"`
+	Git            *PackageManagerGitConfig            `json:"Git,omitempty"`
+	Database       *PackageManagerDatabaseConfig       `json:"Database,omitempty"`
+	Postgres       *PackageManagerPostgresConfig       `json:"Postgres,omitempty"`
+	Storage        *PackageManagerStorageConfig        `json:"Storage,omitempty"`
+	S3Storage      *PackageManagerS3StorageConfig      `json:"S3Storage,omitempty"`
+	Metrics        *PackageManagerMetricsConfig        `json:"Metrics,omitempty"`
+	Repos          *PackageManagerReposConfig          `json:"Repos,omitempty"`
+	Cran           *PackageManagerCRANConfig           `json:"CRAN,omitempty"`
+	Debug          *PackageManagerDebugConfig          `json:"Debug,omitempty"`
+	Authentication *PackageManagerAuthenticationConfig `json:"Authentication,omitempty"`
+	OpenIDConnect  *PackageManagerOIDCConfig           `json:"OpenIDConnect,omitempty"`
 
 	// AdditionalConfig allows appending arbitrary gcfg config content not covered by typed fields.
 	// The value is appended verbatim after the generated config. gcfg parsing naturally handles
@@ -174,6 +176,37 @@ type PackageManagerMetricsConfig struct {
 
 type PackageManagerDebugConfig struct {
 	Log string `json:"Log,omitempty"`
+}
+
+type PackageManagerAuthenticationConfig struct {
+	APITokenAuth          bool   `json:"APITokenAuth,omitempty"`
+	DeviceAuthType        string `json:"DeviceAuthType,omitempty"`
+	NewReposAuthByDefault bool   `json:"NewReposAuthByDefault,omitempty"`
+	Lifetime              string `json:"Lifetime,omitempty"`
+	Inactivity            string `json:"Inactivity,omitempty"`
+	CookieSweepDuration   string `json:"CookieSweepDuration,omitempty"`
+}
+
+type PackageManagerOIDCConfig struct {
+	ClientId             string `json:"ClientId,omitempty"`
+	ClientSecret         string `json:"ClientSecret,omitempty"`
+	ClientSecretFile     string `json:"ClientSecretFile,omitempty"`
+	Issuer               string `json:"Issuer,omitempty"`
+	RequireLogin         bool   `json:"RequireLogin,omitempty"`
+	Logging              bool   `json:"Logging,omitempty"`
+	Scope                string `json:"Scope,omitempty"`
+	CustomScope          string `json:"CustomScope,omitempty"`
+	NoAutoGroupsScope    bool   `json:"NoAutoGroupsScope,omitempty"`
+	GroupsClaim          string `json:"GroupsClaim,omitempty"`
+	GroupsSeparator      string `json:"GroupsSeparator,omitempty"`
+	RoleClaim            string `json:"RoleClaim,omitempty"`
+	RolesSeparator       string `json:"RolesSeparator,omitempty"`
+	UniqueIdClaim        string `json:"UniqueIdClaim,omitempty"`
+	UsernameClaim        string `json:"UsernameClaim,omitempty"`
+	TokenLifetime        string `json:"TokenLifetime,omitempty"`
+	MaxAuthenticationAge string `json:"MaxAuthenticationAge,omitempty"`
+	DisablePKCE          bool   `json:"DisablePKCE,omitempty"`
+	EnableDevicePKCE     bool   `json:"EnableDevicePKCE,omitempty"`
 }
 
 // SSHKeyConfig defines SSH key configuration for Git authentication

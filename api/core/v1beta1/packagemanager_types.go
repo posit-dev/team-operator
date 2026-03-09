@@ -84,6 +84,11 @@ type PackageManagerSpec struct {
 	// AzureFiles configures Azure Files integration for persistent storage
 	// +optional
 	AzureFiles *AzureFilesConfig `json:"azureFiles,omitempty"`
+
+	// OIDCClientSecretKey is the key name in the vault for the OIDC client secret.
+	// When set, the client secret will be mounted at /etc/rstudio-pm/oidc-client-secret
+	// +optional
+	OIDCClientSecretKey string `json:"oidcClientSecretKey,omitempty"`
 }
 
 // PackageManagerStatus defines the observed state of PackageManager
@@ -318,6 +323,24 @@ func (pm *PackageManager) CreateSecretVolumeFactory() *product.SecretVolumeFacto
 			}
 		}
 
+		// Add OIDC client secret volume mount if configured
+		if pm.Spec.OIDCClientSecretKey != "" {
+			vols["client-secret-volume"] = &product.VolumeDef{
+				Source: &v1.VolumeSource{
+					CSI: &v1.CSIVolumeSource{
+						Driver:   "secrets-store.csi.k8s.io",
+						ReadOnly: ptr.To(true),
+						VolumeAttributes: map[string]string{
+							"secretProviderClass": pm.SecretProviderClassName(),
+						},
+					},
+				},
+				Mounts: []*product.VolumeMountDef{
+					{MountPath: "/etc/rstudio-pm/oidc-client-secret", SubPath: "oidc-client-secret", ReadOnly: true},
+				},
+			}
+		}
+
 	case product.SiteSecretKubernetes:
 		vols["key-volume"] = &product.VolumeDef{
 			Env: []v1.EnvVar{
@@ -353,6 +376,23 @@ func (pm *PackageManager) CreateSecretVolumeFactory() *product.SecretVolumeFacto
 					},
 				},
 			},
+		}
+
+		// Add OIDC client secret volume mount if configured
+		if pm.Spec.OIDCClientSecretKey != "" {
+			vols["client-secret-volume"] = &product.VolumeDef{
+				Source: &v1.VolumeSource{
+					Secret: &v1.SecretVolumeSource{
+						SecretName: pm.GetSecretVaultName(),
+						Items: []v1.KeyToPath{
+							{Key: pm.Spec.OIDCClientSecretKey, Path: "oidc-client-secret"},
+						},
+					},
+				},
+				Mounts: []*product.VolumeMountDef{
+					{MountPath: "/etc/rstudio-pm/oidc-client-secret", SubPath: "oidc-client-secret", ReadOnly: true},
+				},
+			}
 		}
 
 	default:

@@ -123,6 +123,22 @@ func (r *SiteReconciler) reconcilePackageManager(
 		// Propagate additional config from Site to PackageManager
 		pm.Spec.Config.AdditionalConfig = site.Spec.PackageManager.AdditionalConfig
 
+		// Propagate OIDC authentication configuration
+		if site.Spec.PackageManager.Auth != nil && site.Spec.PackageManager.Auth.Type == v1beta1.AuthTypeOidc {
+			pm.Spec.Config.OpenIDConnect = &v1beta1.PackageManagerOIDCConfig{
+				ClientId:         site.Spec.PackageManager.Auth.ClientId,
+				ClientSecretFile: "/etc/rstudio-pm/oidc-client-secret",
+				Issuer:           site.Spec.PackageManager.Auth.Issuer,
+				RequireLogin:     true,
+				Scope:            "repos:read:*",
+			}
+			if site.Spec.PackageManager.Auth.GroupsClaim != "" {
+				pm.Spec.Config.OpenIDConnect.GroupsClaim = site.Spec.PackageManager.Auth.GroupsClaim
+			}
+			// Propagate the OIDC client secret key so the volume factory can mount it
+			pm.Spec.OIDCClientSecretKey = site.Spec.PackageManager.OIDCClientSecretKey
+		}
+
 		return nil
 	}); err != nil {
 		l.Error(err, "error creating package manager instance")

@@ -62,3 +62,81 @@ func TestPackageManagerConfig_AdditionalConfigEmpty(t *testing.T) {
 	require.Nil(t, err)
 	require.Contains(t, str, "Address = some-address.com")
 }
+
+func TestPackageManagerConfig_OpenIDConnect(t *testing.T) {
+	cfg := PackageManagerConfig{
+		OpenIDConnect: &PackageManagerOIDCConfig{
+			ClientId:     "my-client-id",
+			ClientSecret: "/etc/rstudio-pm/oidc-client-secret",
+			Issuer:       "https://login.example.com",
+			RequireLogin: true,
+		},
+	}
+	str, err := cfg.GenerateGcfg()
+	require.Nil(t, err)
+	require.Contains(t, str, "[OpenIDConnect]")
+	require.Contains(t, str, "ClientId = my-client-id")
+	require.Contains(t, str, "ClientSecret = /etc/rstudio-pm/oidc-client-secret")
+	require.Contains(t, str, "Issuer = https://login.example.com")
+	require.Contains(t, str, "RequireLogin = true")
+}
+
+func TestPackageManagerConfig_Authentication(t *testing.T) {
+	cfg := PackageManagerConfig{
+		Authentication: &PackageManagerAuthenticationConfig{
+			APITokenAuth:          true,
+			DeviceAuthType:        "oidc",
+			NewReposAuthByDefault: true,
+			Lifetime:              "30d",
+			Inactivity:            "12h",
+			CookieSweepDuration:   "5m",
+		},
+	}
+	str, err := cfg.GenerateGcfg()
+	require.Nil(t, err)
+	require.Contains(t, str, "[Authentication]")
+	require.Contains(t, str, "APITokenAuth = true")
+	require.Contains(t, str, "DeviceAuthType = oidc")
+	require.Contains(t, str, "NewReposAuthByDefault = true")
+	require.Contains(t, str, "Lifetime = 30d")
+	require.Contains(t, str, "Inactivity = 12h")
+	require.Contains(t, str, "CookieSweepDuration = 5m")
+}
+
+func TestPackageManagerConfig_OIDCNewFields(t *testing.T) {
+	cfg := PackageManagerConfig{
+		OpenIDConnect: &PackageManagerOIDCConfig{
+			ClientId:             "my-client",
+			ClientSecretFile:     "/etc/rstudio-pm/oidc-secret",
+			Issuer:               "https://auth.example.com",
+			Logging:              true,
+			TokenLifetime:        "1h",
+			DisablePKCE:          true,
+			UniqueIdClaim:        "sub",
+			UsernameClaim:        "preferred_username",
+			MaxAuthenticationAge: "24h",
+			GroupsSeparator:      ",",
+			RolesSeparator:       ";",
+			CustomScope:          "profile email groups",
+			NoAutoGroupsScope:    true,
+			EnableDevicePKCE:     true,
+		},
+	}
+	str, err := cfg.GenerateGcfg()
+	require.Nil(t, err)
+	require.Contains(t, str, "[OpenIDConnect]")
+	require.Contains(t, str, "ClientId = my-client")
+	require.Contains(t, str, "ClientSecretFile = /etc/rstudio-pm/oidc-secret")
+	require.Contains(t, str, "Issuer = https://auth.example.com")
+	require.Contains(t, str, "Logging = true")
+	require.Contains(t, str, "TokenLifetime = 1h")
+	require.Contains(t, str, "DisablePKCE = true")
+	require.Contains(t, str, "UniqueIdClaim = sub")
+	require.Contains(t, str, "UsernameClaim = preferred_username")
+	require.Contains(t, str, "MaxAuthenticationAge = 24h")
+	require.Contains(t, str, "GroupsSeparator = ,")
+	require.Contains(t, str, "RolesSeparator = ;")
+	require.Contains(t, str, "CustomScope = profile email groups")
+	require.Contains(t, str, "NoAutoGroupsScope = true")
+	require.Contains(t, str, "EnableDevicePKCE = true")
+}
