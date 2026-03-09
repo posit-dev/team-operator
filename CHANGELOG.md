@@ -1,3 +1,10 @@
+# [1.18.0](https://github.com/posit-dev/team-operator/compare/v1.17.0...v1.18.0) (2026-03-09)
+
+
+### Features
+
+* add PPM OIDC/SSO web UI configuration ([#112](https://github.com/posit-dev/team-operator/issues/112)) ([234d796](https://github.com/posit-dev/team-operator/commit/234d79670a10093e1fea90e08ead033a0c2ec89a))
+
 # [1.17.0](https://github.com/posit-dev/team-operator/compare/v1.16.2...v1.17.0) (2026-03-09)
 
 
