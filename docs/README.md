@@ -1,10 +1,10 @@
 # Team Operator
 
-The Team Operator is a Kubernetes operator that manages the deployment and configuration of Posit Team products within a Kubernetes cluster.
+The Team Operator manages deployment and configuration of Posit Team products in Kubernetes.
 
 ## Overview
 
-The Team Operator automates the deployment and lifecycle management of:
+The operator automates deployment and lifecycle management of:
 - **Posit Workbench** - Interactive development environment
 - **Posit Connect** - Publishing and sharing platform
 - **Posit Package Manager** - Package repository management
@@ -24,7 +24,7 @@ Site CRD (single source of truth)
     └── Keycloak configuration
 ```
 
-The Site controller watches for Site resources and reconciles product-specific Custom Resources for each enabled product.
+The Site controller watches Site resources and creates product-specific Custom Resources for enabled products.
 
 ### Overall System Architecture
 
@@ -286,14 +286,14 @@ The `Site` Custom Resource is the primary configuration point. It contains:
 
 ### Configuration Propagation
 
-Configuration flows from Site CRD to individual product CRDs:
+Configuration flows from Site CRD to product CRDs:
 
 1. User edits Site spec
 2. Site controller detects change
 3. Site controller updates product CRs
 4. Product controllers reconcile deployments
 
-See [Adding Config Options](../guides/adding-config-options.md) for details on extending configuration.
+See [Adding Config Options](../guides/adding-config-options.md) for extending configuration.
 
 ## Quick Start
 
@@ -322,8 +322,8 @@ Team Operator uses two namespaces:
 
 | Namespace | Purpose |
 |-----------|---------|
-| `posit-team-system` | Where the operator controller runs |
-| `posit-team` (or configured `watchNamespace`) | Where Site CRs and deployed products live |
+| `posit-team-system` | Operator controller runs here |
+| `posit-team` (or configured `watchNamespace`) | Site CRs and deployed products run here |
 
 ## Related Documentation
 
