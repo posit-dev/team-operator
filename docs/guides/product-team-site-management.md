@@ -13,7 +13,7 @@ The `Site` Custom Resource Definition (CRD) is the **single source of truth** fo
 - **Chronicle** - Telemetry and monitoring
 - **Keycloak** - Authentication and identity management (optional)
 
-When you create or update a Site, the Site controller automatically reconciles all child product Custom Resources (Connect, Workbench, Package Manager, Chronicle, Flightdeck) to match your desired configuration.
+When you create or update a Site, the Site controller reconciles all child product Custom Resources (Connect, Workbench, Package Manager, Chronicle, Flightdeck) to match your desired configuration.
 
 ## Site Lifecycle
 
@@ -75,7 +75,7 @@ The Site controller cleans up:
 4. Flightdeck CR and all its resources
 5. Network policies
 
-**Important:** Child resources have owner references to the Site, so Kubernetes garbage collection handles most cleanup automatically.
+Child resources have owner references to the Site, so Kubernetes garbage collection handles most cleanup automatically.
 
 If `dropDatabaseOnTearDown: true` is set, product databases will be dropped during cleanup.
 
@@ -309,6 +309,12 @@ spec:
 ```yaml
 spec:
   workbench:
+    # Enable/disable Workbench deployment (default: true).
+    # Setting enabled: false suspends Workbench (preserves data).
+    # Use teardown: true to permanently delete all Workbench data.
+    # See the Workbench Configuration Guide for details.
+    enabled: true
+
     image: "ghcr.io/posit-dev/workbench:jammy-2024.12.0"
     imagePullPolicy: IfNotPresent
     replicas: 1
@@ -416,6 +422,12 @@ spec:
 ```yaml
 spec:
   packageManager:
+    # Enable/disable Package Manager deployment (default: true).
+    # Setting enabled: false suspends Package Manager (preserves data).
+    # Use teardown: true to permanently delete all Package Manager data.
+    # See the Package Manager Configuration Guide for details.
+    enabled: true
+
     image: "ghcr.io/posit-dev/package-manager:jammy-2024.08.0"
     imagePullPolicy: IfNotPresent
     replicas: 1
@@ -451,6 +463,11 @@ spec:
 ```yaml
 spec:
   chronicle:
+    # Enable/disable Chronicle deployment (default: true).
+    # Setting enabled: false suspends Chronicle.
+    # Use teardown: true to permanently delete all Chronicle data.
+    enabled: true
+
     image: "ghcr.io/posit-dev/chronicle:2024.11.0"
     imagePullPolicy: IfNotPresent
 
@@ -701,7 +718,7 @@ kubectl logs -n posit-team -l app.kubernetes.io/name=team-operator --tail=100
 
 #### Products Not Deploying
 
-1. Check Site controller logs for errors:
+1. Verify Site controller logs for errors:
    ```bash
    kubectl logs -n posit-team deploy/team-operator | grep -i error
    ```
@@ -711,7 +728,7 @@ kubectl logs -n posit-team -l app.kubernetes.io/name=team-operator --tail=100
    kubectl get connect,workbench,packagemanager,chronicle -n posit-team
    ```
 
-3. Check individual product controller logs if CRs exist but pods are not running.
+3. Verify individual product controller logs if CRs exist but pods are not running.
 
 #### Database Connection Failures
 
@@ -723,9 +740,9 @@ kubectl logs -n posit-team -l app.kubernetes.io/name=team-operator --tail=100
    # For AWS Secrets Manager, check operator logs for fetch errors
    ```
 
-2. Ensure database host is reachable from the cluster.
+2. Verify database host is reachable from the cluster.
 
-3. Check SSL mode configuration matches your database server.
+3. Verify SSL mode configuration matches your database server.
 
 #### Volume Provisioning Issues
 
@@ -752,9 +769,9 @@ kubectl logs -n posit-team -l app.kubernetes.io/name=team-operator --tail=100
 
 #### Authentication Failures
 
-1. For OIDC, verify client ID and issuer URL are correct.
+1. For OIDC, verify client ID and issuer URL.
 
-2. Check that redirect URIs are configured in your IdP.
+2. Verify redirect URIs are configured in your IdP.
 
 3. Review product logs for detailed auth error messages:
    ```bash
@@ -770,9 +787,9 @@ If you notice constant reconciliation:
    kubectl get site <site-name> -o yaml | diff - site.yaml
    ```
 
-2. Look for validation errors in controller logs.
+2. Review controller logs for validation errors.
 
-3. Ensure no external processes are modifying resources.
+3. Verify no external processes are modifying resources.
 
 ## Related Documentation
 

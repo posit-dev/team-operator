@@ -1,6 +1,6 @@
 # Authentication Setup Guide
 
-This guide provides comprehensive documentation for configuring authentication in Posit Team Operator. Team Operator supports multiple authentication methods for both Posit Connect and Posit Workbench.
+This guide documents authentication configuration in Posit Team Operator. Team Operator supports multiple authentication methods for both Posit Connect and Posit Workbench.
 
 ## Table of Contents
 
@@ -58,7 +58,7 @@ Team Operator supports three authentication types:
 
 ## OIDC Configuration
 
-OpenID Connect (OIDC) is the recommended authentication method for enterprise deployments.
+OpenID Connect (OIDC) is recommended for enterprise deployments.
 
 ### Basic OIDC Configuration
 
@@ -78,14 +78,14 @@ spec:
 
 ### Required IdP Settings
 
-Before configuring OIDC in Team Operator, you must configure your Identity Provider:
+Before configuring OIDC in Team Operator, configure your Identity Provider:
 
-1. **Create an OAuth2/OIDC Application** in your IdP
-2. **Configure Redirect URIs**:
+1. Create an OAuth2/OIDC Application in your IdP
+2. Configure Redirect URIs:
    - Connect: `https://connect.example.com/__login__/callback`
    - Workbench: `https://workbench.example.com/oidc/callback`
-3. **Note the Client ID** (provided in the spec)
-4. **Generate a Client Secret** (stored in secrets)
+3. Note the Client ID (used in the spec)
+4. Generate a Client Secret (stored in secrets)
 
 ### Client Secret Configuration
 
@@ -141,7 +141,7 @@ spec:
 
 **Disabling Groups Claim:**
 
-Some IdPs do not support a groups claim. To explicitly disable it:
+Some IdPs do not support a groups claim. Disable it explicitly:
 
 ```yaml
 spec:
@@ -257,7 +257,7 @@ spec:
 
 ## SAML Configuration
 
-SAML 2.0 authentication is supported for enterprise environments using SAML-based IdPs.
+SAML 2.0 authentication is supported for enterprise environments.
 
 ### Basic SAML Configuration
 
@@ -273,11 +273,11 @@ spec:
 
 ### Attribute Profiles
 
-Team Operator supports two approaches for SAML attribute mapping:
+Team Operator supports two approaches for SAML attribute mapping.
 
 #### 1. Using IdP Attribute Profiles
 
-Use a predefined attribute profile that matches your IdP:
+Use a predefined attribute profile matching your IdP:
 
 ```yaml
 spec:
@@ -312,7 +312,7 @@ spec:
 
 ### SAML Service Provider (SP) Configuration
 
-Your IdP needs to be configured with the following Service Provider details:
+Configure your IdP with these Service Provider details:
 
 **Connect:**
 - Entity ID: `https://connect.example.com/__login__`
@@ -378,7 +378,7 @@ spec:
 
 ## Password Authentication
 
-Password authentication is the simplest authentication method, suitable for development environments.
+Password authentication is the simplest method, suitable for development environments.
 
 ### Configuration
 
@@ -407,7 +407,7 @@ spec:
 
 ## Role-Based Access Control
 
-Team Operator supports automatic role mapping based on group membership from your IdP.
+Team Operator supports automatic role mapping based on IdP group membership.
 
 ### Connect Role Mappings
 
@@ -500,11 +500,11 @@ spec:
 
 ### Keycloak Features
 
-When enabled, Team Operator:
+When enabled, Team Operator does the following:
 - Deploys a Keycloak instance in the namespace
 - Creates a PostgreSQL database for Keycloak
 - Configures ingress routing to `key.<domain>`
-- Sets up necessary service accounts and RBAC
+- Sets up service accounts and RBAC
 
 ### Using Keycloak with Products
 
@@ -525,8 +525,8 @@ spec:
 
 ### Keycloak Realm Configuration
 
-After Keycloak is deployed, you'll need to:
-1. Access Keycloak admin console at `https://key.<domain>`
+After Keycloak deploys, complete these steps:
+1. Access the Keycloak admin console at `https://key.<domain>`
 2. Create a realm (e.g., "posit")
 3. Create clients for each product
 4. Configure client credentials and redirect URIs
@@ -534,7 +534,7 @@ After Keycloak is deployed, you'll need to:
 
 ## Secrets Management
 
-Authentication requires secrets to be properly configured in your secrets provider.
+Authentication requires properly configured secrets in your secrets provider.
 
 ### Kubernetes Secrets
 
@@ -594,9 +594,9 @@ For `secret.type: aws`, store secrets in AWS Secrets Manager:
 **Cause:** Groups claim not configured or not included in token.
 
 **Debug steps:**
-1. Check if `groups: true` is set
+1. Verify `groups: true` is set
 2. Verify `groupsClaim` matches what your IdP sends
-3. Ensure the `groups` scope is requested
+3. Verify the `groups` scope is requested
 4. Check if your IdP requires special configuration for group claims
 
 **Enable OIDC logging for Connect:**
@@ -626,8 +626,8 @@ spec:
 **Cause:** The SAML metadata URL is unreachable from the cluster.
 
 **Solutions:**
-- Ensure the metadata URL is accessible from pods
-- Check network policies allow outbound connections
+- Verify the metadata URL is accessible from pods
+- Verify network policies allow outbound connections
 - Verify DNS resolution works
 
 #### 2. "IdPAttributeProfile Cannot Be Specified Together..."
@@ -686,7 +686,7 @@ If users aren't getting the correct roles:
    - Group names are case-sensitive
 
 3. **Verify IdP configuration:**
-   - Ensure groups are included in the token
+   - Verify groups are included in the token
    - Check token size limits (large group lists may be truncated)
 
 ### Workbench-Specific Issues
@@ -698,7 +698,7 @@ Workbench may include port numbers in redirect URIs. The operator sets a header 
 X-Rstudio-Request: https://<workbench-url>
 ```
 
-If you see port 443 in redirect URIs, ensure Traefik middleware is correctly applied.
+If you see port 443 in redirect URIs, verify Traefik middleware is correctly applied.
 
 #### User Provisioning
 

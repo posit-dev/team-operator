@@ -24,6 +24,7 @@ func (lte *LocalTestEnv) makeEnv() error {
 			filepath.Join(RootDir, "config", "crd", "bases"),
 			filepath.Join(RootDir, "hack", "keycloak", "crds"),
 			filepath.Join(RootDir, "hack", "traefik", "crds"),
+			filepath.Join(RootDir, "hack", "secrets-store", "crds"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}

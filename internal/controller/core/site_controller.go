@@ -24,6 +24,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+// checkBool dereferences a bool pointer, returning defaultVal if nil.
+func checkBool(b *bool, defaultVal bool) bool {
+	if b == nil {
+		return defaultVal
+	}
+	return *b
+}
+
 // SiteReconciler reconciles a Site object
 type SiteReconciler struct {
 	client.Client
@@ -156,10 +164,28 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 	// VOLUMES
 
 	// Determine if Connect is enabled (used for volume provisioning and later for reconciliation)
-	connectEnabled := site.Spec.Connect.Enabled == nil || *site.Spec.Connect.Enabled
-	connectTeardown := site.Spec.Connect.Teardown != nil && *site.Spec.Connect.Teardown
+	connectEnabled := checkBool(site.Spec.Connect.Enabled, true)
+	connectTeardown := checkBool(site.Spec.Connect.Teardown, false)
 	if connectTeardown && connectEnabled {
 		l.Info("connect.teardown is set but connect.enabled is not false; teardown has no effect until enabled=false")
+	}
+
+	workbenchEnabled := checkBool(site.Spec.Workbench.Enabled, true)
+	workbenchTeardown := checkBool(site.Spec.Workbench.Teardown, false)
+	if workbenchTeardown && workbenchEnabled {
+		l.Info("workbench.teardown is set but workbench.enabled is not false; teardown has no effect until enabled=false")
+	}
+
+	pmEnabled := checkBool(site.Spec.PackageManager.Enabled, true)
+	pmTeardown := checkBool(site.Spec.PackageManager.Teardown, false)
+	if pmTeardown && pmEnabled {
+		l.Info("packageManager.teardown is set but packageManager.enabled is not false; teardown has no effect until enabled=false")
+	}
+
+	chronicleEnabled := checkBool(site.Spec.Chronicle.Enabled, true)
+	chronicleTeardown := checkBool(site.Spec.Chronicle.Teardown, false)
+	if chronicleTeardown && chronicleEnabled {
+		l.Info("chronicle.teardown is set but chronicle.enabled is not false; teardown has no effect until enabled=false")
 	}
 
 	connectVolumeName := fmt.Sprintf("%s-connect", site.Name)
@@ -191,15 +217,17 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 				}
 			}
 
-			if err := r.provisionFsxVolume(ctx, site, devVolumeName, "workbench", connectVolumeSize); err != nil {
-				return ctrl.Result{}, err
-			}
+			if workbenchEnabled {
+				if err := r.provisionFsxVolume(ctx, site, devVolumeName, "workbench", connectVolumeSize); err != nil {
+					return ctrl.Result{}, err
+				}
 
-			// Provision shared storage volume for workbench load balancing
-			workbenchSharedStorageVolumeName := fmt.Sprintf("%s-workbench-shared-storage", site.Name)
-			// Note: provisionFsxVolume uses the volume name as the storage class name
-			if err := r.provisionFsxVolume(ctx, site, workbenchSharedStorageVolumeName, "workbench-shared-storage", workbenchSharedStorageVolumeSize); err != nil {
-				return ctrl.Result{}, err
+				// Provision shared storage volume for workbench load balancing
+				workbenchSharedStorageVolumeName := fmt.Sprintf("%s-workbench-shared-storage", site.Name)
+				// Note: provisionFsxVolume uses the volume name as the storage class name
+				if err := r.provisionFsxVolume(ctx, site, workbenchSharedStorageVolumeName, "workbench-shared-storage", workbenchSharedStorageVolumeSize); err != nil {
+					return ctrl.Result{}, err
+				}
 			}
 
 			if site.Spec.SharedDirectory != "" {
@@ -230,15 +258,17 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 
 			devStorageClassName = fmt.Sprintf("%s-nfs", devVolumeName)
 
-			if err := r.provisionNfsVolume(ctx, site, devVolumeName, "workbench", devStorageClassName, connectVolumeSize); err != nil {
-				return ctrl.Result{}, err
-			}
+			if workbenchEnabled {
+				if err := r.provisionNfsVolume(ctx, site, devVolumeName, "workbench", devStorageClassName, connectVolumeSize); err != nil {
+					return ctrl.Result{}, err
+				}
 
-			// Provision shared storage volume for workbench load balancing
-			workbenchSharedStorageVolumeName := fmt.Sprintf("%s-workbench-shared-storage", site.Name)
-			workbenchSharedStorageClassName := fmt.Sprintf("%s-nfs", workbenchSharedStorageVolumeName)
-			if err := r.provisionNfsVolume(ctx, site, workbenchSharedStorageVolumeName, "workbench-shared-storage", workbenchSharedStorageClassName, workbenchSharedStorageVolumeSize); err != nil {
-				return ctrl.Result{}, err
+				// Provision shared storage volume for workbench load balancing
+				workbenchSharedStorageVolumeName := fmt.Sprintf("%s-workbench-shared-storage", site.Name)
+				workbenchSharedStorageClassName := fmt.Sprintf("%s-nfs", workbenchSharedStorageVolumeName)
+				if err := r.provisionNfsVolume(ctx, site, workbenchSharedStorageVolumeName, "workbench-shared-storage", workbenchSharedStorageClassName, workbenchSharedStorageVolumeSize); err != nil {
+					return ctrl.Result{}, err
+				}
 			}
 
 			if site.Spec.SharedDirectory != "" {
@@ -344,40 +374,75 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 	}
 
 	// PACKAGE MANAGER
-	if err := r.reconcilePackageManager(
-		ctx,
-		req,
-		site,
-		dbUrl.Host,
-		sslMode,
-		packageManagerUrl,
-	); err != nil {
-		l.Error(err, "error reconciling package manager")
-		return ctrl.Result{}, err
+	if pmEnabled {
+		if err := r.reconcilePackageManager(
+			ctx,
+			req,
+			site,
+			dbUrl.Host,
+			sslMode,
+			packageManagerUrl,
+		); err != nil {
+			l.Error(err, "error reconciling package manager")
+			return ctrl.Result{}, err
+		}
+	} else if pmTeardown {
+		if err := r.cleanupPackageManager(ctx, req, l); err != nil {
+			l.Error(err, "error tearing down package manager resources")
+			return ctrl.Result{}, err
+		}
+	} else {
+		if err := r.disablePackageManager(ctx, req, l); err != nil {
+			l.Error(err, "error disabling package manager")
+			return ctrl.Result{}, err
+		}
 	}
 
 	// WORKBENCH
-	if err := r.reconcileWorkbench(
-		ctx,
-		req,
-		site,
-		dbUrl.Host,
-		sslMode,
-		devVolumeName,
-		devStorageClassName,
-		workbenchAdditionalVolumes,
-		packageManagerRepoUrl,
-		workbenchUrl,
-	); err != nil {
-		l.Error(err, "error reconciling workbench")
-		return ctrl.Result{}, err
+	if workbenchEnabled {
+		if err := r.reconcileWorkbench(
+			ctx,
+			req,
+			site,
+			dbUrl.Host,
+			sslMode,
+			devVolumeName,
+			devStorageClassName,
+			workbenchAdditionalVolumes,
+			packageManagerRepoUrl,
+			workbenchUrl,
+		); err != nil {
+			l.Error(err, "error reconciling workbench")
+			return ctrl.Result{}, err
+		}
+	} else if workbenchTeardown {
+		if err := r.cleanupWorkbench(ctx, req, l); err != nil {
+			l.Error(err, "error tearing down workbench resources")
+			return ctrl.Result{}, err
+		}
+	} else {
+		if err := r.disableWorkbench(ctx, req, l); err != nil {
+			l.Error(err, "error disabling workbench")
+			return ctrl.Result{}, err
+		}
 	}
 
 	// CHRONICLE
-
-	if err := r.reconcileChronicle(ctx, req, site); err != nil {
-		l.Error(err, "error reconciling chronicle")
-		return ctrl.Result{}, err
+	if chronicleEnabled {
+		if err := r.reconcileChronicle(ctx, req, site); err != nil {
+			l.Error(err, "error reconciling chronicle")
+			return ctrl.Result{}, err
+		}
+	} else if chronicleTeardown {
+		if err := r.cleanupChronicle(ctx, req, l); err != nil {
+			l.Error(err, "error tearing down chronicle resources")
+			return ctrl.Result{}, err
+		}
+	} else {
+		if err := r.disableChronicle(ctx, req, l); err != nil {
+			l.Error(err, "error disabling chronicle")
+			return ctrl.Result{}, err
+		}
 	}
 
 	// KEYCLOAK

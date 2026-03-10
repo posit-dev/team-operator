@@ -34,5 +34,5 @@ go.work.sum
 # .idea/
 # .vscode/
 
-# Claude Code
+# Claude Code cache
 .claude/tsc-cache/

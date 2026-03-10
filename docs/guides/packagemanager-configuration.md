@@ -1,10 +1,10 @@
 # Package Manager Configuration Guide
 
-This guide provides comprehensive documentation for configuring Posit Package Manager within the Team Operator framework.
+This guide documents how to configure Posit Package Manager within the Team Operator.
 
 ## Overview
 
-Posit Package Manager (PPM) is a repository management server that provides R and Python packages from CRAN, Bioconductor, and PyPI, as well as internal packages built from Git repositories. In Team Operator, Package Manager is deployed as a child resource of a Site.
+Posit Package Manager (PPM) provides R and Python packages from CRAN, Bioconductor, and PyPI, plus internal packages built from Git repositories. In Team Operator, Package Manager is deployed as a child resource of a Site.
 
 ### Architecture
 
@@ -21,9 +21,60 @@ Site CR
         └── PodDisruptionBudget
 ```
 
-When you configure Package Manager in a Site spec, the Site controller creates a `PackageManager` Custom Resource. The PackageManager controller then reconciles all the Kubernetes resources needed to run the service.
+When you configure Package Manager in a Site spec, the Site controller creates a `PackageManager` Custom Resource. The PackageManager controller reconciles the Kubernetes resources needed to run the service.
 
 ## Basic Configuration
+
+### Enabling/Disabling Package Manager
+
+Package Manager can be suspended or permanently torn down using the `enabled` and `teardown` fields.
+
+#### Suspending Package Manager (non-destructive)
+
+Setting `enabled: false` suspends Package Manager: the Deployment, Service, and Ingress are removed, but the PVC, database, and secrets are preserved. Re-enabling restores full service with all existing data intact.
+
+```yaml
+spec:
+  packageManager:
+    enabled: false   # suspend — data is preserved
+```
+
+**When to use `enabled: false`:**
+
+- Customer does not have a Package Manager license yet — deploy the site without Package Manager and enable it once a license is purchased
+- Temporarily pause Package Manager during a maintenance window or cost-saving period
+- Stop Package Manager while retaining all package data and configuration for a possible return
+
+**Re-enabling Package Manager** after a suspend is as simple as removing the field or setting it back to `true`:
+
+```yaml
+spec:
+  packageManager:
+    enabled: true   # or omit the field entirely — defaults to true
+```
+
+#### Tearing down Package Manager (destructive)
+
+To permanently destroy all Package Manager resources — including the database, secrets, and PVC — set both `enabled: false` and `teardown: true`:
+
+```yaml
+spec:
+  packageManager:
+    enabled: false
+    teardown: true   # DESTRUCTIVE: deletes database, secrets, and PVC
+```
+
+**This is irreversible.** Re-enabling Package Manager after a teardown starts completely fresh with a new empty database and no prior package repositories or configuration.
+
+**When to use `teardown: true`:**
+
+- Permanently decommissioning Package Manager with no intent to restore data
+- Reclaiming cluster storage after migrating to a different Package Manager instance
+- Explicitly wiping Package Manager to start fresh
+
+> **Note:** `teardown: true` has no effect while `enabled` is `true` or unset. You must set `enabled: false` first.
+
+---
 
 ### Minimal Configuration
 
@@ -160,7 +211,7 @@ The license is expected in the vault under the key `pkg-license`.
 
 ## Database Configuration
 
-Package Manager uses PostgreSQL for storing metadata and usage metrics. The operator automatically provisions two database schemas:
+Package Manager uses PostgreSQL for metadata and usage metrics. The operator provisions two database schemas:
 
 | Schema | Purpose |
 |--------|---------|
@@ -186,7 +237,7 @@ spec:
 
 ### Database URLs
 
-The operator constructs database URLs automatically using the format:
+The operator constructs database URLs using this format:
 
 ```
 postgres://username:password@host/database?search_path=pm&sslmode=require
@@ -212,7 +263,7 @@ Package Manager supports multiple storage backends for package data.
 
 ### S3 Storage (AWS Recommended)
 
-For production deployments on AWS, S3 storage is recommended:
+For production deployments on AWS, use S3 storage:
 
 ```yaml
 spec:
@@ -258,7 +309,7 @@ The Package Manager service account requires the following S3 permissions:
 
 #### IAM Role Association
 
-The operator automatically creates a ServiceAccount with the appropriate IAM role annotation:
+The operator creates a ServiceAccount with the IAM role annotation:
 
 ```yaml
 annotations:
@@ -320,7 +371,7 @@ spec:
 
 ## Git Builder Configuration
 
-Package Manager can build packages from Git repositories. For private repositories, SSH key authentication is required.
+Package Manager can build packages from Git repositories. Private repositories require SSH key authentication.
 
 ### SSH Key Configuration
 
@@ -345,7 +396,7 @@ spec:
 
 ### AWS Secrets Manager SSH Keys
 
-When using AWS Secrets Manager, SSH keys are stored in a dedicated vault:
+With AWS Secrets Manager, SSH keys are stored in a dedicated vault:
 
 **Vault naming convention:**
 ```
@@ -440,11 +491,11 @@ RVersion = /opt/R/default
 
 ## Secret Management
 
-Package Manager secrets are managed differently based on the Site's secret type.
+Secret management depends on the Site's secret type.
 
 ### AWS Secrets Manager
 
-When `secret.type: aws`, the following secrets are retrieved from AWS Secrets Manager:
+When `secret.type: aws`, these secrets are retrieved from AWS Secrets Manager:
 
 | Secret Key | Purpose |
 |------------|---------|
@@ -489,7 +540,7 @@ resources:
 
 ### Pod Disruption Budget
 
-A PodDisruptionBudget is automatically created to ensure availability during cluster maintenance. For single-replica deployments, `minAvailable: 0`. For multi-replica deployments, the operator calculates an appropriate `minAvailable` value.
+A PodDisruptionBudget is created to maintain availability during cluster maintenance. For single-replica deployments, `minAvailable: 0`. For multi-replica deployments, the operator calculates an appropriate `minAvailable` value.
 
 ### Affinity
 
@@ -756,7 +807,7 @@ Log = verbose
 
 ### Sleep Mode for Debugging
 
-For debugging crash loops, enable sleep mode:
+To debug crash loops, enable sleep mode:
 
 ```yaml
 # Directly on PackageManager CR (not recommended for production)

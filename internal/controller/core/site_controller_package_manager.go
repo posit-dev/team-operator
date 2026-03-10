@@ -3,11 +3,14 @@ package core
 import (
 	"context"
 
+	"github.com/go-logr/logr"
 	"github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	controllerruntime "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (r *SiteReconciler) reconcilePackageManager(
@@ -45,6 +48,9 @@ func (r *SiteReconciler) reconcilePackageManager(
 		pm.Labels = map[string]string{
 			v1beta1.ManagedByLabelKey: v1beta1.ManagedByLabelValue,
 		}
+		// Suspended is intentionally absent: CreateOrUpdate does a full spec
+		// replacement (regular Update, not SSA), so any prior Suspended=true is
+		// cleared when Package Manager is re-enabled.
 		pm.Spec = v1beta1.PackageManagerSpec{
 			AwsAccountId:         site.Spec.AwsAccountId,
 			ClusterDate:          site.Spec.ClusterDate,
@@ -117,9 +123,83 @@ func (r *SiteReconciler) reconcilePackageManager(
 		// Propagate additional config from Site to PackageManager
 		pm.Spec.Config.AdditionalConfig = site.Spec.PackageManager.AdditionalConfig
 
+		// Propagate OIDC authentication configuration
+		if site.Spec.PackageManager.Auth != nil && site.Spec.PackageManager.Auth.Type == v1beta1.AuthTypeOidc {
+			pm.Spec.Config.OpenIDConnect = &v1beta1.PackageManagerOIDCConfig{
+				ClientId:         site.Spec.PackageManager.Auth.ClientId,
+				ClientSecretFile: "/etc/rstudio-pm/oidc-client-secret",
+				Issuer:           site.Spec.PackageManager.Auth.Issuer,
+				RequireLogin:     true,
+				Scope:            "repos:read:*",
+			}
+			if site.Spec.PackageManager.Auth.GroupsClaim != "" {
+				pm.Spec.Config.OpenIDConnect.GroupsClaim = site.Spec.PackageManager.Auth.GroupsClaim
+			}
+			// Propagate the OIDC client secret key so the volume factory can mount it
+			pm.Spec.OIDCClientSecretKey = site.Spec.PackageManager.OIDCClientSecretKey
+		}
+
 		return nil
 	}); err != nil {
 		l.Error(err, "error creating package manager instance")
+		return err
+	}
+
+	return nil
+}
+
+// disablePackageManager suspends Package Manager by marking the existing PackageManager CR with Suspended=true.
+// The Package Manager controller then removes serving resources (Deployment/Service/Ingress) while
+// preserving data resources (PVC, database, secrets).
+//
+// If no PackageManager CR exists yet (Package Manager was never enabled), this is a no-op.
+// When Package Manager is re-enabled, reconcilePackageManager overwrites Suspended back to nil and
+// performs a full reconcile.
+func (r *SiteReconciler) disablePackageManager(ctx context.Context, req controllerruntime.Request, l logr.Logger) error {
+	l = l.WithValues("event", "disable-package-manager")
+
+	pm := &v1beta1.PackageManager{}
+	if err := r.Get(ctx, client.ObjectKey{Name: req.Name, Namespace: req.Namespace}, pm); err != nil {
+		if apierrors.IsNotFound(err) {
+			l.Info("PackageManager CR not found, nothing to suspend")
+			return nil
+		}
+		return err
+	}
+
+	if pm.Spec.Suspended != nil && *pm.Spec.Suspended {
+		l.Info("PackageManager already suspended")
+		return nil
+	}
+
+	patch := client.MergeFrom(pm.DeepCopy())
+	suspended := true
+	pm.Spec.Suspended = &suspended
+	if err := r.Patch(ctx, pm, patch); err != nil {
+		l.Error(err, "error suspending PackageManager CR")
+		return err
+	}
+
+	l.Info("PackageManager CR suspended")
+	return nil
+}
+
+// cleanupPackageManager deletes the PackageManager CR when teardown=true.
+//
+// WARNING: This is a DESTRUCTIVE operation. Deleting the PackageManager CR triggers the PackageManager
+// finalizer which permanently destroys:
+//   - The Package Manager database and all its data
+//   - All secrets (database credentials, provisioning keys, etc.)
+//   - Persistent volumes and claims
+//   - All deployed Kubernetes resources
+//
+// This is triggered by Site.Spec.PackageManager.Teardown=true (when Enabled=false).
+// Re-enabling Package Manager after teardown will start fresh with a new database.
+func (r *SiteReconciler) cleanupPackageManager(ctx context.Context, req controllerruntime.Request, l logr.Logger) error {
+	l = l.WithValues("event", "cleanup-package-manager")
+
+	pmKey := client.ObjectKey{Name: req.Name, Namespace: req.Namespace}
+	if err := internal.BasicDelete(ctx, r, l, pmKey, &v1beta1.PackageManager{}); err != nil {
 		return err
 	}
 

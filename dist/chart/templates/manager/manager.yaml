@@ -33,10 +33,11 @@ spec:
             {{- end }}
           command:
             - /team-operator
-          {{- if hasPrefix "@" .Values.controllerManager.container.image.tag }}
-          image: {{ .Values.controllerManager.container.image.repository }}{{ .Values.controllerManager.container.image.tag }}
+          {{- $tag := .Values.controllerManager.container.image.tag | default .Chart.AppVersion }}
+          {{- if hasPrefix "@" $tag }}
+          image: {{ .Values.controllerManager.container.image.repository }}{{ $tag }}
           {{- else }}
-          image: {{ .Values.controllerManager.container.image.repository }}:{{ .Values.controllerManager.container.image.tag }}
+          image: {{ .Values.controllerManager.container.image.repository }}:{{ $tag }}
           {{- end }}
           {{- if .Values.controllerManager.container.env }}
           env:

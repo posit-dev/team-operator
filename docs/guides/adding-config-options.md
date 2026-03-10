@@ -1,6 +1,6 @@
 # Adding Configuration Options to Team Operator
 
-This guide walks through the process of adding new configuration options to Posit Team products managed by the Team Operator. It covers the complete flow from Site CRD to product-specific configuration.
+This guide shows how to add configuration options to Posit Team products managed by the Team Operator. Configuration flows from the Site CRD through to product-specific settings.
 
 ## Configuration Architecture Overview
 
@@ -24,19 +24,19 @@ Product Controller (generates actual config files)
 
 ### Key Concepts
 
-1. **Site CRD**: The primary user-facing resource. Users configure their entire Posit Team deployment through a single Site resource.
+1. **Site CRD**: The user-facing resource. Users configure their Posit Team deployment through a single Site resource.
 
-2. **Internal{Product}Spec**: Nested structs within SiteSpec that contain product-specific configuration at the Site level.
+2. **Internal{Product}Spec**: Nested structs within SiteSpec that hold product-specific configuration at the Site level.
 
-3. **Product CRs**: Individual Custom Resources (Connect, Workbench, etc.) created by the Site controller. These are implementation details users typically don't interact with directly.
+3. **Product CRs**: Individual Custom Resources (Connect, Workbench, etc.) created by the Site controller. Users don't interact with these directly.
 
-4. **Propagation**: The Site controller maps Site-level configuration to the appropriate Product CR fields.
+4. **Propagation**: The Site controller maps Site-level configuration to Product CR fields.
 
 ## Step-by-Step: Adding a New Config Option
 
 ### Prerequisites
 
-Before adding a config option, gather the following:
+Before adding a config option, gather this information:
 
 | Item | Description | Example |
 |------|-------------|---------|
@@ -190,7 +190,7 @@ func (r *ConnectReconciler) generateConfig(connect *v1beta1.Connect) string {
 
 **File**: `internal/controller/core/site_test.go`
 
-Add tests to verify propagation works correctly.
+Add tests to verify propagation.
 
 ```go
 func TestSiteReconciler_MaxConnections(t *testing.T) {
@@ -238,7 +238,7 @@ just manifests
 
 ### Optional Integer (Pointer)
 
-Use pointers for optional numeric values where zero is a valid setting:
+Use pointers for optional numeric values where zero is valid:
 
 ```go
 // MaxWorkers sets the maximum number of workers
@@ -273,7 +273,7 @@ LogLevel string `json:"logLevel,omitempty"`
 EnableFeatureX bool `json:"enableFeatureX,omitempty"`
 ```
 
-**Note**: With `omitempty`, false values are omitted from JSON. Only propagate when explicitly true:
+**Note**: With `omitempty`, false values are omitted from JSON. Propagate only when explicitly true:
 
 ```go
 if site.Spec.Product.EnableFeatureX {
@@ -397,14 +397,14 @@ Enabled bool `json:"enabled,omitempty"`
 
 ### 4. Product Config Name Mismatch
 
-Always verify the product config path matches what the product expects:
+Verify the product config path matches what the product expects:
 - Check product admin guides
 - Look at existing examples in the codebase
 - Test with the actual product
 
 ### 5. Not Regenerating CRDs
 
-After modifying types, always run:
+After modifying types, run:
 ```bash
 just generate
 just manifests
@@ -412,7 +412,7 @@ just manifests
 
 ### 6. Overwriting Existing Config
 
-Be careful not to overwrite configuration that may have been set elsewhere:
+Don't overwrite configuration that may have been set elsewhere:
 
 **Wrong**:
 ```go
