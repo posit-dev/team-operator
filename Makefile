@@ -94,11 +94,21 @@ help: ## Display this help.
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
+.PHONY: copy-crds
+copy-crds: manifests ## Copy generated CRDs to internal/crdapply/bases for embedding.
+	rm -f internal/crdapply/bases/*.yaml
+	cp config/crd/bases/*.yaml internal/crdapply/bases/
+
+.PHONY: verify-crds
+verify-crds: ## Verify that internal/crdapply/bases is in sync with config/crd/bases (fails if stale).
+	@diff -r --exclude='.*' config/crd/bases/ internal/crdapply/bases/ || \
+		(echo "internal/crdapply/bases/ is out of sync — run 'make copy-crds'" && exit 1)
+
 .PHONY: generate-all
 generate-all: generate generate-client generate-openapi
 
 .PHONY: verify-all
-verify-all: verify-apply verify-list verify-inform verify-client
+verify-all: verify-apply verify-list verify-inform verify-client verify-crds
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -177,7 +187,7 @@ test-integration: go-test test-kind ## Run all tests (unit + integration).
 ##@ Build
 
 .PHONY: build
-build: manifests generate-all fmt vet ## Build manager binary.
+build: copy-crds generate-all fmt vet ## Build manager binary.
 	go build -o bin/team-operator ./cmd/team-operator/main.go
 
 .PHONY: docker-build

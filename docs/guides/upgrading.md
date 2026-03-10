@@ -2,6 +2,53 @@
 
 This guide covers upgrading the Team Operator: pre-upgrade preparation, upgrade procedures, version-specific migrations, and troubleshooting.
 
+## CRD Management (v1.15+)
+
+Starting with v1.15.0, the operator automatically applies its own CRDs at startup using server-side apply. This ensures the CRD schema always matches the running operator binary, even in cases where only the container image is updated without a full Helm chart upgrade (e.g., adhoc images for testing).
+
+The operator uses the `--manage-crds` flag (default: `true`) to control this behavior. To opt out (for example, if you manage CRDs via Flux or ArgoCD), set:
+
+```yaml
+controllerManager:
+  container:
+    args:
+      - "--manage-crds=false"
+```
+
+When `--manage-crds=false`, the operator starts without touching CRDs, and you are responsible for keeping them in sync with the operator version.
+
+**Benefits of automatic CRD management:**
+- CRDs are always in sync with the operator version
+- Works with adhoc images (e.g., PR branches) without requiring Helm chart changes
+- Uses server-side apply (SSA) which is idempotent and only updates when schema differs
+- No manual CRD management needed for most deployments
+
+**When to disable:**
+- GitOps workflows (Flux, ArgoCD) that manage CRDs separately
+- Security policies requiring explicit CRD review before application
+- Multi-tenant clusters where CRD updates require approval
+
+**RBAC Permissions:**
+The operator requires the following RBAC permissions on its own CRDs:
+- `get` - to check if CRDs exist
+- `patch` - to apply schema updates via server-side apply
+- `update` - to modify CRD metadata
+
+The Helm chart automatically grants these permissions. The operator intentionally omits the `delete` verb to prevent accidental data loss.
+
+**Note on CRD deletion:** Because the operator's RBAC omits the `delete` verb for CRDs, if a future operator version removes a resource type, the now-orphaned CRD will remain in the cluster and must be removed manually:
+
+```bash
+kubectl delete crd <crd-name>.core.posit.team
+```
+
+Before deleting an orphaned CRD, ensure all custom resources of that type have been removed to avoid losing data:
+
+```bash
+kubectl get <resource-plural> -A  # verify no instances remain
+kubectl delete crd <crd-name>.core.posit.team
+```
+
 ## Before Upgrading
 
 ### Backup Procedures
