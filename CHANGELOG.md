@@ -1,3 +1,10 @@
+# [1.19.0](https://github.com/posit-dev/team-operator/compare/v1.18.0...v1.19.0) (2026-03-10)
+
+
+### Features
+
+* operator applies own CRDs at startup to ensure schema matches binary ([#98](https://github.com/posit-dev/team-operator/issues/98)) ([ded621e](https://github.com/posit-dev/team-operator/commit/ded621ea4462e7ef1809d485b90ec94fb6bbb949))
+
 # [1.18.0](https://github.com/posit-dev/team-operator/compare/v1.17.0...v1.18.0) (2026-03-09)
 
 
