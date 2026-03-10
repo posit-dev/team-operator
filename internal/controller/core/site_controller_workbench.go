@@ -5,13 +5,16 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/rstudio/goex/ptr"
 	v12 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	controllerruntime "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (r *SiteReconciler) reconcileWorkbench(
@@ -474,6 +477,9 @@ func (r *SiteReconciler) reconcileWorkbench(
 
 	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, workbench, site, func() error {
 		workbench.Labels = targetWorkbench.Labels
+		// Suspended is intentionally absent from targetWorkbench.Spec: CreateOrUpdate
+		// does a full spec replacement (regular Update, not SSA), so any prior
+		// Suspended=true is cleared when Workbench is re-enabled.
 		workbench.Spec = targetWorkbench.Spec
 		return nil
 	}); err != nil {
@@ -527,4 +533,62 @@ func getMemoryRequestRatio(experimentalFeatures *v1beta1.InternalWorkbenchExperi
 		return experimentalFeatures.MemoryRequestRatio
 	}
 	return "0.8" // Default when experimentalFeatures is nil or field is empty (kubebuilder sets this for new resources)
+}
+
+// disableWorkbench suspends Workbench by marking the existing Workbench CR with Suspended=true.
+// The Workbench controller then removes serving resources (Deployment/Service/Ingress) while
+// preserving data resources (PVC, database, secrets).
+//
+// If no Workbench CR exists yet (Workbench was never enabled), this is a no-op.
+// When Workbench is re-enabled, reconcileWorkbench overwrites Suspended back to nil and
+// performs a full reconcile.
+func (r *SiteReconciler) disableWorkbench(ctx context.Context, req controllerruntime.Request, l logr.Logger) error {
+	l = l.WithValues("event", "disable-workbench")
+
+	workbench := &v1beta1.Workbench{}
+	if err := r.Get(ctx, client.ObjectKey{Name: req.Name, Namespace: req.Namespace}, workbench); err != nil {
+		if apierrors.IsNotFound(err) {
+			l.Info("Workbench CR not found, nothing to suspend")
+			return nil
+		}
+		return err
+	}
+
+	if workbench.Spec.Suspended != nil && *workbench.Spec.Suspended {
+		l.Info("Workbench already suspended")
+		return nil
+	}
+
+	patch := client.MergeFrom(workbench.DeepCopy())
+	suspended := true
+	workbench.Spec.Suspended = &suspended
+	if err := r.Patch(ctx, workbench, patch); err != nil {
+		l.Error(err, "error suspending Workbench CR")
+		return err
+	}
+
+	l.Info("Workbench CR suspended")
+	return nil
+}
+
+// cleanupWorkbench deletes the Workbench CR when teardown=true.
+//
+// WARNING: This is a DESTRUCTIVE operation. Deleting the Workbench CR triggers the Workbench
+// finalizer which permanently destroys:
+//   - The Workbench database and all its data
+//   - All secrets (database credentials, provisioning keys, etc.)
+//   - Persistent volumes and claims
+//   - All deployed Kubernetes resources
+//
+// This is triggered by Site.Spec.Workbench.Teardown=true (when Enabled=false).
+// Re-enabling Workbench after teardown will start fresh with a new database.
+func (r *SiteReconciler) cleanupWorkbench(ctx context.Context, req controllerruntime.Request, l logr.Logger) error {
+	l = l.WithValues("event", "cleanup-workbench")
+
+	workbenchKey := client.ObjectKey{Name: req.Name, Namespace: req.Namespace}
+	if err := internal.BasicDelete(ctx, r, l, workbenchKey, &v1beta1.Workbench{}); err != nil {
+		return err
+	}
+
+	return nil
 }

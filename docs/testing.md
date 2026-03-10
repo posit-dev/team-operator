@@ -1,6 +1,6 @@
 # Testing Guide
 
-This document describes the testing infrastructure for the Team Operator.
+This document covers the testing infrastructure for the Team Operator.
 
 ## Testing Tiers
 
@@ -10,7 +10,7 @@ The Team Operator uses a two-tier local integration testing strategy:
 
 **What it is:** Envtest uses a lightweight, embedded Kubernetes API server (etcd + kube-apiserver) to test CRD schema and API storage without a full cluster or running controller.
 
-**When to use:** For testing CRD schema validation and API storage (no controller reconciler is started in the test environment).
+**When to use:** For testing CRD schema validation and API storage. No controller reconciler runs in the test environment.
 
 **Execution time:** Seconds
 
@@ -18,11 +18,11 @@ The Team Operator uses a two-tier local integration testing strategy:
 - CRD schema validation
 - API object creation and storage
 - Resource serialization/deserialization
-- Basic CRUD operations via the API
+- Basic CRUD operations through the API
 
 ### Tier 2: Kind Cluster (Full Stack Tests)
 
-**What it is:** Kind (Kubernetes IN Docker) creates a real Kubernetes cluster using Docker containers.
+**What it is:** Kind (Kubernetes IN Docker) creates a real Kubernetes cluster with Docker containers.
 
 **When to use:** For end-to-end testing, Helm chart deployment, and integration with other Kubernetes components.
 
@@ -160,7 +160,7 @@ The kind test script:
 
 #### Development Loop
 
-For iterative development, keep the kind cluster running between test runs instead of recreating it each time.
+For iterative development, keep the kind cluster running between test runs. Don't recreate it each time.
 
 **Initial setup** (run once):
 
@@ -189,7 +189,7 @@ make kind-teardown   # removes Helm release and namespaces
                      # (also deletes the kind cluster)
 ```
 
-This workflow is significantly faster than `make test-kind` for iterative development because it skips cluster creation and deletion on every run.
+This workflow is much faster than `make test-kind` for iterative development. It skips cluster creation and deletion on every run.
 
 ## CI Integration
 
@@ -270,8 +270,8 @@ kubectl get pods -A
 
 ## Best Practices
 
-1. **Use envtest for unit-level controller tests** - It's fast and doesn't require Docker
+1. **Use envtest for unit-level controller tests** - Fast and no Docker needed
 2. **Use kind for integration tests** - When you need a real cluster
 3. **Always clean up test resources** - Prevents test pollution
 4. **Use Eventually() for async operations** - Controllers are eventually consistent
-5. **Keep test data minimal** - Only specify fields needed for the test
+5. **Keep test data minimal** - Specify only the fields the test needs

@@ -75,6 +75,21 @@ spec:
                 type: string
               config:
                 properties:
+                  Authentication:
+                    properties:
+                      APITokenAuth:
+                        type: boolean
+                      CookieSweepDuration:
+                        type: string
+                      DeviceAuthType:
+                        type: string
+                      Inactivity:
+                        type: string
+                      Lifetime:
+                        type: string
+                      NewReposAuthByDefault:
+                        type: boolean
+                    type: object
                   CRAN:
                     description: 'PackageManagerCRANConfig is deprecated TODO: deprecated!
                       We will remove this soon!'
@@ -106,6 +121,47 @@ spec:
                     properties:
                       Enabled:
                         type: boolean
+                    type: object
+                  OpenIDConnect:
+                    properties:
+                      ClientId:
+                        type: string
+                      ClientSecret:
+                        type: string
+                      ClientSecretFile:
+                        type: string
+                      CustomScope:
+                        type: string
+                      DisablePKCE:
+                        type: boolean
+                      EnableDevicePKCE:
+                        type: boolean
+                      GroupsClaim:
+                        type: string
+                      GroupsSeparator:
+                        type: string
+                      Issuer:
+                        type: string
+                      Logging:
+                        type: boolean
+                      MaxAuthenticationAge:
+                        type: string
+                      NoAutoGroupsScope:
+                        type: boolean
+                      RequireLogin:
+                        type: boolean
+                      RoleClaim:
+                        type: string
+                      RolesSeparator:
+                        type: string
+                      Scope:
+                        type: string
+                      TokenLifetime:
+                        type: string
+                      UniqueIdClaim:
+                        type: string
+                      UsernameClaim:
+                        type: string
                     type: object
                   Postgres:
                     properties:
@@ -304,6 +360,11 @@ spec:
                 additionalProperties:
                   type: string
                 type: object
+              oidcClientSecretKey:
+                description: |-
+                  OIDCClientSecretKey is the key name in the vault for the OIDC client secret.
+                  When set, the client secret will be mounted at /etc/rstudio-pm/oidc-client-secret
+                type: string
               replicas:
                 type: integer
               secret:
@@ -320,6 +381,11 @@ spec:
                 description: |-
                   Sleep puts the service to sleep... so you can debug a crash looping container / etc. It is an ugly escape hatch,
                   but can also be useful on occasion
+                type: boolean
+              suspended:
+                description: |-
+                  Suspended indicates Package Manager should not run serving resources (Deployment, Service, Ingress)
+                  but should preserve data resources (PVC, database, secrets). Set by the Site controller.
                 type: boolean
               url:
                 type: string

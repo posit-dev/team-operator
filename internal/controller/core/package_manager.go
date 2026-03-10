@@ -45,6 +45,25 @@ func (r *PackageManagerReconciler) CleanupPackageManager(ctx context.Context, re
 	return ctrl.Result{}, nil
 }
 
+// suspendDeployedService removes serving resources (Deployment, Service, Ingress)
+// while preserving data resources (PVC, database, secrets) when Package Manager is suspended.
+func (r *PackageManagerReconciler) suspendDeployedService(ctx context.Context, req ctrl.Request, pm *positcov1beta1.PackageManager) (ctrl.Result, error) {
+	l := r.GetLogger(ctx).WithValues("event", "suspend-service", "product", "package-manager")
+
+	key := client.ObjectKey{Name: pm.ComponentName(), Namespace: req.Namespace}
+
+	if err := internal.BatchDelete(ctx, r, l, key,
+		&networkingv1.Ingress{},
+		&corev1.Service{},
+		&v1.Deployment{},
+	); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	l.Info("Package Manager serving resources suspended")
+	return ctrl.Result{}, nil
+}
+
 func (r *PackageManagerReconciler) cleanupDeployedService(ctx context.Context, req ctrl.Request, pm *positcov1beta1.PackageManager) error {
 	l := r.GetLogger(ctx).WithValues(
 		"event", "cleanup-service",
@@ -57,48 +76,17 @@ func (r *PackageManagerReconciler) cleanupDeployedService(ctx context.Context, r
 		Namespace: req.Namespace,
 	}
 
-	// INGRESS
-
-	existingIngress := &networkingv1.Ingress{}
-	if err := internal.BasicDelete(ctx, r, l, key, existingIngress); err != nil {
-		return err
-	}
-
-	// SERVICE
-
-	existingService := &corev1.Service{}
-	if err := internal.BasicDelete(ctx, r, l, key, existingService); err != nil {
-		return err
-	}
-
-	// DEPLOYMENT
-
-	existingDeployment := &v1.Deployment{}
-	if err := internal.BasicDelete(ctx, r, l, key, existingDeployment); err != nil {
-		return err
-	}
-
-	// VOLUME
 	// NOTE: we delete the volume universally, even if create was false...
 	//   this ensures that we have the resource completely removed, whether it
 	//   was created, forgotten, or never created.
-
-	existingPvc := &corev1.PersistentVolumeClaim{}
-	if err := internal.BasicDelete(ctx, r, l, key, existingPvc); err != nil {
-		return err
-	}
-
-	// SERVICE ACCOUNT
-
-	existingServiceAccount := &corev1.ServiceAccount{}
-	if err := internal.BasicDelete(ctx, r, l, key, existingServiceAccount); err != nil {
-		return err
-	}
-
-	// CONFIGMAP
-
-	existingConfigmap := &corev1.ConfigMap{}
-	if err := internal.BasicDelete(ctx, r, l, key, existingConfigmap); err != nil {
+	if err := internal.BatchDelete(ctx, r, l, key,
+		&networkingv1.Ingress{},
+		&corev1.Service{},
+		&v1.Deployment{},
+		&corev1.PersistentVolumeClaim{},
+		&corev1.ServiceAccount{},
+		&corev1.ConfigMap{},
+	); err != nil {
 		return err
 	}
 
@@ -112,6 +100,11 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 		"event", "reconcile-package-manager-service",
 		"product", "package-manager",
 	)
+
+	// If suspended, clean up serving resources but preserve data
+	if pm.Spec.Suspended != nil && *pm.Spec.Suspended {
+		return r.suspendDeployedService(ctx, req, pm)
+	}
 
 	// create database
 	secretKey := "pkg-db-password"
@@ -270,6 +263,11 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 			"pkg.lic":  "pkg-license",
 			"key":      "pkg-secret-key",
 			"password": "pkg-db-password",
+		}
+
+		// Add OIDC client secret to SecretProviderClass when configured
+		if pm.Spec.OIDCClientSecretKey != "" {
+			secretRefs["oidc-client-secret"] = pm.Spec.OIDCClientSecretKey
 		}
 
 		if targetSpc, err := product.GetSecretProviderClassForAllSecrets(

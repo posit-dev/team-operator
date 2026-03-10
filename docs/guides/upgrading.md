@@ -1,6 +1,6 @@
 # Upgrading Team Operator
 
-This guide provides comprehensive instructions for upgrading the Team Operator, including pre-upgrade preparation, upgrade procedures, version-specific migrations, and troubleshooting.
+This guide covers upgrading the Team Operator: pre-upgrade preparation, upgrade procedures, version-specific migrations, and troubleshooting.
 
 ## CRD Management (v1.15+)
 
@@ -85,7 +85,7 @@ kubectl get secrets -n posit-team -o yaml | gpg -c > secrets-backup.yaml.gpg
 
 #### 3. Backup Databases
 
-If using external databases for products (Connect, Workbench, Package Manager), ensure you have database backups before upgrading. The operator manages `PostgresDatabase` resources that may be affected by schema changes.
+If using external databases for products (Connect, Workbench, Package Manager), back up databases before upgrading. The operator manages `PostgresDatabase` resources that schema changes may affect.
 
 ```bash
 # List managed databases
@@ -113,7 +113,7 @@ kubectl get crds | grep posit.team
 
 ### Review Changelog
 
-Always review the [CHANGELOG.md](../../CHANGELOG.md) for breaking changes between your current version and the target version. Pay special attention to:
+Review the [CHANGELOG.md](../../CHANGELOG.md) for breaking changes between your current version and the target version. Look for:
 
 - Breaking changes that require configuration updates
 - Deprecated fields that need migration
@@ -121,19 +121,19 @@ Always review the [CHANGELOG.md](../../CHANGELOG.md) for breaking changes betwee
 
 ### Test in Non-Production
 
-**Critical**: Always test upgrades in a non-production environment first:
+**Critical**: Test upgrades in a non-production environment first:
 
 1. Create a staging cluster or namespace that mirrors production
 2. Apply the same Site configuration
 3. Perform the upgrade
-4. Verify all products function correctly
+4. Verify all products function
 5. Test any automated integrations
 
 ## Upgrade Methods
 
 ### Helm Upgrade Procedure
 
-The recommended method for upgrading is via Helm:
+The recommended upgrade method is Helm:
 
 #### Standard Upgrade
 
@@ -163,7 +163,7 @@ helm upgrade team-operator ./dist/chart \
 
 #### Upgrade with CRD Updates
 
-CRDs are automatically updated during Helm upgrade when `crd.enable: true` (default). However, if you've disabled CRD management:
+CRDs are updated during Helm upgrade when `crd.enable: true` (default). If you've disabled CRD management:
 
 ```bash
 # Manually apply CRD updates first
@@ -190,13 +190,13 @@ kubectl apply -k config/overlays/production
 
 ### CRD Upgrade Considerations
 
-CRDs require special attention during upgrades:
+CRDs require attention during upgrades:
 
-1. **CRDs Persist Across Helm Uninstall**: By default (`crd.keep: true`), CRDs remain in the cluster even after `helm uninstall`. This prevents accidental data loss but means CRDs must be managed carefully.
+1. **CRDs Persist Across Helm Uninstall**: By default (`crd.keep: true`), CRDs remain in the cluster after `helm uninstall`. This prevents accidental data loss but requires careful CRD management.
 
-2. **CRD Version Compatibility**: The operator manages CRDs at API version `core.posit.team/v1beta1` (and `keycloak.k8s.keycloak.org/v2alpha1` for Keycloak). Ensure your CRs are compatible with the CRD schema in the new version.
+2. **CRD Version Compatibility**: The operator manages CRDs at API version `core.posit.team/v1beta1` (and `keycloak.k8s.keycloak.org/v2alpha1` for Keycloak). Your CRs must be compatible with the CRD schema in the new version.
 
-3. **Schema Validation**: After CRD updates, existing CRs are validated against the new schema. Invalid CRs may prevent proper reconciliation.
+3. **Schema Validation**: After CRD updates, existing CRs are validated against the new schema. Invalid CRs may prevent reconciliation.
 
 ```bash
 # Verify CRDs are updated
@@ -207,6 +207,47 @@ kubectl get sites -A -o json | jq '.items[] | select(.status.conditions[]?.reaso
 ```
 
 ## Version-Specific Migrations
+
+### v1.15.0
+
+**Breaking Change: Database Password Secret Rename**
+
+The Kubernetes Secret used to store the database password for each product component has been renamed from `<component-name>` to `<component-name>-db-password`.
+
+If you are upgrading an existing installation that has already run the operator against live clusters, you must migrate the existing secrets before upgrading. Otherwise, the operator will create new secrets at the new name with freshly generated passwords, leaving the old secrets orphaned and causing database authentication failures.
+
+**Migration steps (run before upgrading the operator):**
+
+1. Identify the components with existing DB password secrets:
+
+   ```bash
+   for comp in workbench connect packagemanager; do
+     kubectl get secret "${comp}" -n posit-team --ignore-not-found -o name
+   done
+   ```
+
+2. For each component (workbench, connect, packagemanager), rename the secret:
+
+   > **Warning:** If `${NEW_NAME}` already exists in the cluster, do not apply this migration — the operator has already generated a new password and you must re-synchronize the database password manually.
+
+   ```bash
+   # Get the old secret data
+   OLD_NAME=<component-name>
+   NEW_NAME="${OLD_NAME}-db-password"
+   NAMESPACE=posit-team
+
+   # Create new secret with old data
+   kubectl get secret "${OLD_NAME}" -n "${NAMESPACE}" -o json \
+     | python3 -c "import json,sys; d=json.load(sys.stdin); d['metadata']['name']='${NEW_NAME}'; [d['metadata'].pop(k,None) for k in ['resourceVersion','uid','creationTimestamp','managedFields','ownerReferences']]; print(json.dumps(d))" \
+     | kubectl apply -f -
+
+   # Delete old secret
+   kubectl delete secret "${OLD_NAME}" -n "${NAMESPACE}"
+   ```
+
+3. Proceed with the operator upgrade.
+
+If you are performing a fresh installation or upgrading a cluster that has never had the operator running against it, no migration is needed.
 
 ### v1.2.0
 
@@ -225,7 +266,7 @@ No configuration changes required for users.
 - Added `tolerations` and `nodeSelector` support for controller manager
 
 **Migration:**
-If you were using workarounds for pod scheduling, update your values:
+If you used workarounds for pod scheduling, update your values:
 
 ```yaml
 controllerManager:
@@ -290,7 +331,7 @@ spec:
 
 ### Key Migration
 
-The operator automatically migrates legacy UUID-format and binary-format encryption keys to the new hex256 format. This migration happens transparently during reconciliation. Monitor logs for migration messages:
+The operator migrates legacy UUID-format and binary-format encryption keys to the new hex256 format. This happens during reconciliation. Monitor logs for migration messages:
 
 ```bash
 kubectl logs -n posit-team-system deployment/team-operator-controller-manager | grep -i "migrating"
@@ -381,7 +422,7 @@ helm rollback team-operator 2 -n posit-team-system
 
 ### CRD Considerations During Rollback
 
-**Important**: CRDs are not automatically rolled back with Helm rollback due to the `keep` annotation. If the new CRDs added fields, older operator versions may still work but won't recognize new fields.
+**Important**: CRDs are not rolled back with Helm rollback due to the `keep` annotation. If the new CRDs added fields, older operator versions may still work but won't recognize new fields.
 
 If CRD rollback is necessary:
 
@@ -412,8 +453,8 @@ Consider these data implications during rollback:
 
 1. **Use Maintenance Windows**: Schedule upgrades during low-traffic periods.
 
-2. **Rolling Update Strategy**: The operator uses a single replica by default. For zero-downtime during operator restarts:
-   - Products continue running even if the operator is briefly unavailable
+2. **Rolling Update Strategy**: The operator uses a single replica by default. During operator restarts:
+   - Products continue running if the operator is briefly unavailable
    - No reconciliation occurs during operator restart (typically < 30 seconds)
 
 3. **Staged Rollout**:
@@ -426,12 +467,12 @@ Consider these data implications during rollback:
    helm upgrade team-operator ./dist/chart -n posit-team-system
    ```
 
-4. **Health Check Considerations**:
+4. **Health Check**:
    - Liveness probe: `/healthz` (port 8081)
    - Readiness probe: `/readyz` (port 8081)
-   - These ensure the operator is ready before receiving reconciliation requests
+   - These probes ensure the operator is ready before receiving reconciliation requests
 
-5. **Leader Election**: If running multiple operator replicas (not typical), leader election ensures only one active reconciler:
+5. **Leader Election**: If running multiple operator replicas (uncommon), leader election ensures one active reconciler:
    ```yaml
    controllerManager:
      container:
@@ -502,7 +543,7 @@ kubectl logs -n posit-team-system -l control-plane=controller-manager --previous
 
 #### Reconciliation Loops
 
-**Symptom**: Operator continuously reconciles resources without reaching stable state
+**Symptom**: Operator continuously reconciles resources without reaching a stable state
 
 ```bash
 # Watch operator logs for repeated reconciliation

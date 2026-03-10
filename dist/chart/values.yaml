@@ -7,8 +7,8 @@ controllerManager:
   replicas: 1
   container:
     image:
-      repository: posit/team-operator
-      tag: latest
+      repository: posit/ptd-team-operator
+      tag: ""
     args:
       - "--leader-elect"
       - "--metrics-bind-address=:8443"

@@ -52,6 +52,13 @@ spec:
                     type: object
                   agentImage:
                     type: string
+                  enabled:
+                    default: true
+                    description: |-
+                      Enabled controls whether Chronicle is running. Defaults to true.
+                      Setting to false suspends Chronicle: stops the StatefulSet and removes the service.
+                      Re-enabling restores full service.
+                    type: boolean
                   image:
                     type: string
                   imagePullPolicy:
@@ -64,6 +71,13 @@ spec:
                     type: object
                   s3Bucket:
                     type: string
+                  teardown:
+                    default: false
+                    description: |-
+                      Teardown permanently destroys all Chronicle resources.
+                      Only takes effect when Enabled is false.
+                      Re-enabling after teardown starts fresh.
+                    type: boolean
                 type: object
               clusterDate:
                 description: ClusterDate is the date id (YYYYmmdd) for the cluster.
@@ -633,6 +647,59 @@ spec:
                     description: AdditionalConfig allows appending arbitrary gcfg
                       config content to the generated config.
                     type: string
+                  auth:
+                    description: Auth configures OIDC authentication for Package Manager's
+                      web UI
+                    properties:
+                      administratorRoleMapping:
+                        items:
+                          type: string
+                        type: array
+                      clientId:
+                        type: string
+                      disableGroupsClaim:
+                        type: boolean
+                      emailClaim:
+                        type: string
+                      groups:
+                        type: boolean
+                      groupsClaim:
+                        type: string
+                      issuer:
+                        type: string
+                      publisherRoleMapping:
+                        items:
+                          type: string
+                        type: array
+                      samlEmailAttribute:
+                        type: string
+                      samlFirstNameAttribute:
+                        type: string
+                      samlIdPAttributeProfile:
+                        description: SAML-specific attribute mappings (mutually exclusive
+                          with SamlIdPAttributeProfile)
+                        type: string
+                      samlLastNameAttribute:
+                        type: string
+                      samlMetadataUrl:
+                        type: string
+                      samlUsernameAttribute:
+                        type: string
+                      scopes:
+                        items:
+                          type: string
+                        type: array
+                      type:
+                        type: string
+                      uniqueIdClaim:
+                        type: string
+                      usernameClaim:
+                        type: string
+                      viewerRoleMapping:
+                        items:
+                          type: string
+                        type: array
+                    type: object
                   azureFiles:
                     description: AzureFiles configures Azure Files integration for
                       persistent storage
@@ -654,6 +721,14 @@ spec:
                   domainPrefix:
                     default: packagemanager
                     type: string
+                  enabled:
+                    default: true
+                    description: |-
+                      Enabled controls whether Package Manager is running. Defaults to true.
+                      Setting to false suspends Package Manager: stops pods and removes ingress/service,
+                      but preserves PVC, database, and secrets so data is retained.
+                      Re-enabling restores full service without data loss.
+                    type: boolean
                   gitSSHKeys:
                     description: |-
                       GitSSHKeys defines SSH key configurations for Git authentication in Package Manager
@@ -762,10 +837,21 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  oidcClientSecretKey:
+                    description: OIDCClientSecretKey is the key in the vault for the
+                      OIDC client secret
+                    type: string
                   replicas:
                     type: integer
                   s3Bucket:
                     type: string
+                  teardown:
+                    default: false
+                    description: |-
+                      Teardown permanently destroys all Package Manager resources including the database,
+                      secrets, and persistent volume claim. Only takes effect when Enabled is false.
+                      Re-enabling after teardown starts fresh with a new empty database.
+                    type: boolean
                   volume:
                     description: VolumeSpec is a specification for a PersistentVolumeClaim
                       to be created (and/or mounted)
@@ -1081,6 +1167,14 @@ spec:
                   domainPrefix:
                     default: workbench
                     type: string
+                  enabled:
+                    default: true
+                    description: |-
+                      Enabled controls whether Workbench is running. Defaults to true.
+                      Setting to false suspends Workbench: stops pods and removes ingress/service,
+                      but preserves PVC, database, and secrets so data is retained.
+                      Re-enabling restores full service without data loss.
+                    type: boolean
                   experimentalFeatures:
                     description: ExperimentalFeatures allows enabling miscellaneous
                       experimental features for workbench
@@ -1518,6 +1612,13 @@ spec:
                       clientId:
                         type: string
                     type: object
+                  teardown:
+                    default: false
+                    description: |-
+                      Teardown permanently destroys all Workbench resources including the database,
+                      secrets, and persistent volume claim. Only takes effect when Enabled is false.
+                      Re-enabling after teardown starts fresh with a new empty database.
+                    type: boolean
                   tolerations:
                     description: Tolerations that are applied universally to server
                       and sessions

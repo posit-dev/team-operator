@@ -1,12 +1,12 @@
 # Workbench Configuration Guide
 
-This guide covers comprehensive configuration of Posit Workbench in Team Operator, including all available options, authentication, off-host execution, IDE settings, data integrations, and advanced features.
+This guide covers configuration of Posit Workbench in Team Operator, including options for authentication, off-host execution, IDE settings, data integrations, and advanced features.
 
 ## Overview
 
-Posit Workbench provides an interactive development environment for data science teams. In Team Operator, Workbench runs on Kubernetes with off-host execution enabled by default, meaning user sessions run as separate Kubernetes Jobs rather than on the Workbench server pod itself.
+Posit Workbench provides an interactive development environment for data science teams. In Team Operator, Workbench runs on Kubernetes with off-host execution enabled by default. User sessions run as separate Kubernetes Jobs rather than on the Workbench server pod itself.
 
-When configured via a Site resource, Workbench:
+When configured via a Site resource, Workbench does the following:
 - Uses the Kubernetes Job Launcher for session management
 - Supports multiple IDEs (RStudio, VS Code, Positron, Jupyter)
 - Integrates with Site-level authentication
@@ -29,6 +29,57 @@ When configured via a Site resource, Workbench:
 ---
 
 ## Basic Configuration
+
+### Enabling/Disabling Workbench
+
+Workbench can be suspended or permanently torn down using the `enabled` and `teardown` fields.
+
+#### Suspending Workbench (non-destructive)
+
+Setting `enabled: false` suspends Workbench: the Deployment, Service, and Ingress are removed, but the PVC, database, and secrets are preserved. Re-enabling restores full service with all existing data intact.
+
+```yaml
+spec:
+  workbench:
+    enabled: false   # suspend — data is preserved
+```
+
+**When to use `enabled: false`:**
+
+- Customer does not have a Workbench license yet — deploy the site without Workbench and enable it once a license is purchased
+- Temporarily pause Workbench during a maintenance window or cost-saving period
+- Stop Workbench while retaining all user home directories and configuration for a possible return
+
+**Re-enabling Workbench** after a suspend is as simple as removing the field or setting it back to `true`:
+
+```yaml
+spec:
+  workbench:
+    enabled: true   # or omit the field entirely — defaults to true
+```
+
+#### Tearing down Workbench (destructive)
+
+To permanently destroy all Workbench resources — including the database, secrets, and PVC — set both `enabled: false` and `teardown: true`:
+
+```yaml
+spec:
+  workbench:
+    enabled: false
+    teardown: true   # DESTRUCTIVE: deletes database, secrets, and PVC
+```
+
+**This is irreversible.** Re-enabling Workbench after a teardown starts completely fresh with a new empty database and no prior user home directories or configuration.
+
+**When to use `teardown: true`:**
+
+- Permanently decommissioning Workbench with no intent to restore data
+- Reclaiming cluster storage after migrating to a different Workbench instance
+- Explicitly wiping Workbench to start fresh
+
+> **Note:** `teardown: true` has no effect while `enabled` is `true` or unset. You must set `enabled: false` first.
+
+---
 
 ### Image and Resources
 
@@ -223,7 +274,7 @@ The HTML content is mounted at `/etc/rstudio/login.html` and must be less than 6
 
 ## Off-Host Execution / Kubernetes Launcher
 
-Off-host execution runs user sessions as Kubernetes Jobs, providing isolation, resource management, and scalability. **This is enabled by default** in Team Operator.
+Off-host execution runs user sessions as Kubernetes Jobs, providing isolation, resource management, and scalability. This is enabled by default in Team Operator.
 
 ### How It Works
 
@@ -320,7 +371,7 @@ spec:
 
 ### Session Configuration Details
 
-Sessions are configured via launcher templates. The operator manages:
+Sessions are configured via launcher templates. The operator manages these files:
 
 - `job.tpl` - Kubernetes Job template
 - `service.tpl` - Service template for session connectivity
@@ -379,7 +430,7 @@ spec:
 
 ### Positron IDE
 
-Positron is Posit's next-generation IDE. Enable and configure:
+Positron is Posit's next-generation IDE. Enable and configure it:
 
 ```yaml
 spec:
@@ -603,7 +654,7 @@ spec:
 
 ## Non-Root Execution Mode
 
-Enable "maximally rootless" execution for enhanced security:
+Enable "maximally rootless" execution for better security:
 
 ```yaml
 spec:
@@ -630,7 +681,7 @@ When enabled:
 
 ## Experimental Features
 
-The `experimentalFeatures` section contains advanced options. These are subject to change:
+The `experimentalFeatures` section contains advanced options subject to change:
 
 ```yaml
 spec:
@@ -868,9 +919,9 @@ spec:
 #### Authentication Failures
 
 1. **Check OIDC configuration:**
-   - Verify issuer URL is accessible from the cluster
-   - Confirm client ID matches IdP configuration
-   - Check that redirect URIs are configured in IdP
+   - Verify the issuer URL is accessible from the cluster
+   - Confirm the client ID matches IdP configuration
+   - Verify redirect URIs are configured in the IdP
 
 2. **View authentication logs:**
    ```bash
@@ -901,17 +952,17 @@ spec:
 
 #### Volume Mount Issues
 
-1. **Verify PVC exists and is bound:**
+1. **Verify the PVC exists and is bound:**
    ```bash
    kubectl get pvc -n posit-team | grep workbench
    ```
 
-2. **Check volume permissions in session:**
+2. **Check volume permissions in the session:**
    ```bash
    kubectl exec -it <session-pod> -n posit-team -- ls -la /home
    ```
 
-3. **Verify storage class supports RWX:**
+3. **Verify the storage class supports RWX:**
    ```bash
    kubectl get storageclass <storage-class-name> -o yaml
    ```

@@ -1,3 +1,31 @@
+# [1.18.0](https://github.com/posit-dev/team-operator/compare/v1.17.0...v1.18.0) (2026-03-09)
+
+
+### Features
+
+* add PPM OIDC/SSO web UI configuration ([#112](https://github.com/posit-dev/team-operator/issues/112)) ([234d796](https://github.com/posit-dev/team-operator/commit/234d79670a10093e1fea90e08ead033a0c2ec89a))
+
+# [1.17.0](https://github.com/posit-dev/team-operator/compare/v1.16.2...v1.17.0) (2026-03-09)
+
+
+### Features
+
+* extend enable/disable/teardown pattern to Workbench, Package Manager, and Chronicle ([#99](https://github.com/posit-dev/team-operator/issues/99)) ([64fc5b2](https://github.com/posit-dev/team-operator/commit/64fc5b27d2562be1e14dc1e3088306161b949c9c))
+
+## [1.16.2](https://github.com/posit-dev/team-operator/compare/v1.16.1...v1.16.2) (2026-03-04)
+
+
+### Bug Fixes
+
+* mismatched image tags causing ImagePullBackOff ([#108](https://github.com/posit-dev/team-operator/issues/108)) ([4181072](https://github.com/posit-dev/team-operator/commit/418107279bb0bf10168f7e6f7d65901269666b2d))
+
+## [1.16.1](https://github.com/posit-dev/team-operator/compare/v1.16.0...v1.16.1) (2026-02-27)
+
+
+### Bug Fixes
+
+* default operator image tag to chart appVersion instead of latest ([#107](https://github.com/posit-dev/team-operator/issues/107)) ([0ee55c1](https://github.com/posit-dev/team-operator/commit/0ee55c1a37992bfa5591875b001985c7a4cef2dd))
+
 # [1.16.0](https://github.com/posit-dev/team-operator/compare/v1.15.0...v1.16.0) (2026-02-26)
 
 
