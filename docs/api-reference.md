@@ -1,6 +1,6 @@
 # Team Operator API Reference
 
-This document provides a comprehensive reference for the Custom Resource Definitions (CRDs) provided by the Team Operator.
+This document covers the Custom Resource Definitions (CRDs) the Team Operator provides.
 
 **API Group:** `team.posit.co/v1beta1`
 
@@ -26,7 +26,7 @@ This document provides a comprehensive reference for the Custom Resource Definit
 
 ## Site
 
-The Site CRD is the primary resource for managing a complete Posit Team deployment. It orchestrates all product components (Connect, Workbench, Package Manager, Chronicle) within a single site.
+The Site CRD is the primary resource for managing a complete Posit Team deployment. It orchestrates all product components (Connect, Workbench, Package Manager, Chronicle) in a single site.
 
 **Kind:** `Site`
 **Plural:** `sites`
@@ -36,16 +36,16 @@ The Site CRD is the primary resource for managing a complete Posit Team deployme
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `.spec.domain` | `string` | **Yes** | The core domain name associated with the Posit Team Site |
+| `.spec.domain` | `string` | **Yes** | The core domain name for the Posit Team Site |
 | `.spec.awsAccountId` | `string` | No | AWS Account ID used for EKS-to-IAM annotations |
 | `.spec.clusterDate` | `string` | No | Cluster date ID (YYYYmmdd) used for EKS-to-IAM annotations |
 | `.spec.workloadCompoundName` | `string` | No | Name for the workload |
 | `.spec.secretType` | `SiteSecretType` | No | **DEPRECATED** - Type of secret management to use |
 | `.spec.ingressClass` | `string` | No | Ingress class for creating ingress routes |
 | `.spec.ingressAnnotations` | `map[string]string` | No | Annotations applied to all ingress routes |
-| `.spec.imagePullSecrets` | `[]string` | No | Image pull secrets for all image pulls (must exist in namespace) |
-| `.spec.volumeSource` | [`VolumeSource`](#volumesource) | No | Definition of where volumes should be created from |
-| `.spec.sharedDirectory` | `string` | No | Name of directory mounted into Workbench and Connect at `/mnt/<sharedDirectory>` (no slashes) |
+| `.spec.imagePullSecrets` | `[]string` | No | Image pull secrets for all image pulls (secrets must exist in namespace) |
+| `.spec.volumeSource` | [`VolumeSource`](#volumesource) | No | Where volumes are created from |
+| `.spec.sharedDirectory` | `string` | No | Directory name mounted into Workbench and Connect at `/mnt/<sharedDirectory>` (no slashes) |
 | `.spec.volumeSubdirJobOff` | `bool` | No | Disables VolumeSubdir provisioning Kubernetes job |
 | `.spec.extraSiteServiceAccounts` | `[]ServiceAccountConfig` | No | Additional service accounts prefixed by `<siteName>-` |
 | `.spec.secret` | [`SecretConfig`](#secretconfig) | No | Secret management configuration for this Site |
@@ -57,7 +57,7 @@ The Site CRD is the primary resource for managing a complete Posit Team deployme
 | `.spec.logFormat` | `LogFormat` | No | Log output format |
 | `.spec.networkTrust` | `NetworkTrust` | No | Network trust level (0-100, default: 100) |
 | `.spec.packageManagerUrl` | `string` | No | Package Manager URL for Workbench (defaults to local Package Manager) |
-| `.spec.efsEnabled` | `bool` | No | Enable EFS for this site (allows workbench sessions to access EFS mount targets) |
+| `.spec.efsEnabled` | `bool` | No | Enable EFS for this site (workbench sessions can access EFS mount targets) |
 | `.spec.vpcCIDR` | `string` | No | VPC CIDR block for EFS network policies |
 | `.spec.enableFqdnHealthChecks` | `*bool` | No | Enable FQDN-based health check targets for Grafana Alloy (default: true) |
 
@@ -119,7 +119,7 @@ spec:
 
 ## Connect
 
-The Connect CRD manages standalone Posit Connect deployments. When using the Site CRD, Connect configuration is typically specified via `.spec.connect` rather than creating a separate Connect resource.
+The Connect CRD manages standalone Posit Connect deployments. When using the Site CRD, specify Connect configuration through `.spec.connect` instead of creating a separate Connect resource.
 
 **Kind:** `Connect`
 **Plural:** `connects`
@@ -203,7 +203,7 @@ spec:
 
 ## Workbench
 
-The Workbench CRD manages standalone Posit Workbench deployments. When using the Site CRD, Workbench configuration is typically specified via `.spec.workbench` rather than creating a separate Workbench resource.
+The Workbench CRD manages standalone Posit Workbench deployments. When using the Site CRD, specify Workbench configuration through `.spec.workbench` instead of creating a separate Workbench resource.
 
 **Kind:** `Workbench`
 **Plural:** `workbenches`
@@ -292,7 +292,7 @@ spec:
 
 ## PackageManager
 
-The PackageManager CRD manages standalone Posit Package Manager deployments. When using the Site CRD, Package Manager configuration is typically specified via `.spec.packageManager` rather than creating a separate PackageManager resource.
+The PackageManager CRD manages standalone Posit Package Manager deployments. When using the Site CRD, specify Package Manager configuration through `.spec.packageManager` instead of creating a separate PackageManager resource.
 
 **Kind:** `PackageManager`
 **Plural:** `packagemanagers`
@@ -581,7 +581,7 @@ Authentication configuration used by Connect and Workbench.
 
 ### SecretConfig
 
-Configuration for secret management.
+Secret management configuration.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -598,7 +598,7 @@ Configuration for secret management.
 
 ### VolumeSource
 
-Configuration for the source of persistent volumes.
+Source configuration for persistent volumes.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -649,7 +649,7 @@ Product license configuration.
 
 ### SessionConfig
 
-Configuration for session pods (Connect and Workbench).
+Session pod configuration (Connect and Workbench).
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -745,8 +745,8 @@ These types are used within the Site CRD for product configuration.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `.enabled` | `*bool` | Controls whether Connect is running (default: true). Setting to `false` suspends Connect: stops pods and removes ingress/service, but preserves PVC, database, and secrets. Re-enabling restores full service without data loss. See [Connect Configuration Guide](guides/connect-configuration.md#enablingdisabling-connect). |
-| `.teardown` | `*bool` | When `true` and `enabled` is `false`, permanently destroys all Connect resources including the database, secrets, and PVC. Re-enabling after teardown starts fresh with an empty database. Defaults to `false`. |
+| `.enabled` | `*bool` | Controls whether Connect runs (default: true). Setting to `false` suspends Connect: stops pods and removes ingress/service, but preserves PVC, database, and secrets. Re-enabling restores full service without data loss. See [Connect Configuration Guide](guides/connect-configuration.md#enablingdisabling-connect). |
+| `.teardown` | `*bool` | When `true` and `enabled` is `false`, destroys all Connect resources including database, secrets, and PVC. Re-enabling after teardown starts fresh with an empty database. Defaults to `false`. |
 | `.license` | `LicenseSpec` | License configuration |
 | `.volume` | `*VolumeSpec` | Data volume |
 | `.nodeSelector` | `map[string]string` | Node selector |

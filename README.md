@@ -3,7 +3,7 @@
 > **Warning**
 > This repository is under active development and is not yet ready for production use. Please [contact Posit](https://posit.co/schedule-a-call/) before using this operator.
 
-A Kubernetes operator that manages the deployment and lifecycle of Posit Team products (Workbench, Connect, Package Manager, and Chronicle) within Kubernetes clusters.
+A Kubernetes operator that manages deployment and lifecycle of Posit Team products (Workbench, Connect, Package Manager, and Chronicle) within Kubernetes clusters.
 
 ## Table of Contents
 
@@ -22,7 +22,7 @@ A Kubernetes operator that manages the deployment and lifecycle of Posit Team pr
 
 ## Overview
 
-The Team Operator is a Kubernetes controller built using [Kubebuilder](https://book.kubebuilder.io/) that automates the deployment, configuration, and management of Posit Team products. It handles:
+The Team Operator is a Kubernetes controller built with [Kubebuilder](https://book.kubebuilder.io/) that automates deployment, configuration, and management of Posit Team products. It handles:
 
 - Multi-product Posit Team deployments through a single `Site` Custom Resource
 - Database provisioning and management for each product
@@ -59,7 +59,7 @@ spec:
 ```
 
 **Layout behavior:**
-- When Academy is hidden (default), the three core products (Workbench, Connect, Package Manager) are displayed with Workbench and Connect in the first row, and Package Manager centered in the second row
+- When Academy is hidden (default), the three core products (Workbench, Connect, Package Manager) display with Workbench and Connect in the first row, Package Manager centered in the second row
 - When Academy is shown, all four products display in a 2x2 grid
 
 **Static assets:**
@@ -131,16 +131,16 @@ just helm-uninstall  # Uninstall via Helm
 make go-test
 ```
 
-**Integration tests** — two workflows:
+**Integration tests** use two workflows:
 
-*One-shot (CI-style):* creates a cluster, runs all tests, and tears everything down.
+*One-shot (CI-style):* creates a cluster, runs all tests, tears everything down.
 
 ```bash
 make test-kind       # create → deploy → test → destroy
 make test-kind-full  # same, but forces a clean cluster first
 ```
 
-*Dev loop (recommended for iterative development):* keep the cluster running between test runs.
+*Dev loop (recommended for iterative development):* keeps the cluster running between test runs.
 
 ```bash
 # One-time setup: create cluster and deploy operator
@@ -220,7 +220,7 @@ Site CR (single source of truth)
             └── PostgreSQL schemas, credentials, migrations
 ```
 
-Each product has dedicated database schemas and isolated credentials. Workbench and Connect support off-host execution where user workloads run in separate Kubernetes Jobs. Chronicle collects telemetry via sidecars injected into product pods.
+Each product has dedicated database schemas and isolated credentials. Workbench and Connect support off-host execution with user workloads in separate Kubernetes Jobs. Chronicle collects telemetry via sidecars injected into product pods.
 
 For detailed architecture diagrams with component explanations, see the [Architecture Documentation](docs/architecture.md).
 
