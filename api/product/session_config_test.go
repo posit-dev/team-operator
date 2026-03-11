@@ -192,6 +192,50 @@ func TestValidateDynamicLabelRules(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("rejects labelKey with invalid name characters", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: "invalid key!"},
+		})
+		require.ErrorContains(t, err, "labelKey name segment must match")
+	})
+
+	t.Run("rejects labelKey with empty name after prefix", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: "example.com/"},
+		})
+		require.ErrorContains(t, err, "labelKey name segment must be between 1 and 63")
+	})
+
+	t.Run("rejects labelKey with empty DNS prefix", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: "/name"},
+		})
+		require.ErrorContains(t, err, "labelKey DNS prefix")
+	})
+
+	t.Run("rejects labelKey with DNS prefix > 253 chars", func(t *testing.T) {
+		longDNS := strings.Repeat("a", 254)
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: longDNS + "/name"},
+		})
+		require.ErrorContains(t, err, "labelKey DNS prefix")
+	})
+
+	t.Run("rejects labelKey with name > 63 chars", func(t *testing.T) {
+		longName := strings.Repeat("a", 64)
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: longName},
+		})
+		require.ErrorContains(t, err, "labelKey name segment must be between 1 and 63")
+	})
+
+	t.Run("accepts labelKey with DNS prefix", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: "my-org.example.com/session-user"},
+		})
+		require.NoError(t, err)
+	})
+
 	t.Run("accepts safe regex patterns (RE2 prevents backtracking by design)", func(t *testing.T) {
 		// Go's regexp package uses RE2 which doesn't support backreferences,
 		// so patterns like (a+)+$ are safe. But invalid patterns still fail.

@@ -83,7 +83,10 @@ spec:
         {{- if hasKey $.Job $rule.field }}
         {{- $val := index $.Job $rule.field }}
         {{- if $rule.labelKey }}
-        {{ $rule.labelKey }}: {{ $val | toString | quote }}
+        {{- $labelVal := $val | toString | regexReplaceAll "[^a-zA-Z0-9._-]" "_" | trunc 63 | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}
+        {{- if ne $labelVal "" }}
+        {{ $rule.labelKey }}: {{ $labelVal | quote }}
+        {{- end }}
         {{- else if $rule.match }}
         {{- $str := (kindIs "slice" $val) | ternary ($val | join " ") ($val | toString) }}
         {{- $matches := regexFindAll $rule.match $str -1 }}

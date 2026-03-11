@@ -2119,7 +2119,7 @@ spec:
                               description: |-
                                 LabelKey is the label key for direct single-value mapping.
                                 Mutually exclusive with match/labelPrefix.
-                              maxLength: 63
+                              maxLength: 317
                               type: string
                             labelPrefix:
                               description: |-

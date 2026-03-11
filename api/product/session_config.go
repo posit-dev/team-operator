@@ -79,7 +79,8 @@ type DynamicLabelRule struct {
 	Field string `json:"field"`
 	// LabelKey is the label key for direct single-value mapping.
 	// Mutually exclusive with match/labelPrefix.
-	// +kubebuilder:validation:MaxLength=63
+	// MaxLength = 253 (optional DNS prefix) + 1 (/) + 63 (name) = 317
+	// +kubebuilder:validation:MaxLength=317
 	LabelKey string `json:"labelKey,omitempty"`
 	// Match is a regex pattern applied to the field value. Each match produces a label.
 	// For array fields (like "args"), elements are joined with spaces before matching.
@@ -99,6 +100,9 @@ type DynamicLabelRule struct {
 	LabelValue string `json:"labelValue,omitempty"`
 }
 
+// labelNameRegex validates the name segment of a Kubernetes label key.
+var labelNameRegex = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$`)
+
 // ValidateDynamicLabelRules validates a slice of DynamicLabelRule, checking for
 // regex compilation errors and mutual exclusivity of labelKey vs match/labelPrefix.
 func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
@@ -111,6 +115,25 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 		}
 		if rule.Match != "" && rule.LabelPrefix == "" {
 			return fmt.Errorf("dynamicLabels[%d]: labelPrefix is required when match is set", i)
+		}
+		if rule.LabelKey != "" {
+			name := rule.LabelKey
+			if idx := strings.LastIndex(rule.LabelKey, "/"); idx >= 0 {
+				prefix := rule.LabelKey[:idx]
+				if len(prefix) == 0 {
+					return fmt.Errorf("dynamicLabels[%d]: labelKey DNS prefix (before '/') must not be empty", i)
+				}
+				if len(prefix) > 253 {
+					return fmt.Errorf("dynamicLabels[%d]: labelKey DNS prefix (before '/') must not exceed 253 characters", i)
+				}
+				name = rule.LabelKey[idx+1:]
+			}
+			if len(name) == 0 || len(name) > 63 {
+				return fmt.Errorf("dynamicLabels[%d]: labelKey name segment must be between 1 and 63 characters", i)
+			}
+			if !labelNameRegex.MatchString(name) {
+				return fmt.Errorf("dynamicLabels[%d]: labelKey name segment must match [a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?", i)
+			}
 		}
 		if rule.Match != "" {
 			if _, err := regexp.Compile(rule.Match); err != nil {
