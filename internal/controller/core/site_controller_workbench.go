@@ -485,7 +485,8 @@ func (r *SiteReconciler) reconcileWorkbench(
 			if opSC.Pod == nil {
 				opSC.Pod = &product.PodConfig{}
 			}
-			// DynamicLabels: operator never sets these; take user-provided directly
+			// DynamicLabels: operator never sets these; take user-provided directly.
+			// DynamicLabelRule is a flat struct (all string fields), so copy is a full deep copy.
 			if len(userSC.Pod.DynamicLabels) > 0 {
 				copied := make([]product.DynamicLabelRule, len(userSC.Pod.DynamicLabels))
 				copy(copied, userSC.Pod.DynamicLabels)
