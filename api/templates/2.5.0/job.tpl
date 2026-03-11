@@ -2,6 +2,16 @@
 # DO NOT MODIFY the "Version: " key
 # Helm Version: v1
 {{- $templateData := include "rstudio-library.templates.data" nil | mustFromJson }}
+{{- $capStatus := dict }}
+{{- with $templateData.pod.dynamicLabels }}
+{{- range $rule := . }}
+{{- if and (hasKey $.Job $rule.field) $rule.match }}
+{{- $val := index $.Job $rule.field }}
+{{- $str := (kindIs "slice" $val) | ternary ($val | join " ") ($val | toString) }}
+{{- if gt (len (regexFindAll $rule.match $str -1)) 50 }}{{- $_ := set $capStatus "reached" "true" }}{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -64,6 +74,9 @@ spec:
         {{ $key }}: {{ toYaml $val | indent 8 | trimPrefix (repeat 8 " ") }}
         {{- end }}
         {{- end }}
+        {{- if hasKey $capStatus "reached" }}
+        posit.team/label-cap-reached: "true"
+        {{- end }}
       labels:
         {{- with .Job.instanceId }}
         launcher-instance-id: {{ toYaml . }}
@@ -90,9 +103,7 @@ spec:
         {{- else if $rule.match }}
         {{- $str := (kindIs "slice" $val) | ternary ($val | join " ") ($val | toString) }}
         {{- $matches := regexFindAll $rule.match $str -1 }}
-        {{- if gt (len $matches) 50 }}{{- $matches = slice $matches 0 50 }}
-        posit.team/label-cap-reached: "true"
-        {{- end }}
+        {{- if gt (len $matches) 50 }}{{- $matches = slice $matches 0 50 }}{{- end }}
         {{- $namePrefix := regexFind "[^/]*$" $rule.labelPrefix }}
         {{- $maxSuffix := int (sub 63 (len $namePrefix)) }}
         {{- range $match := $matches }}

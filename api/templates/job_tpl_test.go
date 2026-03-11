@@ -29,9 +29,7 @@ const dynamicLabelsTemplate = `
 {{- else if $rule.match }}
 {{- $str := (kindIs "slice" $val) | ternary ($val | join " ") ($val | toString) }}
 {{- $matches := regexFindAll $rule.match $str -1 }}
-{{- if gt (len $matches) 50 }}{{- $matches = slice $matches 0 50 }}
-posit.team/label-cap-reached: "true"
-{{- end }}
+{{- if gt (len $matches) 50 }}{{- $matches = slice $matches 0 50 }}{{- end }}
 {{- $namePrefix := regexFind "[^/]*$" $rule.labelPrefix }}
 {{- $maxSuffix := int (sub 63 (len $namePrefix)) }}
 {{- range $match := $matches }}
