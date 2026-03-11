@@ -37,6 +37,7 @@ type PodConfig struct {
 	Labels      map[string]string `json:"labels,omitempty"`
 	// DynamicLabels defines rules for generating pod labels from runtime session data.
 	// Requires template version 2.5.0 or later; ignored by older templates.
+	// +kubebuilder:validation:MaxItems=20
 	DynamicLabels            []DynamicLabelRule            `json:"dynamicLabels,omitempty"`
 	ServiceAccountName       string                        `json:"serviceAccountName,omitempty"`
 	Volumes                  []corev1.Volume               `json:"volumes,omitempty"`
@@ -119,6 +120,9 @@ var labelNamePrefixRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
 // ValidateDynamicLabelRules validates a slice of DynamicLabelRule, checking for
 // regex compilation errors and mutual exclusivity of labelKey vs match/labelPrefix.
+// NOTE: This validation runs at reconciliation time (via GenerateSessionConfigTemplate), not at
+// admission time. The CRD XValidation markers only enforce structural rules. A validating webhook
+// would be needed to surface these errors (e.g., invalid regex) at CRD write time.
 func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 	seenKeys := map[string]bool{}
 	seenPrefixes := map[string]bool{}

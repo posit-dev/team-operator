@@ -2183,6 +2183,7 @@ spec:
                             rule: has(self.labelKey) || has(self.match)
                           - message: labelPrefix is required when match is set
                             rule: '!has(self.match) || has(self.labelPrefix)'
+                        maxItems: 20
                         type: array
                       env:
                         items:

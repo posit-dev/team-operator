@@ -3,6 +3,7 @@ package templates
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -25,6 +26,7 @@ const dynamicLabelsTemplate = `
 {{- $val := index $.Job $rule.field }}
 {{- $str := (kindIs "slice" $val) | ternary ($val | join " ") ($val | toString) }}
 {{- $matches := regexFindAll $rule.match $str -1 }}
+{{- $seen := dict }}{{- $deduped := list }}{{- range $m := $matches }}{{- if not (hasKey $seen $m) }}{{- $_ := set $seen $m "1" }}{{- $deduped = append $deduped $m }}{{- end }}{{- end }}{{- $matches = $deduped }}
 {{- if gt (len $matches) 50 }}{{- $_ := set $capStatus "reached" "true" }}{{- $matches = slice $matches 0 50 }}{{- end }}
 {{- $_ := set $matchCache (printf "%d" $i) $matches }}
 {{- end }}
@@ -314,14 +316,14 @@ func TestJobTemplate_DynamicLabels_RegexMapping(t *testing.T) {
 	t.Run("caps matches at 50 (test-only annotation verifies cap)", func(t *testing.T) {
 		args := make([]any, 60)
 		for i := range args {
-			args[i] = strings.Repeat("a", 3) + strings.Repeat("0", 3) // "aaa000"
+			args[i] = fmt.Sprintf("ext%03d", i) // unique values: "ext000", "ext001", ...
 		}
 		templateData := map[string]any{
 			"pod": map[string]any{
 				"dynamicLabels": []map[string]any{
 					{
 						"field":       "args",
-						"match":       "[a-z0-9]+",
+						"match":       "ext[0-9]+",
 						"labelPrefix": "prefix/ext.",
 					},
 				},
@@ -331,8 +333,8 @@ func TestJobTemplate_DynamicLabels_RegexMapping(t *testing.T) {
 
 		out := renderDynamicLabels(t, templateData, jobData)
 		assert.Contains(t, out, `posit.team/label-cap-reached: "true"`)
-		// Count label lines (each match produces "prefix/ext.aaa000")
-		count := strings.Count(out, "prefix/ext.aaa000")
+		// Count label lines (each unique match produces one "prefix/ext." label)
+		count := strings.Count(out, "prefix/ext.")
 		assert.Equal(t, 50, count, "should cap at 50 matches")
 	})
 

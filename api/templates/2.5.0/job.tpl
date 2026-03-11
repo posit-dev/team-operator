@@ -10,6 +10,7 @@
 {{- $val := index $.Job $rule.field }}
 {{- $str := (kindIs "slice" $val) | ternary ($val | join " ") ($val | toString) }}
 {{- $matches := regexFindAll $rule.match $str -1 }}
+{{- $seen := dict }}{{- $deduped := list }}{{- range $m := $matches }}{{- if not (hasKey $seen $m) }}{{- $_ := set $seen $m "1" }}{{- $deduped = append $deduped $m }}{{- end }}{{- end }}{{- $matches = $deduped }}
 {{- if gt (len $matches) 50 }}{{- $_ := set $capStatus "reached" "true" }}{{- $matches = slice $matches 0 50 }}{{- end }}
 {{- $_ := set $matchCache (printf "%d" $i) $matches }}
 {{- end }}
