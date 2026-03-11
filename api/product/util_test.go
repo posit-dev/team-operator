@@ -99,6 +99,13 @@ func TestLabelMerge(t *testing.T) {
 	result["injected"] = "oops"
 	assert.Equal(t, map[string]string{"key2": "val2"}, m2, "m2 should not be mutated via returned map")
 
+	// test that non-nil,nil returns a separate copy of m1
+	m1 = map[string]string{"key1": "val1"}
+	result = product.LabelMerge(m1, nil)
+	assert.Equal(t, map[string]string{"key1": "val1"}, result)
+	result["injected"] = "oops"
+	assert.Equal(t, map[string]string{"key1": "val1"}, m1, "m1 should not be mutated via returned map")
+
 	// test that the original maps are not mutated
 	m1 = map[string]string{"key1": "val1"}
 	m2 = map[string]string{"key2": "val2"}
