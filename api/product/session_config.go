@@ -148,9 +148,11 @@ func validateDNSSegmentLengths(prefix string) error {
 
 // ValidateDynamicLabelRules validates a slice of DynamicLabelRule, checking for
 // regex compilation errors and mutual exclusivity of labelKey vs match/labelPrefix.
-// NOTE: This validation runs at reconciliation time (via GenerateSessionConfigTemplate), not at
-// admission time. The CRD XValidation markers only enforce structural rules. A validating webhook
-// would be needed to surface these errors (e.g., invalid regex) at CRD write time.
+// TODO: This validation runs at reconciliation time (via GenerateSessionConfigTemplate), not at
+// admission time. The CRD XValidation markers only enforce structural rules (mutual exclusivity).
+// Semantic errors (invalid regex, DNS length violations, reserved prefix, collisions) are only
+// caught during reconciliation. Consider adding a validating admission webhook to surface these
+// at CRD write time and prevent invalid configs from entering a failing reconciliation loop.
 func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 	seenKeys := map[string]bool{}
 	seenPrefixes := map[string]bool{}

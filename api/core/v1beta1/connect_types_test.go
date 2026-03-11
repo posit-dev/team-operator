@@ -583,3 +583,45 @@ func TestConnect_SiteSessionSecretProviderClass(t *testing.T) {
 	// TODO: note that a secret like "secret://site-session//a-key" would look for "/a-key" in the secret
 	//   this is currently untested behavior, but should be courtesy of TrimPrefix
 }
+
+func TestConnect_SessionConfigTemplateData_DynamicLabels(t *testing.T) {
+	con := &Connect{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "connect-dynlabels",
+			Namespace: "posit-team",
+		},
+		Spec: ConnectSpec{
+			Secret: SecretConfig{
+				Type: product.SiteSecretAws,
+			},
+			License: product.LicenseSpec{
+				Type: product.LicenseTypeKey,
+				Key:  "test-key",
+			},
+			SessionConfig: &product.SessionConfig{
+				Pod: &product.PodConfig{
+					DynamicLabels: []product.DynamicLabelRule{
+						{
+							Field:    "user",
+							LabelKey: "session.posit.team/user",
+						},
+						{
+							Field:       "args",
+							Match:       "--ext-[a-z]+",
+							TrimPrefix:  "--ext-",
+							LabelPrefix: "session.posit.team/ext.",
+							LabelValue:  "enabled",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := con.SessionConfigTemplateData(context.TODO())
+	require.NotEmpty(t, result)
+	assert.Contains(t, result, "dynamicLabels")
+	assert.Contains(t, result, "session.posit.team/user")
+	assert.Contains(t, result, "session.posit.team/ext.")
+	assert.Contains(t, result, "--ext-[a-z]+")
+}

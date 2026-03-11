@@ -89,6 +89,9 @@ func renderDynamicLabels(t *testing.T, templateData map[string]any, jobData map[
 	// Helm:  regexReplaceAll(regex, repl, s) — piped value becomes s (source).
 	// NOTE: If upgrading Helm/Sprig, verify that the production argument order still
 	// matches this mock — otherwise tests will pass against a stale signature.
+	// TODO: These Go tests exercise a mocked argument order, not the real Helm rendering
+	// pipeline. Consider adding an integration test that renders through `helm template`
+	// to validate the actual end-to-end rendering path.
 	f["regexReplaceAll"] = func(regex string, repl string, s string) string {
 		r := regexp.MustCompile(regex)
 		return r.ReplaceAllString(s, repl)
