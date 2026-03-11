@@ -87,6 +87,14 @@ func TestLabelMerge(t *testing.T) {
 	result = product.LabelMerge(m1, m2)
 	expected = map[string]string{"shared": "user-wins", "operator-only": "kept", "user-only": "added"}
 	assert.Equal(t, expected, result)
+
+	// test that the original maps are not mutated
+	m1 = map[string]string{"key1": "val1"}
+	m2 = map[string]string{"key2": "val2"}
+	result = product.LabelMerge(m1, m2)
+	assert.Equal(t, map[string]string{"key1": "val1", "key2": "val2"}, result)
+	assert.Equal(t, map[string]string{"key1": "val1"}, m1, "m1 should not be mutated")
+	assert.Equal(t, map[string]string{"key2": "val2"}, m2, "m2 should not be mutated")
 }
 
 func TestGetAWSRegion(t *testing.T) {

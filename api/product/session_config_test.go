@@ -371,6 +371,20 @@ func TestValidateDynamicLabelRules(t *testing.T) {
 		require.ErrorContains(t, err, "labelValue must not be set with labelKey")
 	})
 
+	t.Run("rejects trimPrefix set with labelKey in direct-mapping mode", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: "session.posit.team/user", TrimPrefix: "--ext-"},
+		})
+		require.ErrorContains(t, err, "trimPrefix must not be set with labelKey")
+	})
+
+	t.Run("rejects labelPrefix set with labelKey in direct-mapping mode", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: "session.posit.team/user", LabelPrefix: "prefix."},
+		})
+		require.ErrorContains(t, err, "labelPrefix must not be set with labelKey")
+	})
+
 	t.Run("reports correct index for invalid rule in mixed slice", func(t *testing.T) {
 		err := ValidateDynamicLabelRules([]DynamicLabelRule{
 			{Field: "user", LabelKey: "session.posit.team/user"},

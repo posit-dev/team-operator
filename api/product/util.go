@@ -64,13 +64,14 @@ func DetermineMinAvailableReplicas(replicas int) int {
 }
 
 func LabelMerge(m1 map[string]string, m2 map[string]string) map[string]string {
-	if m1 == nil {
-		m1 = map[string]string{}
+	out := make(map[string]string, len(m1)+len(m2))
+	for k, v := range m1 {
+		out[k] = v
 	}
 	for k, v := range m2 {
-		m1[k] = v
+		out[k] = v
 	}
-	return m1
+	return out
 }
 
 func ComputeSha256(in map[string]string) (string, error) {

@@ -469,8 +469,9 @@ func (r *SiteReconciler) reconcileWorkbench(
 		// Merge Service config
 		if userSC.Service != nil {
 			if opSC.Service == nil {
-				opSC.Service = userSC.Service.DeepCopy()
-			} else {
+				opSC.Service = &product.ServiceConfig{}
+			}
+			{
 				if userSC.Service.Type != "" {
 					opSC.Service.Type = userSC.Service.Type
 				}
@@ -484,8 +485,9 @@ func (r *SiteReconciler) reconcileWorkbench(
 		// ExperimentalFeatures or operator defaults and should not be overridden here.
 		if userSC.Pod != nil {
 			if opSC.Pod == nil {
-				opSC.Pod = userSC.Pod.DeepCopy()
-			} else {
+				opSC.Pod = &product.PodConfig{}
+			}
+			{
 				// DynamicLabels: operator never sets these; take user-provided directly
 				if len(userSC.Pod.DynamicLabels) > 0 {
 					opSC.Pod.DynamicLabels = userSC.Pod.DynamicLabels
@@ -499,8 +501,9 @@ func (r *SiteReconciler) reconcileWorkbench(
 		// Merge Job config
 		if userSC.Job != nil {
 			if opSC.Job == nil {
-				opSC.Job = userSC.Job.DeepCopy()
-			} else {
+				opSC.Job = &product.JobConfig{}
+			}
+			{
 				opSC.Job.Labels = product.LabelMerge(opSC.Job.Labels, userSC.Job.Labels)
 				opSC.Job.Annotations = product.LabelMerge(opSC.Job.Annotations, userSC.Job.Annotations)
 			}

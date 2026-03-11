@@ -141,6 +141,12 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 				return fmt.Errorf("dynamicLabels[%d]: labelValue must be a valid Kubernetes label value (alphanumeric, -, _, . characters)", i)
 			}
 		}
+		if rule.LabelKey != "" && rule.TrimPrefix != "" {
+			return fmt.Errorf("dynamicLabels[%d]: trimPrefix must not be set with labelKey (trimPrefix only applies to regex match mode)", i)
+		}
+		if rule.LabelKey != "" && rule.LabelPrefix != "" {
+			return fmt.Errorf("dynamicLabels[%d]: labelPrefix must not be set with labelKey (labelPrefix only applies to regex match mode)", i)
+		}
 		if rule.LabelKey != "" {
 			if strings.Count(rule.LabelKey, "/") > 1 {
 				return fmt.Errorf("dynamicLabels[%d]: labelKey must contain at most one '/'", i)
