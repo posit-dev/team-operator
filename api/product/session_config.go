@@ -111,6 +111,8 @@ var labelNameRegex = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9]
 var dnsSubdomainRegex = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$`)
 
 // labelNamePrefixRegex validates the name prefix portion of a label key prefix.
+// Trailing -, _, or . are allowed because the suffix (appended at runtime) always
+// starts with an alphanumeric character, producing a valid final label name.
 var labelNamePrefixRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
 // ValidateDynamicLabelRules validates a slice of DynamicLabelRule, checking for
@@ -126,8 +128,13 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 		if rule.Match != "" && rule.LabelPrefix == "" {
 			return fmt.Errorf("dynamicLabels[%d]: labelPrefix is required when match is set", i)
 		}
-		if rule.LabelValue != "" && !labelNameRegex.MatchString(rule.LabelValue) {
-			return fmt.Errorf("dynamicLabels[%d]: labelValue must be a valid Kubernetes label value (alphanumeric, -, _, . characters)", i)
+		if rule.LabelValue != "" {
+			if len(rule.LabelValue) > 63 {
+				return fmt.Errorf("dynamicLabels[%d]: labelValue must not exceed 63 characters", i)
+			}
+			if !labelNameRegex.MatchString(rule.LabelValue) {
+				return fmt.Errorf("dynamicLabels[%d]: labelValue must be a valid Kubernetes label value (alphanumeric, -, _, . characters)", i)
+			}
 		}
 		if rule.LabelKey != "" {
 			if strings.Count(rule.LabelKey, "/") > 1 {

@@ -294,6 +294,13 @@ func TestValidateDynamicLabelRules(t *testing.T) {
 		require.ErrorContains(t, err, "labelValue must be a valid Kubernetes label value")
 	})
 
+	t.Run("rejects labelValue exceeding 63 characters", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "[a-z]+", LabelPrefix: "prefix.", LabelValue: "a234567890123456789012345678901234567890123456789012345678901234"},
+		})
+		require.ErrorContains(t, err, "labelValue must not exceed 63 characters")
+	})
+
 	t.Run("accepts valid labelValue", func(t *testing.T) {
 		err := ValidateDynamicLabelRules([]DynamicLabelRule{
 			{Field: "args", Match: "[a-z]+", LabelPrefix: "prefix.", LabelValue: "enabled"},
@@ -311,6 +318,20 @@ func TestValidateDynamicLabelRules(t *testing.T) {
 	t.Run("rejects labelKey with reserved app.kubernetes.io prefix", func(t *testing.T) {
 		err := ValidateDynamicLabelRules([]DynamicLabelRule{
 			{Field: "user", LabelKey: "app.kubernetes.io/name"},
+		})
+		require.ErrorContains(t, err, "reserved Kubernetes label prefix")
+	})
+
+	t.Run("rejects labelKey with reserved k8s.io prefix", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: "k8s.io/name"},
+		})
+		require.ErrorContains(t, err, "reserved Kubernetes label prefix")
+	})
+
+	t.Run("rejects labelPrefix with reserved kubernetes.io prefix", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "[a-z]+", LabelPrefix: "kubernetes.io/ext."},
 		})
 		require.ErrorContains(t, err, "reserved Kubernetes label prefix")
 	})
