@@ -17,6 +17,7 @@ import (
 const dynamicLabelsTemplate = `
 {{- $templateDataJSON := include "rstudio-library.templates.data" nil -}}
 {{- $templateData := $templateDataJSON | mustFromJson -}}
+{{- $capStatus := dict }}
 {{- $matchCache := dict }}
 {{- with $templateData.pod.dynamicLabels }}
 {{- range $i, $rule := . }}
@@ -24,10 +25,13 @@ const dynamicLabelsTemplate = `
 {{- $val := index $.Job $rule.field }}
 {{- $str := (kindIs "slice" $val) | ternary ($val | join " ") ($val | toString) }}
 {{- $matches := regexFindAll $rule.match $str -1 }}
-{{- if gt (len $matches) 50 }}{{- $matches = slice $matches 0 50 }}{{- end }}
+{{- if gt (len $matches) 50 }}{{- $_ := set $capStatus "reached" "true" }}{{- $matches = slice $matches 0 50 }}{{- end }}
 {{- $_ := set $matchCache (printf "%d" $i) $matches }}
 {{- end }}
 {{- end }}
+{{- end }}
+{{- if hasKey $capStatus "reached" }}
+posit.team/label-cap-reached: "true"
 {{- end }}
 {{- with $templateData.pod.dynamicLabels }}
 {{- range $i, $rule := . }}
@@ -43,7 +47,7 @@ const dynamicLabelsTemplate = `
 {{- $namePrefix := regexFind "[^/]*$" $rule.labelPrefix }}
 {{- $maxSuffix := int (sub 63 (len $namePrefix)) }}
 {{- range $match := $matches }}
-{{- $suffix := trimPrefix ($rule.trimPrefix | default "") $match | lower | replace " " "_" | trunc $maxSuffix | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}
+{{- $suffix := trimPrefix ($rule.trimPrefix | default "") $match | lower | regexReplaceAll "[^a-zA-Z0-9._-]" "_" | trunc $maxSuffix | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}
 {{- if ne $suffix "" }}
 {{ printf "%s%s" $rule.labelPrefix $suffix }}: {{ $rule.labelValue | default "true" | quote }}
 {{- end }}
@@ -283,6 +287,74 @@ func TestJobTemplate_DynamicLabels_RegexMapping(t *testing.T) {
 		out := renderDynamicLabels(t, templateData, jobData)
 		expectedLabel := "session.posit.team/ext." + strings.Repeat("a", 59)
 		assert.Contains(t, out, expectedLabel+`: "true"`)
+	})
+
+	t.Run("sanitizes special characters in suffix for label key", func(t *testing.T) {
+		templateData := map[string]any{
+			"pod": map[string]any{
+				"dynamicLabels": []map[string]any{
+					{
+						"field":       "args",
+						"match":       "--ext-[^ ]+",
+						"trimPrefix":  "--ext-",
+						"labelPrefix": "session.posit.team/ext.",
+					},
+				},
+			},
+		}
+		jobData := map[string]any{
+			"args": []any{"--ext-foo@bar"},
+		}
+
+		out := renderDynamicLabels(t, templateData, jobData)
+		assert.Contains(t, out, `session.posit.team/ext.foo_bar: "true"`)
+		assert.NotContains(t, out, "foo@bar")
+	})
+
+	t.Run("caps matches at 50 and sets annotation", func(t *testing.T) {
+		args := make([]any, 60)
+		for i := range args {
+			args[i] = strings.Repeat("a", 3) + strings.Repeat("0", 3) // "aaa000"
+		}
+		templateData := map[string]any{
+			"pod": map[string]any{
+				"dynamicLabels": []map[string]any{
+					{
+						"field":       "args",
+						"match":       "[a-z0-9]+",
+						"labelPrefix": "prefix/ext.",
+					},
+				},
+			},
+		}
+		jobData := map[string]any{"args": args}
+
+		out := renderDynamicLabels(t, templateData, jobData)
+		assert.Contains(t, out, `posit.team/label-cap-reached: "true"`)
+		// Count label lines (each match produces "prefix/ext.aaa000")
+		count := strings.Count(out, "prefix/ext.aaa000")
+		assert.Equal(t, 50, count, "should cap at 50 matches")
+	})
+
+	t.Run("does not set cap annotation when under 50 matches", func(t *testing.T) {
+		templateData := map[string]any{
+			"pod": map[string]any{
+				"dynamicLabels": []map[string]any{
+					{
+						"field":       "args",
+						"match":       "--ext-[a-z]+",
+						"trimPrefix":  "--ext-",
+						"labelPrefix": "prefix/ext.",
+					},
+				},
+			},
+		}
+		jobData := map[string]any{
+			"args": []any{"--ext-foo", "--ext-bar"},
+		}
+
+		out := renderDynamicLabels(t, templateData, jobData)
+		assert.NotContains(t, out, "posit.team/label-cap-reached")
 	})
 
 	t.Run("skips empty suffix after sanitization", func(t *testing.T) {

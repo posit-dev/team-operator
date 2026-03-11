@@ -121,12 +121,19 @@ var labelNamePrefixRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 // regex compilation errors and mutual exclusivity of labelKey vs match/labelPrefix.
 func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 	seenKeys := map[string]bool{}
+	seenPrefixes := map[string]bool{}
 	for i, rule := range rules {
 		if rule.LabelKey != "" {
 			if seenKeys[rule.LabelKey] {
 				return fmt.Errorf("dynamicLabels[%d]: duplicate labelKey %q", i, rule.LabelKey)
 			}
 			seenKeys[rule.LabelKey] = true
+		}
+		if rule.Match != "" && rule.LabelPrefix != "" {
+			if seenPrefixes[rule.LabelPrefix] {
+				return fmt.Errorf("dynamicLabels[%d]: duplicate labelPrefix %q across regex rules (overlapping matches would produce duplicate label keys)", i, rule.LabelPrefix)
+			}
+			seenPrefixes[rule.LabelPrefix] = true
 		}
 		if rule.LabelKey != "" && rule.Match != "" {
 			return fmt.Errorf("dynamicLabels[%d]: labelKey and match are mutually exclusive", i)
@@ -192,8 +199,11 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 			// - dns-prefix (before '/') must be ≤ 253 chars
 			// - name-prefix (after '/', or entire string) must be < 63 chars
 			//   to leave room for at least one suffix character
+			if strings.Count(rule.LabelPrefix, "/") > 1 {
+				return fmt.Errorf("dynamicLabels[%d]: labelPrefix must contain at most one '/'", i)
+			}
 			namePrefix := rule.LabelPrefix
-			if idx := strings.LastIndex(rule.LabelPrefix, "/"); idx >= 0 {
+			if idx := strings.Index(rule.LabelPrefix, "/"); idx >= 0 {
 				dnsPrefix := rule.LabelPrefix[:idx]
 				if len(dnsPrefix) == 0 {
 					return fmt.Errorf("dynamicLabels[%d]: labelPrefix DNS prefix (before '/') must not be empty", i)

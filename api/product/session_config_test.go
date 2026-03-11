@@ -394,6 +394,30 @@ func TestValidateDynamicLabelRules(t *testing.T) {
 		require.ErrorContains(t, err, "dynamicLabels[1]")
 	})
 
+	t.Run("rejects duplicate labelPrefix across regex rules", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "--ext-[a-z]+", LabelPrefix: "session.posit.team/ext."},
+			{Field: "args", Match: "--plugin-[a-z]+", LabelPrefix: "session.posit.team/ext."},
+		})
+		require.ErrorContains(t, err, "duplicate labelPrefix")
+		require.ErrorContains(t, err, "dynamicLabels[1]")
+	})
+
+	t.Run("accepts different labelPrefix across regex rules", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "--ext-[a-z]+", LabelPrefix: "session.posit.team/ext."},
+			{Field: "args", Match: "--plugin-[a-z]+", LabelPrefix: "session.posit.team/plugin."},
+		})
+		require.NoError(t, err)
+	})
+
+	t.Run("rejects labelPrefix with multiple slashes", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "[a-z]+", LabelPrefix: "a/b/name."},
+		})
+		require.ErrorContains(t, err, "labelPrefix must contain at most one '/'")
+	})
+
 	t.Run("reports correct index for invalid rule in mixed slice", func(t *testing.T) {
 		err := ValidateDynamicLabelRules([]DynamicLabelRule{
 			{Field: "user", LabelKey: "session.posit.team/user"},
