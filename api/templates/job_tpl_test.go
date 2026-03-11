@@ -17,8 +17,20 @@ import (
 const dynamicLabelsTemplate = `
 {{- $templateDataJSON := include "rstudio-library.templates.data" nil -}}
 {{- $templateData := $templateDataJSON | mustFromJson -}}
+{{- $matchCache := dict }}
 {{- with $templateData.pod.dynamicLabels }}
-{{- range $rule := . }}
+{{- range $i, $rule := . }}
+{{- if and (hasKey $.Job $rule.field) $rule.match }}
+{{- $val := index $.Job $rule.field }}
+{{- $str := (kindIs "slice" $val) | ternary ($val | join " ") ($val | toString) }}
+{{- $matches := regexFindAll $rule.match $str -1 }}
+{{- if gt (len $matches) 50 }}{{- $matches = slice $matches 0 50 }}{{- end }}
+{{- $_ := set $matchCache (printf "%d" $i) $matches }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- with $templateData.pod.dynamicLabels }}
+{{- range $i, $rule := . }}
 {{- if hasKey $.Job $rule.field }}
 {{- $val := index $.Job $rule.field }}
 {{- if $rule.labelKey }}
@@ -27,9 +39,7 @@ const dynamicLabelsTemplate = `
 {{ $rule.labelKey }}: {{ $labelVal | quote }}
 {{- end }}
 {{- else if $rule.match }}
-{{- $str := (kindIs "slice" $val) | ternary ($val | join " ") ($val | toString) }}
-{{- $matches := regexFindAll $rule.match $str -1 }}
-{{- if gt (len $matches) 50 }}{{- $matches = slice $matches 0 50 }}{{- end }}
+{{- $matches := index $matchCache (printf "%d" $i) }}
 {{- $namePrefix := regexFind "[^/]*$" $rule.labelPrefix }}
 {{- $maxSuffix := int (sub 63 (len $namePrefix)) }}
 {{- range $match := $matches }}
