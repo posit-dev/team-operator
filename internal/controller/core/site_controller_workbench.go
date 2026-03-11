@@ -454,6 +454,55 @@ func (r *SiteReconciler) reconcileWorkbench(
 		targetWorkbench.Spec.AuthLoginPageHtml = site.Spec.Workbench.AuthLoginPageHtml
 	}
 
+	// Merge user-provided sessionConfig from Site spec into the operator-constructed SessionConfig.
+	// User-provided values extend or override the operator defaults: list fields are appended,
+	// scalar fields are overwritten only when non-zero, and map fields are merged.
+	if site.Spec.Workbench.SessionConfig != nil {
+		userSC := site.Spec.Workbench.SessionConfig
+		if targetWorkbench.Spec.SessionConfig == nil {
+			targetWorkbench.Spec.SessionConfig = &product.SessionConfig{}
+		}
+		opSC := targetWorkbench.Spec.SessionConfig
+
+		// Merge Service config
+		if userSC.Service != nil {
+			if opSC.Service == nil {
+				opSC.Service = userSC.Service
+			} else {
+				if userSC.Service.Type != "" {
+					opSC.Service.Type = userSC.Service.Type
+				}
+				opSC.Service.Annotations = product.LabelMerge(opSC.Service.Annotations, userSC.Service.Annotations)
+				opSC.Service.Labels = product.LabelMerge(opSC.Service.Labels, userSC.Service.Labels)
+			}
+		}
+
+		// Merge Pod config
+		if userSC.Pod != nil {
+			if opSC.Pod == nil {
+				opSC.Pod = userSC.Pod
+			} else {
+				// DynamicLabels: operator never sets these; take user-provided directly
+				if len(userSC.Pod.DynamicLabels) > 0 {
+					opSC.Pod.DynamicLabels = userSC.Pod.DynamicLabels
+				}
+				// Labels and annotations: merge (user-provided wins on conflicts)
+				opSC.Pod.Labels = product.LabelMerge(opSC.Pod.Labels, userSC.Pod.Labels)
+				opSC.Pod.Annotations = product.LabelMerge(opSC.Pod.Annotations, userSC.Pod.Annotations)
+			}
+		}
+
+		// Merge Job config
+		if userSC.Job != nil {
+			if opSC.Job == nil {
+				opSC.Job = userSC.Job
+			} else {
+				opSC.Job.Labels = product.LabelMerge(opSC.Job.Labels, userSC.Job.Labels)
+				opSC.Job.Annotations = product.LabelMerge(opSC.Job.Annotations, userSC.Job.Annotations)
+			}
+		}
+	}
+
 	// if volumeSource.type is set, then force volume creation for Workbench
 	if site.Spec.VolumeSource.Type != v1beta1.VolumeSourceTypeNone {
 		if targetWorkbench.Spec.Volume == nil {
