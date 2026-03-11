@@ -80,6 +80,13 @@ func TestLabelMerge(t *testing.T) {
 	result = product.LabelMerge(m1, m2)
 	expected = map[string]string{"vorpal": "sword"}
 	assert.Equal(t, expected, result)
+
+	// test that m2 (user-provided) wins on key conflicts
+	m1 = map[string]string{"shared": "operator-value", "operator-only": "kept"}
+	m2 = map[string]string{"shared": "user-wins", "user-only": "added"}
+	result = product.LabelMerge(m1, m2)
+	expected = map[string]string{"shared": "user-wins", "operator-only": "kept", "user-only": "added"}
+	assert.Equal(t, expected, result)
 }
 
 func TestGetAWSRegion(t *testing.T) {

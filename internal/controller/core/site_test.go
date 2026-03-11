@@ -2019,15 +2019,21 @@ func TestSiteReconciler_SessionConfigMerge_AfterExperimentalFeatures(t *testing.
 	assert.Equal(t, "args", wb.Spec.SessionConfig.Pod.DynamicLabels[0].Field)
 }
 
-func TestSiteReconciler_SessionConfigMerge_LabelConflict(t *testing.T) {
-	siteName := "sc-conflict"
+func TestSiteReconciler_SessionConfigMerge_PodLabelsMergedIntoOperatorPod(t *testing.T) {
+	// Tests that user-provided Pod labels are merged into the operator-constructed
+	// Pod config (non-nil opSC.Pod path) without disturbing operator-managed fields.
+	// Merge-precedence on key conflicts is tested at the unit level in TestLabelMerge.
+	siteName := "sc-merge-labels"
 	siteNamespace := "posit-team"
 	site := defaultSite(siteName)
+	site.Spec.Workbench.ExperimentalFeatures = &v1beta1.InternalWorkbenchExperimentalFeatures{
+		SessionServiceAccountName: "custom-sa",
+	}
 	site.Spec.Workbench.SessionConfig = &product.SessionConfig{
 		Pod: &product.PodConfig{
 			Labels: map[string]string{
-				"user-label":   "user-value",
-				"shared-label": "user-wins",
+				"user-label": "user-value",
+				"team":       "data-science",
 			},
 		},
 	}
@@ -2038,6 +2044,9 @@ func TestSiteReconciler_SessionConfigMerge_LabelConflict(t *testing.T) {
 	wb := getWorkbench(t, cli, siteNamespace, siteName)
 	require.NotNil(t, wb.Spec.SessionConfig)
 	require.NotNil(t, wb.Spec.SessionConfig.Pod)
+	// User-provided labels should be present
 	assert.Equal(t, "user-value", wb.Spec.SessionConfig.Pod.Labels["user-label"])
-	assert.Equal(t, "user-wins", wb.Spec.SessionConfig.Pod.Labels["shared-label"])
+	assert.Equal(t, "data-science", wb.Spec.SessionConfig.Pod.Labels["team"])
+	// Operator-managed fields should be preserved (not overwritten by merge)
+	assert.Equal(t, "custom-sa", wb.Spec.SessionConfig.Pod.ServiceAccountName)
 }
