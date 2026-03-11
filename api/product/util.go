@@ -64,6 +64,9 @@ func DetermineMinAvailableReplicas(replicas int) int {
 }
 
 func LabelMerge(m1 map[string]string, m2 map[string]string) map[string]string {
+	if m1 == nil && m2 == nil {
+		return nil
+	}
 	out := make(map[string]string, len(m1)+len(m2))
 	for k, v := range m1 {
 		out[k] = v

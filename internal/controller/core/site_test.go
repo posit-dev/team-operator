@@ -2010,6 +2010,7 @@ func TestSiteReconciler_SessionConfigMerge_AfterExperimentalFeatures(t *testing.
 
 	// ExperimentalFeatures should have set ServiceAccountName and PrivilegedSessions
 	assert.Equal(t, "custom-sa", wb.Spec.SessionConfig.Pod.ServiceAccountName)
+	require.NotNil(t, wb.Spec.SessionConfig.Pod.ContainerSecurityContext.Privileged)
 	assert.Equal(t, true, *wb.Spec.SessionConfig.Pod.ContainerSecurityContext.Privileged)
 
 	// SessionConfig merge should have added labels, annotations, and dynamic labels

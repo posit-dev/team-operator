@@ -88,6 +88,17 @@ func TestLabelMerge(t *testing.T) {
 	expected = map[string]string{"shared": "user-wins", "operator-only": "kept", "user-only": "added"}
 	assert.Equal(t, expected, result)
 
+	// test that nil,nil returns nil (not empty map) to preserve omitempty semantics
+	result = product.LabelMerge(nil, nil)
+	assert.Nil(t, result)
+
+	// test that nil,non-nil returns a separate copy of m2
+	m2 = map[string]string{"key2": "val2"}
+	result = product.LabelMerge(nil, m2)
+	assert.Equal(t, map[string]string{"key2": "val2"}, result)
+	result["injected"] = "oops"
+	assert.Equal(t, map[string]string{"key2": "val2"}, m2, "m2 should not be mutated via returned map")
+
 	// test that the original maps are not mutated
 	m1 = map[string]string{"key1": "val1"}
 	m2 = map[string]string{"key2": "val2"}
