@@ -213,6 +213,27 @@ func TestValidateDynamicLabelRules(t *testing.T) {
 		require.ErrorContains(t, err, "labelKey DNS prefix")
 	})
 
+	t.Run("rejects labelKey with multiple slashes", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: "a/b/name"},
+		})
+		require.ErrorContains(t, err, "labelKey must contain at most one '/'")
+	})
+
+	t.Run("rejects labelKey with invalid DNS prefix", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: "!!!!/name"},
+		})
+		require.ErrorContains(t, err, "valid DNS subdomain")
+	})
+
+	t.Run("rejects labelKey with spaces in DNS prefix", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: "spaces here/name"},
+		})
+		require.ErrorContains(t, err, "valid DNS subdomain")
+	})
+
 	t.Run("rejects labelKey with DNS prefix > 253 chars", func(t *testing.T) {
 		longDNS := strings.Repeat("a", 254)
 		err := ValidateDynamicLabelRules([]DynamicLabelRule{

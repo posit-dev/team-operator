@@ -79,6 +79,10 @@ type DynamicLabelRule struct {
 	Field string `json:"field"`
 	// LabelKey is the label key for direct single-value mapping.
 	// Mutually exclusive with match/labelPrefix.
+	// Field values are sanitized for use as label values: non-alphanumeric characters
+	// (except . - _) are replaced with underscores, then truncated to 63 characters with
+	// leading/trailing non-alphanumeric characters stripped. Long values with special
+	// characters near the truncation boundary may lose trailing segments.
 	// MaxLength = 253 (optional DNS prefix) + 1 (/) + 63 (name) = 317
 	// +kubebuilder:validation:MaxLength=317
 	LabelKey string `json:"labelKey,omitempty"`
@@ -103,6 +107,9 @@ type DynamicLabelRule struct {
 // labelNameRegex validates the name segment of a Kubernetes label key.
 var labelNameRegex = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$`)
 
+// dnsSubdomainRegex validates a DNS subdomain per RFC 1123.
+var dnsSubdomainRegex = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$`)
+
 // ValidateDynamicLabelRules validates a slice of DynamicLabelRule, checking for
 // regex compilation errors and mutual exclusivity of labelKey vs match/labelPrefix.
 func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
@@ -117,14 +124,20 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 			return fmt.Errorf("dynamicLabels[%d]: labelPrefix is required when match is set", i)
 		}
 		if rule.LabelKey != "" {
+			if strings.Count(rule.LabelKey, "/") > 1 {
+				return fmt.Errorf("dynamicLabels[%d]: labelKey must contain at most one '/'", i)
+			}
 			name := rule.LabelKey
-			if idx := strings.LastIndex(rule.LabelKey, "/"); idx >= 0 {
+			if idx := strings.Index(rule.LabelKey, "/"); idx >= 0 {
 				prefix := rule.LabelKey[:idx]
 				if len(prefix) == 0 {
 					return fmt.Errorf("dynamicLabels[%d]: labelKey DNS prefix (before '/') must not be empty", i)
 				}
 				if len(prefix) > 253 {
 					return fmt.Errorf("dynamicLabels[%d]: labelKey DNS prefix (before '/') must not exceed 253 characters", i)
+				}
+				if !dnsSubdomainRegex.MatchString(strings.ToLower(prefix)) {
+					return fmt.Errorf("dynamicLabels[%d]: labelKey DNS prefix must be a valid DNS subdomain (RFC 1123)", i)
 				}
 				name = rule.LabelKey[idx+1:]
 			}
