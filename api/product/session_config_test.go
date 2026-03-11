@@ -438,10 +438,18 @@ func TestValidateDynamicLabelRules(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("rejects nested labelPrefix across regex rules", func(t *testing.T) {
+	t.Run("rejects nested labelPrefix across regex rules (shorter first)", func(t *testing.T) {
 		err := ValidateDynamicLabelRules([]DynamicLabelRule{
 			{Field: "args", Match: "--ext-[a-z]+", LabelPrefix: "posit.team/ext."},
 			{Field: "args", Match: "--sub-[a-z]+", LabelPrefix: "posit.team/ext.sub."},
+		})
+		require.ErrorContains(t, err, "overlaps with labelPrefix")
+	})
+
+	t.Run("rejects nested labelPrefix across regex rules (longer first)", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "--sub-[a-z]+", LabelPrefix: "posit.team/ext.sub."},
+			{Field: "args", Match: "--ext-[a-z]+", LabelPrefix: "posit.team/ext."},
 		})
 		require.ErrorContains(t, err, "overlaps with labelPrefix")
 	})

@@ -180,6 +180,9 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 			seenKeys[rule.LabelKey] = true
 		}
 		if rule.Match != "" && rule.LabelPrefix != "" {
+			// Exact-duplicate check before the HasPrefix loop below. Technically
+			// redundant (HasPrefix(s,s) is true), but kept for a clearer error
+			// message distinguishing "duplicate" from "overlapping nested" prefixes.
 			if seenPrefixes[rule.LabelPrefix] {
 				return fmt.Errorf("dynamicLabels[%d]: duplicate labelPrefix %q across regex rules (overlapping matches would produce duplicate label keys)", i, rule.LabelPrefix)
 			}
