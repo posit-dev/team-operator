@@ -87,7 +87,7 @@ type DynamicLabelRule struct {
 	TrimPrefix string `json:"trimPrefix,omitempty"`
 	// LabelPrefix is prepended to the cleaned match to form the label key.
 	// Required when match is set.
-	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MaxLength=316
 	LabelPrefix string `json:"labelPrefix,omitempty"`
 	// LabelValue is the static value for all matched labels. Defaults to "true".
 	// +kubebuilder:validation:MaxLength=63

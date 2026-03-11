@@ -2146,7 +2146,7 @@ spec:
                               description: |-
                                 LabelPrefix is prepended to the cleaned match to form the label key.
                                 Required when match is set.
-                              maxLength: 253
+                              maxLength: 316
                               type: string
                             labelValue:
                               description: LabelValue is the static value for all
