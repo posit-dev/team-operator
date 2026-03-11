@@ -47,7 +47,7 @@ posit.team/label-cap-reached: "true"
 {{- $namePrefix := regexFind "[^/]*$" $rule.labelPrefix }}
 {{- $maxSuffix := int (sub 63 (len $namePrefix)) }}
 {{- range $match := $matches }}
-{{- $suffix := trimPrefix ($rule.trimPrefix | default "") $match | lower | regexReplaceAll "[^a-zA-Z0-9._-]" "_" | trunc $maxSuffix | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}
+{{- $suffix := trimPrefix ($rule.trimPrefix | default "") $match | lower | regexReplaceAll "[^a-zA-Z0-9._-]" "_" | regexReplaceAll "[_]{2,}" "_" | trunc $maxSuffix | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}
 {{- if ne $suffix "" }}
 {{ printf "%s%s" $rule.labelPrefix $suffix }}: {{ $rule.labelValue | default "true" | quote }}
 {{- end }}
@@ -311,7 +311,7 @@ func TestJobTemplate_DynamicLabels_RegexMapping(t *testing.T) {
 		assert.NotContains(t, out, "foo@bar")
 	})
 
-	t.Run("caps matches at 50 and sets annotation", func(t *testing.T) {
+	t.Run("caps matches at 50 (test-only annotation verifies cap)", func(t *testing.T) {
 		args := make([]any, 60)
 		for i := range args {
 			args[i] = strings.Repeat("a", 3) + strings.Repeat("0", 3) // "aaa000"
