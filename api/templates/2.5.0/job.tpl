@@ -113,7 +113,7 @@ spec:
         {{- $val := index $.Job $rule.field }}
         {{- if $rule.labelKey }}
         {{- /* NOTE: regexReplaceAll uses Helm's arg order (regex, repl, s) — see job_tpl_test.go canary test */ -}}
-        {{- $labelVal := $val | toString | regexReplaceAll "[^a-zA-Z0-9._-]" "_" | regexReplaceAll "[_]{2,}" "_" | trunc 63 | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}
+        {{- $labelVal := $val | toString | regexReplaceAll "[^a-zA-Z0-9._-]" "_" | regexReplaceAll "_{2,}" "_" | trunc 63 | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}
         {{- if ne $labelVal "" }}
         {{ $rule.labelKey }}: {{ $labelVal | quote }}
         {{- end }}
@@ -123,7 +123,7 @@ spec:
         {{- /* Go validation (ValidateDynamicLabelRules) enforces namePrefix < 53 chars, so $maxSuffix is always > 0. */ -}}
         {{- $maxSuffix := int (sub 63 (len $namePrefix)) }}
         {{- range $match := $matches }}
-        {{- $suffix := trimPrefix ($rule.trimPrefix | default "") $match | lower | regexReplaceAll "[^a-zA-Z0-9._-]" "_" | regexReplaceAll "[_]{2,}" "_" | trunc $maxSuffix | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}
+        {{- $suffix := trimPrefix ($rule.trimPrefix | default "") $match | lower | regexReplaceAll "[^a-zA-Z0-9._-]" "_" | regexReplaceAll "_{2,}" "_" | trunc $maxSuffix | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}
         {{- if ne $suffix "" }}
         {{ printf "%s%s" $rule.labelPrefix $suffix }}: {{ $rule.labelValue | default "true" | quote }}
         {{- end }}
