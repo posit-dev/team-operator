@@ -620,8 +620,12 @@ func TestConnect_SessionConfigTemplateData_DynamicLabels(t *testing.T) {
 
 	result := con.SessionConfigTemplateData(context.TODO())
 	require.NotEmpty(t, result)
-	assert.Contains(t, result, "dynamicLabels")
-	assert.Contains(t, result, "session.posit.team/user")
-	assert.Contains(t, result, "session.posit.team/ext.")
-	assert.Contains(t, result, "--ext-[a-z]+")
+	assert.Contains(t, result, "\"dynamicLabels\"")
+	// Direct mapping rule
+	assert.Contains(t, result, "\"field\":\"user\"")
+	assert.Contains(t, result, "\"labelKey\":\"session.posit.team/user\"")
+	// Pattern extraction rule
+	assert.Contains(t, result, "\"field\":\"args\"")
+	assert.Contains(t, result, "\"match\":\"--ext-[a-z]+\"")
+	assert.Contains(t, result, "\"labelPrefix\":\"session.posit.team/ext.\"")
 }
