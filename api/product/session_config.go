@@ -186,6 +186,9 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 			seenPrefixes[rule.LabelPrefix] = true
 			// Check for potential collision: a direct-mapping labelKey that starts
 			// with this regex rule's labelPrefix could be overwritten at runtime.
+			// This check is intentionally conservative (prefix-based). It may flag
+			// cases where the regex can never actually produce the conflicting key,
+			// but false positives are safer than undetected collisions at runtime.
 			for key, keyIdx := range directKeys {
 				if strings.HasPrefix(key, rule.LabelPrefix) {
 					return fmt.Errorf("dynamicLabels[%d]: labelPrefix %q could collide with direct-mapping labelKey %q in rule %d (a regex match could produce the same label key)", i, rule.LabelPrefix, key, keyIdx)

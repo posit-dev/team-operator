@@ -476,6 +476,31 @@ func TestJobTemplate_DynamicLabels_RegexMapping(t *testing.T) {
 		assert.Equal(t, 200, totalLabels, "global cap should limit total matches to 200")
 	})
 
+	t.Run("explicit empty trimPrefix behaves the same as omitting it", func(t *testing.T) {
+		rule := map[string]any{
+			"field":       "args",
+			"match":       "--ext-[a-z]+",
+			"trimPrefix":  "",
+			"labelPrefix": "session.posit.team/ext.",
+		}
+		templateData := map[string]any{
+			"pod": map[string]any{
+				"dynamicLabels": []map[string]any{rule},
+			},
+		}
+		jobData := map[string]any{
+			"args": []any{"--ext-foo"},
+		}
+
+		outExplicit := renderDynamicLabels(t, templateData, jobData)
+
+		delete(rule, "trimPrefix")
+		outOmitted := renderDynamicLabels(t, templateData, jobData)
+
+		assert.Equal(t, outExplicit, outOmitted, "explicit empty trimPrefix should produce the same output as omitting it")
+		assert.Contains(t, outExplicit, `session.posit.team/ext.`)
+	})
+
 	t.Run("skips empty suffix after sanitization", func(t *testing.T) {
 		templateData := map[string]any{
 			"pod": map[string]any{
