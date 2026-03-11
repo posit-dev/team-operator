@@ -1,3 +1,10 @@
+# [1.20.0](https://github.com/posit-dev/team-operator/compare/v1.19.0...v1.20.0) (2026-03-11)
+
+
+### Features
+
+* improve status on team operator resources ([#94](https://github.com/posit-dev/team-operator/issues/94)) ([eb3f7b0](https://github.com/posit-dev/team-operator/commit/eb3f7b0f006918cfcf292bc8e25105ff5dade65d))
+
 # [1.19.0](https://github.com/posit-dev/team-operator/compare/v1.18.0...v1.19.0) (2026-03-10)
 
 
