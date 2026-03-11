@@ -363,6 +363,21 @@ func TestValidateDynamicLabelRules(t *testing.T) {
 		})
 		require.NoError(t, err)
 	})
+
+	t.Run("rejects labelValue set with labelKey in direct-mapping mode", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: "session.posit.team/user", LabelValue: "static"},
+		})
+		require.ErrorContains(t, err, "labelValue must not be set with labelKey")
+	})
+
+	t.Run("reports correct index for invalid rule in mixed slice", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: "session.posit.team/user"},
+			{Field: "args", Match: "(unclosed", LabelPrefix: "prefix."},
+		})
+		require.ErrorContains(t, err, "dynamicLabels[1]")
+	})
 }
 
 func TestGenerateSessionConfigTemplate_DynamicLabels_Validation(t *testing.T) {

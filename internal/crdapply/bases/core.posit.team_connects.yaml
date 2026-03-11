@@ -1894,7 +1894,7 @@ spec:
                               description: |-
                                 LabelPrefix is prepended to the cleaned match to form the label key.
                                 Required when match is set.
-                                MaxLength = 253 (DNS subdomain) + 1 (/) + 52 (name prefix, must be < 53 to leave ≥10 chars for suffix)
+                                MaxLength = 253 (DNS subdomain) + 1 (/) + 52 (name prefix, must be < 53 to leave ≥11 chars for suffix)
                               maxLength: 306
                               type: string
                             labelValue:

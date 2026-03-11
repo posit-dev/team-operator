@@ -29,6 +29,7 @@ const dynamicLabelsTemplate = `
 {{- else if $rule.match }}
 {{- $str := (kindIs "slice" $val) | ternary ($val | join " ") ($val | toString) }}
 {{- $matches := regexFindAll $rule.match $str -1 }}
+{{- if gt (len $matches) 50 }}{{- $matches = slice $matches 0 50 }}{{- end }}
 {{- $namePrefix := regexFind "[^/]*$" $rule.labelPrefix }}
 {{- $maxSuffix := int (sub 63 (len $namePrefix)) }}
 {{- range $match := $matches }}
@@ -59,6 +60,8 @@ func renderDynamicLabels(t *testing.T, templateData map[string]any, jobData map[
 	// Override regexReplaceAll to match Helm's pipeline-friendly argument order.
 	// Sprig: regexReplaceAll(regex, s, repl) — piped value becomes repl.
 	// Helm:  regexReplaceAll(regex, repl, s) — piped value becomes s (source).
+	// NOTE: If upgrading Helm/Sprig, verify that the production argument order still
+	// matches this mock — otherwise tests will pass against a stale signature.
 	f["regexReplaceAll"] = func(regex string, repl string, s string) string {
 		r := regexp.MustCompile(regex)
 		return r.ReplaceAllString(s, repl)
