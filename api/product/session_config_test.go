@@ -161,6 +161,22 @@ func TestValidateDynamicLabelRules(t *testing.T) {
 		require.ErrorContains(t, err, "labelPrefix name segment")
 	})
 
+	t.Run("rejects labelPrefix with DNS prefix > 253 chars", func(t *testing.T) {
+		longDNS := strings.Repeat("a", 254)
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "[a-z]+", LabelPrefix: longDNS + "/ext."},
+		})
+		require.ErrorContains(t, err, "DNS prefix")
+	})
+
+	t.Run("accepts labelPrefix with DNS prefix at 253 chars", func(t *testing.T) {
+		dns253 := strings.Repeat("a", 253)
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "[a-z]+", LabelPrefix: dns253 + "/ext."},
+		})
+		require.Nil(t, err)
+	})
+
 	t.Run("accepts safe regex patterns (RE2 prevents backtracking by design)", func(t *testing.T) {
 		// Go's regexp package uses RE2 which doesn't support backreferences,
 		// so patterns like (a+)+$ are safe. But invalid patterns still fail.

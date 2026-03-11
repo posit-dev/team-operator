@@ -111,10 +111,17 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 			if _, err := regexp.Compile(rule.Match); err != nil {
 				return fmt.Errorf("dynamicLabels[%d]: invalid regex in match: %w", i, err)
 			}
-			// Ensure the name portion of labelPrefix (after the last '/') leaves room
-			// for at least one suffix character within the 63-char label name limit.
+			// Validate labelPrefix conforms to Kubernetes label key structure:
+			//   [dns-prefix/]name-prefix
+			// - dns-prefix (before '/') must be ≤ 253 chars
+			// - name-prefix (after '/', or entire string) must be < 63 chars
+			//   to leave room for at least one suffix character
 			namePrefix := rule.LabelPrefix
 			if idx := strings.LastIndex(rule.LabelPrefix, "/"); idx >= 0 {
+				dnsPrefix := rule.LabelPrefix[:idx]
+				if len(dnsPrefix) > 253 {
+					return fmt.Errorf("dynamicLabels[%d]: labelPrefix DNS prefix (before '/') must not exceed 253 characters", i)
+				}
 				namePrefix = rule.LabelPrefix[idx+1:]
 			}
 			if len(namePrefix) >= 63 {
