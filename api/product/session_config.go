@@ -120,7 +120,14 @@ var labelNamePrefixRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 // ValidateDynamicLabelRules validates a slice of DynamicLabelRule, checking for
 // regex compilation errors and mutual exclusivity of labelKey vs match/labelPrefix.
 func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
+	seenKeys := map[string]bool{}
 	for i, rule := range rules {
+		if rule.LabelKey != "" {
+			if seenKeys[rule.LabelKey] {
+				return fmt.Errorf("dynamicLabels[%d]: duplicate labelKey %q", i, rule.LabelKey)
+			}
+			seenKeys[rule.LabelKey] = true
+		}
 		if rule.LabelKey != "" && rule.Match != "" {
 			return fmt.Errorf("dynamicLabels[%d]: labelKey and match are mutually exclusive", i)
 		}

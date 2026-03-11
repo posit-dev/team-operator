@@ -385,6 +385,15 @@ func TestValidateDynamicLabelRules(t *testing.T) {
 		require.ErrorContains(t, err, "labelPrefix must not be set with labelKey")
 	})
 
+	t.Run("rejects duplicate labelKey across rules", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: "posit.team/user"},
+			{Field: "email", LabelKey: "posit.team/user"},
+		})
+		require.ErrorContains(t, err, "duplicate labelKey")
+		require.ErrorContains(t, err, "dynamicLabels[1]")
+	})
+
 	t.Run("reports correct index for invalid rule in mixed slice", func(t *testing.T) {
 		err := ValidateDynamicLabelRules([]DynamicLabelRule{
 			{Field: "user", LabelKey: "session.posit.team/user"},
