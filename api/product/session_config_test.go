@@ -169,12 +169,19 @@ func TestValidateDynamicLabelRules(t *testing.T) {
 		require.ErrorContains(t, err, "DNS prefix")
 	})
 
+	t.Run("rejects labelPrefix with empty DNS prefix", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "[a-z]+", LabelPrefix: "/name"},
+		})
+		require.ErrorContains(t, err, "DNS prefix")
+	})
+
 	t.Run("accepts labelPrefix with DNS prefix at 253 chars", func(t *testing.T) {
 		dns253 := strings.Repeat("a", 253)
 		err := ValidateDynamicLabelRules([]DynamicLabelRule{
 			{Field: "args", Match: "[a-z]+", LabelPrefix: dns253 + "/ext."},
 		})
-		require.Nil(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("accepts safe regex patterns (RE2 prevents backtracking by design)", func(t *testing.T) {

@@ -119,6 +119,9 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 			namePrefix := rule.LabelPrefix
 			if idx := strings.LastIndex(rule.LabelPrefix, "/"); idx >= 0 {
 				dnsPrefix := rule.LabelPrefix[:idx]
+				if len(dnsPrefix) == 0 {
+					return fmt.Errorf("dynamicLabels[%d]: labelPrefix DNS prefix (before '/') must not be empty", i)
+				}
 				if len(dnsPrefix) > 253 {
 					return fmt.Errorf("dynamicLabels[%d]: labelPrefix DNS prefix (before '/') must not exceed 253 characters", i)
 				}
