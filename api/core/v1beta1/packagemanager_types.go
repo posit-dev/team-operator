@@ -93,13 +93,18 @@ type PackageManagerSpec struct {
 
 // PackageManagerStatus defines the observed state of PackageManager
 type PackageManagerStatus struct {
-	KeySecretRef v1.SecretReference `json:"keySecretRef,omitempty"`
-	Ready        bool               `json:"ready"`
+	CommonProductStatus `json:",inline"`
+	KeySecretRef        v1.SecretReference `json:"keySecretRef,omitempty"`
+	// +optional
+	Ready bool `json:"ready"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:shortName={pm,pms},path=packagemanagers
+//+kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=='Ready')].status`
+//+kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.status.version`
+//+kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 //+genclient
 //+k8s:openapi-gen=true
 

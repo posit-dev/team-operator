@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/internal"
+	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -67,9 +68,39 @@ func (r *FlightdeckReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		"domain", fd.Spec.Domain,
 	)
 
+	// Save a copy for status patching
+	patchBase := client.MergeFrom(fd.DeepCopy())
+
+	// Set observed generation and progressing condition
+	fd.Status.ObservedGeneration = fd.Generation
+	status.SetProgressing(&fd.Status.Conditions, fd.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Reconciliation in progress")
+
 	if res, err := r.reconcileFlightdeckResources(ctx, req, fd, l); err != nil {
 		l.Error(err, "failed to reconcile flightdeck resources")
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), fd, patchBase, &fd.Status.Conditions, fd.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
+		}
 		return res, err
+	}
+
+	// Check deployment health
+	deploy := &appsv1.Deployment{}
+	if err := r.Get(ctx, client.ObjectKey{Name: fd.ComponentName(), Namespace: req.Namespace}, deploy); err != nil {
+		l.Error(err, "error fetching deployment for status")
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), fd, patchBase, &fd.Status.Conditions, fd.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
+		}
+		return ctrl.Result{}, err
+	}
+
+	status.SetDeploymentHealth(&fd.Status.Conditions, fd.Generation, deploy.Status.ReadyReplicas, status.DesiredReplicas(deploy.Spec.Replicas))
+	fd.Status.Version = status.ExtractVersion(fd.Spec.Image)
+	fd.Status.Ready = status.IsReady(fd.Status.Conditions)
+
+	// Patch status
+	if err := r.Status().Patch(ctx, fd, patchBase); err != nil {
+		l.Error(err, "Error patching status")
+		return ctrl.Result{}, err
 	}
 
 	l.Info("reconciliation completed successfully",

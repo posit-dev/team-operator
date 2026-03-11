@@ -9,23 +9,22 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// FlightdeckStatusApplyConfiguration represents a declarative configuration of the FlightdeckStatus type for use
+// PostgresDatabaseStatusApplyConfiguration represents a declarative configuration of the PostgresDatabaseStatus type for use
 // with apply.
-type FlightdeckStatusApplyConfiguration struct {
+type PostgresDatabaseStatusApplyConfiguration struct {
 	CommonProductStatusApplyConfiguration `json:",inline"`
-	Ready                                 *bool `json:"ready,omitempty"`
 }
 
-// FlightdeckStatusApplyConfiguration constructs a declarative configuration of the FlightdeckStatus type for use with
+// PostgresDatabaseStatusApplyConfiguration constructs a declarative configuration of the PostgresDatabaseStatus type for use with
 // apply.
-func FlightdeckStatus() *FlightdeckStatusApplyConfiguration {
-	return &FlightdeckStatusApplyConfiguration{}
+func PostgresDatabaseStatus() *PostgresDatabaseStatusApplyConfiguration {
+	return &PostgresDatabaseStatusApplyConfiguration{}
 }
 
 // WithConditions adds the given value to the Conditions field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Conditions field.
-func (b *FlightdeckStatusApplyConfiguration) WithConditions(values ...*v1.ConditionApplyConfiguration) *FlightdeckStatusApplyConfiguration {
+func (b *PostgresDatabaseStatusApplyConfiguration) WithConditions(values ...*v1.ConditionApplyConfiguration) *PostgresDatabaseStatusApplyConfiguration {
 	for i := range values {
 		if values[i] == nil {
 			panic("nil value passed to WithConditions")
@@ -38,7 +37,7 @@ func (b *FlightdeckStatusApplyConfiguration) WithConditions(values ...*v1.Condit
 // WithObservedGeneration sets the ObservedGeneration field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ObservedGeneration field is set to the value of the last call.
-func (b *FlightdeckStatusApplyConfiguration) WithObservedGeneration(value int64) *FlightdeckStatusApplyConfiguration {
+func (b *PostgresDatabaseStatusApplyConfiguration) WithObservedGeneration(value int64) *PostgresDatabaseStatusApplyConfiguration {
 	b.CommonProductStatusApplyConfiguration.ObservedGeneration = &value
 	return b
 }
@@ -46,15 +45,7 @@ func (b *FlightdeckStatusApplyConfiguration) WithObservedGeneration(value int64)
 // WithVersion sets the Version field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Version field is set to the value of the last call.
-func (b *FlightdeckStatusApplyConfiguration) WithVersion(value string) *FlightdeckStatusApplyConfiguration {
+func (b *PostgresDatabaseStatusApplyConfiguration) WithVersion(value string) *PostgresDatabaseStatusApplyConfiguration {
 	b.CommonProductStatusApplyConfiguration.Version = &value
-	return b
-}
-
-// WithReady sets the Ready field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the Ready field is set to the value of the last call.
-func (b *FlightdeckStatusApplyConfiguration) WithReady(value bool) *FlightdeckStatusApplyConfiguration {
-	b.Ready = &value
 	return b
 }

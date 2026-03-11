@@ -10,12 +10,14 @@ import (
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/posit-dev/team-operator/internal/db"
+	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -428,6 +430,19 @@ func TestWorkbenchReconciler_Suspended(t *testing.T) {
 	ing := &networkingv1.Ingress{}
 	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName(), Namespace: ns}, ing)
 	assert.Error(t, err, "Ingress should not exist when Workbench is suspended")
+
+	// Status should reflect the suspended state
+	updated := &positcov1beta1.Workbench{}
+	require.NoError(t, cli.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, updated))
+	assert.False(t, updated.Status.Ready, "Ready bool should be false when suspended")
+	readyCond := apimeta.FindStatusCondition(updated.Status.Conditions, status.TypeReady)
+	require.NotNil(t, readyCond, "Ready condition should be set when suspended")
+	assert.Equal(t, metav1.ConditionFalse, readyCond.Status)
+	assert.Equal(t, status.ReasonSuspended, readyCond.Reason)
+	progressCond := apimeta.FindStatusCondition(updated.Status.Conditions, status.TypeProgressing)
+	require.NotNil(t, progressCond, "Progressing condition should be set when suspended")
+	assert.Equal(t, metav1.ConditionFalse, progressCond.Status)
+	assert.Equal(t, status.ReasonSuspended, progressCond.Reason)
 }
 
 // TestWorkbenchReconciler_SuspendRemovesDeployment verifies that when Workbench transitions

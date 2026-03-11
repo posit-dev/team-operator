@@ -7,19 +7,50 @@ package v1beta1
 
 import (
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
 // PackageManagerStatusApplyConfiguration represents a declarative configuration of the PackageManagerStatus type for use
 // with apply.
 type PackageManagerStatusApplyConfiguration struct {
-	KeySecretRef *v1.SecretReference `json:"keySecretRef,omitempty"`
-	Ready        *bool               `json:"ready,omitempty"`
+	CommonProductStatusApplyConfiguration `json:",inline"`
+	KeySecretRef                          *v1.SecretReference `json:"keySecretRef,omitempty"`
+	Ready                                 *bool               `json:"ready,omitempty"`
 }
 
 // PackageManagerStatusApplyConfiguration constructs a declarative configuration of the PackageManagerStatus type for use with
 // apply.
 func PackageManagerStatus() *PackageManagerStatusApplyConfiguration {
 	return &PackageManagerStatusApplyConfiguration{}
+}
+
+// WithConditions adds the given value to the Conditions field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Conditions field.
+func (b *PackageManagerStatusApplyConfiguration) WithConditions(values ...*metav1.ConditionApplyConfiguration) *PackageManagerStatusApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithConditions")
+		}
+		b.CommonProductStatusApplyConfiguration.Conditions = append(b.CommonProductStatusApplyConfiguration.Conditions, *values[i])
+	}
+	return b
+}
+
+// WithObservedGeneration sets the ObservedGeneration field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ObservedGeneration field is set to the value of the last call.
+func (b *PackageManagerStatusApplyConfiguration) WithObservedGeneration(value int64) *PackageManagerStatusApplyConfiguration {
+	b.CommonProductStatusApplyConfiguration.ObservedGeneration = &value
+	return b
+}
+
+// WithVersion sets the Version field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Version field is set to the value of the last call.
+func (b *PackageManagerStatusApplyConfiguration) WithVersion(value string) *PackageManagerStatusApplyConfiguration {
+	b.CommonProductStatusApplyConfiguration.Version = &value
+	return b
 }
 
 // WithKeySecretRef sets the KeySecretRef field in the declarative configuration to the given value

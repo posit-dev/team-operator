@@ -13,6 +13,7 @@ import (
 	"github.com/posit-dev/team-operator/api/templates"
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/posit-dev/team-operator/internal/db"
+	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	"github.com/traefik/traefik/v3/pkg/config/dynamic"
 	"github.com/traefik/traefik/v3/pkg/provider/kubernetes/crd/traefikio/v1alpha1"
@@ -80,8 +81,28 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 
 	// If suspended, clean up serving resources but preserve data
 	if w.Spec.Suspended != nil && *w.Spec.Suspended {
-		return r.suspendDeployedService(ctx, req, w)
+		// Capture patch base before suspend so any future in-memory mutations are included in the diff
+		patchBase := client.MergeFrom(w.DeepCopy())
+		res, err := r.suspendDeployedService(ctx, req, w)
+		if err != nil {
+			if patchErr := status.PatchErrorStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, err); patchErr != nil {
+				l.Error(patchErr, "Error patching error status")
+			}
+			return res, err
+		}
+		if patchErr := status.PatchSuspendedStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, &w.Status.ObservedGeneration, &w.Status.Ready, &w.Status.Version); patchErr != nil {
+			l.Error(patchErr, "Error patching suspended status")
+			return res, patchErr
+		}
+		return res, nil
 	}
+
+	// Save a copy for status patching
+	patchBase := client.MergeFrom(w.DeepCopy())
+
+	// Set observed generation and progressing condition
+	w.Status.ObservedGeneration = w.Generation
+	status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Reconciliation in progress")
 
 	// TODO: should do formal spec validation / correction...
 
@@ -90,6 +111,9 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 	if w.Spec.Config.Databricks != nil && len(w.Spec.Config.Databricks) > 0 {
 		err := errors.New("the Databricks configuration should be in SecretConfig, not Config")
 		l.Error(err, "invalid workbench specification")
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -97,6 +121,9 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 	secretKey := "dev-db-password"
 	if err := db.EnsureDatabaseExists(ctx, r, req, w, w.Spec.DatabaseConfig, w.ComponentName(), "", []string{}, w.Spec.Secret, w.Spec.WorkloadSecret, w.Spec.MainDatabaseCredentialSecret, secretKey); err != nil {
 		l.Error(err, "error creating database", "database", w.ComponentName())
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -104,6 +131,9 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 	// TODO: we probably do not need to create this... it goes in a provisioning secret intentionally now...?
 	if _, err := internal.EnsureWorkbenchSecretKey(ctx, w, r, req, w); err != nil {
 		l.Error(err, "error ensuring that provisioning key exists")
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
+		}
 		return ctrl.Result{}, err
 	} else {
 		l.Info("successfully created or retrieved provisioning key value")
@@ -113,10 +143,6 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 	w.Status.KeySecretRef = corev1.SecretReference{
 		Name:      w.KeySecretName(),
 		Namespace: req.Namespace,
-	}
-	if err := r.Status().Update(ctx, w); err != nil {
-		l.Error(err, "Error updating status")
-		return ctrl.Result{}, err
 	}
 
 	// define database stuff
@@ -145,18 +171,30 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 	res, err := r.ensureDeployedService(ctx, req, w)
 	if err != nil {
 		l.Error(err, "error deploying service")
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
+		}
 		return res, err
 	}
 
-	// TODO: should we watch for happy pods?
-
-	// set to ready if it is not set yet...
-	if !w.Status.Ready {
-		w.Status.Ready = true
-		if err := r.Status().Update(ctx, w); err != nil {
-			l.Error(err, "Error updating status")
-			return ctrl.Result{}, err
+	// Check deployment health
+	deploy := &appsv1.Deployment{}
+	if err := r.Get(ctx, client.ObjectKey{Name: w.ComponentName(), Namespace: req.Namespace}, deploy); err != nil {
+		l.Error(err, "error fetching deployment for status")
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
 		}
+		return ctrl.Result{}, err
+	}
+
+	status.SetDeploymentHealth(&w.Status.Conditions, w.Generation, deploy.Status.ReadyReplicas, status.DesiredReplicas(deploy.Spec.Replicas))
+	w.Status.Version = status.ExtractVersion(w.Spec.Image)
+	w.Status.Ready = status.IsReady(w.Status.Conditions)
+
+	// Patch status
+	if err := r.Status().Patch(ctx, w, patchBase); err != nil {
+		l.Error(err, "Error patching status")
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil

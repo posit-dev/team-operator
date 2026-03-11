@@ -147,6 +147,9 @@ type AzureFilesConfig struct {
 	ShareSizeGiB int `json:"shareSizeGiB,omitempty"`
 }
 
+// InternalFlightdeckSpec configures Flightdeck within a Site.
+// Flightdeck is stateless, so there is no Teardown field: disabling removes all resources
+// immediately (equivalent to teardown for stateful products).
 type InternalFlightdeckSpec struct {
 	// Enabled controls whether Flightdeck is deployed. Defaults to true if not specified.
 	// Set to false to explicitly disable Flightdeck deployment.
@@ -626,12 +629,33 @@ type ApiSettingsConfig struct {
 
 // SiteStatus defines the observed state of Site
 type SiteStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	CommonProductStatus `json:",inline"`
+
+	// ConnectReady indicates whether the Connect child resource is ready.
+	// +optional
+	ConnectReady bool `json:"connectReady,omitempty"`
+
+	// WorkbenchReady indicates whether the Workbench child resource is ready.
+	// +optional
+	WorkbenchReady bool `json:"workbenchReady,omitempty"`
+
+	// PackageManagerReady indicates whether the PackageManager child resource is ready.
+	// +optional
+	PackageManagerReady bool `json:"packageManagerReady,omitempty"`
+
+	// ChronicleReady indicates whether the Chronicle child resource is ready.
+	// +optional
+	ChronicleReady bool `json:"chronicleReady,omitempty"`
+
+	// FlightdeckReady indicates whether the Flightdeck child resource is ready.
+	// +optional
+	FlightdeckReady bool `json:"flightdeckReady,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 //+genclient
 //+k8s:openapi-gen=true
 

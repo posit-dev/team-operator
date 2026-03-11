@@ -6,7 +6,6 @@
 package v1beta1
 
 import (
-	corev1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
@@ -17,8 +16,8 @@ import (
 type SiteApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *SiteSpecApplyConfiguration `json:"spec,omitempty"`
-	Status                           *corev1beta1.SiteStatus     `json:"status,omitempty"`
+	Spec                             *SiteSpecApplyConfiguration   `json:"spec,omitempty"`
+	Status                           *SiteStatusApplyConfiguration `json:"status,omitempty"`
 }
 
 // Site constructs a declarative configuration of the Site type for use with
@@ -202,8 +201,8 @@ func (b *SiteApplyConfiguration) WithSpec(value *SiteSpecApplyConfiguration) *Si
 // WithStatus sets the Status field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Status field is set to the value of the last call.
-func (b *SiteApplyConfiguration) WithStatus(value corev1beta1.SiteStatus) *SiteApplyConfiguration {
-	b.Status = &value
+func (b *SiteApplyConfiguration) WithStatus(value *SiteStatusApplyConfiguration) *SiteApplyConfiguration {
+	b.Status = value
 	return b
 }
 

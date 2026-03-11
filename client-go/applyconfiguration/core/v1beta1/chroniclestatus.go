@@ -5,16 +5,50 @@
 
 package v1beta1
 
+import (
+	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
+)
+
 // ChronicleStatusApplyConfiguration represents a declarative configuration of the ChronicleStatus type for use
 // with apply.
 type ChronicleStatusApplyConfiguration struct {
-	Ready *bool `json:"ready,omitempty"`
+	CommonProductStatusApplyConfiguration `json:",inline"`
+	Ready                                 *bool `json:"ready,omitempty"`
 }
 
 // ChronicleStatusApplyConfiguration constructs a declarative configuration of the ChronicleStatus type for use with
 // apply.
 func ChronicleStatus() *ChronicleStatusApplyConfiguration {
 	return &ChronicleStatusApplyConfiguration{}
+}
+
+// WithConditions adds the given value to the Conditions field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Conditions field.
+func (b *ChronicleStatusApplyConfiguration) WithConditions(values ...*v1.ConditionApplyConfiguration) *ChronicleStatusApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithConditions")
+		}
+		b.CommonProductStatusApplyConfiguration.Conditions = append(b.CommonProductStatusApplyConfiguration.Conditions, *values[i])
+	}
+	return b
+}
+
+// WithObservedGeneration sets the ObservedGeneration field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ObservedGeneration field is set to the value of the last call.
+func (b *ChronicleStatusApplyConfiguration) WithObservedGeneration(value int64) *ChronicleStatusApplyConfiguration {
+	b.CommonProductStatusApplyConfiguration.ObservedGeneration = &value
+	return b
+}
+
+// WithVersion sets the Version field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Version field is set to the value of the last call.
+func (b *ChronicleStatusApplyConfiguration) WithVersion(value string) *ChronicleStatusApplyConfiguration {
+	b.CommonProductStatusApplyConfiguration.Version = &value
+	return b
 }
 
 // WithReady sets the Ready field in the declarative configuration to the given value

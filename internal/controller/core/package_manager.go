@@ -8,6 +8,7 @@ import (
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/posit-dev/team-operator/internal/db"
+	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -103,13 +104,36 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 
 	// If suspended, clean up serving resources but preserve data
 	if pm.Spec.Suspended != nil && *pm.Spec.Suspended {
-		return r.suspendDeployedService(ctx, req, pm)
+		// Capture patch base before suspend so any future in-memory mutations are included in the diff
+		patchBase := client.MergeFrom(pm.DeepCopy())
+		res, err := r.suspendDeployedService(ctx, req, pm)
+		if err != nil {
+			if patchErr := status.PatchErrorStatus(ctx, r.Status(), pm, patchBase, &pm.Status.Conditions, pm.Generation, err); patchErr != nil {
+				l.Error(patchErr, "Error patching error status")
+			}
+			return res, err
+		}
+		if patchErr := status.PatchSuspendedStatus(ctx, r.Status(), pm, patchBase, &pm.Status.Conditions, pm.Generation, &pm.Status.ObservedGeneration, &pm.Status.Ready, &pm.Status.Version); patchErr != nil {
+			l.Error(patchErr, "Error patching suspended status")
+			return res, patchErr
+		}
+		return res, nil
 	}
+
+	// Save a copy for status patching
+	patchBase := client.MergeFrom(pm.DeepCopy())
+
+	// Set observed generation and progressing condition
+	pm.Status.ObservedGeneration = pm.Generation
+	status.SetProgressing(&pm.Status.Conditions, pm.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Reconciliation in progress")
 
 	// create database
 	secretKey := "pkg-db-password"
 	if err := db.EnsureDatabaseExists(ctx, r, req, pm, pm.Spec.DatabaseConfig, pm.ComponentName(), "", []string{"pm", "metrics"}, pm.Spec.Secret, pm.Spec.WorkloadSecret, pm.Spec.MainDatabaseCredentialSecret, secretKey); err != nil {
 		l.Error(err, "error creating database", "database", pm.ComponentName())
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), pm, patchBase, &pm.Status.Conditions, pm.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -120,6 +144,9 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 	//   For now, we just use it to give to Package Manager
 	if _, err := internal.EnsureProvisioningKey(ctx, pm, r, req, pm); err != nil {
 		l.Error(err, "error ensuring that provisioning key exists")
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), pm, patchBase, &pm.Status.Conditions, pm.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
+		}
 		return ctrl.Result{}, err
 	} else {
 		l.Info("successfully created or retrieved provisioning key value")
@@ -128,10 +155,6 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 	pm.Status.KeySecretRef = corev1.SecretReference{
 		Name:      pm.KeySecretName(),
 		Namespace: req.Namespace,
-	}
-	if err := r.Status().Update(ctx, pm); err != nil {
-		l.Error(err, "Error updating status")
-		return ctrl.Result{}, err
 	}
 
 	// TODO: at some point, postgres should probably be an option... (i.e. multi-tenant world?)
@@ -162,6 +185,9 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 
 		if err := r.createAzureFilesStoragePVC(ctx, pm); err != nil {
 			l.Error(err, "error creating Azure Files PVC")
+			if patchErr := status.PatchErrorStatus(ctx, r.Status(), pm, patchBase, &pm.Status.Conditions, pm.Generation, err); patchErr != nil {
+				l.Error(patchErr, "Error patching error status")
+			}
 			return ctrl.Result{}, err
 		}
 	}
@@ -170,18 +196,30 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 	res, err := r.ensureDeployedService(ctx, req, pm)
 	if err != nil {
 		l.Error(err, "error deploying service")
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), pm, patchBase, &pm.Status.Conditions, pm.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
+		}
 		return res, err
 	}
 
-	// TODO: should we watch for happy pods?
-
-	// set to ready if it is not set yet...
-	if !pm.Status.Ready {
-		pm.Status.Ready = true
-		if err := r.Status().Update(ctx, pm); err != nil {
-			l.Error(err, "Error setting ready status")
-			return ctrl.Result{}, err
+	// Check deployment health
+	deploy := &v1.Deployment{}
+	if err := r.Get(ctx, client.ObjectKey{Name: pm.ComponentName(), Namespace: req.Namespace}, deploy); err != nil {
+		l.Error(err, "error fetching deployment for status")
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), pm, patchBase, &pm.Status.Conditions, pm.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
 		}
+		return ctrl.Result{}, err
+	}
+
+	status.SetDeploymentHealth(&pm.Status.Conditions, pm.Generation, deploy.Status.ReadyReplicas, status.DesiredReplicas(deploy.Spec.Replicas))
+	pm.Status.Version = status.ExtractVersion(pm.Spec.Image)
+	pm.Status.Ready = status.IsReady(pm.Status.Conditions)
+
+	// Patch status
+	if err := r.Status().Patch(ctx, pm, patchBase); err != nil {
+		l.Error(err, "Error patching status")
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil

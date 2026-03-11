@@ -49,6 +49,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &corev1beta1.ChronicleSpecApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ChronicleStatus"):
 		return &corev1beta1.ChronicleStatusApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("CommonProductStatus"):
+		return &corev1beta1.CommonProductStatusApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("Connect"):
 		return &corev1beta1.ConnectApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ConnectApplicationsConfig"):
@@ -167,6 +169,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &corev1beta1.PostgresDatabaseSpecApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("PostgresDatabaseSpecTeardown"):
 		return &corev1beta1.PostgresDatabaseSpecTeardownApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("PostgresDatabaseStatus"):
+		return &corev1beta1.PostgresDatabaseStatusApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("RPackageRepositoryConfig"):
 		return &corev1beta1.RPackageRepositoryConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("SecretConfig"):
@@ -179,6 +183,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &corev1beta1.SiteApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("SiteSpec"):
 		return &corev1beta1.SiteSpecApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("SiteStatus"):
+		return &corev1beta1.SiteStatusApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("SnowflakeConfig"):
 		return &corev1beta1.SnowflakeConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("SSHKeyConfig"):

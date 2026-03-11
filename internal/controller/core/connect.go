@@ -10,6 +10,7 @@ import (
 	"github.com/posit-dev/team-operator/api/templates"
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/posit-dev/team-operator/internal/db"
+	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -39,8 +40,28 @@ func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Reque
 
 	// If suspended, clean up serving resources (Deployment/Service/Ingress) but preserve data
 	if c.Spec.Suspended != nil && *c.Spec.Suspended {
-		return r.suspendDeployedService(ctx, req, c)
+		// Capture patch base before suspend so any future in-memory mutations are included in the diff
+		patchBase := client.MergeFrom(c.DeepCopy())
+		res, err := r.suspendDeployedService(ctx, req, c)
+		if err != nil {
+			if patchErr := status.PatchErrorStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, err); patchErr != nil {
+				l.Error(patchErr, "Error patching error status")
+			}
+			return res, err
+		}
+		if patchErr := status.PatchSuspendedStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, &c.Status.ObservedGeneration, &c.Status.Ready, &c.Status.Version); patchErr != nil {
+			l.Error(patchErr, "Error patching suspended status")
+			return res, patchErr
+		}
+		return res, nil
 	}
+
+	// Save a copy for status patching
+	patchBase := client.MergeFrom(c.DeepCopy())
+
+	// Set observed generation and progressing condition
+	c.Status.ObservedGeneration = c.Generation
+	status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Reconciliation in progress")
 
 	// create database
 	secretKey := "pub-db-password"
@@ -62,6 +83,9 @@ func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Reque
 
 	if err := db.EnsureDatabaseExists(ctx, r, req, c, c.Spec.DatabaseConfig, c.ComponentName(), "", dbSchemas, c.Spec.Secret, c.Spec.WorkloadSecret, c.Spec.MainDatabaseCredentialSecret, secretKey); err != nil {
 		l.Error(err, "error creating database", "database", c.ComponentName())
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -71,6 +95,9 @@ func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Reque
 		// NOTE: we do not retain this value locally. Instead we just reference the key in the Status
 		if _, err := internal.EnsureProvisioningKey(ctx, c, r, req, c); err != nil {
 			l.Error(err, "error ensuring that provisioning key exists")
+			if patchErr := status.PatchErrorStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, err); patchErr != nil {
+				l.Error(patchErr, "Error patching error status")
+			}
 			return ctrl.Result{}, err
 		} else {
 			l.Info("successfully created or retrieved provisioning key value")
@@ -80,10 +107,6 @@ func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Reque
 		c.Status.KeySecretRef = corev1.SecretReference{
 			Name:      c.KeySecretName(),
 			Namespace: req.Namespace,
-		}
-		if err := r.Status().Update(ctx, c); err != nil {
-			l.Error(err, "Error updating status")
-			return ctrl.Result{}, err
 		}
 	}
 
@@ -112,18 +135,30 @@ func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Reque
 	res, err := r.ensureDeployedService(ctx, req, c)
 	if err != nil {
 		l.Error(err, "error deploying service")
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
+		}
 		return res, err
 	}
 
-	// TODO: should we watch for happy pods?
-
-	// set to ready if it is not set yet...
-	if !c.Status.Ready {
-		c.Status.Ready = true
-		if err := r.Status().Update(ctx, c); err != nil {
-			l.Error(err, "Error setting ready status")
-			return ctrl.Result{}, err
+	// Check deployment health
+	deploy := &v1.Deployment{}
+	if err := r.Get(ctx, client.ObjectKey{Name: c.ComponentName(), Namespace: req.Namespace}, deploy); err != nil {
+		l.Error(err, "error fetching deployment for status")
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
 		}
+		return ctrl.Result{}, err
+	}
+
+	status.SetDeploymentHealth(&c.Status.Conditions, c.Generation, deploy.Status.ReadyReplicas, status.DesiredReplicas(deploy.Spec.Replicas))
+	c.Status.Version = status.ExtractVersion(c.Spec.Image)
+	c.Status.Ready = status.IsReady(c.Status.Conditions)
+
+	// Patch status
+	if err := r.Status().Patch(ctx, c, patchBase); err != nil {
+		l.Error(err, "Error patching status")
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil

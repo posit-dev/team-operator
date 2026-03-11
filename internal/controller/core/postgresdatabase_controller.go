@@ -16,7 +16,9 @@ import (
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/posit-dev/team-operator/internal/db"
+	"github.com/posit-dev/team-operator/internal/status"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -80,7 +82,35 @@ func (r *PostgresDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	l.Info("PostgresDatabase found; reconciling database")
 
-	return r.createDatabase(ctx, req, pgd)
+	// Save a copy for status patching
+	patchBase := client.MergeFrom(pgd.DeepCopy())
+
+	// Set observed generation and progressing condition
+	pgd.Status.ObservedGeneration = pgd.Generation
+	status.SetProgressing(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Reconciliation in progress")
+
+	result, createErr := r.createDatabase(ctx, req, pgd)
+
+	// Update status based on result
+	if createErr != nil {
+		msg := status.TruncateMessage(createErr.Error())
+		status.SetReady(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionFalse, status.ReasonReconcileError, msg)
+		status.SetProgressing(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionFalse, status.ReasonReconcileError, msg)
+	} else {
+		status.SetReady(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionTrue, status.ReasonDatabaseReady, "Database provisioned successfully")
+		status.SetProgressing(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionFalse, status.ReasonReconcileComplete, "Reconciliation complete")
+	}
+
+	// Patch status regardless of createDatabase result
+	if patchErr := r.Status().Patch(ctx, pgd, patchBase); patchErr != nil {
+		l.Error(patchErr, "Error patching status")
+		if createErr != nil {
+			return result, createErr
+		}
+		return ctrl.Result{}, patchErr
+	}
+
+	return result, createErr
 }
 
 func (r *PostgresDatabaseReconciler) cleanupDatabase(ctx context.Context, req ctrl.Request, pg *positcov1beta1.PostgresDatabase) (ctrl.Result, error) {

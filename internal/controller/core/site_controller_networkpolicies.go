@@ -114,9 +114,17 @@ func (r *SiteReconciler) reconcileNetworkPolicies(ctx context.Context, req ctrl.
 		}
 	}
 
-	if err := r.reconcileFlightdeckNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
-		l.Error(err, "error ensuring flightdeck network policy")
-		return err
+	flightdeckEnabled := checkBool(site.Spec.Flightdeck.Enabled, true)
+	if flightdeckEnabled {
+		if err := r.reconcileFlightdeckNetworkPolicy(ctx, req.Namespace, l, site); err != nil {
+			l.Error(err, "error ensuring flightdeck network policy")
+			return err
+		}
+	} else {
+		if err := r.cleanupFlightdeckNetworkPolicies(ctx, req, l); err != nil {
+			l.Error(err, "error cleaning up flightdeck network policies")
+			return err
+		}
 	}
 
 	return nil
@@ -847,5 +855,10 @@ func (r *SiteReconciler) cleanupWorkbenchNetworkPolicies(ctx context.Context, re
 
 func (r *SiteReconciler) cleanupPackageManagerNetworkPolicies(ctx context.Context, req ctrl.Request, l logr.Logger) error {
 	key := client.ObjectKey{Name: req.Name + "-packagemanager", Namespace: req.Namespace}
+	return internal.BasicDelete(ctx, r, l, key, &networkingv1.NetworkPolicy{})
+}
+
+func (r *SiteReconciler) cleanupFlightdeckNetworkPolicies(ctx context.Context, req ctrl.Request, l logr.Logger) error {
+	key := client.ObjectKey{Name: req.Name + "-flightdeck", Namespace: req.Namespace}
 	return internal.BasicDelete(ctx, r, l, key, &networkingv1.NetworkPolicy{})
 }
