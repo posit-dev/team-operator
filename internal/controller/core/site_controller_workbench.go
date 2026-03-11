@@ -455,8 +455,10 @@ func (r *SiteReconciler) reconcileWorkbench(
 	}
 
 	// Merge user-provided sessionConfig from Site spec into the operator-constructed SessionConfig.
-	// User-provided values extend or override the operator defaults: list fields are appended,
-	// scalar fields are overwritten only when non-zero, and map fields are merged.
+	// Only DynamicLabels, Labels, and Annotations are merged for Pod/Service/Job configs;
+	// other Pod fields (Tolerations, ServiceAccountName, Env, etc.) are managed by the operator
+	// defaults and ExperimentalFeatures above, so user-provided values for those fields are
+	// intentionally not merged here. Service.Type is overwritten when non-empty.
 	if site.Spec.Workbench.SessionConfig != nil {
 		userSC := site.Spec.Workbench.SessionConfig
 		if targetWorkbench.Spec.SessionConfig == nil {
@@ -467,7 +469,7 @@ func (r *SiteReconciler) reconcileWorkbench(
 		// Merge Service config
 		if userSC.Service != nil {
 			if opSC.Service == nil {
-				opSC.Service = userSC.Service
+				opSC.Service = userSC.Service.DeepCopy()
 			} else {
 				if userSC.Service.Type != "" {
 					opSC.Service.Type = userSC.Service.Type
@@ -477,10 +479,12 @@ func (r *SiteReconciler) reconcileWorkbench(
 			}
 		}
 
-		// Merge Pod config
+		// Merge Pod config: only DynamicLabels, Labels, and Annotations.
+		// Other Pod fields (Env, ImagePullPolicy, ServiceAccountName, etc.) are set by
+		// ExperimentalFeatures or operator defaults and should not be overridden here.
 		if userSC.Pod != nil {
 			if opSC.Pod == nil {
-				opSC.Pod = userSC.Pod
+				opSC.Pod = userSC.Pod.DeepCopy()
 			} else {
 				// DynamicLabels: operator never sets these; take user-provided directly
 				if len(userSC.Pod.DynamicLabels) > 0 {
@@ -495,7 +499,7 @@ func (r *SiteReconciler) reconcileWorkbench(
 		// Merge Job config
 		if userSC.Job != nil {
 			if opSC.Job == nil {
-				opSC.Job = userSC.Job
+				opSC.Job = userSC.Job.DeepCopy()
 			} else {
 				opSC.Job.Labels = product.LabelMerge(opSC.Job.Labels, userSC.Job.Labels)
 				opSC.Job.Annotations = product.LabelMerge(opSC.Job.Annotations, userSC.Job.Annotations)

@@ -1923,3 +1923,121 @@ func TestSiteFlightdeckDisableReenableCycle(t *testing.T) {
 	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, fd)
 	assert.NoError(t, err, "Flightdeck CR should be recreated after re-enabling")
 }
+
+func TestSiteReconciler_SessionConfigMerge_DynamicLabelsOnly(t *testing.T) {
+	siteName := "sc-dynamic-labels"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Workbench.SessionConfig = &product.SessionConfig{
+		Pod: &product.PodConfig{
+			DynamicLabels: []product.DynamicLabelRule{
+				{Field: "user", LabelKey: "posit.team/user"},
+			},
+		},
+	}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	wb := getWorkbench(t, cli, siteNamespace, siteName)
+	require.NotNil(t, wb.Spec.SessionConfig)
+	require.NotNil(t, wb.Spec.SessionConfig.Pod)
+	require.Len(t, wb.Spec.SessionConfig.Pod.DynamicLabels, 1)
+	assert.Equal(t, "user", wb.Spec.SessionConfig.Pod.DynamicLabels[0].Field)
+	assert.Equal(t, "posit.team/user", wb.Spec.SessionConfig.Pod.DynamicLabels[0].LabelKey)
+	// Operator-set defaults should still be present
+	assert.Equal(t, fmt.Sprintf("%s-workbench-session", siteName), wb.Spec.SessionConfig.Pod.ServiceAccountName)
+}
+
+func TestSiteReconciler_SessionConfigMerge_ServiceAndJobOverrides(t *testing.T) {
+	siteName := "sc-svc-job"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Workbench.SessionConfig = &product.SessionConfig{
+		Service: &product.ServiceConfig{
+			Type:        "NodePort",
+			Annotations: map[string]string{"svc-ann": "user-val"},
+			Labels:      map[string]string{"svc-label": "user-val"},
+		},
+		Job: &product.JobConfig{
+			Annotations: map[string]string{"job-ann": "user-val"},
+			Labels:      map[string]string{"job-label": "user-val"},
+		},
+	}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	wb := getWorkbench(t, cli, siteNamespace, siteName)
+	require.NotNil(t, wb.Spec.SessionConfig)
+
+	// Service overrides
+	require.NotNil(t, wb.Spec.SessionConfig.Service)
+	assert.Equal(t, "NodePort", wb.Spec.SessionConfig.Service.Type)
+	assert.Equal(t, "user-val", wb.Spec.SessionConfig.Service.Annotations["svc-ann"])
+	assert.Equal(t, "user-val", wb.Spec.SessionConfig.Service.Labels["svc-label"])
+
+	// Job overrides
+	require.NotNil(t, wb.Spec.SessionConfig.Job)
+	assert.Equal(t, "user-val", wb.Spec.SessionConfig.Job.Annotations["job-ann"])
+	assert.Equal(t, "user-val", wb.Spec.SessionConfig.Job.Labels["job-label"])
+}
+
+func TestSiteReconciler_SessionConfigMerge_AfterExperimentalFeatures(t *testing.T) {
+	siteName := "sc-exp-merge"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Workbench.ExperimentalFeatures = &v1beta1.InternalWorkbenchExperimentalFeatures{
+		SessionServiceAccountName: "custom-sa",
+		PrivilegedSessions:        true,
+	}
+	site.Spec.Workbench.SessionConfig = &product.SessionConfig{
+		Pod: &product.PodConfig{
+			Labels:      map[string]string{"env": "staging"},
+			Annotations: map[string]string{"note": "test"},
+			DynamicLabels: []product.DynamicLabelRule{
+				{Field: "args", Match: "--arg-(.*)", LabelPrefix: "posit.team/arg-"},
+			},
+		},
+	}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	wb := getWorkbench(t, cli, siteNamespace, siteName)
+	require.NotNil(t, wb.Spec.SessionConfig)
+	require.NotNil(t, wb.Spec.SessionConfig.Pod)
+
+	// ExperimentalFeatures should have set ServiceAccountName and PrivilegedSessions
+	assert.Equal(t, "custom-sa", wb.Spec.SessionConfig.Pod.ServiceAccountName)
+	assert.Equal(t, true, *wb.Spec.SessionConfig.Pod.ContainerSecurityContext.Privileged)
+
+	// SessionConfig merge should have added labels, annotations, and dynamic labels
+	assert.Equal(t, "staging", wb.Spec.SessionConfig.Pod.Labels["env"])
+	assert.Equal(t, "test", wb.Spec.SessionConfig.Pod.Annotations["note"])
+	require.Len(t, wb.Spec.SessionConfig.Pod.DynamicLabels, 1)
+	assert.Equal(t, "args", wb.Spec.SessionConfig.Pod.DynamicLabels[0].Field)
+}
+
+func TestSiteReconciler_SessionConfigMerge_LabelConflict(t *testing.T) {
+	siteName := "sc-conflict"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Workbench.SessionConfig = &product.SessionConfig{
+		Pod: &product.PodConfig{
+			Labels: map[string]string{
+				"user-label":   "user-value",
+				"shared-label": "user-wins",
+			},
+		},
+	}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	wb := getWorkbench(t, cli, siteNamespace, siteName)
+	require.NotNil(t, wb.Spec.SessionConfig)
+	require.NotNil(t, wb.Spec.SessionConfig.Pod)
+	assert.Equal(t, "user-value", wb.Spec.SessionConfig.Pod.Labels["user-label"])
+	assert.Equal(t, "user-wins", wb.Spec.SessionConfig.Pod.Labels["shared-label"])
+}
