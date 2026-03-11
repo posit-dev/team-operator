@@ -37,6 +37,7 @@ type PodConfig struct {
 	Labels      map[string]string `json:"labels,omitempty"`
 	// DynamicLabels defines rules for generating pod labels from runtime session data.
 	// Requires template version 2.5.0 or later; ignored by older templates.
+	// Currently only supported for Workbench sessions (exposed via Site CRD's workbench.sessionConfig).
 	// +kubebuilder:validation:MaxItems=20
 	DynamicLabels            []DynamicLabelRule            `json:"dynamicLabels,omitempty"`
 	ServiceAccountName       string                        `json:"serviceAccountName,omitempty"`
@@ -113,6 +114,10 @@ type DynamicLabelRule struct {
 // labelNameRegex validates the name segment of a Kubernetes label key.
 var labelNameRegex = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$`)
 
+// labelValueRegex validates a Kubernetes label value (same character rules as
+// label name segments: alphanumeric start/end, interior allows . - _).
+var labelValueRegex = labelNameRegex
+
 // dnsSubdomainRegex validates a DNS subdomain per RFC 1123.
 var dnsSubdomainRegex = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$`)
 
@@ -185,7 +190,7 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 			if len(rule.LabelValue) > 63 {
 				return fmt.Errorf("dynamicLabels[%d]: labelValue must not exceed 63 characters", i)
 			}
-			if !labelNameRegex.MatchString(rule.LabelValue) {
+			if !labelValueRegex.MatchString(rule.LabelValue) {
 				return fmt.Errorf("dynamicLabels[%d]: labelValue must be a valid Kubernetes label value (alphanumeric, -, _, . characters)", i)
 			}
 		}
