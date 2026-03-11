@@ -62,6 +62,7 @@ posit.team/dynamic-label-cap-reached: "true"
 {{- range $match := $matches }}
 {{- $suffix := trimPrefix ($rule.trimPrefix | default "") $match | lower | regexReplaceAll "[^a-zA-Z0-9._-]" "_" | regexReplaceAll "_{2,}" "_" | trunc $maxSuffix | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}
 {{- $computedKey := printf "%s%s" $rule.labelPrefix $suffix }}
+{{- /* must match reservedOperatorAnnotationKey in session_config.go */ -}}
 {{- if and (ne $suffix "") (ne $computedKey "posit.team/dynamic-label-cap-reached") }}
 {{ $computedKey }}: {{ $rule.labelValue | default "true" | quote }}
 {{- end }}
@@ -510,6 +511,31 @@ func TestJobTemplate_DynamicLabels_RegexMapping(t *testing.T) {
 
 		assert.Equal(t, outExplicit, outOmitted, "explicit empty trimPrefix should produce the same output as omitting it")
 		assert.Contains(t, outExplicit, `session.posit.team/ext.`)
+	})
+
+	t.Run("runtime guard drops computed key matching reserved annotation", func(t *testing.T) {
+		// Craft a labelPrefix + regex that produces the reserved key
+		// "posit.team/dynamic-label-cap-reached" at runtime.
+		templateData := map[string]any{
+			"pod": map[string]any{
+				"dynamicLabels": []map[string]any{
+					{
+						"field":       "args",
+						"match":       ".+",
+						"labelPrefix": "posit.team/",
+					},
+				},
+			},
+		}
+		jobData := map[string]any{
+			"args": []any{"dynamic-label-cap-reached"},
+		}
+
+		out := renderDynamicLabels(t, templateData, jobData)
+		// The label should NOT appear because the runtime guard skips it.
+		assert.NotContains(t, out, `posit.team/dynamic-label-cap-reached: "true"`)
+		// Also verify no cap annotation was emitted (we're under cap limits).
+		assert.NotContains(t, out, "posit.team/dynamic-label-cap-reached")
 	})
 
 	t.Run("skips empty suffix after sanitization", func(t *testing.T) {
