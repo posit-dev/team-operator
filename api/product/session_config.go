@@ -110,6 +110,9 @@ var labelNameRegex = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9]
 // dnsSubdomainRegex validates a DNS subdomain per RFC 1123.
 var dnsSubdomainRegex = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$`)
 
+// labelNamePrefixRegex validates the name prefix portion of a label key prefix.
+var labelNamePrefixRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
+
 // ValidateDynamicLabelRules validates a slice of DynamicLabelRule, checking for
 // regex compilation errors and mutual exclusivity of labelKey vs match/labelPrefix.
 func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
@@ -122,6 +125,9 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 		}
 		if rule.Match != "" && rule.LabelPrefix == "" {
 			return fmt.Errorf("dynamicLabels[%d]: labelPrefix is required when match is set", i)
+		}
+		if rule.LabelValue != "" && !labelNameRegex.MatchString(rule.LabelValue) {
+			return fmt.Errorf("dynamicLabels[%d]: labelValue must be a valid Kubernetes label value (alphanumeric, -, _, . characters)", i)
 		}
 		if rule.LabelKey != "" {
 			if strings.Count(rule.LabelKey, "/") > 1 {
@@ -138,6 +144,10 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 				}
 				if !dnsSubdomainRegex.MatchString(prefix) {
 					return fmt.Errorf("dynamicLabels[%d]: labelKey DNS prefix must be a valid DNS subdomain (RFC 1123)", i)
+				}
+				if prefix == "kubernetes.io" || strings.HasSuffix(prefix, ".kubernetes.io") ||
+					prefix == "k8s.io" || strings.HasSuffix(prefix, ".k8s.io") {
+					return fmt.Errorf("dynamicLabels[%d]: labelKey must not use reserved Kubernetes label prefix %q", i, prefix)
 				}
 				name = rule.LabelKey[idx+1:]
 			}
@@ -166,10 +176,20 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 				if len(dnsPrefix) > 253 {
 					return fmt.Errorf("dynamicLabels[%d]: labelPrefix DNS prefix (before '/') must not exceed 253 characters", i)
 				}
+				if !dnsSubdomainRegex.MatchString(dnsPrefix) {
+					return fmt.Errorf("dynamicLabels[%d]: labelPrefix DNS prefix must be a valid DNS subdomain (RFC 1123)", i)
+				}
+				if dnsPrefix == "kubernetes.io" || strings.HasSuffix(dnsPrefix, ".kubernetes.io") ||
+					dnsPrefix == "k8s.io" || strings.HasSuffix(dnsPrefix, ".k8s.io") {
+					return fmt.Errorf("dynamicLabels[%d]: labelPrefix must not use reserved Kubernetes label prefix %q", i, dnsPrefix)
+				}
 				namePrefix = rule.LabelPrefix[idx+1:]
 			}
 			if len(namePrefix) >= 53 {
 				return fmt.Errorf("dynamicLabels[%d]: labelPrefix name segment (after '/') must be shorter than 53 characters to leave room for suffix", i)
+			}
+			if len(namePrefix) > 0 && !labelNamePrefixRegex.MatchString(namePrefix) {
+				return fmt.Errorf("dynamicLabels[%d]: labelPrefix name segment must start with alphanumeric and contain only [a-zA-Z0-9._-]", i)
 			}
 		}
 	}

@@ -272,6 +272,76 @@ func TestValidateDynamicLabelRules(t *testing.T) {
 		})
 		require.Nil(t, err)
 	})
+
+	t.Run("rejects labelPrefix with invalid DNS prefix format", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "[a-z]+", LabelPrefix: "UPPER-CASE/ext."},
+		})
+		require.ErrorContains(t, err, "valid DNS subdomain")
+	})
+
+	t.Run("rejects labelPrefix with spaces in DNS prefix", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "[a-z]+", LabelPrefix: "has spaces/ext."},
+		})
+		require.ErrorContains(t, err, "valid DNS subdomain")
+	})
+
+	t.Run("rejects labelValue with invalid characters", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "[a-z]+", LabelPrefix: "prefix.", LabelValue: "!!!"},
+		})
+		require.ErrorContains(t, err, "labelValue must be a valid Kubernetes label value")
+	})
+
+	t.Run("accepts valid labelValue", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "[a-z]+", LabelPrefix: "prefix.", LabelValue: "enabled"},
+		})
+		require.NoError(t, err)
+	})
+
+	t.Run("rejects labelKey with reserved kubernetes.io prefix", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: "kubernetes.io/name"},
+		})
+		require.ErrorContains(t, err, "reserved Kubernetes label prefix")
+	})
+
+	t.Run("rejects labelKey with reserved app.kubernetes.io prefix", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: "app.kubernetes.io/name"},
+		})
+		require.ErrorContains(t, err, "reserved Kubernetes label prefix")
+	})
+
+	t.Run("rejects labelPrefix with reserved k8s.io prefix", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "[a-z]+", LabelPrefix: "k8s.io/ext."},
+		})
+		require.ErrorContains(t, err, "reserved Kubernetes label prefix")
+	})
+
+	t.Run("rejects labelPrefix with invalid name prefix characters", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "[a-z]+", LabelPrefix: "example.com/!!!"},
+		})
+		require.ErrorContains(t, err, "labelPrefix name segment must start with alphanumeric")
+	})
+
+	t.Run("rejects labelPrefix without slash and invalid name characters", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "[a-z]+", LabelPrefix: "!!!"},
+		})
+		require.ErrorContains(t, err, "labelPrefix name segment must start with alphanumeric")
+	})
+
+	t.Run("accepts labelPrefix with valid name prefix characters", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "[a-z]+", LabelPrefix: "example.com/ext."},
+		})
+		require.NoError(t, err)
+	})
 }
 
 func TestGenerateSessionConfigTemplate_DynamicLabels_Validation(t *testing.T) {
