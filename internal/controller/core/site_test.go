@@ -1924,6 +1924,26 @@ func TestSiteFlightdeckDisableReenableCycle(t *testing.T) {
 	assert.NoError(t, err, "Flightdeck CR should be recreated after re-enabling")
 }
 
+func TestSiteReconciler_SessionConfigMerge_NilSessionConfig(t *testing.T) {
+	// Verifies that when SessionConfig is nil on the Site, the operator-constructed
+	// defaults (ServiceAccountName, etc.) are preserved without interference.
+	siteName := "sc-nil"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	// Explicitly do NOT set site.Spec.Workbench.SessionConfig
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	wb := getWorkbench(t, cli, siteNamespace, siteName)
+	require.NotNil(t, wb.Spec.SessionConfig)
+	require.NotNil(t, wb.Spec.SessionConfig.Pod)
+	// Operator-managed defaults should still be present
+	assert.Equal(t, siteName+"-workbench-session", wb.Spec.SessionConfig.Pod.ServiceAccountName)
+	// No dynamic labels
+	assert.Empty(t, wb.Spec.SessionConfig.Pod.DynamicLabels)
+}
+
 func TestSiteReconciler_SessionConfigMerge_DynamicLabelsOnly(t *testing.T) {
 	siteName := "sc-dynamic-labels"
 	siteNamespace := "posit-team"

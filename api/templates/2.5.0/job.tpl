@@ -6,6 +6,7 @@
 {{- $capStatus := dict }}
 {{- $matchCache := dict }}
 {{- $globalTotal := dict "n" 0 }}
+{{- /* Phase 1: pre-compute regex matches only. Direct-mapping rules (labelKey) don't need caching — they render inline in phase 2. */ -}}
 {{- with $templateData.pod.dynamicLabels }}
 {{- range $i, $rule := . }}
 {{- if and (hasKey $.Job $rule.field) $rule.match }}

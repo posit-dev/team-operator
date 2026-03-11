@@ -183,6 +183,14 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 			if seenPrefixes[rule.LabelPrefix] {
 				return fmt.Errorf("dynamicLabels[%d]: duplicate labelPrefix %q across regex rules (overlapping matches would produce duplicate label keys)", i, rule.LabelPrefix)
 			}
+			// Check for nested prefix collisions between regex rules.
+			// E.g. "posit.team/ext." and "posit.team/ext.sub." could produce
+			// overlapping label keys at runtime.
+			for existingPrefix := range seenPrefixes {
+				if strings.HasPrefix(rule.LabelPrefix, existingPrefix) || strings.HasPrefix(existingPrefix, rule.LabelPrefix) {
+					return fmt.Errorf("dynamicLabels[%d]: labelPrefix %q overlaps with labelPrefix %q in another regex rule (nested prefixes could produce conflicting label keys)", i, rule.LabelPrefix, existingPrefix)
+				}
+			}
 			seenPrefixes[rule.LabelPrefix] = true
 			// Check for potential collision: a direct-mapping labelKey that starts
 			// with this regex rule's labelPrefix could be overwritten at runtime.
