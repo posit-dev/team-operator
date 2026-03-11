@@ -1879,9 +1879,11 @@ spec:
                           properties:
                             field:
                               description: |-
-                                Field is the name of a top-level .Job field to read (e.g., "user", "args").
+                                Field is the name of a top-level .Job template field to read.
+                                Common fields include "user", "args", "name", "image", "host", "exe", "command".
                                 Any .Job field is addressable — this relies on CRD write access being a privileged
-                                operation. Field values may appear as pod labels visible to anyone with pod read access.
+                                operation. If the field does not exist at runtime, the rule is silently skipped.
+                                Field values may appear as pod labels visible to anyone with pod read access.
                               minLength: 1
                               type: string
                             labelKey:
@@ -1912,7 +1914,7 @@ spec:
                                 Match is a regex pattern applied to the field value. Each match produces a label.
                                 For array fields (like "args"), elements are joined with spaces before matching.
                                 At runtime, at most 50 matches are applied per rule; excess matches are dropped and a
-                                posit.team/label-cap-reached annotation is set on the pod.
+                                posit.team/dynamic-label-cap-reached annotation is set on the pod.
                                 Mutually exclusive with labelKey.
                               maxLength: 256
                               type: string

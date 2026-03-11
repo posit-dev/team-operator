@@ -86,7 +86,7 @@ spec:
         {{- end }}
         {{- end }}
         {{- if hasKey $capStatus "reached" }}
-        posit.team/label-cap-reached: "true"
+        posit.team/dynamic-label-cap-reached: "true"
         {{- end }}
       labels:
         {{- with .Job.instanceId }}

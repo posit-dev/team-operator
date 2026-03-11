@@ -92,7 +92,7 @@ type DynamicLabelRule struct {
 	// Match is a regex pattern applied to the field value. Each match produces a label.
 	// For array fields (like "args"), elements are joined with spaces before matching.
 	// At runtime, at most 50 matches are applied per rule; excess matches are dropped and a
-	// posit.team/label-cap-reached annotation is set on the pod.
+	// posit.team/dynamic-label-cap-reached annotation is set on the pod.
 	// Mutually exclusive with labelKey.
 	// +kubebuilder:validation:MaxLength=256
 	Match string `json:"match,omitempty"`

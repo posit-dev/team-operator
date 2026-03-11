@@ -455,10 +455,11 @@ func (r *SiteReconciler) reconcileWorkbench(
 	}
 
 	// Merge user-provided sessionConfig from Site spec into the operator-constructed SessionConfig.
-	// Only DynamicLabels, Labels, and Annotations are merged for Pod/Service/Job configs;
-	// other Pod fields (Tolerations, ServiceAccountName, Env, etc.) are managed by the operator
-	// defaults and ExperimentalFeatures above, so user-provided values for those fields are
-	// intentionally not merged here. Service.Type is overwritten when non-empty.
+	// DynamicLabels, Labels, and Annotations are merged for Pod/Service/Job configs.
+	// Service.Type is overwritten when non-empty. Other Pod fields (Tolerations,
+	// ServiceAccountName, Env, etc.) are managed by the operator defaults and
+	// ExperimentalFeatures above, so user-provided values for those fields are
+	// intentionally not merged here.
 	if site.Spec.Workbench.SessionConfig != nil {
 		userSC := site.Spec.Workbench.SessionConfig
 		if targetWorkbench.Spec.SessionConfig == nil {

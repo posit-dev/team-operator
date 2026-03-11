@@ -39,7 +39,7 @@ const dynamicLabelsTemplate = `
 {{- end }}
 {{- end }}
 {{- if hasKey $capStatus "reached" }}
-posit.team/label-cap-reached: "true"
+posit.team/dynamic-label-cap-reached: "true"
 {{- end }}
 {{- with $templateData.pod.dynamicLabels }}
 {{- range $i, $rule := . }}
@@ -364,7 +364,7 @@ func TestJobTemplate_DynamicLabels_RegexMapping(t *testing.T) {
 		jobData := map[string]any{"args": args}
 
 		out := renderDynamicLabels(t, templateData, jobData)
-		assert.Contains(t, out, `posit.team/label-cap-reached: "true"`)
+		assert.Contains(t, out, `posit.team/dynamic-label-cap-reached: "true"`)
 		// Count label lines (each unique match produces one "prefix/ext." label)
 		count := strings.Count(out, "prefix/ext.")
 		assert.Equal(t, 50, count, "should cap at 50 matches")
@@ -388,7 +388,7 @@ func TestJobTemplate_DynamicLabels_RegexMapping(t *testing.T) {
 		}
 
 		out := renderDynamicLabels(t, templateData, jobData)
-		assert.NotContains(t, out, "posit.team/label-cap-reached")
+		assert.NotContains(t, out, "posit.team/dynamic-label-cap-reached")
 	})
 
 	t.Run("skips empty suffix after sanitization", func(t *testing.T) {
