@@ -234,6 +234,13 @@ func TestValidateDynamicLabelRules(t *testing.T) {
 		require.ErrorContains(t, err, "valid DNS subdomain")
 	})
 
+	t.Run("rejects labelKey with uppercase DNS prefix", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: "My-Org.Example.COM/name"},
+		})
+		require.ErrorContains(t, err, "valid DNS subdomain")
+	})
+
 	t.Run("rejects labelKey with DNS prefix > 253 chars", func(t *testing.T) {
 		longDNS := strings.Repeat("a", 254)
 		err := ValidateDynamicLabelRules([]DynamicLabelRule{

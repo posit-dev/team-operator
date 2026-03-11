@@ -136,7 +136,7 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 				if len(prefix) > 253 {
 					return fmt.Errorf("dynamicLabels[%d]: labelKey DNS prefix (before '/') must not exceed 253 characters", i)
 				}
-				if !dnsSubdomainRegex.MatchString(strings.ToLower(prefix)) {
+				if !dnsSubdomainRegex.MatchString(prefix) {
 					return fmt.Errorf("dynamicLabels[%d]: labelKey DNS prefix must be a valid DNS subdomain (RFC 1123)", i)
 				}
 				name = rule.LabelKey[idx+1:]
