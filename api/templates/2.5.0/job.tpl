@@ -3,12 +3,15 @@
 # Helm Version: v1
 {{- $templateData := include "rstudio-library.templates.data" nil | mustFromJson }}
 {{- $capStatus := dict }}
+{{- $matchCache := dict }}
 {{- with $templateData.pod.dynamicLabels }}
-{{- range $rule := . }}
+{{- range $i, $rule := . }}
 {{- if and (hasKey $.Job $rule.field) $rule.match }}
 {{- $val := index $.Job $rule.field }}
 {{- $str := (kindIs "slice" $val) | ternary ($val | join " ") ($val | toString) }}
-{{- if gt (len (regexFindAll $rule.match $str -1)) 50 }}{{- $_ := set $capStatus "reached" "true" }}{{- end }}
+{{- $matches := regexFindAll $rule.match $str -1 }}
+{{- if gt (len $matches) 50 }}{{- $_ := set $capStatus "reached" "true" }}{{- $matches = slice $matches 0 50 }}{{- end }}
+{{- $_ := set $matchCache (printf "%d" $i) $matches }}
 {{- end }}
 {{- end }}
 {{- end }}
@@ -92,7 +95,7 @@ spec:
         {{- end }}
         {{- end }}
         {{- with $templateData.pod.dynamicLabels }}
-        {{- range $rule := . }}
+        {{- range $i, $rule := . }}
         {{- if hasKey $.Job $rule.field }}
         {{- $val := index $.Job $rule.field }}
         {{- if $rule.labelKey }}
@@ -101,9 +104,7 @@ spec:
         {{ $rule.labelKey }}: {{ $labelVal | quote }}
         {{- end }}
         {{- else if $rule.match }}
-        {{- $str := (kindIs "slice" $val) | ternary ($val | join " ") ($val | toString) }}
-        {{- $matches := regexFindAll $rule.match $str -1 }}
-        {{- if gt (len $matches) 50 }}{{- $matches = slice $matches 0 50 }}{{- end }}
+        {{- $matches := index $matchCache (printf "%d" $i) }}
         {{- $namePrefix := regexFind "[^/]*$" $rule.labelPrefix }}
         {{- $maxSuffix := int (sub 63 (len $namePrefix)) }}
         {{- range $match := $matches }}
