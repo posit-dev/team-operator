@@ -88,9 +88,10 @@ func TestLabelMerge(t *testing.T) {
 	expected = map[string]string{"shared": "user-wins", "operator-only": "kept", "user-only": "added"}
 	assert.Equal(t, expected, result)
 
-	// test that nil,nil returns nil (not empty map) to preserve omitempty semantics
+	// test that nil,nil returns an empty map (safe for callers to write to)
 	result = product.LabelMerge(nil, nil)
-	assert.Nil(t, result)
+	assert.NotNil(t, result)
+	assert.Empty(t, result)
 
 	// test that nil,non-nil returns a separate copy of m2
 	m2 = map[string]string{"key2": "val2"}
