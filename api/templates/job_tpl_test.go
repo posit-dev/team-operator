@@ -50,7 +50,7 @@ posit.team/dynamic-label-cap-reached: "true"
 {{- if hasKey $.Job $rule.field }}
 {{- $val := index $.Job $rule.field }}
 {{- if $rule.labelKey }}
-{{- $labelVal := $val | toString | regexReplaceAll "[^a-zA-Z0-9._-]" "_" | trunc 63 | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}
+{{- $labelVal := $val | toString | regexReplaceAll "[^a-zA-Z0-9._-]" "_" | regexReplaceAll "[_]{2,}" "_" | trunc 63 | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}
 {{- if ne $labelVal "" }}
 {{ $rule.labelKey }}: {{ $labelVal | quote }}
 {{- end }}
@@ -157,6 +157,20 @@ func TestJobTemplate_DynamicLabels_DirectMapping(t *testing.T) {
 
 		out := renderDynamicLabels(t, templateData, jobData)
 		assert.Contains(t, out, `session.posit.team/user: "alice_smith_org"`)
+	})
+
+	t.Run("collapses consecutive underscores in direct mapping", func(t *testing.T) {
+		templateData := map[string]any{
+			"pod": map[string]any{
+				"dynamicLabels": []map[string]any{
+					{"field": "user", "labelKey": "session.posit.team/user"},
+				},
+			},
+		}
+		jobData := map[string]any{"user": "foo@@bar"}
+
+		out := renderDynamicLabels(t, templateData, jobData)
+		assert.Contains(t, out, `session.posit.team/user: "foo_bar"`)
 	})
 
 	t.Run("truncates long label values to 63 chars", func(t *testing.T) {
