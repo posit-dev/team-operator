@@ -1,6 +1,7 @@
 package product
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -152,7 +153,15 @@ func TestValidateDynamicLabelRules(t *testing.T) {
 		require.ErrorContains(t, err, "invalid regex")
 	})
 
-	t.Run("rejects catastrophic backtracking regex", func(t *testing.T) {
+	t.Run("rejects labelPrefix with name segment >= 63 chars", func(t *testing.T) {
+		longName := strings.Repeat("a", 63)
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "[a-z]+", LabelPrefix: "example.com/" + longName},
+		})
+		require.ErrorContains(t, err, "labelPrefix name segment")
+	})
+
+	t.Run("accepts safe regex patterns (RE2 prevents backtracking by design)", func(t *testing.T) {
 		// Go's regexp package uses RE2 which doesn't support backreferences,
 		// so patterns like (a+)+$ are safe. But invalid patterns still fail.
 		err := ValidateDynamicLabelRules([]DynamicLabelRule{

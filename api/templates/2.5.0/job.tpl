@@ -87,8 +87,10 @@ spec:
         {{- else if $rule.match }}
         {{- $str := (kindIs "slice" $val) | ternary ($val | join " ") ($val | toString) }}
         {{- $matches := regexFindAll $rule.match $str -1 }}
+        {{- $namePrefix := regexFind "[^/]*$" $rule.labelPrefix }}
+        {{- $maxSuffix := int (sub 63 (len $namePrefix)) }}
         {{- range $match := $matches }}
-        {{ trimPrefix ($rule.trimPrefix | default "") $match | lower | replace " " "_" | trunc 63 | printf "%s%s" $rule.labelPrefix }}: {{ $rule.labelValue | default "true" | quote }}
+        {{ trimPrefix ($rule.trimPrefix | default "") $match | lower | replace " " "_" | trunc $maxSuffix | regexReplaceAll "[^a-zA-Z0-9]+$" "" | printf "%s%s" $rule.labelPrefix }}: {{ $rule.labelValue | default "true" | quote }}
         {{- end }}
         {{- end }}
         {{- end }}
