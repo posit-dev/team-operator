@@ -13,6 +13,7 @@ import (
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
+	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -23,6 +24,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+// checkBool dereferences a bool pointer, returning defaultVal if nil.
+func checkBool(b *bool, defaultVal bool) bool {
+	if b == nil {
+		return defaultVal
+	}
+	return *b
+}
 
 // SiteReconciler reconciles a Site object
 type SiteReconciler struct {
@@ -75,7 +84,50 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	l.Info("Site found; updating resources")
 
-	return r.reconcileResources(ctx, req, s)
+	// Save a copy for status patching
+	patchBase := client.MergeFrom(s.DeepCopy())
+
+	// Set observed generation and progressing condition
+	s.Status.ObservedGeneration = s.Generation
+	status.SetProgressing(&s.Status.Conditions, s.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Reconciliation in progress")
+
+	result, reconcileErr := r.reconcileResources(ctx, req, s)
+
+	// Aggregate child component status
+	aggregateErr := r.aggregateChildStatus(ctx, req, s)
+
+	// Update status based on reconciliation result
+	if reconcileErr != nil {
+		msg := status.TruncateMessage(reconcileErr.Error())
+		status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconcileError, msg)
+		status.SetProgressing(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconcileError, msg)
+	} else {
+		// Overall Ready is true only if all children are ready
+		allReady := s.Status.ConnectReady && s.Status.WorkbenchReady && s.Status.PackageManagerReady && s.Status.ChronicleReady && s.Status.FlightdeckReady
+		if allReady {
+			status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionTrue, status.ReasonAllComponentsReady, "All child components are ready")
+		} else {
+			status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonComponentsNotReady, "One or more child components are not ready")
+		}
+		status.SetProgressing(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconcileComplete, "Reconciliation complete")
+	}
+
+	// Patch status
+	if patchErr := r.Status().Patch(ctx, s, patchBase); patchErr != nil {
+		l.Error(patchErr, "Error patching status")
+		if reconcileErr != nil {
+			return result, reconcileErr
+		}
+		return ctrl.Result{}, patchErr
+	}
+
+	if reconcileErr != nil {
+		if aggregateErr != nil {
+			l.Error(aggregateErr, "Error aggregating child status (returning reconcile error instead)")
+		}
+		return result, reconcileErr
+	}
+	return result, aggregateErr
 }
 
 var rootVolumeSize = resource.MustParse("1Gi")
@@ -156,10 +208,28 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 	// VOLUMES
 
 	// Determine if Connect is enabled (used for volume provisioning and later for reconciliation)
-	connectEnabled := site.Spec.Connect.Enabled == nil || *site.Spec.Connect.Enabled
-	connectTeardown := site.Spec.Connect.Teardown != nil && *site.Spec.Connect.Teardown
+	connectEnabled := checkBool(site.Spec.Connect.Enabled, true)
+	connectTeardown := checkBool(site.Spec.Connect.Teardown, false)
 	if connectTeardown && connectEnabled {
 		l.Info("connect.teardown is set but connect.enabled is not false; teardown has no effect until enabled=false")
+	}
+
+	workbenchEnabled := checkBool(site.Spec.Workbench.Enabled, true)
+	workbenchTeardown := checkBool(site.Spec.Workbench.Teardown, false)
+	if workbenchTeardown && workbenchEnabled {
+		l.Info("workbench.teardown is set but workbench.enabled is not false; teardown has no effect until enabled=false")
+	}
+
+	pmEnabled := checkBool(site.Spec.PackageManager.Enabled, true)
+	pmTeardown := checkBool(site.Spec.PackageManager.Teardown, false)
+	if pmTeardown && pmEnabled {
+		l.Info("packageManager.teardown is set but packageManager.enabled is not false; teardown has no effect until enabled=false")
+	}
+
+	chronicleEnabled := checkBool(site.Spec.Chronicle.Enabled, true)
+	chronicleTeardown := checkBool(site.Spec.Chronicle.Teardown, false)
+	if chronicleTeardown && chronicleEnabled {
+		l.Info("chronicle.teardown is set but chronicle.enabled is not false; teardown has no effect until enabled=false")
 	}
 
 	connectVolumeName := fmt.Sprintf("%s-connect", site.Name)
@@ -191,15 +261,17 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 				}
 			}
 
-			if err := r.provisionFsxVolume(ctx, site, devVolumeName, "workbench", connectVolumeSize); err != nil {
-				return ctrl.Result{}, err
-			}
+			if workbenchEnabled {
+				if err := r.provisionFsxVolume(ctx, site, devVolumeName, "workbench", connectVolumeSize); err != nil {
+					return ctrl.Result{}, err
+				}
 
-			// Provision shared storage volume for workbench load balancing
-			workbenchSharedStorageVolumeName := fmt.Sprintf("%s-workbench-shared-storage", site.Name)
-			// Note: provisionFsxVolume uses the volume name as the storage class name
-			if err := r.provisionFsxVolume(ctx, site, workbenchSharedStorageVolumeName, "workbench-shared-storage", workbenchSharedStorageVolumeSize); err != nil {
-				return ctrl.Result{}, err
+				// Provision shared storage volume for workbench load balancing
+				workbenchSharedStorageVolumeName := fmt.Sprintf("%s-workbench-shared-storage", site.Name)
+				// Note: provisionFsxVolume uses the volume name as the storage class name
+				if err := r.provisionFsxVolume(ctx, site, workbenchSharedStorageVolumeName, "workbench-shared-storage", workbenchSharedStorageVolumeSize); err != nil {
+					return ctrl.Result{}, err
+				}
 			}
 
 			if site.Spec.SharedDirectory != "" {
@@ -230,15 +302,17 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 
 			devStorageClassName = fmt.Sprintf("%s-nfs", devVolumeName)
 
-			if err := r.provisionNfsVolume(ctx, site, devVolumeName, "workbench", devStorageClassName, connectVolumeSize); err != nil {
-				return ctrl.Result{}, err
-			}
+			if workbenchEnabled {
+				if err := r.provisionNfsVolume(ctx, site, devVolumeName, "workbench", devStorageClassName, connectVolumeSize); err != nil {
+					return ctrl.Result{}, err
+				}
 
-			// Provision shared storage volume for workbench load balancing
-			workbenchSharedStorageVolumeName := fmt.Sprintf("%s-workbench-shared-storage", site.Name)
-			workbenchSharedStorageClassName := fmt.Sprintf("%s-nfs", workbenchSharedStorageVolumeName)
-			if err := r.provisionNfsVolume(ctx, site, workbenchSharedStorageVolumeName, "workbench-shared-storage", workbenchSharedStorageClassName, workbenchSharedStorageVolumeSize); err != nil {
-				return ctrl.Result{}, err
+				// Provision shared storage volume for workbench load balancing
+				workbenchSharedStorageVolumeName := fmt.Sprintf("%s-workbench-shared-storage", site.Name)
+				workbenchSharedStorageClassName := fmt.Sprintf("%s-nfs", workbenchSharedStorageVolumeName)
+				if err := r.provisionNfsVolume(ctx, site, workbenchSharedStorageVolumeName, "workbench-shared-storage", workbenchSharedStorageClassName, workbenchSharedStorageVolumeSize); err != nil {
+					return ctrl.Result{}, err
+				}
 			}
 
 			if site.Spec.SharedDirectory != "" {
@@ -264,10 +338,17 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 	}
 
 	// FLIGHTDECK
-
-	if err := r.reconcileFlightdeck(ctx, req, site); err != nil {
-		l.Error(err, "error reconciling flightdeck")
-		return ctrl.Result{}, err
+	flightdeckEnabled := checkBool(site.Spec.Flightdeck.Enabled, true)
+	if flightdeckEnabled {
+		if err := r.reconcileFlightdeck(ctx, req, site); err != nil {
+			l.Error(err, "error reconciling flightdeck")
+			return ctrl.Result{}, err
+		}
+	} else {
+		if err := r.disableFlightdeck(ctx, req, l); err != nil {
+			l.Error(err, "error disabling flightdeck")
+			return ctrl.Result{}, err
+		}
 	}
 
 	// ADDITIONAL SHARED DIRECTORY
@@ -344,40 +425,75 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 	}
 
 	// PACKAGE MANAGER
-	if err := r.reconcilePackageManager(
-		ctx,
-		req,
-		site,
-		dbUrl.Host,
-		sslMode,
-		packageManagerUrl,
-	); err != nil {
-		l.Error(err, "error reconciling package manager")
-		return ctrl.Result{}, err
+	if pmEnabled {
+		if err := r.reconcilePackageManager(
+			ctx,
+			req,
+			site,
+			dbUrl.Host,
+			sslMode,
+			packageManagerUrl,
+		); err != nil {
+			l.Error(err, "error reconciling package manager")
+			return ctrl.Result{}, err
+		}
+	} else if pmTeardown {
+		if err := r.cleanupPackageManager(ctx, req, l); err != nil {
+			l.Error(err, "error tearing down package manager resources")
+			return ctrl.Result{}, err
+		}
+	} else {
+		if err := r.disablePackageManager(ctx, req, l); err != nil {
+			l.Error(err, "error disabling package manager")
+			return ctrl.Result{}, err
+		}
 	}
 
 	// WORKBENCH
-	if err := r.reconcileWorkbench(
-		ctx,
-		req,
-		site,
-		dbUrl.Host,
-		sslMode,
-		devVolumeName,
-		devStorageClassName,
-		workbenchAdditionalVolumes,
-		packageManagerRepoUrl,
-		workbenchUrl,
-	); err != nil {
-		l.Error(err, "error reconciling workbench")
-		return ctrl.Result{}, err
+	if workbenchEnabled {
+		if err := r.reconcileWorkbench(
+			ctx,
+			req,
+			site,
+			dbUrl.Host,
+			sslMode,
+			devVolumeName,
+			devStorageClassName,
+			workbenchAdditionalVolumes,
+			packageManagerRepoUrl,
+			workbenchUrl,
+		); err != nil {
+			l.Error(err, "error reconciling workbench")
+			return ctrl.Result{}, err
+		}
+	} else if workbenchTeardown {
+		if err := r.cleanupWorkbench(ctx, req, l); err != nil {
+			l.Error(err, "error tearing down workbench resources")
+			return ctrl.Result{}, err
+		}
+	} else {
+		if err := r.disableWorkbench(ctx, req, l); err != nil {
+			l.Error(err, "error disabling workbench")
+			return ctrl.Result{}, err
+		}
 	}
 
 	// CHRONICLE
-
-	if err := r.reconcileChronicle(ctx, req, site); err != nil {
-		l.Error(err, "error reconciling chronicle")
-		return ctrl.Result{}, err
+	if chronicleEnabled {
+		if err := r.reconcileChronicle(ctx, req, site); err != nil {
+			l.Error(err, "error reconciling chronicle")
+			return ctrl.Result{}, err
+		}
+	} else if chronicleTeardown {
+		if err := r.cleanupChronicle(ctx, req, l); err != nil {
+			l.Error(err, "error tearing down chronicle resources")
+			return ctrl.Result{}, err
+		}
+	} else {
+		if err := r.disableChronicle(ctx, req, l); err != nil {
+			l.Error(err, "error disabling chronicle")
+			return ctrl.Result{}, err
+		}
 	}
 
 	// KEYCLOAK
@@ -422,6 +538,113 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 	return ctrl.Result{}, nil
 }
 
+// aggregateChildStatus fetches each child CR and populates per-component readiness bools on the Site status.
+// Returns a non-nil error only for transient API errors (not NotFound), so the reconciler can requeue.
+// On transient error, all products are still evaluated so the status snapshot is as complete as possible.
+//
+// Products are default-enabled (Connect, Workbench, PackageManager, Chronicle, Flightdeck):
+// missing CR is ready only when explicitly disabled (Enabled != nil && !*Enabled). If Enabled
+// is nil the product is expected → not ready.
+func (r *SiteReconciler) aggregateChildStatus(ctx context.Context, req ctrl.Request, site *positcov1beta1.Site) error {
+	// Child CRs (Connect, Workbench, etc.) are created by reconcileResources with the same
+	// name as the parent Site. See site_controller_connect.go, site_controller_workbench.go, etc.
+	key := client.ObjectKey{Name: site.Name, Namespace: req.Namespace}
+
+	var firstErr error
+
+	// Connect
+	connect := &positcov1beta1.Connect{}
+	if err := r.Get(ctx, key, connect); err == nil {
+		if !checkBool(site.Spec.Connect.Enabled, true) {
+			site.Status.ConnectReady = status.IsSuspended(connect.Status.Conditions)
+		} else {
+			site.Status.ConnectReady = status.IsReady(connect.Status.Conditions)
+		}
+	} else if apierrors.IsNotFound(err) {
+		site.Status.ConnectReady = !checkBool(site.Spec.Connect.Enabled, true)
+	} else {
+		if firstErr == nil {
+			firstErr = fmt.Errorf("fetching Connect for status aggregation: %w", err)
+		}
+		site.Status.ConnectReady = false
+	}
+
+	// Workbench
+	workbench := &positcov1beta1.Workbench{}
+	if err := r.Get(ctx, key, workbench); err == nil {
+		if !checkBool(site.Spec.Workbench.Enabled, true) {
+			site.Status.WorkbenchReady = status.IsSuspended(workbench.Status.Conditions)
+		} else {
+			site.Status.WorkbenchReady = status.IsReady(workbench.Status.Conditions)
+		}
+	} else if apierrors.IsNotFound(err) {
+		site.Status.WorkbenchReady = !checkBool(site.Spec.Workbench.Enabled, true)
+	} else {
+		if firstErr == nil {
+			firstErr = fmt.Errorf("fetching Workbench for status aggregation: %w", err)
+		}
+		site.Status.WorkbenchReady = false
+	}
+
+	// PackageManager
+	pm := &positcov1beta1.PackageManager{}
+	if err := r.Get(ctx, key, pm); err == nil {
+		if !checkBool(site.Spec.PackageManager.Enabled, true) {
+			site.Status.PackageManagerReady = status.IsSuspended(pm.Status.Conditions)
+		} else {
+			site.Status.PackageManagerReady = status.IsReady(pm.Status.Conditions)
+		}
+	} else if apierrors.IsNotFound(err) {
+		site.Status.PackageManagerReady = !checkBool(site.Spec.PackageManager.Enabled, true)
+	} else {
+		if firstErr == nil {
+			firstErr = fmt.Errorf("fetching PackageManager for status aggregation: %w", err)
+		}
+		site.Status.PackageManagerReady = false
+	}
+
+	// Chronicle
+	chronicle := &positcov1beta1.Chronicle{}
+	if err := r.Get(ctx, key, chronicle); err == nil {
+		if !checkBool(site.Spec.Chronicle.Enabled, true) {
+			site.Status.ChronicleReady = status.IsSuspended(chronicle.Status.Conditions)
+		} else {
+			site.Status.ChronicleReady = status.IsReady(chronicle.Status.Conditions)
+		}
+	} else if apierrors.IsNotFound(err) {
+		site.Status.ChronicleReady = !checkBool(site.Spec.Chronicle.Enabled, true)
+	} else {
+		if firstErr == nil {
+			firstErr = fmt.Errorf("fetching Chronicle for status aggregation: %w", err)
+		}
+		site.Status.ChronicleReady = false
+	}
+
+	// Flightdeck
+	flightdeck := &positcov1beta1.Flightdeck{}
+	if err := r.Get(ctx, key, flightdeck); err == nil {
+		if !checkBool(site.Spec.Flightdeck.Enabled, true) {
+			// Flightdeck is stateless — disable deletes the CR entirely, so if
+			// the CR still exists during a race between delete and aggregation,
+			// treat it as ready since the delete will complete on the next reconcile.
+			// A stuck delete surfaces as a reconcile error from disableFlightdeck,
+			// not from this status field.
+			site.Status.FlightdeckReady = true
+		} else {
+			site.Status.FlightdeckReady = status.IsReady(flightdeck.Status.Conditions)
+		}
+	} else if apierrors.IsNotFound(err) {
+		site.Status.FlightdeckReady = !checkBool(site.Spec.Flightdeck.Enabled, true)
+	} else {
+		if firstErr == nil {
+			firstErr = fmt.Errorf("fetching Flightdeck for status aggregation: %w", err)
+		}
+		site.Status.FlightdeckReady = false
+	}
+
+	return firstErr
+}
+
 func (r *SiteReconciler) GetLogger(ctx context.Context) logr.Logger {
 	if v, err := logr.FromContext(ctx); err == nil {
 		return v
@@ -460,6 +683,12 @@ func (r *SiteReconciler) cleanupResources(ctx context.Context, req ctrl.Request)
 		l.Error(err, "error cleaning up package manager", "product", "package-manager")
 	}
 
+	existingChronicle := positcov1beta1.Chronicle{}
+	chronicleKey := client.ObjectKey{Name: req.Name, Namespace: req.Namespace}
+	if err := internal.BasicDelete(ctx, r, l, chronicleKey, &existingChronicle); err != nil {
+		l.Error(err, "error cleaning up chronicle", "product", "chronicle")
+	}
+
 	existingFlightdeck := positcov1beta1.Flightdeck{}
 	flightdeckKey := client.ObjectKey{Name: req.Name, Namespace: req.Namespace}
 	if err := internal.BasicDelete(ctx, r, l, flightdeckKey, &existingFlightdeck); err != nil {
@@ -477,5 +706,10 @@ func (r *SiteReconciler) cleanupResources(ctx context.Context, req ctrl.Request)
 func (r *SiteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&positcov1beta1.Site{}).
+		Owns(&positcov1beta1.Connect{}).
+		Owns(&positcov1beta1.Workbench{}).
+		Owns(&positcov1beta1.PackageManager{}).
+		Owns(&positcov1beta1.Chronicle{}).
+		Owns(&positcov1beta1.Flightdeck{}).
 		Complete(r)
 }

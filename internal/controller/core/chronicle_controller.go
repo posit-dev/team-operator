@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
+	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -90,6 +91,7 @@ func (r *ChronicleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 func (r *ChronicleReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&positcov1beta1.Chronicle{}).
+		Owns(&v1.StatefulSet{}).
 		Complete(r)
 }
 
@@ -99,6 +101,31 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 		"product", "chronicle",
 	)
 
+	// If suspended, clean up serving resources but preserve configuration
+	if c.Spec.Suspended != nil && *c.Spec.Suspended {
+		// Capture patch base before suspend so any future in-memory mutations are included in the diff
+		patchBase := client.MergeFrom(c.DeepCopy())
+		res, err := r.suspendDeployedService(ctx, req, c)
+		if err != nil {
+			if patchErr := status.PatchErrorStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, err); patchErr != nil {
+				l.Error(patchErr, "Error patching error status")
+			}
+			return res, err
+		}
+		if patchErr := status.PatchSuspendedStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, &c.Status.ObservedGeneration, &c.Status.Ready, &c.Status.Version); patchErr != nil {
+			l.Error(patchErr, "Error patching suspended status")
+			return res, patchErr
+		}
+		return res, nil
+	}
+
+	// Save a copy for status patching
+	patchBase := client.MergeFrom(c.DeepCopy())
+
+	// Set observed generation and progressing condition
+	c.Status.ObservedGeneration = c.Generation
+	status.SetProgressing(&c.Status.Conditions, c.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Reconciliation in progress")
+
 	// default config settings not in the original object
 	// ...
 
@@ -106,16 +133,30 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 	res, err := r.ensureDeployedService(ctx, req, c)
 	if err != nil {
 		l.Error(err, "error deploying service")
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
+		}
 		return res, err
 	}
 
-	// set to ready if it is not set yet...
-	if !c.Status.Ready {
-		c.Status.Ready = true
-		if err := r.Status().Update(ctx, c); err != nil {
-			l.Error(err, "Error setting ready status")
-			return ctrl.Result{}, err
+	// Check StatefulSet health
+	sts := &v1.StatefulSet{}
+	if err := r.Get(ctx, client.ObjectKey{Name: c.ComponentName(), Namespace: req.Namespace}, sts); err != nil {
+		l.Error(err, "error fetching statefulset for status")
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
 		}
+		return ctrl.Result{}, err
+	}
+
+	status.SetStatefulSetHealth(&c.Status.Conditions, c.Generation, sts.Status.ReadyReplicas, status.DesiredReplicas(sts.Spec.Replicas))
+	c.Status.Version = status.ExtractVersion(c.Spec.Image)
+	c.Status.Ready = status.IsReady(c.Status.Conditions)
+
+	// Patch status
+	if err := r.Status().Patch(ctx, c, patchBase); err != nil {
+		l.Error(err, "Error patching status")
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
@@ -328,7 +369,53 @@ func (r *ChronicleReconciler) ensureDeployedService(ctx context.Context, req ctr
 }
 
 func (r *ChronicleReconciler) CleanupChronicle(ctx context.Context, req ctrl.Request, c *positcov1beta1.Chronicle) (ctrl.Result, error) {
-	// TODO: some cleanup...?
+	l := r.GetLogger(ctx).WithValues(
+		"event", "cleanup-chronicle",
+		"product", "chronicle",
+	)
+
+	key := client.ObjectKey{Name: c.ComponentName(), Namespace: req.Namespace}
+
+	// NOTE: Chronicle's StatefulSet does not use VolumeClaimTemplates (it uses EmptyDir or S3).
+	// If VolumeClaimTemplates are added in the future, their PVCs must be deleted explicitly
+	// here because Kubernetes does not garbage-collect StatefulSet PVCs automatically.
+	if err := internal.BatchDelete(ctx, r, l, key,
+		&corev1.Service{},
+		&v1.StatefulSet{},
+		&corev1.ConfigMap{},
+		&corev1.ServiceAccount{},
+	); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Read-only service account
+	readOnlyKey := client.ObjectKey{
+		Name:      fmt.Sprintf("%s-read-only", c.ComponentName()),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, readOnlyKey, &corev1.ServiceAccount{}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	l.Info("Chronicle cleanup complete")
+	return ctrl.Result{}, nil
+}
+
+// suspendDeployedService removes serving resources (StatefulSet, Service)
+// when Chronicle is suspended.
+func (r *ChronicleReconciler) suspendDeployedService(ctx context.Context, req ctrl.Request, c *positcov1beta1.Chronicle) (ctrl.Result, error) {
+	l := r.GetLogger(ctx).WithValues("event", "suspend-service", "product", "chronicle")
+
+	key := client.ObjectKey{Name: c.ComponentName(), Namespace: req.Namespace}
+
+	if err := internal.BatchDelete(ctx, r, l, key,
+		&corev1.Service{},
+		&v1.StatefulSet{}, // Chronicle uses StatefulSet, not Deployment
+	); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	l.Info("Chronicle serving resources suspended")
 	return ctrl.Result{}, nil
 }
 

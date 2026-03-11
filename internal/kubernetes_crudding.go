@@ -77,6 +77,16 @@ func BasicDelete(ctx context.Context, r product.SomeReconciler, l logr.Logger, k
 	return nil
 }
 
+// BatchDelete calls BasicDelete for each object in objects using the same key. Returns on the first error.
+func BatchDelete(ctx context.Context, r product.SomeReconciler, l logr.Logger, key client.ObjectKey, objects ...client.Object) error {
+	for _, obj := range objects {
+		if err := BasicDelete(ctx, r, l, key, obj); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // PvcCreateOrUpdate is careful only to patch valid fields _if they have changed_. Otherwise, leave things
 // alone! In particular, StorageClassName will throw a diff every time if we leave it as blank (the default), because
 // Kubernetes fills in the StorageClassName

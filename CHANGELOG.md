@@ -1,3 +1,31 @@
+# [1.20.0](https://github.com/posit-dev/team-operator/compare/v1.19.0...v1.20.0) (2026-03-11)
+
+
+### Features
+
+* improve status on team operator resources ([#94](https://github.com/posit-dev/team-operator/issues/94)) ([eb3f7b0](https://github.com/posit-dev/team-operator/commit/eb3f7b0f006918cfcf292bc8e25105ff5dade65d))
+
+# [1.19.0](https://github.com/posit-dev/team-operator/compare/v1.18.0...v1.19.0) (2026-03-10)
+
+
+### Features
+
+* operator applies own CRDs at startup to ensure schema matches binary ([#98](https://github.com/posit-dev/team-operator/issues/98)) ([ded621e](https://github.com/posit-dev/team-operator/commit/ded621ea4462e7ef1809d485b90ec94fb6bbb949))
+
+# [1.18.0](https://github.com/posit-dev/team-operator/compare/v1.17.0...v1.18.0) (2026-03-09)
+
+
+### Features
+
+* add PPM OIDC/SSO web UI configuration ([#112](https://github.com/posit-dev/team-operator/issues/112)) ([234d796](https://github.com/posit-dev/team-operator/commit/234d79670a10093e1fea90e08ead033a0c2ec89a))
+
+# [1.17.0](https://github.com/posit-dev/team-operator/compare/v1.16.2...v1.17.0) (2026-03-09)
+
+
+### Features
+
+* extend enable/disable/teardown pattern to Workbench, Package Manager, and Chronicle ([#99](https://github.com/posit-dev/team-operator/issues/99)) ([64fc5b2](https://github.com/posit-dev/team-operator/commit/64fc5b27d2562be1e14dc1e3088306161b949c9c))
+
 ## [1.16.2](https://github.com/posit-dev/team-operator/compare/v1.16.1...v1.16.2) (2026-03-04)
 
 

@@ -4,9 +4,12 @@
 package main
 
 import (
+	"context"
 	"flag"
+	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/posit-dev/team-operator/api/keycloak/v2alpha1"
 	"github.com/posit-dev/team-operator/api/product"
@@ -18,6 +21,7 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,6 +33,7 @@ import (
 
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/internal"
+	"github.com/posit-dev/team-operator/internal/crdapply"
 
 	corecontroller "github.com/posit-dev/team-operator/internal/controller/core"
 
@@ -73,11 +78,19 @@ func init() {
 	LoadSchemes(scheme)
 }
 
+func applyCRDs(ctx context.Context, timeout time.Duration, cfg *rest.Config) error {
+	crdCtx, crdCancel := context.WithTimeout(ctx, timeout)
+	defer crdCancel()
+	return crdapply.ApplyCRDs(crdCtx, cfg, setupLog)
+}
+
 func main() {
 	var (
 		metricsAddr          string
 		enableLeaderElection bool
 		probeAddr            string
+		manageCRDs           bool
+		crdApplyTimeout      time.Duration
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
@@ -86,6 +99,11 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for team-operator. "+
 			"Enabling this will ensure there is only one active team-operator.")
+
+	flag.BoolVar(&manageCRDs, "manage-crds", true,
+		"Apply CRDs on startup to ensure schema is in sync with operator version")
+	flag.DurationVar(&crdApplyTimeout, "crd-apply-timeout", 60*time.Second,
+		"Timeout for applying CRDs at startup")
 
 	opts := zap.Options{Development: true}
 
@@ -130,6 +148,20 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "unable to start team-operator")
 		os.Exit(1)
+	}
+
+	ctx := ctrl.SetupSignalHandler()
+
+	if manageCRDs {
+		if crdApplyTimeout <= 0 {
+			setupLog.Error(fmt.Errorf("--crd-apply-timeout must be positive, got %v", crdApplyTimeout), "invalid flag value")
+			os.Exit(1)
+		}
+		if err := applyCRDs(ctx, crdApplyTimeout, mgr.GetConfig()); err != nil {
+			setupLog.Error(err, "CRD apply failed after timeout; pod will exit and Kubernetes will restart with backoff",
+				"hint", "verify RBAC grants get/update/patch on customresourcedefinitions, or set --manage-crds=false to disable")
+			os.Exit(1)
+		}
 	}
 
 	if err = (&corecontroller.SiteReconciler{
@@ -207,7 +239,7 @@ func main() {
 	}
 
 	setupLog.Info("starting team-operator")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running team-operator")
 		os.Exit(1)
 	}

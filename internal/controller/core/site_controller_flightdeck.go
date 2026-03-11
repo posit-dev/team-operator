@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/internal"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	controllerruntime "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -44,12 +46,6 @@ func (r *SiteReconciler) reconcileFlightdeck(
 	l := r.GetLogger(ctx).WithValues(
 		"event", "reconcile-flightdeck",
 	)
-
-	// Skip Flightdeck reconciliation if explicitly disabled
-	if site.Spec.Flightdeck.Enabled != nil && !*site.Spec.Flightdeck.Enabled {
-		l.V(1).Info("skipping Flightdeck reconciliation: explicitly disabled via Site.Spec.Flightdeck.Enabled=false")
-		return nil
-	}
 
 	// Resolve the Flightdeck image (defaults to docker.io/posit/ptd-flightdeck:latest)
 	flightdeckImage := ResolveFlightdeckImage(site.Spec.Flightdeck.Image)
@@ -119,4 +115,12 @@ func (r *SiteReconciler) reconcileFlightdeck(
 	l.V(1).Info("successfully created or updated Flightdeck CRD")
 
 	return nil
+}
+
+// disableFlightdeck deletes the Flightdeck CR when disabled.
+// Flightdeck is stateless, so disable and teardown have the same effect.
+// BasicDelete already handles NotFound gracefully, so no pre-check is needed.
+func (r *SiteReconciler) disableFlightdeck(ctx context.Context, req controllerruntime.Request, l logr.Logger) error {
+	l = l.WithValues("event", "disable-flightdeck")
+	return internal.BasicDelete(ctx, r, l, client.ObjectKey{Name: req.Name, Namespace: req.Namespace}, &v1beta1.Flightdeck{})
 }

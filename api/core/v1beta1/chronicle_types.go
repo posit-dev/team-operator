@@ -13,6 +13,11 @@ import (
 
 // ChronicleSpec defines the desired state of Chronicle
 type ChronicleSpec struct {
+	// Suspended indicates Chronicle should not run serving resources (StatefulSet, Service)
+	// but should preserve configuration. Set by the Site controller.
+	// +optional
+	Suspended *bool `json:"suspended,omitempty"`
+
 	Config ChronicleConfig `json:"config,omitempty"`
 
 	// ImagePullSecrets is a set of image pull secrets to use for all image pulls. These names / secrets
@@ -38,12 +43,17 @@ type ChronicleSpec struct {
 
 // ChronicleStatus defines the observed state of Chronicle
 type ChronicleStatus struct {
+	CommonProductStatus `json:",inline"`
+	// +optional
 	Ready bool `json:"ready"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName={pcr,chr},path=chronicles
+// +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=='Ready')].status`
+// +kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.status.version`
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 // +genclient
 // +k8s:openapi-gen=true
 

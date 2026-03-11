@@ -6,18 +6,21 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/api/templates"
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/posit-dev/team-operator/internal/db"
+	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	"github.com/traefik/traefik/v3/pkg/config/dynamic"
 	"github.com/traefik/traefik/v3/pkg/provider/kubernetes/crd/traefikio/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -76,6 +79,31 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 		"product", "workbench",
 	)
 
+	// If suspended, clean up serving resources but preserve data
+	if w.Spec.Suspended != nil && *w.Spec.Suspended {
+		// Capture patch base before suspend so any future in-memory mutations are included in the diff
+		patchBase := client.MergeFrom(w.DeepCopy())
+		res, err := r.suspendDeployedService(ctx, req, w)
+		if err != nil {
+			if patchErr := status.PatchErrorStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, err); patchErr != nil {
+				l.Error(patchErr, "Error patching error status")
+			}
+			return res, err
+		}
+		if patchErr := status.PatchSuspendedStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, &w.Status.ObservedGeneration, &w.Status.Ready, &w.Status.Version); patchErr != nil {
+			l.Error(patchErr, "Error patching suspended status")
+			return res, patchErr
+		}
+		return res, nil
+	}
+
+	// Save a copy for status patching
+	patchBase := client.MergeFrom(w.DeepCopy())
+
+	// Set observed generation and progressing condition
+	w.Status.ObservedGeneration = w.Generation
+	status.SetProgressing(&w.Status.Conditions, w.Generation, metav1.ConditionTrue, status.ReasonReconciling, "Reconciliation in progress")
+
 	// TODO: should do formal spec validation / correction...
 
 	// check for deprecated databricks location (we did not remove this yet for backwards compat and to allow an upgrade path)
@@ -83,6 +111,9 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 	if w.Spec.Config.Databricks != nil && len(w.Spec.Config.Databricks) > 0 {
 		err := errors.New("the Databricks configuration should be in SecretConfig, not Config")
 		l.Error(err, "invalid workbench specification")
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -90,6 +121,9 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 	secretKey := "dev-db-password"
 	if err := db.EnsureDatabaseExists(ctx, r, req, w, w.Spec.DatabaseConfig, w.ComponentName(), "", []string{}, w.Spec.Secret, w.Spec.WorkloadSecret, w.Spec.MainDatabaseCredentialSecret, secretKey); err != nil {
 		l.Error(err, "error creating database", "database", w.ComponentName())
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -97,6 +131,9 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 	// TODO: we probably do not need to create this... it goes in a provisioning secret intentionally now...?
 	if _, err := internal.EnsureWorkbenchSecretKey(ctx, w, r, req, w); err != nil {
 		l.Error(err, "error ensuring that provisioning key exists")
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
+		}
 		return ctrl.Result{}, err
 	} else {
 		l.Info("successfully created or retrieved provisioning key value")
@@ -106,10 +143,6 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 	w.Status.KeySecretRef = corev1.SecretReference{
 		Name:      w.KeySecretName(),
 		Namespace: req.Namespace,
-	}
-	if err := r.Status().Update(ctx, w); err != nil {
-		l.Error(err, "Error updating status")
-		return ctrl.Result{}, err
 	}
 
 	// define database stuff
@@ -138,18 +171,30 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 	res, err := r.ensureDeployedService(ctx, req, w)
 	if err != nil {
 		l.Error(err, "error deploying service")
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
+		}
 		return res, err
 	}
 
-	// TODO: should we watch for happy pods?
-
-	// set to ready if it is not set yet...
-	if !w.Status.Ready {
-		w.Status.Ready = true
-		if err := r.Status().Update(ctx, w); err != nil {
-			l.Error(err, "Error updating status")
-			return ctrl.Result{}, err
+	// Check deployment health
+	deploy := &appsv1.Deployment{}
+	if err := r.Get(ctx, client.ObjectKey{Name: w.ComponentName(), Namespace: req.Namespace}, deploy); err != nil {
+		l.Error(err, "error fetching deployment for status")
+		if patchErr := status.PatchErrorStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, err); patchErr != nil {
+			l.Error(patchErr, "Error patching error status")
 		}
+		return ctrl.Result{}, err
+	}
+
+	status.SetDeploymentHealth(&w.Status.Conditions, w.Generation, deploy.Status.ReadyReplicas, status.DesiredReplicas(deploy.Spec.Replicas))
+	w.Status.Version = status.ExtractVersion(w.Spec.Image)
+	w.Status.Ready = status.IsReady(w.Status.Conditions)
+
+	// Patch status
+	if err := r.Status().Patch(ctx, w, patchBase); err != nil {
+		l.Error(err, "Error patching status")
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
@@ -1016,23 +1061,193 @@ func (r *WorkbenchReconciler) CleanupWorkbench(ctx context.Context, req ctrl.Req
 	if err := r.cleanupDeployedService(ctx, req, w); err != nil {
 		return ctrl.Result{}, err
 	}
-	if err := db.CleanupDatabasePasswordSecret(ctx, r, req, w.ComponentName()); err != nil {
-		return ctrl.Result{}, err
-	}
 	if err := db.CleanupDatabase(ctx, r, req, w.ComponentName()); err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }
 
+// deleteServingResources removes Ingress, Service, and Deployment for Workbench.
+// Called by both suspendDeployedService (data preserved) and cleanupDeployedService (full teardown).
+func (r *WorkbenchReconciler) deleteServingResources(ctx context.Context, req ctrl.Request, w *positcov1beta1.Workbench, l logr.Logger) error {
+	key := client.ObjectKey{Name: w.ComponentName(), Namespace: req.Namespace}
+
+	return internal.BatchDelete(ctx, r, l, key,
+		&networkingv1.Ingress{},
+		&corev1.Service{},
+		&appsv1.Deployment{},
+	)
+}
+
+// suspendDeployedService removes serving resources (Deployment, Service, Ingress)
+// while preserving data resources (PVC, database, secrets) when Workbench is suspended.
+func (r *WorkbenchReconciler) suspendDeployedService(ctx context.Context, req ctrl.Request, w *positcov1beta1.Workbench) (ctrl.Result, error) {
+	l := r.GetLogger(ctx).WithValues("event", "suspend-service", "product", "workbench")
+
+	if err := r.deleteServingResources(ctx, req, w, l); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	l.Info("Workbench serving resources suspended")
+	return ctrl.Result{}, nil
+}
+
 func (r *WorkbenchReconciler) cleanupDeployedService(ctx context.Context, req ctrl.Request, w *positcov1beta1.Workbench) error {
 	l := r.GetLogger(ctx).WithValues(
 		"event", "cleanup-service",
-		"product", "connect",
+		"product", "workbench",
 	)
 
-	l.Info("starting")
+	if err := r.deleteServingResources(ctx, req, w, l); err != nil {
+		return err
+	}
 
+	key := client.ObjectKey{Name: w.ComponentName(), Namespace: req.Namespace}
+
+	// PVCS
+	// Main volume
+	if err := internal.BasicDelete(ctx, r, l, key, &corev1.PersistentVolumeClaim{}); err != nil {
+		return err
+	}
+
+	// Shared storage PVC (if load balancing is enabled)
+	sharedStorageKey := client.ObjectKey{
+		Name:      fmt.Sprintf("%s-shared-storage", w.ComponentName()),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, sharedStorageKey, &corev1.PersistentVolumeClaim{}); err != nil {
+		return err
+	}
+
+	// Additional volumes
+	for _, v := range w.Spec.AdditionalVolumes {
+		additionalKey := client.ObjectKey{
+			Name:      v.PvcName,
+			Namespace: req.Namespace,
+		}
+		if err := internal.BasicDelete(ctx, r, l, additionalKey, &corev1.PersistentVolumeClaim{}); err != nil {
+			return err
+		}
+	}
+
+	// SERVICE ACCOUNTS
+	// Main service account (for off-host execution)
+	if err := internal.BasicDelete(ctx, r, l, key, &corev1.ServiceAccount{}); err != nil {
+		return err
+	}
+
+	// Session service account
+	sessionSaKey := client.ObjectKey{
+		Name:      w.SessionServiceAccountName(),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, sessionSaKey, &corev1.ServiceAccount{}); err != nil {
+		return err
+	}
+
+	// RBAC (Role and RoleBinding for off-host execution)
+	if err := internal.BasicDelete(ctx, r, l, key, &rbacv1.Role{}); err != nil {
+		return err
+	}
+
+	if err := internal.BasicDelete(ctx, r, l, key, &rbacv1.RoleBinding{}); err != nil {
+		return err
+	}
+
+	// CONFIGMAPS
+	if err := internal.BasicDelete(ctx, r, l, key, &corev1.ConfigMap{}); err != nil {
+		return err
+	}
+
+	loginCmKey := client.ObjectKey{
+		Name:      w.LoginConfigmapName(),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, loginCmKey, &corev1.ConfigMap{}); err != nil {
+		return err
+	}
+
+	sessionCmKey := client.ObjectKey{
+		Name:      w.SessionConfigMapName(),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, sessionCmKey, &corev1.ConfigMap{}); err != nil {
+		return err
+	}
+
+	supervisorCmKey := client.ObjectKey{
+		Name:      w.SupervisorConfigmapName(),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, supervisorCmKey, &corev1.ConfigMap{}); err != nil {
+		return err
+	}
+
+	templateCmKey := client.ObjectKey{
+		Name:      w.TemplateConfigMapName(),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, templateCmKey, &corev1.ConfigMap{}); err != nil {
+		return err
+	}
+
+	authLoginHtmlCmKey := client.ObjectKey{
+		Name:      w.AuthLoginPageHtmlConfigmapName(),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, authLoginHtmlCmKey, &corev1.ConfigMap{}); err != nil {
+		return err
+	}
+
+	// SECRETS
+	secretConfigKey := client.ObjectKey{
+		Name:      fmt.Sprintf("%s-config", w.ComponentName()),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, secretConfigKey, &corev1.Secret{}); err != nil {
+		return err
+	}
+
+	// Database password secret (created by EnsureDatabaseExists)
+	if err := db.CleanupDatabasePasswordSecret(ctx, r, req, w.ComponentName()); err != nil {
+		return err
+	}
+
+	// TRAEFIK MIDDLEWARES
+	cspMiddlewareKey := client.ObjectKey{
+		Name:      r.CspMiddleware(w),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, cspMiddlewareKey, &v1alpha1.Middleware{}); err != nil {
+		return err
+	}
+
+	forwardMiddlewareKey := client.ObjectKey{
+		Name:      r.ForwardMiddleware(w),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, forwardMiddlewareKey, &v1alpha1.Middleware{}); err != nil {
+		return err
+	}
+
+	headersMiddlewareKey := client.ObjectKey{
+		Name:      r.HeadersMiddleware(w),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, headersMiddlewareKey, &v1alpha1.Middleware{}); err != nil {
+		return err
+	}
+
+	// SECRET PROVIDER CLASS
+	spcKey := client.ObjectKey{
+		Name:      w.SecretProviderClassName(),
+		Namespace: req.Namespace,
+	}
+	if err := internal.BasicDelete(ctx, r, l, spcKey, &secretstorev1.SecretProviderClass{}); err != nil {
+		return err
+	}
+
+	l.Info("Workbench service cleanup complete")
 	return nil
 }
 

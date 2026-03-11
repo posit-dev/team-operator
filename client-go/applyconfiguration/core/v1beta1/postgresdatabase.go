@@ -6,7 +6,6 @@
 package v1beta1
 
 import (
-	corev1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
@@ -17,8 +16,8 @@ import (
 type PostgresDatabaseApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *PostgresDatabaseSpecApplyConfiguration `json:"spec,omitempty"`
-	Status                           *corev1beta1.PostgresDatabaseStatus     `json:"status,omitempty"`
+	Spec                             *PostgresDatabaseSpecApplyConfiguration   `json:"spec,omitempty"`
+	Status                           *PostgresDatabaseStatusApplyConfiguration `json:"status,omitempty"`
 }
 
 // PostgresDatabase constructs a declarative configuration of the PostgresDatabase type for use with
@@ -202,8 +201,8 @@ func (b *PostgresDatabaseApplyConfiguration) WithSpec(value *PostgresDatabaseSpe
 // WithStatus sets the Status field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Status field is set to the value of the last call.
-func (b *PostgresDatabaseApplyConfiguration) WithStatus(value corev1beta1.PostgresDatabaseStatus) *PostgresDatabaseApplyConfiguration {
-	b.Status = &value
+func (b *PostgresDatabaseApplyConfiguration) WithStatus(value *PostgresDatabaseStatusApplyConfiguration) *PostgresDatabaseApplyConfiguration {
+	b.Status = value
 	return b
 }
 

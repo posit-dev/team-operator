@@ -147,6 +147,9 @@ type AzureFilesConfig struct {
 	ShareSizeGiB int `json:"shareSizeGiB,omitempty"`
 }
 
+// InternalFlightdeckSpec configures Flightdeck within a Site.
+// Flightdeck is stateless, so there is no Teardown field: disabling removes all resources
+// immediately (equivalent to teardown for stateful products).
 type InternalFlightdeckSpec struct {
 	// Enabled controls whether Flightdeck is deployed. Defaults to true if not specified.
 	// Set to false to explicitly disable Flightdeck deployment.
@@ -189,6 +192,21 @@ type FeatureEnablerConfig struct {
 }
 
 type InternalPackageManagerSpec struct {
+	// Enabled controls whether Package Manager is running. Defaults to true.
+	// Setting to false suspends Package Manager: stops pods and removes ingress/service,
+	// but preserves PVC, database, and secrets so data is retained.
+	// Re-enabling restores full service without data loss.
+	// +kubebuilder:default=true
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Teardown permanently destroys all Package Manager resources including the database,
+	// secrets, and persistent volume claim. Only takes effect when Enabled is false.
+	// Re-enabling after teardown starts fresh with a new empty database.
+	// +kubebuilder:default=false
+	// +optional
+	Teardown *bool `json:"teardown,omitempty"`
+
 	License product.LicenseSpec `json:"license,omitempty"`
 
 	Volume *product.VolumeSpec `json:"volume,omitempty"`
@@ -225,6 +243,14 @@ type InternalPackageManagerSpec struct {
 	// AdditionalConfig allows appending arbitrary gcfg config content to the generated config.
 	// +optional
 	AdditionalConfig string `json:"additionalConfig,omitempty"`
+
+	// Auth configures OIDC authentication for Package Manager's web UI
+	// +optional
+	Auth *AuthSpec `json:"auth,omitempty"`
+
+	// OIDCClientSecretKey is the key in the vault for the OIDC client secret
+	// +optional
+	OIDCClientSecretKey string `json:"oidcClientSecretKey,omitempty"`
 }
 
 type InternalConnectSpec struct {
@@ -341,6 +367,21 @@ type InternalConnectExperimentalFeatures struct {
 }
 
 type InternalWorkbenchSpec struct {
+	// Enabled controls whether Workbench is running. Defaults to true.
+	// Setting to false suspends Workbench: stops pods and removes ingress/service,
+	// but preserves PVC, database, and secrets so data is retained.
+	// Re-enabling restores full service without data loss.
+	// +kubebuilder:default=true
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Teardown permanently destroys all Workbench resources including the database,
+	// secrets, and persistent volume claim. Only takes effect when Enabled is false.
+	// Re-enabling after teardown starts fresh with a new empty database.
+	// +kubebuilder:default=false
+	// +optional
+	Teardown *bool `json:"teardown,omitempty"`
+
 	Databricks map[string]DatabricksConfig `json:"databricks,omitempty"`
 
 	Snowflake SnowflakeConfig `json:"snowflake,omitempty"`
@@ -509,6 +550,20 @@ type InternalWorkbenchExperimentalFeatures struct {
 }
 
 type InternalChronicleSpec struct {
+	// Enabled controls whether Chronicle is running. Defaults to true.
+	// Setting to false suspends Chronicle: stops the StatefulSet and removes the service.
+	// Re-enabling restores full service.
+	// +kubebuilder:default=true
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Teardown permanently destroys all Chronicle resources.
+	// Only takes effect when Enabled is false.
+	// Re-enabling after teardown starts fresh.
+	// +kubebuilder:default=false
+	// +optional
+	Teardown *bool `json:"teardown,omitempty"`
+
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
 	Image string `json:"image,omitempty"`
@@ -574,12 +629,33 @@ type ApiSettingsConfig struct {
 
 // SiteStatus defines the observed state of Site
 type SiteStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	CommonProductStatus `json:",inline"`
+
+	// ConnectReady indicates whether the Connect child resource is ready.
+	// +optional
+	ConnectReady bool `json:"connectReady,omitempty"`
+
+	// WorkbenchReady indicates whether the Workbench child resource is ready.
+	// +optional
+	WorkbenchReady bool `json:"workbenchReady,omitempty"`
+
+	// PackageManagerReady indicates whether the PackageManager child resource is ready.
+	// +optional
+	PackageManagerReady bool `json:"packageManagerReady,omitempty"`
+
+	// ChronicleReady indicates whether the Chronicle child resource is ready.
+	// +optional
+	ChronicleReady bool `json:"chronicleReady,omitempty"`
+
+	// FlightdeckReady indicates whether the Flightdeck child resource is ready.
+	// +optional
+	FlightdeckReady bool `json:"flightdeckReady,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 //+genclient
 //+k8s:openapi-gen=true
 

@@ -8,18 +8,20 @@ package v1beta1
 // PackageManagerConfigApplyConfiguration represents a declarative configuration of the PackageManagerConfig type for use
 // with apply.
 type PackageManagerConfigApplyConfiguration struct {
-	Server           *PackageManagerServerConfigApplyConfiguration    `json:"Server,omitempty"`
-	Http             *PackageManagerHttpConfigApplyConfiguration      `json:"Http,omitempty"`
-	Git              *PackageManagerGitConfigApplyConfiguration       `json:"Git,omitempty"`
-	Database         *PackageManagerDatabaseConfigApplyConfiguration  `json:"Database,omitempty"`
-	Postgres         *PackageManagerPostgresConfigApplyConfiguration  `json:"Postgres,omitempty"`
-	Storage          *PackageManagerStorageConfigApplyConfiguration   `json:"Storage,omitempty"`
-	S3Storage        *PackageManagerS3StorageConfigApplyConfiguration `json:"S3Storage,omitempty"`
-	Metrics          *PackageManagerMetricsConfigApplyConfiguration   `json:"Metrics,omitempty"`
-	Repos            *PackageManagerReposConfigApplyConfiguration     `json:"Repos,omitempty"`
-	Cran             *PackageManagerCRANConfigApplyConfiguration      `json:"CRAN,omitempty"`
-	Debug            *PackageManagerDebugConfigApplyConfiguration     `json:"Debug,omitempty"`
-	AdditionalConfig *string                                          `json:"additionalConfig,omitempty"`
+	Server           *PackageManagerServerConfigApplyConfiguration         `json:"Server,omitempty"`
+	Http             *PackageManagerHttpConfigApplyConfiguration           `json:"Http,omitempty"`
+	Git              *PackageManagerGitConfigApplyConfiguration            `json:"Git,omitempty"`
+	Database         *PackageManagerDatabaseConfigApplyConfiguration       `json:"Database,omitempty"`
+	Postgres         *PackageManagerPostgresConfigApplyConfiguration       `json:"Postgres,omitempty"`
+	Storage          *PackageManagerStorageConfigApplyConfiguration        `json:"Storage,omitempty"`
+	S3Storage        *PackageManagerS3StorageConfigApplyConfiguration      `json:"S3Storage,omitempty"`
+	Metrics          *PackageManagerMetricsConfigApplyConfiguration        `json:"Metrics,omitempty"`
+	Repos            *PackageManagerReposConfigApplyConfiguration          `json:"Repos,omitempty"`
+	Cran             *PackageManagerCRANConfigApplyConfiguration           `json:"CRAN,omitempty"`
+	Debug            *PackageManagerDebugConfigApplyConfiguration          `json:"Debug,omitempty"`
+	Authentication   *PackageManagerAuthenticationConfigApplyConfiguration `json:"Authentication,omitempty"`
+	OpenIDConnect    *PackageManagerOIDCConfigApplyConfiguration           `json:"OpenIDConnect,omitempty"`
+	AdditionalConfig *string                                               `json:"additionalConfig,omitempty"`
 }
 
 // PackageManagerConfigApplyConfiguration constructs a declarative configuration of the PackageManagerConfig type for use with
@@ -113,6 +115,22 @@ func (b *PackageManagerConfigApplyConfiguration) WithCran(value *PackageManagerC
 // If called multiple times, the Debug field is set to the value of the last call.
 func (b *PackageManagerConfigApplyConfiguration) WithDebug(value *PackageManagerDebugConfigApplyConfiguration) *PackageManagerConfigApplyConfiguration {
 	b.Debug = value
+	return b
+}
+
+// WithAuthentication sets the Authentication field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Authentication field is set to the value of the last call.
+func (b *PackageManagerConfigApplyConfiguration) WithAuthentication(value *PackageManagerAuthenticationConfigApplyConfiguration) *PackageManagerConfigApplyConfiguration {
+	b.Authentication = value
+	return b
+}
+
+// WithOpenIDConnect sets the OpenIDConnect field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the OpenIDConnect field is set to the value of the last call.
+func (b *PackageManagerConfigApplyConfiguration) WithOpenIDConnect(value *PackageManagerOIDCConfigApplyConfiguration) *PackageManagerConfigApplyConfiguration {
+	b.OpenIDConnect = value
 	return b
 }
 
