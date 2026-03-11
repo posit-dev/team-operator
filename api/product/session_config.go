@@ -84,15 +84,16 @@ type DynamicLabelRule struct {
 	// Mutually exclusive with match/labelPrefix.
 	// Field values are sanitized for use as label values: non-alphanumeric characters
 	// (except . - _) are replaced with underscores, then truncated to 63 characters with
-	// leading/trailing non-alphanumeric characters stripped. Long values with special
-	// characters near the truncation boundary may lose trailing segments.
+	// leading/trailing non-alphanumeric characters stripped. Case is preserved in label
+	// values (unlike regex mode suffixes, which are lowercased since they form label keys).
 	// MaxLength = 253 (optional DNS prefix) + 1 (/) + 63 (name) = 317
 	// +kubebuilder:validation:MaxLength=317
 	LabelKey string `json:"labelKey,omitempty"`
 	// Match is a regex pattern applied to the field value. Each match produces a label.
 	// For array fields (like "args"), elements are joined with spaces before matching.
-	// At runtime, at most 50 matches are applied per rule; excess matches are dropped and a
-	// posit.team/dynamic-label-cap-reached annotation is set on the pod.
+	// At runtime, at most 50 matches are applied per rule and 200 across all rules;
+	// excess matches are dropped and a posit.team/dynamic-label-cap-reached annotation
+	// is set on the pod. Matched suffixes are lowercased for use in label keys.
 	// Mutually exclusive with labelKey.
 	// +kubebuilder:validation:MaxLength=256
 	Match string `json:"match,omitempty"`

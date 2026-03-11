@@ -20,6 +20,7 @@ const dynamicLabelsTemplate = `
 {{- $templateData := $templateDataJSON | mustFromJson -}}
 {{- $capStatus := dict }}
 {{- $matchCache := dict }}
+{{- $globalTotal := dict "n" 0 }}
 {{- with $templateData.pod.dynamicLabels }}
 {{- range $i, $rule := . }}
 {{- if and (hasKey $.Job $rule.field) $rule.match }}
@@ -34,6 +35,9 @@ const dynamicLabelsTemplate = `
 {{- end }}
 {{- $matches = $deduped }}
 {{- if gt (len $matches) 50 }}{{- $_ := set $capStatus "reached" "true" }}{{- $matches = slice $matches 0 50 }}{{- end }}
+{{- $newTotal := add (index $globalTotal "n") (len $matches) | int }}
+{{- if gt $newTotal 200 }}{{- $allowed := sub 200 (index $globalTotal "n") | int }}{{- if gt $allowed 0 }}{{- $matches = slice $matches 0 $allowed }}{{- else }}{{- $matches = list }}{{- end }}{{- $_ := set $capStatus "reached" "true" }}{{- end }}
+{{- $_ := set $globalTotal "n" (add (index $globalTotal "n") (len $matches) | int) }}
 {{- $_ := set $matchCache (printf "%d" $i) $matches }}
 {{- end }}
 {{- end }}
@@ -197,6 +201,20 @@ func TestJobTemplate_DynamicLabels_DirectMapping(t *testing.T) {
 
 		out := renderDynamicLabels(t, templateData, jobData)
 		assert.NotContains(t, out, "session.posit.team/user")
+	})
+
+	t.Run("renders direct mapping label from numeric field via toString", func(t *testing.T) {
+		templateData := map[string]any{
+			"pod": map[string]any{
+				"dynamicLabels": []map[string]any{
+					{"field": "port", "labelKey": "session.posit.team/port"},
+				},
+			},
+		}
+		jobData := map[string]any{"port": 8080}
+
+		out := renderDynamicLabels(t, templateData, jobData)
+		assert.Contains(t, out, `session.posit.team/port: "8080"`)
 	})
 
 	t.Run("skips label when value is only special characters", func(t *testing.T) {
@@ -389,6 +407,59 @@ func TestJobTemplate_DynamicLabels_RegexMapping(t *testing.T) {
 
 		out := renderDynamicLabels(t, templateData, jobData)
 		assert.NotContains(t, out, "posit.team/dynamic-label-cap-reached")
+	})
+
+	t.Run("extracts labels from regex match on numeric field", func(t *testing.T) {
+		templateData := map[string]any{
+			"pod": map[string]any{
+				"dynamicLabels": []map[string]any{
+					{
+						"field":       "port",
+						"match":       "[0-9]+",
+						"labelPrefix": "session.posit.team/port.",
+					},
+				},
+			},
+		}
+		jobData := map[string]any{"port": 8080}
+
+		out := renderDynamicLabels(t, templateData, jobData)
+		assert.Contains(t, out, `session.posit.team/port.8080: "true"`)
+	})
+
+	t.Run("global cap limits total matches across all rules to 200", func(t *testing.T) {
+		// Create 5 rules, each with 60 unique matches (300 total before caps).
+		// Per-rule cap: 50 each → 250. Global cap: 200.
+		rules := make([]map[string]any, 5)
+		for r := 0; r < 5; r++ {
+			rules[r] = map[string]any{
+				"field":       fmt.Sprintf("field%d", r),
+				"match":       fmt.Sprintf("r%d_[0-9]+", r),
+				"labelPrefix": fmt.Sprintf("prefix/r%d.", r),
+			}
+		}
+		templateData := map[string]any{
+			"pod": map[string]any{
+				"dynamicLabels": rules,
+			},
+		}
+		jobData := map[string]any{}
+		for r := 0; r < 5; r++ {
+			vals := make([]any, 60)
+			for i := range vals {
+				vals[i] = fmt.Sprintf("r%d_%03d", r, i)
+			}
+			jobData[fmt.Sprintf("field%d", r)] = vals
+		}
+
+		out := renderDynamicLabels(t, templateData, jobData)
+		assert.Contains(t, out, `posit.team/dynamic-label-cap-reached: "true"`)
+		// Count total dynamic labels across all rules
+		totalLabels := 0
+		for r := 0; r < 5; r++ {
+			totalLabels += strings.Count(out, fmt.Sprintf("prefix/r%d.", r))
+		}
+		assert.Equal(t, 200, totalLabels, "global cap should limit total matches to 200")
 	})
 
 	t.Run("skips empty suffix after sanitization", func(t *testing.T) {

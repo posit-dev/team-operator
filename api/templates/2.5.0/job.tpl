@@ -5,6 +5,7 @@
 {{- /* Dynamic labels — see api/templates/job_tpl_test.go for isolated tests (including regexReplaceAll argument-order mock) */ -}}
 {{- $capStatus := dict }}
 {{- $matchCache := dict }}
+{{- $globalTotal := dict "n" 0 }}
 {{- with $templateData.pod.dynamicLabels }}
 {{- range $i, $rule := . }}
 {{- if and (hasKey $.Job $rule.field) $rule.match }}
@@ -19,6 +20,10 @@
 {{- end }}
 {{- $matches = $deduped }}
 {{- if gt (len $matches) 50 }}{{- $_ := set $capStatus "reached" "true" }}{{- $matches = slice $matches 0 50 }}{{- end }}
+{{- /* Global cap: at most 200 dynamic labels across all rules. */ -}}
+{{- $newTotal := add (index $globalTotal "n") (len $matches) | int }}
+{{- if gt $newTotal 200 }}{{- $allowed := sub 200 (index $globalTotal "n") | int }}{{- if gt $allowed 0 }}{{- $matches = slice $matches 0 $allowed }}{{- else }}{{- $matches = list }}{{- end }}{{- $_ := set $capStatus "reached" "true" }}{{- end }}
+{{- $_ := set $globalTotal "n" (add (index $globalTotal "n") (len $matches) | int) }}
 {{- $_ := set $matchCache (printf "%d" $i) $matches }}
 {{- end }}
 {{- end }}
