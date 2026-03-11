@@ -2,6 +2,7 @@
 # DO NOT MODIFY the "Version: " key
 # Helm Version: v1
 {{- $templateData := include "rstudio-library.templates.data" nil | mustFromJson }}
+{{- /* Dynamic labels — see api/templates/job_tpl_test.go for isolated tests (including regexReplaceAll argument-order mock) */ -}}
 {{- $capStatus := dict }}
 {{- $matchCache := dict }}
 {{- with $templateData.pod.dynamicLabels }}

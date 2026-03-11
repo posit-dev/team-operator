@@ -73,9 +73,11 @@ type JobConfig struct {
 // +kubebuilder:validation:XValidation:rule="has(self.labelKey) || has(self.match)",message="one of labelKey or match is required"
 // +kubebuilder:validation:XValidation:rule="!has(self.match) || has(self.labelPrefix)",message="labelPrefix is required when match is set"
 type DynamicLabelRule struct {
-	// Field is the name of a top-level .Job field to read (e.g., "user", "args").
+	// Field is the name of a top-level .Job template field to read.
+	// Common fields include "user", "args", "name", "image", "host", "exe", "command".
 	// Any .Job field is addressable — this relies on CRD write access being a privileged
-	// operation. Field values may appear as pod labels visible to anyone with pod read access.
+	// operation. If the field does not exist at runtime, the rule is silently skipped.
+	// Field values may appear as pod labels visible to anyone with pod read access.
 	// +kubebuilder:validation:MinLength=1
 	Field string `json:"field"`
 	// LabelKey is the label key for direct single-value mapping.
@@ -137,6 +139,13 @@ func validateDNSSegmentLengths(prefix string) error {
 func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 	seenKeys := map[string]bool{}
 	seenPrefixes := map[string]bool{}
+	// Collect direct-mapping labelKeys for cross-mode collision check.
+	directKeys := map[string]int{}
+	for i, rule := range rules {
+		if rule.LabelKey != "" {
+			directKeys[rule.LabelKey] = i
+		}
+	}
 	for i, rule := range rules {
 		if rule.LabelKey != "" {
 			if seenKeys[rule.LabelKey] {
@@ -149,6 +158,13 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 				return fmt.Errorf("dynamicLabels[%d]: duplicate labelPrefix %q across regex rules (overlapping matches would produce duplicate label keys)", i, rule.LabelPrefix)
 			}
 			seenPrefixes[rule.LabelPrefix] = true
+			// Check for potential collision: a direct-mapping labelKey that starts
+			// with this regex rule's labelPrefix could be overwritten at runtime.
+			for key, keyIdx := range directKeys {
+				if strings.HasPrefix(key, rule.LabelPrefix) {
+					return fmt.Errorf("dynamicLabels[%d]: labelPrefix %q could collide with direct-mapping labelKey %q in rule %d (a regex match could produce the same label key)", i, rule.LabelPrefix, key, keyIdx)
+				}
+			}
 		}
 		if rule.LabelKey != "" && rule.Match != "" {
 			return fmt.Errorf("dynamicLabels[%d]: labelKey and match are mutually exclusive", i)

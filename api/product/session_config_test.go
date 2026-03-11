@@ -431,6 +431,22 @@ func TestValidateDynamicLabelRules(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("rejects cross-mode collision between labelKey and labelPrefix", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: "posit.team/ext.foo"},
+			{Field: "args", Match: "--ext-[a-z]+", TrimPrefix: "--ext-", LabelPrefix: "posit.team/ext."},
+		})
+		require.ErrorContains(t, err, "could collide with direct-mapping labelKey")
+	})
+
+	t.Run("accepts non-overlapping labelKey and labelPrefix", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: "posit.team/user"},
+			{Field: "args", Match: "--ext-[a-z]+", TrimPrefix: "--ext-", LabelPrefix: "posit.team/ext."},
+		})
+		require.NoError(t, err)
+	})
+
 	t.Run("rejects labelPrefix with multiple slashes", func(t *testing.T) {
 		err := ValidateDynamicLabelRules([]DynamicLabelRule{
 			{Field: "args", Match: "[a-z]+", LabelPrefix: "a/b/name."},
