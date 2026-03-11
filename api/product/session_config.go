@@ -37,7 +37,9 @@ type PodConfig struct {
 	Labels      map[string]string `json:"labels,omitempty"`
 	// DynamicLabels defines rules for generating pod labels from runtime session data.
 	// Requires template version 2.5.0 or later; ignored by older templates.
-	// Currently only supported for Workbench sessions (exposed via Site CRD's workbench.sessionConfig).
+	// Any product using a 2.5.0+ template will render these labels, but the Site CRD merge
+	// path only wires dynamicLabels for Workbench (via workbench.sessionConfig). To use
+	// dynamicLabels with Connect, set them directly on the Connect CR's sessionConfig.
 	// +kubebuilder:validation:MaxItems=20
 	DynamicLabels            []DynamicLabelRule            `json:"dynamicLabels,omitempty"`
 	ServiceAccountName       string                        `json:"serviceAccountName,omitempty"`
