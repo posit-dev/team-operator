@@ -233,6 +233,9 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 			}
 		}
 		if rule.Match != "" {
+			// Go's regexp package uses RE2, which guarantees linear-time matching and
+			// is not susceptible to ReDoS. Combined with per-rule (50) and global (200)
+			// match caps enforced in the template, this is safe for user-supplied patterns.
 			if _, err := regexp.Compile(rule.Match); err != nil {
 				return fmt.Errorf("dynamicLabels[%d]: invalid regex in match: %w", i, err)
 			}

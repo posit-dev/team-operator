@@ -63,6 +63,8 @@ func DetermineMinAvailableReplicas(replicas int) int {
 	return 0
 }
 
+// LabelMerge returns a new map containing all entries from m1 and m2, with m2
+// values winning on key collisions. It does not mutate either input map.
 func LabelMerge(m1 map[string]string, m2 map[string]string) map[string]string {
 	if m1 == nil && m2 == nil {
 		return nil

@@ -112,6 +112,7 @@ spec:
         {{- if hasKey $.Job $rule.field }}
         {{- $val := index $.Job $rule.field }}
         {{- if $rule.labelKey }}
+        {{- /* NOTE: regexReplaceAll uses Helm's arg order (regex, repl, s) — see job_tpl_test.go canary test */ -}}
         {{- $labelVal := $val | toString | regexReplaceAll "[^a-zA-Z0-9._-]" "_" | trunc 63 | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}
         {{- if ne $labelVal "" }}
         {{ $rule.labelKey }}: {{ $labelVal | quote }}
