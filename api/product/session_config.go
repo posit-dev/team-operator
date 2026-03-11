@@ -118,6 +118,17 @@ var dnsSubdomainRegex = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-
 // starts with an alphanumeric character, producing a valid final label name.
 var labelNamePrefixRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
+// validateDNSSegmentLengths checks that each dot-separated segment of a DNS
+// subdomain is at most 63 characters, per RFC 1123.
+func validateDNSSegmentLengths(prefix string) error {
+	for _, seg := range strings.Split(prefix, ".") {
+		if len(seg) > 63 {
+			return fmt.Errorf("DNS label segment %q exceeds 63 characters", seg)
+		}
+	}
+	return nil
+}
+
 // ValidateDynamicLabelRules validates a slice of DynamicLabelRule, checking for
 // regex compilation errors and mutual exclusivity of labelKey vs match/labelPrefix.
 // NOTE: This validation runs at reconciliation time (via GenerateSessionConfigTemplate), not at
@@ -181,6 +192,9 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 				if !dnsSubdomainRegex.MatchString(prefix) {
 					return fmt.Errorf("dynamicLabels[%d]: labelKey DNS prefix must be a valid DNS subdomain (RFC 1123)", i)
 				}
+				if err := validateDNSSegmentLengths(prefix); err != nil {
+					return fmt.Errorf("dynamicLabels[%d]: labelKey DNS prefix: %w", i, err)
+				}
 				if prefix == "kubernetes.io" || strings.HasSuffix(prefix, ".kubernetes.io") ||
 					prefix == "k8s.io" || strings.HasSuffix(prefix, ".k8s.io") {
 					return fmt.Errorf("dynamicLabels[%d]: labelKey must not use reserved Kubernetes label prefix %q", i, prefix)
@@ -217,6 +231,9 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 				}
 				if !dnsSubdomainRegex.MatchString(dnsPrefix) {
 					return fmt.Errorf("dynamicLabels[%d]: labelPrefix DNS prefix must be a valid DNS subdomain (RFC 1123)", i)
+				}
+				if err := validateDNSSegmentLengths(dnsPrefix); err != nil {
+					return fmt.Errorf("dynamicLabels[%d]: labelPrefix DNS prefix: %w", i, err)
 				}
 				if dnsPrefix == "kubernetes.io" || strings.HasSuffix(dnsPrefix, ".kubernetes.io") ||
 					dnsPrefix == "k8s.io" || strings.HasSuffix(dnsPrefix, ".k8s.io") {

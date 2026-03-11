@@ -185,11 +185,31 @@ func TestValidateDynamicLabelRules(t *testing.T) {
 	})
 
 	t.Run("accepts labelPrefix with DNS prefix at 253 chars", func(t *testing.T) {
-		dns253 := strings.Repeat("a", 253)
+		// Build a valid 253-char DNS prefix with segments ≤ 63 chars each:
+		// 63 + "." + 63 + "." + 63 + "." + 61 = 253
+		dns253 := strings.Repeat("a", 63) + "." + strings.Repeat("b", 63) + "." + strings.Repeat("c", 63) + "." + strings.Repeat("d", 61)
 		err := ValidateDynamicLabelRules([]DynamicLabelRule{
 			{Field: "args", Match: "[a-z]+", LabelPrefix: dns253 + "/ext."},
 		})
 		require.NoError(t, err)
+	})
+
+	t.Run("rejects labelPrefix with DNS segment > 63 chars", func(t *testing.T) {
+		longSegment := strings.Repeat("a", 64) + ".example.com"
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "[a-z]+", LabelPrefix: longSegment + "/ext."},
+		})
+		require.ErrorContains(t, err, "DNS label segment")
+		require.ErrorContains(t, err, "exceeds 63 characters")
+	})
+
+	t.Run("rejects labelKey with DNS segment > 63 chars", func(t *testing.T) {
+		longSegment := strings.Repeat("a", 64) + ".example.com"
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: longSegment + "/name"},
+		})
+		require.ErrorContains(t, err, "DNS label segment")
+		require.ErrorContains(t, err, "exceeds 63 characters")
 	})
 
 	t.Run("rejects labelKey with invalid name characters", func(t *testing.T) {
