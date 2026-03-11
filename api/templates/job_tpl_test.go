@@ -61,8 +61,9 @@ posit.team/dynamic-label-cap-reached: "true"
 {{- $maxSuffix := int (sub 63 (len $namePrefix)) }}
 {{- range $match := $matches }}
 {{- $suffix := trimPrefix ($rule.trimPrefix | default "") $match | lower | regexReplaceAll "[^a-zA-Z0-9._-]" "_" | regexReplaceAll "_{2,}" "_" | trunc $maxSuffix | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}
-{{- if ne $suffix "" }}
-{{ printf "%s%s" $rule.labelPrefix $suffix }}: {{ $rule.labelValue | default "true" | quote }}
+{{- $computedKey := printf "%s%s" $rule.labelPrefix $suffix }}
+{{- if and (ne $suffix "") (ne $computedKey "posit.team/dynamic-label-cap-reached") }}
+{{ $computedKey }}: {{ $rule.labelValue | default "true" | quote }}
 {{- end }}
 {{- end }}
 {{- end }}

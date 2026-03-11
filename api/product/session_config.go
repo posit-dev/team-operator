@@ -130,9 +130,9 @@ var labelNamePrefixRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
 // reservedOperatorAnnotationKey is the annotation key set by the operator when
 // dynamic label caps are reached. It must not be used in user-defined dynamic
-// label rules. Note: this only guards against direct labelKey matches; a
-// labelPrefix + regex combination could still produce this key at runtime,
-// which is not catchable at validation time.
+// label rules. Validation blocks direct labelKey matches; a labelPrefix + regex
+// combination could theoretically produce this key at runtime, but the template
+// includes a runtime guard that skips any computed label key matching this value.
 const reservedOperatorAnnotationKey = "posit.team/dynamic-label-cap-reached"
 
 // validateDNSSegmentLengths checks that each dot-separated segment of a DNS
@@ -153,6 +153,8 @@ func validateDNSSegmentLengths(prefix string) error {
 // Semantic errors (invalid regex, DNS length violations, reserved prefix, collisions) are only
 // caught during reconciliation. Consider adding a validating admission webhook to surface these
 // at CRD write time and prevent invalid configs from entering a failing reconciliation loop.
+// As a near-term alternative, surface validation errors as a status condition on the CR so users
+// can diagnose why reconciliation is failing without inspecting operator logs.
 func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 	seenKeys := map[string]bool{}
 	seenPrefixes := map[string]bool{}
