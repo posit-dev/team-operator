@@ -363,6 +363,13 @@ func TestValidateDynamicLabelRules(t *testing.T) {
 		require.ErrorContains(t, err, "reserved Kubernetes label prefix")
 	})
 
+	t.Run("rejects labelKey reserved for operator use", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "user", LabelKey: "posit.team/dynamic-label-cap-reached"},
+		})
+		require.ErrorContains(t, err, "reserved for operator use")
+	})
+
 	t.Run("rejects labelPrefix with invalid name prefix characters", func(t *testing.T) {
 		err := ValidateDynamicLabelRules([]DynamicLabelRule{
 			{Field: "args", Match: "[a-z]+", LabelPrefix: "example.com/!!!"},

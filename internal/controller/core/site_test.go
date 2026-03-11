@@ -2051,3 +2051,43 @@ func TestSiteReconciler_SessionConfigMerge_PodLabelsMergedIntoOperatorPod(t *tes
 	// Operator-managed fields should be preserved (not overwritten by merge)
 	assert.Equal(t, "custom-sa", wb.Spec.SessionConfig.Pod.ServiceAccountName)
 }
+
+func TestSiteReconciler_SessionConfigMerge_PodLabelsOnlyPreservesOperatorFields(t *testing.T) {
+	// Verifies that setting sessionConfig with only Pod.Labels (no DynamicLabels)
+	// preserves all operator-managed Pod fields set by defaults and ExperimentalFeatures.
+	siteName := "sc-labels-preserve"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Workbench.SessionTolerations = []corev1.Toleration{
+		{Key: "gpu", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule},
+	}
+	site.Spec.Workbench.ExperimentalFeatures = &v1beta1.InternalWorkbenchExperimentalFeatures{
+		SessionServiceAccountName: "special-sa",
+		SessionEnvVars: []corev1.EnvVar{
+			{Name: "MY_VAR", Value: "my-value"},
+		},
+	}
+	site.Spec.Workbench.SessionConfig = &product.SessionConfig{
+		Pod: &product.PodConfig{
+			Labels: map[string]string{"env": "staging"},
+		},
+	}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	wb := getWorkbench(t, cli, siteNamespace, siteName)
+	require.NotNil(t, wb.Spec.SessionConfig)
+	require.NotNil(t, wb.Spec.SessionConfig.Pod)
+
+	// User-provided labels merged in
+	assert.Equal(t, "staging", wb.Spec.SessionConfig.Pod.Labels["env"])
+	// No dynamic labels
+	assert.Empty(t, wb.Spec.SessionConfig.Pod.DynamicLabels)
+	// Operator-managed fields preserved
+	assert.Equal(t, "special-sa", wb.Spec.SessionConfig.Pod.ServiceAccountName)
+	require.Len(t, wb.Spec.SessionConfig.Pod.Tolerations, 1)
+	assert.Equal(t, "gpu", wb.Spec.SessionConfig.Pod.Tolerations[0].Key)
+	require.Len(t, wb.Spec.SessionConfig.Pod.Env, 1)
+	assert.Equal(t, "MY_VAR", wb.Spec.SessionConfig.Pod.Env[0].Name)
+}

@@ -128,6 +128,12 @@ var dnsSubdomainRegex = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-
 // starts with an alphanumeric character, producing a valid final label name.
 var labelNamePrefixRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
+// reservedOperatorKeys are label/annotation keys managed by the operator that
+// must not be used in user-defined dynamic label rules.
+var reservedOperatorKeys = map[string]bool{
+	"posit.team/dynamic-label-cap-reached": true,
+}
+
 // validateDNSSegmentLengths checks that each dot-separated segment of a DNS
 // subdomain is at most 63 characters, per RFC 1123.
 func validateDNSSegmentLengths(prefix string) error {
@@ -203,6 +209,9 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 			return fmt.Errorf("dynamicLabels[%d]: labelPrefix must not be set with labelKey (labelPrefix only applies to regex match mode)", i)
 		}
 		if rule.LabelKey != "" {
+			if reservedOperatorKeys[rule.LabelKey] {
+				return fmt.Errorf("dynamicLabels[%d]: labelKey %q is reserved for operator use", i, rule.LabelKey)
+			}
 			if strings.Count(rule.LabelKey, "/") > 1 {
 				return fmt.Errorf("dynamicLabels[%d]: labelKey must contain at most one '/'", i)
 			}
