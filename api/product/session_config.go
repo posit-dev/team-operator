@@ -91,8 +91,8 @@ type DynamicLabelRule struct {
 	TrimPrefix string `json:"trimPrefix,omitempty"`
 	// LabelPrefix is prepended to the cleaned match to form the label key.
 	// Required when match is set.
-	// MaxLength = 253 (DNS subdomain) + 1 (/) + 62 (name prefix, must be < 63 to leave room for suffix)
-	// +kubebuilder:validation:MaxLength=316
+	// MaxLength = 253 (DNS subdomain) + 1 (/) + 52 (name prefix, must be < 53 to leave ≥10 chars for suffix)
+	// +kubebuilder:validation:MaxLength=306
 	LabelPrefix string `json:"labelPrefix,omitempty"`
 	// LabelValue is the static value for all matched labels. Defaults to "true".
 	// +kubebuilder:validation:MaxLength=63
@@ -132,8 +132,8 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 				}
 				namePrefix = rule.LabelPrefix[idx+1:]
 			}
-			if len(namePrefix) >= 63 {
-				return fmt.Errorf("dynamicLabels[%d]: labelPrefix name segment (after '/') must be shorter than 63 characters", i)
+			if len(namePrefix) >= 53 {
+				return fmt.Errorf("dynamicLabels[%d]: labelPrefix name segment (after '/') must be shorter than 53 characters to leave room for suffix", i)
 			}
 		}
 	}

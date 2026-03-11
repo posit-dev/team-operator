@@ -90,7 +90,10 @@ spec:
         {{- $namePrefix := regexFind "[^/]*$" $rule.labelPrefix }}
         {{- $maxSuffix := int (sub 63 (len $namePrefix)) }}
         {{- range $match := $matches }}
-        {{ trimPrefix ($rule.trimPrefix | default "") $match | lower | replace " " "_" | trunc $maxSuffix | regexReplaceAll "[^a-zA-Z0-9]+$" "" | printf "%s%s" $rule.labelPrefix }}: {{ $rule.labelValue | default "true" | quote }}
+        {{- $suffix := trimPrefix ($rule.trimPrefix | default "") $match | lower | replace " " "_" | trunc $maxSuffix | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}
+        {{- if ne $suffix "" }}
+        {{ printf "%s%s" $rule.labelPrefix $suffix }}: {{ $rule.labelValue | default "true" | quote }}
+        {{- end }}
         {{- end }}
         {{- end }}
         {{- end }}

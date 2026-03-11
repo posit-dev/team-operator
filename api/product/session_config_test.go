@@ -153,12 +153,20 @@ func TestValidateDynamicLabelRules(t *testing.T) {
 		require.ErrorContains(t, err, "invalid regex")
 	})
 
-	t.Run("rejects labelPrefix with name segment >= 63 chars", func(t *testing.T) {
-		longName := strings.Repeat("a", 63)
+	t.Run("rejects labelPrefix with name segment >= 53 chars", func(t *testing.T) {
+		longName := strings.Repeat("a", 53)
 		err := ValidateDynamicLabelRules([]DynamicLabelRule{
 			{Field: "args", Match: "[a-z]+", LabelPrefix: "example.com/" + longName},
 		})
 		require.ErrorContains(t, err, "labelPrefix name segment")
+	})
+
+	t.Run("accepts labelPrefix with name segment at 52 chars", func(t *testing.T) {
+		name52 := strings.Repeat("a", 52)
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "args", Match: "[a-z]+", LabelPrefix: "example.com/" + name52},
+		})
+		require.NoError(t, err)
 	})
 
 	t.Run("rejects labelPrefix with DNS prefix > 253 chars", func(t *testing.T) {
