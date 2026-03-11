@@ -68,6 +68,9 @@ type JobConfig struct {
 // Each rule references a field from the .Job template object and either maps it directly
 // to a label (using labelKey) or extracts multiple labels via regex (using match).
 // +kubebuilder:object:generate=true
+// +kubebuilder:validation:XValidation:rule="!(has(self.labelKey) && has(self.match))",message="labelKey and match are mutually exclusive"
+// +kubebuilder:validation:XValidation:rule="has(self.labelKey) || has(self.match)",message="one of labelKey or match is required"
+// +kubebuilder:validation:XValidation:rule="!has(self.match) || has(self.labelPrefix)",message="labelPrefix is required when match is set"
 type DynamicLabelRule struct {
 	// Field is the name of a top-level .Job field to read (e.g., "user", "args").
 	// Any .Job field is addressable — this relies on CRD write access being a privileged
@@ -84,6 +87,7 @@ type DynamicLabelRule struct {
 	// +kubebuilder:validation:MaxLength=256
 	Match string `json:"match,omitempty"`
 	// TrimPrefix is stripped from each regex match before forming the label key suffix.
+	// +kubebuilder:validation:MaxLength=256
 	TrimPrefix string `json:"trimPrefix,omitempty"`
 	// LabelPrefix is prepended to the cleaned match to form the label key.
 	// Required when match is set.

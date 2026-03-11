@@ -1911,10 +1911,18 @@ spec:
                             trimPrefix:
                               description: TrimPrefix is stripped from each regex
                                 match before forming the label key suffix.
+                              maxLength: 256
                               type: string
                           required:
                           - field
                           type: object
+                          x-kubernetes-validations:
+                          - message: labelKey and match are mutually exclusive
+                            rule: '!(has(self.labelKey) && has(self.match))'
+                          - message: one of labelKey or match is required
+                            rule: has(self.labelKey) || has(self.match)
+                          - message: labelPrefix is required when match is set
+                            rule: '!has(self.match) || has(self.labelPrefix)'
                         type: array
                       env:
                         items:
