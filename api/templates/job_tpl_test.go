@@ -72,20 +72,6 @@ func renderDynamicLabels(t *testing.T, templateData map[string]any, jobData map[
 	// Helm:  regexReplaceAll(regex, repl, s) — piped value becomes s (source).
 	// NOTE: If upgrading Helm/Sprig, verify that the production argument order still
 	// matches this mock — otherwise tests will pass against a stale signature.
-	// Canary: verify that Sprig's regexReplaceAll still uses (regex, s, repl) order,
-	// which differs from Helm's (regex, repl, s). Our mock below overrides to Helm's
-	// order. If Sprig ever changes to match Helm, this canary will fire and the mock
-	// override below can be removed.
-	prodFn := f["regexReplaceAll"]
-	if fn, ok := prodFn.(func(string, string, string) string); ok {
-		// With Sprig order (regex, s, repl): fn("h", "world", "hello") → replace "h" in "world" → "world" (no match)
-		// With Helm  order (regex, repl, s): fn("h", "world", "hello") → replace "h" in "hello" → "worldello"
-		result := fn("h", "world", "hello")
-		if result == "worldello" {
-			t.Fatalf("Sprig regexReplaceAll now uses Helm's argument order — remove the mock override below")
-		}
-	}
-
 	f["regexReplaceAll"] = func(regex string, repl string, s string) string {
 		r := regexp.MustCompile(regex)
 		return r.ReplaceAllString(s, repl)
@@ -104,6 +90,27 @@ func renderDynamicLabels(t *testing.T, templateData map[string]any, jobData map[
 	require.NoError(t, err)
 
 	return buf.String()
+}
+
+// TestCanary_SprigRegexReplaceAllOrder verifies that Sprig's regexReplaceAll
+// still uses (regex, s, repl) order, which differs from Helm's (regex, repl, s).
+// Our mock in renderDynamicLabels overrides to Helm's order. If Sprig ever changes
+// to match Helm, this canary will fire and the mock override can be removed.
+func TestCanary_SprigRegexReplaceAllOrder(t *testing.T) {
+	tmpl := template.New("canary")
+	f := TemplateFuncMap(tmpl)
+	f = AddOnFuncMap(tmpl, f)
+
+	prodFn := f["regexReplaceAll"]
+	fn, ok := prodFn.(func(string, string, string) string)
+	require.True(t, ok, "regexReplaceAll should be func(string, string, string) string")
+
+	// With Sprig order (regex, s, repl): fn("h", "world", "hello") → replace "h" in "world" → "world" (no match)
+	// With Helm  order (regex, repl, s): fn("h", "world", "hello") → replace "h" in "hello" → "worldello"
+	result := fn("h", "world", "hello")
+	if result == "worldello" {
+		t.Fatalf("Sprig regexReplaceAll now uses Helm's argument order — remove the mock override in renderDynamicLabels")
+	}
 }
 
 func TestJobTemplate_DynamicLabels_DirectMapping(t *testing.T) {
