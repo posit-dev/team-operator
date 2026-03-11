@@ -471,13 +471,11 @@ func (r *SiteReconciler) reconcileWorkbench(
 			if opSC.Service == nil {
 				opSC.Service = &product.ServiceConfig{}
 			}
-			{
-				if userSC.Service.Type != "" {
-					opSC.Service.Type = userSC.Service.Type
-				}
-				opSC.Service.Annotations = product.LabelMerge(opSC.Service.Annotations, userSC.Service.Annotations)
-				opSC.Service.Labels = product.LabelMerge(opSC.Service.Labels, userSC.Service.Labels)
+			if userSC.Service.Type != "" {
+				opSC.Service.Type = userSC.Service.Type
 			}
+			opSC.Service.Annotations = product.LabelMerge(opSC.Service.Annotations, userSC.Service.Annotations)
+			opSC.Service.Labels = product.LabelMerge(opSC.Service.Labels, userSC.Service.Labels)
 		}
 
 		// Merge Pod config: only DynamicLabels, Labels, and Annotations.
@@ -487,15 +485,15 @@ func (r *SiteReconciler) reconcileWorkbench(
 			if opSC.Pod == nil {
 				opSC.Pod = &product.PodConfig{}
 			}
-			{
-				// DynamicLabels: operator never sets these; take user-provided directly
-				if len(userSC.Pod.DynamicLabels) > 0 {
-					opSC.Pod.DynamicLabels = userSC.Pod.DynamicLabels
-				}
-				// Labels and annotations: merge (user-provided wins on conflicts)
-				opSC.Pod.Labels = product.LabelMerge(opSC.Pod.Labels, userSC.Pod.Labels)
-				opSC.Pod.Annotations = product.LabelMerge(opSC.Pod.Annotations, userSC.Pod.Annotations)
+			// DynamicLabels: operator never sets these; take user-provided directly
+			if len(userSC.Pod.DynamicLabels) > 0 {
+				copied := make([]product.DynamicLabelRule, len(userSC.Pod.DynamicLabels))
+				copy(copied, userSC.Pod.DynamicLabels)
+				opSC.Pod.DynamicLabels = copied
 			}
+			// Labels and annotations: merge (user-provided wins on conflicts)
+			opSC.Pod.Labels = product.LabelMerge(opSC.Pod.Labels, userSC.Pod.Labels)
+			opSC.Pod.Annotations = product.LabelMerge(opSC.Pod.Annotations, userSC.Pod.Annotations)
 		}
 
 		// Merge Job config
@@ -503,10 +501,8 @@ func (r *SiteReconciler) reconcileWorkbench(
 			if opSC.Job == nil {
 				opSC.Job = &product.JobConfig{}
 			}
-			{
-				opSC.Job.Labels = product.LabelMerge(opSC.Job.Labels, userSC.Job.Labels)
-				opSC.Job.Annotations = product.LabelMerge(opSC.Job.Annotations, userSC.Job.Annotations)
-			}
+			opSC.Job.Labels = product.LabelMerge(opSC.Job.Labels, userSC.Job.Labels)
+			opSC.Job.Annotations = product.LabelMerge(opSC.Job.Annotations, userSC.Job.Annotations)
 		}
 	}
 
