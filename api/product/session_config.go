@@ -147,6 +147,17 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 		}
 	}
 	for i, rule := range rules {
+		// Check structural validity first so users see fundamental errors before
+		// duplicate/collision messages that depend on the mode being unambiguous.
+		if rule.LabelKey != "" && rule.Match != "" {
+			return fmt.Errorf("dynamicLabels[%d]: labelKey and match are mutually exclusive", i)
+		}
+		if rule.LabelKey == "" && rule.Match == "" {
+			return fmt.Errorf("dynamicLabels[%d]: one of labelKey or match is required", i)
+		}
+		if rule.Match != "" && rule.LabelPrefix == "" {
+			return fmt.Errorf("dynamicLabels[%d]: labelPrefix is required when match is set", i)
+		}
 		if rule.LabelKey != "" {
 			if seenKeys[rule.LabelKey] {
 				return fmt.Errorf("dynamicLabels[%d]: duplicate labelKey %q", i, rule.LabelKey)
@@ -165,15 +176,6 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 					return fmt.Errorf("dynamicLabels[%d]: labelPrefix %q could collide with direct-mapping labelKey %q in rule %d (a regex match could produce the same label key)", i, rule.LabelPrefix, key, keyIdx)
 				}
 			}
-		}
-		if rule.LabelKey != "" && rule.Match != "" {
-			return fmt.Errorf("dynamicLabels[%d]: labelKey and match are mutually exclusive", i)
-		}
-		if rule.LabelKey == "" && rule.Match == "" {
-			return fmt.Errorf("dynamicLabels[%d]: one of labelKey or match is required", i)
-		}
-		if rule.Match != "" && rule.LabelPrefix == "" {
-			return fmt.Errorf("dynamicLabels[%d]: labelPrefix is required when match is set", i)
 		}
 		if rule.LabelValue != "" {
 			if rule.LabelKey != "" {

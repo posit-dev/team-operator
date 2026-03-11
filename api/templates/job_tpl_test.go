@@ -53,6 +53,7 @@ posit.team/label-cap-reached: "true"
 {{- else if $rule.match }}
 {{- $matches := index $matchCache (printf "%d" $i) }}
 {{- $namePrefix := regexFind "[^/]*$" $rule.labelPrefix }}
+{{- /* Go validation (ValidateDynamicLabelRules) enforces namePrefix < 53 chars, so $maxSuffix is always > 0. */ -}}
 {{- $maxSuffix := int (sub 63 (len $namePrefix)) }}
 {{- range $match := $matches }}
 {{- $suffix := trimPrefix ($rule.trimPrefix | default "") $match | lower | regexReplaceAll "[^a-zA-Z0-9._-]" "_" | regexReplaceAll "[_]{2,}" "_" | trunc $maxSuffix | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}
@@ -317,6 +318,31 @@ func TestJobTemplate_DynamicLabels_RegexMapping(t *testing.T) {
 		out := renderDynamicLabels(t, templateData, jobData)
 		assert.Contains(t, out, `session.posit.team/ext.foo_bar: "true"`)
 		assert.NotContains(t, out, "foo@bar")
+	})
+
+	t.Run("deduplicates regex matches", func(t *testing.T) {
+		templateData := map[string]any{
+			"pod": map[string]any{
+				"dynamicLabels": []map[string]any{
+					{
+						"field":       "args",
+						"match":       "--ext-[a-z]+",
+						"trimPrefix":  "--ext-",
+						"labelPrefix": "session.posit.team/ext.",
+						"labelValue":  "enabled",
+					},
+				},
+			},
+		}
+		jobData := map[string]any{
+			"args": []any{"--ext-foo", "--ext-foo", "--ext-bar"},
+		}
+
+		out := renderDynamicLabels(t, templateData, jobData)
+		assert.Contains(t, out, `session.posit.team/ext.foo: "enabled"`)
+		assert.Contains(t, out, `session.posit.team/ext.bar: "enabled"`)
+		count := strings.Count(out, "session.posit.team/ext.")
+		assert.Equal(t, 2, count, "duplicate matches should be deduplicated to 2 labels")
 	})
 
 	t.Run("caps matches at 50 (test-only annotation verifies cap)", func(t *testing.T) {

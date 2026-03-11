@@ -114,6 +114,7 @@ spec:
         {{- else if $rule.match }}
         {{- $matches := index $matchCache (printf "%d" $i) }}
         {{- $namePrefix := regexFind "[^/]*$" $rule.labelPrefix }}
+        {{- /* Go validation (ValidateDynamicLabelRules) enforces namePrefix < 53 chars, so $maxSuffix is always > 0. */ -}}
         {{- $maxSuffix := int (sub 63 (len $namePrefix)) }}
         {{- range $match := $matches }}
         {{- $suffix := trimPrefix ($rule.trimPrefix | default "") $match | lower | regexReplaceAll "[^a-zA-Z0-9._-]" "_" | regexReplaceAll "[_]{2,}" "_" | trunc $maxSuffix | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}
