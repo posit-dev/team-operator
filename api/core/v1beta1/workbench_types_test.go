@@ -286,4 +286,6 @@ func TestWorkbench_SessionConfigTemplateData_DynamicLabels(t *testing.T) {
 	assert.Contains(t, result, "\"field\":\"args\"")
 	assert.Contains(t, result, "\"match\":\"--ext-[a-z]+\"")
 	assert.Contains(t, result, "\"labelPrefix\":\"session.posit.team/ext.\"")
+	assert.Contains(t, result, "\"trimPrefix\":\"--ext-\"")
+	assert.Contains(t, result, "\"labelValue\":\"enabled\"")
 }
