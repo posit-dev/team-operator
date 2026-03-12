@@ -28,7 +28,8 @@ const dynamicLabelsTemplate = `
 {{- if and (hasKey $jobMap $rule.field) $rule.match }}
 {{- $val := index $jobMap $rule.field }}
 {{- $str := (kindIs "slice" $val) | ternary ($val | join " ") ($val | toString) }}
-{{- $matches := regexFindAll $rule.match $str -1 }}
+{{- /* Cap raw matches at 500 to bound memory before dedup/per-rule cap (50) is applied. */ -}}
+{{- $matches := regexFindAll $rule.match $str 500 }}
 {{- /* Deduplicate matches so duplicates don't consume cap budget */ -}}
 {{- $seen := dict }}
 {{- $deduped := list }}
