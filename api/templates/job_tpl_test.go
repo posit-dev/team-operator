@@ -147,6 +147,8 @@ func TestDynamicLabelsTemplate_DriftDetection(t *testing.T) {
 
 	// Critical snippets that must appear in both the test template and job.tpl.
 	// If any snippet is missing from either, the test and production template have diverged.
+	// Includes both value-level checks (caps, regexes) and structural checks (two-phase
+	// ordering, control flow branching) to catch reorderings that wouldn't alter checked strings.
 	snippets := []struct {
 		name    string
 		snippet string
@@ -159,6 +161,12 @@ func TestDynamicLabelsTemplate_DriftDetection(t *testing.T) {
 		{"reserved key guard", `posit.team/dynamic-label-cap-reached`},
 		{"dedup seen dict", "$seen := dict"},
 		{"global total dict", `$globalTotal := dict "n" 0`},
+		// Structural: two-phase approach (phase 1 populates cache, phase 2 reads it)
+		{"phase1 cache write", `set $matchCache (printf "%d" $i) $matches`},
+		{"phase2 cache read", `index $matchCache (printf "%d" $i)`},
+		// Structural: direct vs regex branching
+		{"direct mapping branch", "if $rule.labelKey"},
+		{"regex mapping branch", "else if $rule.match"},
 	}
 
 	for _, s := range snippets {
