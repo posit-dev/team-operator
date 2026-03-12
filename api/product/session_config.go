@@ -94,11 +94,13 @@ type DynamicLabelRule struct {
 	LabelKey string `json:"labelKey,omitempty"`
 	// Match is a regex pattern applied to the field value. Each match produces a label.
 	// For array fields (like "args"), elements are joined with spaces before matching.
-	// At runtime, at most 50 matches are applied per rule and 200 across all rules;
-	// excess matches are dropped and a posit.team/dynamic-label-cap-reached annotation
-	// is set on the pod. Rules are evaluated in array order, so earlier rules in the
-	// dynamicLabels list consume cap budget first; later rules may receive fewer or no
-	// matches if the global cap is reached. Matched suffixes are lowercased for use in label keys.
+	// At runtime, at most 50 matches are applied per rule and 200 regex-matched labels
+	// across all rules; direct-mapping labels (using labelKey) are not counted toward
+	// the 200 global cap. Excess matches are dropped and a
+	// posit.team/dynamic-label-cap-reached annotation is set on the pod. Rules are
+	// evaluated in array order, so earlier rules in the dynamicLabels list consume cap
+	// budget first; later rules may receive fewer or no matches if the global cap is
+	// reached. Matched suffixes are lowercased for use in label keys.
 	// Mutually exclusive with labelKey.
 	// +kubebuilder:validation:MaxLength=256
 	Match string `json:"match,omitempty"`
@@ -168,6 +170,9 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 		}
 	}
 	for i, rule := range rules {
+		if rule.Field == "" {
+			return fmt.Errorf("dynamicLabels[%d]: field must not be empty", i)
+		}
 		// Check structural validity first so users see fundamental errors before
 		// duplicate/collision messages that depend on the mode being unambiguous.
 		if rule.LabelKey != "" && rule.Match != "" {

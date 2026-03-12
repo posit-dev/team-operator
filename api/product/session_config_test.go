@@ -125,6 +125,13 @@ func TestValidateDynamicLabelRules(t *testing.T) {
 		require.Nil(t, err)
 	})
 
+	t.Run("rejects empty field", func(t *testing.T) {
+		err := ValidateDynamicLabelRules([]DynamicLabelRule{
+			{Field: "", LabelKey: "session.posit.team/user"},
+		})
+		require.ErrorContains(t, err, "field must not be empty")
+	})
+
 	t.Run("rejects labelKey and match both set", func(t *testing.T) {
 		err := ValidateDynamicLabelRules([]DynamicLabelRule{
 			{Field: "user", LabelKey: "foo", Match: "bar", LabelPrefix: "baz"},
