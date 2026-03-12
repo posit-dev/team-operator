@@ -128,7 +128,9 @@ spec:
         {{- range $match := $matches }}
         {{- $suffix := trimPrefix ($rule.trimPrefix | default "") $match | lower | regexReplaceAll "[^a-zA-Z0-9._-]" "_" | regexReplaceAll "_{2,}" "_" | trunc $maxSuffix | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}
         {{- $computedKey := printf "%s%s" $rule.labelPrefix $suffix }}
-        {{- /* must match reservedOperatorAnnotationKey in session_config.go */ -}}
+        {{- /* Guard: the cap-reached indicator is an annotation (see line ~96), but a regex rule
+               could theoretically produce a label with the same key. Skip it here to avoid
+               shadowing the annotation. Must match reservedOperatorAnnotationKey in session_config.go. */ -}}
         {{- if and (ne $suffix "") (ne $computedKey "posit.team/dynamic-label-cap-reached") }}
         {{ $computedKey }}: {{ $rule.labelValue | default "true" | quote }}
         {{- end }}
