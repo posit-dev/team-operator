@@ -2,6 +2,8 @@
 # DO NOT MODIFY the "Version: " key
 # Helm Version: v1
 {{- $templateData := include "rstudio-library.templates.data" nil | mustFromJson }}
+{{- /* Convert .Job to a map so hasKey/index work regardless of whether the launcher passes a struct or map */ -}}
+{{- $jobMap := .Job | toJson | mustFromJson }}
 {{- /* Dynamic labels — see api/templates/job_tpl_test.go for isolated tests (including regexReplaceAll argument-order mock) */ -}}
 {{- $capStatus := dict }}
 {{- $matchCache := dict }}
@@ -9,8 +11,8 @@
 {{- /* Phase 1: pre-compute regex matches only. Direct-mapping rules (labelKey) don't need caching — they render inline in phase 2. */ -}}
 {{- with $templateData.pod.dynamicLabels }}
 {{- range $i, $rule := . }}
-{{- if and (hasKey $.Job $rule.field) $rule.match }}
-{{- $val := index $.Job $rule.field }}
+{{- if and (hasKey $jobMap $rule.field) $rule.match }}
+{{- $val := index $jobMap $rule.field }}
 {{- $str := (kindIs "slice" $val) | ternary ($val | join " ") ($val | toString) }}
 {{- $matches := regexFindAll $rule.match $str -1 }}
 {{- /* Deduplicate matches so duplicates don't consume cap budget */ -}}
@@ -110,8 +112,8 @@ spec:
         {{- end }}
         {{- with $templateData.pod.dynamicLabels }}
         {{- range $i, $rule := . }}
-        {{- if hasKey $.Job $rule.field }}
-        {{- $val := index $.Job $rule.field }}
+        {{- if hasKey $jobMap $rule.field }}
+        {{- $val := index $jobMap $rule.field }}
         {{- if $rule.labelKey }}
         {{- /* NOTE: regexReplaceAll uses Helm's arg order (regex, repl, s) — see job_tpl_test.go canary test */ -}}
         {{- $labelVal := $val | toString | regexReplaceAll "[^a-zA-Z0-9._-]" "_" | regexReplaceAll "_{2,}" "_" | trunc 63 | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}

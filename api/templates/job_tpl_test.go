@@ -18,13 +18,15 @@ import (
 const dynamicLabelsTemplate = `
 {{- $templateDataJSON := include "rstudio-library.templates.data" nil -}}
 {{- $templateData := $templateDataJSON | mustFromJson -}}
+{{- /* Convert .Job to a map so hasKey/index work regardless of whether the launcher passes a struct or map */ -}}
+{{- $jobMap := .Job | toJson | mustFromJson }}
 {{- $capStatus := dict }}
 {{- $matchCache := dict }}
 {{- $globalTotal := dict "n" 0 }}
 {{- with $templateData.pod.dynamicLabels }}
 {{- range $i, $rule := . }}
-{{- if and (hasKey $.Job $rule.field) $rule.match }}
-{{- $val := index $.Job $rule.field }}
+{{- if and (hasKey $jobMap $rule.field) $rule.match }}
+{{- $val := index $jobMap $rule.field }}
 {{- $str := (kindIs "slice" $val) | ternary ($val | join " ") ($val | toString) }}
 {{- $matches := regexFindAll $rule.match $str -1 }}
 {{- /* Deduplicate matches so duplicates don't consume cap budget */ -}}
@@ -47,8 +49,8 @@ posit.team/dynamic-label-cap-reached: "true"
 {{- end }}
 {{- with $templateData.pod.dynamicLabels }}
 {{- range $i, $rule := . }}
-{{- if hasKey $.Job $rule.field }}
-{{- $val := index $.Job $rule.field }}
+{{- if hasKey $jobMap $rule.field }}
+{{- $val := index $jobMap $rule.field }}
 {{- if $rule.labelKey }}
 {{- $labelVal := $val | toString | regexReplaceAll "[^a-zA-Z0-9._-]" "_" | regexReplaceAll "_{2,}" "_" | trunc 63 | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}
 {{- if ne $labelVal "" }}
