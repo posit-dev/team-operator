@@ -661,6 +661,9 @@ func (r *SiteReconciler) cleanupWorkbench(ctx context.Context, req controllerrun
 // The merge only handles DynamicLabels, Labels, and Annotations; everything
 // else must be set directly on the Workbench CR or via ExperimentalFeatures.
 func unsupportedSitePodFields(pod *product.PodConfig) []string {
+	if pod == nil {
+		return nil
+	}
 	var fields []string
 	if pod.ServiceAccountName != "" {
 		fields = append(fields, "serviceAccountName")

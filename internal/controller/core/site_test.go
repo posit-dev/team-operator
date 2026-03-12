@@ -2111,3 +2111,42 @@ func TestSiteReconciler_SessionConfigMerge_PodLabelsOnlyPreservesOperatorFields(
 	require.Len(t, wb.Spec.SessionConfig.Pod.Env, 1)
 	assert.Equal(t, "MY_VAR", wb.Spec.SessionConfig.Pod.Env[0].Name)
 }
+
+func TestUnsupportedSitePodFields(t *testing.T) {
+	t.Run("nil pod returns nil", func(t *testing.T) {
+		assert.Nil(t, unsupportedSitePodFields(nil))
+	})
+
+	t.Run("empty PodConfig returns nil", func(t *testing.T) {
+		assert.Nil(t, unsupportedSitePodFields(&product.PodConfig{}))
+	})
+
+	t.Run("only supported fields returns nil", func(t *testing.T) {
+		pod := &product.PodConfig{
+			Labels:      map[string]string{"app": "test"},
+			Annotations: map[string]string{"note": "ok"},
+			DynamicLabels: []product.DynamicLabelRule{
+				{Field: "user", LabelKey: "posit.co/user"},
+			},
+		}
+		assert.Nil(t, unsupportedSitePodFields(pod))
+	})
+
+	t.Run("unsupported fields are reported", func(t *testing.T) {
+		pod := &product.PodConfig{
+			ServiceAccountName: "my-sa",
+			Tolerations:        []corev1.Toleration{{Key: "gpu"}},
+			Env:                []corev1.EnvVar{{Name: "FOO", Value: "bar"}},
+			Volumes:            []corev1.Volume{{Name: "data"}},
+			NodeSelector:       map[string]string{"zone": "us-east-1a"},
+		}
+		fields := unsupportedSitePodFields(pod)
+		assert.ElementsMatch(t, []string{
+			"serviceAccountName",
+			"tolerations",
+			"env",
+			"volumes",
+			"nodeSelector",
+		}, fields)
+	})
+}
