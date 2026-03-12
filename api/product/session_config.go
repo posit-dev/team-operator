@@ -96,7 +96,9 @@ type DynamicLabelRule struct {
 	// For array fields (like "args"), elements are joined with spaces before matching.
 	// At runtime, at most 50 matches are applied per rule and 200 across all rules;
 	// excess matches are dropped and a posit.team/dynamic-label-cap-reached annotation
-	// is set on the pod. Matched suffixes are lowercased for use in label keys.
+	// is set on the pod. Rules are evaluated in array order, so earlier rules in the
+	// dynamicLabels list consume cap budget first; later rules may receive fewer or no
+	// matches if the global cap is reached. Matched suffixes are lowercased for use in label keys.
 	// Mutually exclusive with labelKey.
 	// +kubebuilder:validation:MaxLength=256
 	Match string `json:"match,omitempty"`
