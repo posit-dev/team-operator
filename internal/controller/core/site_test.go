@@ -2134,11 +2134,12 @@ func TestUnsupportedSitePodFields(t *testing.T) {
 
 	t.Run("unsupported fields are reported", func(t *testing.T) {
 		pod := &product.PodConfig{
-			ServiceAccountName: "my-sa",
-			Tolerations:        []corev1.Toleration{{Key: "gpu"}},
-			Env:                []corev1.EnvVar{{Name: "FOO", Value: "bar"}},
-			Volumes:            []corev1.Volume{{Name: "data"}},
-			NodeSelector:       map[string]string{"zone": "us-east-1a"},
+			ServiceAccountName:       "my-sa",
+			Tolerations:              []corev1.Toleration{{Key: "gpu"}},
+			Env:                      []corev1.EnvVar{{Name: "FOO", Value: "bar"}},
+			Volumes:                  []corev1.Volume{{Name: "data"}},
+			NodeSelector:             map[string]string{"zone": "us-east-1a"},
+			ContainerSecurityContext: corev1.SecurityContext{Privileged: ptr.To(true)},
 		}
 		fields := unsupportedSitePodFields(pod)
 		assert.ElementsMatch(t, []string{
@@ -2147,6 +2148,7 @@ func TestUnsupportedSitePodFields(t *testing.T) {
 			"env",
 			"volumes",
 			"nodeSelector",
+			"containerSecurityContext",
 		}, fields)
 	})
 }
