@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 	"testing"
 	"text/template"
@@ -53,7 +52,12 @@ posit.team/dynamic-label-cap-reached: "true"
 {{- if hasKey $jobMap $rule.field }}
 {{- $val := index $jobMap $rule.field }}
 {{- if $rule.labelKey }}
-{{- $labelVal := $val | toString | regexReplaceAll "[^a-zA-Z0-9._-]" "_" | regexReplaceAll "_{2,}" "_" | trunc 63 | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}
+{{- /* regexReplaceAll uses Sprig arg order: (regex, source, replacement). Do NOT pipe into it. */ -}}
+{{- $labelVal := regexReplaceAll "[^a-zA-Z0-9._-]" ($val | toString) "_" }}
+{{- $labelVal = regexReplaceAll "_{2,}" $labelVal "_" }}
+{{- $labelVal = $labelVal | trunc 63 }}
+{{- $labelVal = regexReplaceAll "[^a-zA-Z0-9]+$" $labelVal "" }}
+{{- $labelVal = regexReplaceAll "^[^a-zA-Z0-9]+" $labelVal "" }}
 {{- if ne $labelVal "" }}
 {{ $rule.labelKey }}: {{ $labelVal | quote }}
 {{- end }}
@@ -63,7 +67,12 @@ posit.team/dynamic-label-cap-reached: "true"
 {{- /* Go validation (ValidateDynamicLabelRules) enforces namePrefix < 53 chars, so $maxSuffix is always > 0. */ -}}
 {{- $maxSuffix := int (sub 63 (len $namePrefix)) }}
 {{- range $match := $matches }}
-{{- $suffix := trimPrefix ($rule.trimPrefix | default "") $match | lower | regexReplaceAll "[^a-zA-Z0-9._-]" "_" | regexReplaceAll "_{2,}" "_" | trunc $maxSuffix | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}
+{{- $suffix := trimPrefix ($rule.trimPrefix | default "") $match | lower }}
+{{- $suffix = regexReplaceAll "[^a-zA-Z0-9._-]" $suffix "_" }}
+{{- $suffix = regexReplaceAll "_{2,}" $suffix "_" }}
+{{- $suffix = $suffix | trunc $maxSuffix }}
+{{- $suffix = regexReplaceAll "[^a-zA-Z0-9]+$" $suffix "" }}
+{{- $suffix = regexReplaceAll "^[^a-zA-Z0-9]+" $suffix "" }}
 {{- $computedKey := printf "%s%s" $rule.labelPrefix $suffix }}
 {{- /* must match reservedOperatorAnnotationKey in session_config.go */ -}}
 {{- if and (ne $suffix "") (ne $computedKey "posit.team/dynamic-label-cap-reached") }}
@@ -76,8 +85,8 @@ posit.team/dynamic-label-cap-reached: "true"
 {{- end }}`
 
 // renderDynamicLabels renders the dynamic labels template block with the given
-// session config (templateData) and Job data. Uses Helm-compatible regexReplaceAll
-// argument order (regex, repl, s) where the piped value is the source string.
+// session config (templateData) and Job data. Uses Sprig's native regexReplaceAll
+// argument order (regex, s, repl) — the template uses explicit args, not piping.
 func renderDynamicLabels(t *testing.T, templateData map[string]any, jobData map[string]any) string {
 	t.Helper()
 
@@ -89,18 +98,8 @@ func renderDynamicLabels(t *testing.T, templateData map[string]any, jobData map[
 	tmpl := template.New("gotpl")
 	f := TemplateFuncMap(tmpl)
 	f = AddOnFuncMap(tmpl, f)
-	// Override regexReplaceAll to match Helm's pipeline-friendly argument order.
-	// Sprig: regexReplaceAll(regex, s, repl) — piped value becomes repl.
-	// Helm:  regexReplaceAll(regex, repl, s) — piped value becomes s (source).
-	// NOTE: If upgrading Helm/Sprig, verify that the production argument order still
-	// matches this mock — otherwise tests will pass against a stale signature.
-	// TODO: These Go tests exercise a mocked argument order, not the real Helm rendering
-	// pipeline. Consider adding an integration test that renders through `helm template`
-	// to validate the actual end-to-end rendering path.
-	f["regexReplaceAll"] = func(regex string, repl string, s string) string {
-		r := regexp.MustCompile(regex)
-		return r.ReplaceAllString(s, repl)
-	}
+	// No regexReplaceAll override needed — the template now uses Sprig's native
+	// argument order (regex, source, replacement) with explicit args instead of piping.
 	tmpl.Funcs(f)
 
 	_, err = tmpl.Parse(mockDataDefine + "\n" + dynamicLabelsTemplate)
@@ -118,9 +117,9 @@ func renderDynamicLabels(t *testing.T, templateData map[string]any, jobData map[
 }
 
 // TestCanary_SprigRegexReplaceAllOrder verifies that Sprig's regexReplaceAll
-// still uses (regex, s, repl) order, which differs from Helm's (regex, repl, s).
-// Our mock in renderDynamicLabels overrides to Helm's order. If Sprig ever changes
-// to match Helm, this canary will fire and the mock override can be removed.
+// still uses (regex, s, repl) order. Our template uses explicit args matching
+// this order. If Sprig ever changes to Helm's order (regex, repl, s), the
+// template's explicit calls would break and need updating.
 func TestCanary_SprigRegexReplaceAllOrder(t *testing.T) {
 	tmpl := template.New("canary")
 	f := TemplateFuncMap(tmpl)
@@ -130,12 +129,10 @@ func TestCanary_SprigRegexReplaceAllOrder(t *testing.T) {
 	fn, ok := prodFn.(func(string, string, string) string)
 	require.True(t, ok, "regexReplaceAll should be func(string, string, string) string")
 
-	// With Sprig order (regex, s, repl): fn("h", "world", "hello") → replace "h" in "world" → "world" (no match)
-	// With Helm  order (regex, repl, s): fn("h", "world", "hello") → replace "h" in "hello" → "worldello"
-	result := fn("h", "world", "hello")
-	if result == "worldello" {
-		t.Fatalf("Sprig regexReplaceAll now uses Helm's argument order — remove the mock override in renderDynamicLabels")
-	}
+	// With Sprig order (regex, s, repl): fn("h", "hello", "world") → replace "h" in "hello" → "worldello"
+	// If Sprig changes order, this assertion will fail.
+	result := fn("h", "hello", "world")
+	assert.Equal(t, "worldello", result, "Sprig regexReplaceAll order changed — template explicit args need updating")
 }
 
 // TestDynamicLabelsTemplate_DriftDetection verifies that the dynamicLabelsTemplate
@@ -156,8 +153,8 @@ func TestDynamicLabelsTemplate_DriftDetection(t *testing.T) {
 		{"per-rule cap", "slice $matches 0 50"},
 		{"global cap", "sub 200"},
 		{"raw match cap", "regexFindAll $rule.match $str 500"},
-		{"sanitize non-alnum", `regexReplaceAll "[^a-zA-Z0-9._-]" "_"`},
-		{"collapse underscores", `regexReplaceAll "_{2,}" "_"`},
+		{"sanitize non-alnum", `regexReplaceAll "[^a-zA-Z0-9._-]"`},
+		{"collapse underscores", `regexReplaceAll "_{2,}"`},
 		{"reserved key guard", `posit.team/dynamic-label-cap-reached`},
 		{"dedup seen dict", "$seen := dict"},
 		{"global total dict", `$globalTotal := dict "n" 0`},

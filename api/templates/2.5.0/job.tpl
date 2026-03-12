@@ -116,8 +116,12 @@ spec:
         {{- if hasKey $jobMap $rule.field }}
         {{- $val := index $jobMap $rule.field }}
         {{- if $rule.labelKey }}
-        {{- /* NOTE: regexReplaceAll uses Helm's arg order (regex, repl, s) — see job_tpl_test.go canary test */ -}}
-        {{- $labelVal := $val | toString | regexReplaceAll "[^a-zA-Z0-9._-]" "_" | regexReplaceAll "_{2,}" "_" | trunc 63 | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}
+        {{- /* regexReplaceAll uses Sprig arg order: (regex, source, replacement). Do NOT pipe into it — the piped value becomes the replacement, not the source. */ -}}
+        {{- $labelVal := regexReplaceAll "[^a-zA-Z0-9._-]" ($val | toString) "_" }}
+        {{- $labelVal = regexReplaceAll "_{2,}" $labelVal "_" }}
+        {{- $labelVal = $labelVal | trunc 63 }}
+        {{- $labelVal = regexReplaceAll "[^a-zA-Z0-9]+$" $labelVal "" }}
+        {{- $labelVal = regexReplaceAll "^[^a-zA-Z0-9]+" $labelVal "" }}
         {{- if ne $labelVal "" }}
         {{ $rule.labelKey }}: {{ $labelVal | quote }}
         {{- end }}
@@ -127,7 +131,12 @@ spec:
         {{- /* Go validation (ValidateDynamicLabelRules) enforces namePrefix < 53 chars, so $maxSuffix is always > 0. */ -}}
         {{- $maxSuffix := int (sub 63 (len $namePrefix)) }}
         {{- range $match := $matches }}
-        {{- $suffix := trimPrefix ($rule.trimPrefix | default "") $match | lower | regexReplaceAll "[^a-zA-Z0-9._-]" "_" | regexReplaceAll "_{2,}" "_" | trunc $maxSuffix | regexReplaceAll "[^a-zA-Z0-9]+$" "" | regexReplaceAll "^[^a-zA-Z0-9]+" "" }}
+        {{- $suffix := trimPrefix ($rule.trimPrefix | default "") $match | lower }}
+        {{- $suffix = regexReplaceAll "[^a-zA-Z0-9._-]" $suffix "_" }}
+        {{- $suffix = regexReplaceAll "_{2,}" $suffix "_" }}
+        {{- $suffix = $suffix | trunc $maxSuffix }}
+        {{- $suffix = regexReplaceAll "[^a-zA-Z0-9]+$" $suffix "" }}
+        {{- $suffix = regexReplaceAll "^[^a-zA-Z0-9]+" $suffix "" }}
         {{- $computedKey := printf "%s%s" $rule.labelPrefix $suffix }}
         {{- /* Guard: a regex rule could theoretically produce a label whose key matches the
                operator's cap-reached annotation key (see annotations block above). Labels and
