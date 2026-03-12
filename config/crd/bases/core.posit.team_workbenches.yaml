@@ -2102,6 +2102,9 @@ spec:
                         description: |-
                           DynamicLabels defines rules for generating pod labels from runtime session data.
                           Requires template version 2.5.0 or later; ignored by older templates.
+                          Any product using a 2.5.0+ template will render these labels, but the Site CRD merge
+                          path only wires dynamicLabels for Workbench (via workbench.sessionConfig). To use
+                          dynamicLabels with Connect, set them directly on the Connect CR's sessionConfig.
                         items:
                           description: |-
                             DynamicLabelRule defines a rule for generating pod labels from runtime session data.
@@ -2123,8 +2126,8 @@ spec:
                                 Mutually exclusive with match/labelPrefix.
                                 Field values are sanitized for use as label values: non-alphanumeric characters
                                 (except . - _) are replaced with underscores, then truncated to 63 characters with
-                                leading/trailing non-alphanumeric characters stripped. Long values with special
-                                characters near the truncation boundary may lose trailing segments.
+                                leading/trailing non-alphanumeric characters stripped. Case is preserved in label
+                                values (unlike regex mode suffixes, which are lowercased since they form label keys).
                                 MaxLength = 253 (optional DNS prefix) + 1 (/) + 63 (name) = 317
                               maxLength: 317
                               type: string
@@ -2144,8 +2147,11 @@ spec:
                               description: |-
                                 Match is a regex pattern applied to the field value. Each match produces a label.
                                 For array fields (like "args"), elements are joined with spaces before matching.
-                                At runtime, at most 50 matches are applied per rule; excess matches are dropped and a
-                                posit.team/dynamic-label-cap-reached annotation is set on the pod.
+                                At runtime, at most 50 matches are applied per rule and 200 across all rules;
+                                excess matches are dropped and a posit.team/dynamic-label-cap-reached annotation
+                                is set on the pod. Rules are evaluated in array order, so earlier rules in the
+                                dynamicLabels list consume cap budget first; later rules may receive fewer or no
+                                matches if the global cap is reached. Matched suffixes are lowercased for use in label keys.
                                 Mutually exclusive with labelKey.
                               maxLength: 256
                               type: string
