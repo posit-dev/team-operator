@@ -163,16 +163,17 @@ func ValidateDynamicLabelRules(rules []DynamicLabelRule) error {
 	seenKeys := map[string]bool{}
 	seenPrefixes := map[string]bool{}
 	// Collect direct-mapping labelKeys for cross-mode collision check.
+	// Also reject empty fields early so callers see the clearest error first.
 	directKeys := map[string]int{}
 	for i, rule := range rules {
+		if rule.Field == "" {
+			return fmt.Errorf("dynamicLabels[%d]: field must not be empty", i)
+		}
 		if rule.LabelKey != "" {
 			directKeys[rule.LabelKey] = i
 		}
 	}
 	for i, rule := range rules {
-		if rule.Field == "" {
-			return fmt.Errorf("dynamicLabels[%d]: field must not be empty", i)
-		}
 		// Check structural validity first so users see fundamental errors before
 		// duplicate/collision messages that depend on the mode being unambiguous.
 		if rule.LabelKey != "" && rule.Match != "" {
