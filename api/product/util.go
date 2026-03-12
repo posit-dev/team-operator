@@ -69,6 +69,12 @@ func LabelMerge(m1 map[string]string, m2 map[string]string) map[string]string {
 	if m1 == nil && m2 == nil {
 		return make(map[string]string)
 	}
+	if m2 == nil {
+		return maps.Clone(m1)
+	}
+	if m1 == nil {
+		return maps.Clone(m2)
+	}
 	out := make(map[string]string, len(m1)+len(m2))
 	for k, v := range m1 {
 		out[k] = v
