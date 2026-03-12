@@ -708,5 +708,11 @@ func unsupportedSitePodFields(pod *product.PodConfig) []string {
 	if !reflect.DeepEqual(pod.ContainerSecurityContext, v12.SecurityContext{}) {
 		fields = append(fields, "containerSecurityContext")
 	}
+	if !reflect.DeepEqual(pod.DefaultSecurityContext, v12.SecurityContext{}) {
+		fields = append(fields, "defaultSecurityContext")
+	}
+	if !reflect.DeepEqual(pod.SecurityContext, v12.SecurityContext{}) {
+		fields = append(fields, "securityContext")
+	}
 	return fields
 }

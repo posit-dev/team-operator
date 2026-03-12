@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/posit-dev/team-operator/api/core/v1beta1"
@@ -2151,4 +2152,45 @@ func TestUnsupportedSitePodFields(t *testing.T) {
 			"containerSecurityContext",
 		}, fields)
 	})
+}
+
+// TestUnsupportedSitePodFieldsDrift uses reflection to ensure that every PodConfig
+// field is either merged by the Site → Workbench path or checked by unsupportedSitePodFields.
+// If a new field is added to PodConfig, this test will fail until the field is accounted for.
+func TestUnsupportedSitePodFieldsDrift(t *testing.T) {
+	// Fields that are merged during Site → Workbench reconciliation (not "unsupported").
+	mergedFields := map[string]bool{
+		"Labels":        true,
+		"Annotations":   true,
+		"DynamicLabels": true,
+	}
+	// Fields that unsupportedSitePodFields checks (the "unsupported" set).
+	// Keep this in sync with the field-by-field checks in unsupportedSitePodFields.
+	checkedFields := map[string]bool{
+		"ServiceAccountName":       true,
+		"Volumes":                  true,
+		"VolumeMounts":             true,
+		"Env":                      true,
+		"ImagePullPolicy":          true,
+		"ImagePullSecrets":         true,
+		"InitContainers":           true,
+		"ExtraContainers":          true,
+		"ContainerSecurityContext": true,
+		"DefaultSecurityContext":   true,
+		"SecurityContext":          true,
+		"Tolerations":              true,
+		"Affinity":                 true,
+		"NodeSelector":             true,
+		"PriorityClassName":        true,
+		"Command":                  true,
+	}
+
+	typ := reflect.TypeOf(product.PodConfig{})
+	for i := 0; i < typ.NumField(); i++ {
+		name := typ.Field(i).Name
+		if mergedFields[name] || checkedFields[name] {
+			continue
+		}
+		t.Errorf("PodConfig field %q is not accounted for in unsupportedSitePodFields or the merged-fields set — add it to one of them", name)
+	}
 }
