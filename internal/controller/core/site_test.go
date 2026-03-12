@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/posit-dev/team-operator/api/core/v1beta1"
@@ -2158,39 +2159,48 @@ func TestUnsupportedSitePodFields(t *testing.T) {
 // field is either merged by the Site → Workbench path or checked by unsupportedSitePodFields.
 // If a new field is added to PodConfig, this test will fail until the field is accounted for.
 func TestUnsupportedSitePodFieldsDrift(t *testing.T) {
-	// Fields that are merged during Site → Workbench reconciliation (not "unsupported").
-	mergedFields := map[string]bool{
-		"Labels":        true,
-		"Annotations":   true,
-		"DynamicLabels": true,
+	mergedTags := map[string]bool{
+		"labels":        true,
+		"annotations":   true,
+		"dynamicLabels": true,
 	}
-	// Fields that unsupportedSitePodFields checks (the "unsupported" set).
-	// Keep this in sync with the field-by-field checks in unsupportedSitePodFields.
-	checkedFields := map[string]bool{
-		"ServiceAccountName":       true,
-		"Volumes":                  true,
-		"VolumeMounts":             true,
-		"Env":                      true,
-		"ImagePullPolicy":          true,
-		"ImagePullSecrets":         true,
-		"InitContainers":           true,
-		"ExtraContainers":          true,
-		"ContainerSecurityContext": true,
-		"DefaultSecurityContext":   true,
-		"SecurityContext":          true,
-		"Tolerations":              true,
-		"Affinity":                 true,
-		"NodeSelector":             true,
-		"PriorityClassName":        true,
-		"Command":                  true,
+
+	// Call the function with every field set to a non-zero value so the checked
+	// set is derived from actual function behaviour, not a hand-maintained list.
+	fullyPopulated := product.PodConfig{
+		Labels:                   map[string]string{"k": "v"},
+		Annotations:              map[string]string{"k": "v"},
+		DynamicLabels:            []product.DynamicLabelRule{{}},
+		ServiceAccountName:       "x",
+		Volumes:                  []corev1.Volume{{}},
+		VolumeMounts:             []corev1.VolumeMount{{}},
+		Env:                      []corev1.EnvVar{{}},
+		ImagePullPolicy:          "Always",
+		ImagePullSecrets:         []corev1.LocalObjectReference{{}},
+		InitContainers:           []corev1.Container{{}},
+		ExtraContainers:          []corev1.Container{{}},
+		ContainerSecurityContext: corev1.SecurityContext{Privileged: ptr.To(true)},
+		DefaultSecurityContext:   corev1.SecurityContext{Privileged: ptr.To(true)},
+		SecurityContext:          corev1.SecurityContext{Privileged: ptr.To(true)},
+		Tolerations:              []corev1.Toleration{{}},
+		Affinity:                 &corev1.Affinity{},
+		NodeSelector:             map[string]string{"k": "v"},
+		PriorityClassName:        "x",
+		Command:                  []string{"x"},
+	}
+	reported := unsupportedSitePodFields(&fullyPopulated)
+
+	checkedTags := map[string]bool{}
+	for _, tag := range reported {
+		checkedTags[tag] = true
 	}
 
 	typ := reflect.TypeOf(product.PodConfig{})
 	for i := 0; i < typ.NumField(); i++ {
-		name := typ.Field(i).Name
-		if mergedFields[name] || checkedFields[name] {
+		jsonTag := strings.Split(typ.Field(i).Tag.Get("json"), ",")[0]
+		if mergedTags[jsonTag] || checkedTags[jsonTag] {
 			continue
 		}
-		t.Errorf("PodConfig field %q is not accounted for in unsupportedSitePodFields or the merged-fields set — add it to one of them", name)
+		t.Errorf("PodConfig field %q (json:%q) is not detected by unsupportedSitePodFields and is not in the merged-fields set — add a check to unsupportedSitePodFields or add it to mergedTags", typ.Field(i).Name, jsonTag)
 	}
 }
