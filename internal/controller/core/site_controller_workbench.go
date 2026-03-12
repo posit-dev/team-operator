@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -705,13 +704,13 @@ func unsupportedSitePodFields(pod *product.PodConfig) []string {
 	if len(pod.Command) > 0 {
 		fields = append(fields, "command")
 	}
-	if !reflect.DeepEqual(pod.ContainerSecurityContext, v12.SecurityContext{}) {
+	if pod.ContainerSecurityContext != (v12.SecurityContext{}) {
 		fields = append(fields, "containerSecurityContext")
 	}
-	if !reflect.DeepEqual(pod.DefaultSecurityContext, v12.SecurityContext{}) {
+	if pod.DefaultSecurityContext != (v12.SecurityContext{}) {
 		fields = append(fields, "defaultSecurityContext")
 	}
-	if !reflect.DeepEqual(pod.SecurityContext, v12.SecurityContext{}) {
+	if pod.SecurityContext != (v12.SecurityContext{}) {
 		fields = append(fields, "securityContext")
 	}
 	return fields
