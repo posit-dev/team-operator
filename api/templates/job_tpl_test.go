@@ -138,6 +138,39 @@ func TestCanary_SprigRegexReplaceAllOrder(t *testing.T) {
 	}
 }
 
+// TestDynamicLabelsTemplate_DriftDetection verifies that the dynamicLabelsTemplate
+// test constant has not drifted from the actual job.tpl. It checks that critical
+// template snippets (cap values, sanitization regexes, guard conditions) appear in
+// both the test constant and the embedded template file.
+func TestDynamicLabelsTemplate_DriftDetection(t *testing.T) {
+	actual := jobTpl // embedded via //go:embed 2.5.0/job.tpl in template_helpers.go
+
+	// Critical snippets that must appear in both the test template and job.tpl.
+	// If any snippet is missing from either, the test and production template have diverged.
+	snippets := []struct {
+		name    string
+		snippet string
+	}{
+		{"per-rule cap", "slice $matches 0 50"},
+		{"global cap", "sub 200"},
+		{"raw match cap", "regexFindAll $rule.match $str 500"},
+		{"sanitize non-alnum", `regexReplaceAll "[^a-zA-Z0-9._-]" "_"`},
+		{"collapse underscores", `regexReplaceAll "_{2,}" "_"`},
+		{"reserved key guard", `posit.team/dynamic-label-cap-reached`},
+		{"dedup seen dict", "$seen := dict"},
+		{"global total dict", `$globalTotal := dict "n" 0`},
+	}
+
+	for _, s := range snippets {
+		t.Run(s.name, func(t *testing.T) {
+			assert.Contains(t, dynamicLabelsTemplate, s.snippet,
+				"snippet missing from test template constant — update dynamicLabelsTemplate to match job.tpl")
+			assert.Contains(t, actual, s.snippet,
+				"snippet missing from job.tpl — update job.tpl to match dynamicLabelsTemplate")
+		})
+	}
+}
+
 func TestJobTemplate_DynamicLabels_DirectMapping(t *testing.T) {
 	t.Run("renders direct mapping label from string field", func(t *testing.T) {
 		templateData := map[string]any{

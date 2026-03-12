@@ -15,6 +15,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func (r *SiteReconciler) reconcileWorkbench(
@@ -486,6 +487,14 @@ func (r *SiteReconciler) reconcileWorkbench(
 			if opSC.Pod == nil {
 				opSC.Pod = &product.PodConfig{}
 			}
+			// Warn if the user set Pod fields that the Site merge does not propagate.
+			if ignored := unsupportedSitePodFields(userSC.Pod); len(ignored) > 0 {
+				log.FromContext(ctx).Info(
+					"Site sessionConfig.pod contains fields that are not propagated to Workbench; "+
+						"set these fields directly on the Workbench CR or use ExperimentalFeatures",
+					"ignoredFields", ignored,
+				)
+			}
 			// DynamicLabels: operator never sets these; take user-provided directly.
 			// DynamicLabelRule is a flat struct (all string fields), so copy is a full deep copy.
 			if len(userSC.Pod.DynamicLabels) > 0 {
@@ -645,4 +654,52 @@ func (r *SiteReconciler) cleanupWorkbench(ctx context.Context, req controllerrun
 	}
 
 	return nil
+}
+
+// unsupportedSitePodFields returns the names of PodConfig fields that are set
+// but not propagated during the Site → Workbench sessionConfig merge.
+// The merge only handles DynamicLabels, Labels, and Annotations; everything
+// else must be set directly on the Workbench CR or via ExperimentalFeatures.
+func unsupportedSitePodFields(pod *product.PodConfig) []string {
+	var fields []string
+	if pod.ServiceAccountName != "" {
+		fields = append(fields, "serviceAccountName")
+	}
+	if len(pod.Volumes) > 0 {
+		fields = append(fields, "volumes")
+	}
+	if len(pod.VolumeMounts) > 0 {
+		fields = append(fields, "volumeMounts")
+	}
+	if len(pod.Env) > 0 {
+		fields = append(fields, "env")
+	}
+	if pod.ImagePullPolicy != "" {
+		fields = append(fields, "imagePullPolicy")
+	}
+	if len(pod.ImagePullSecrets) > 0 {
+		fields = append(fields, "imagePullSecrets")
+	}
+	if len(pod.InitContainers) > 0 {
+		fields = append(fields, "initContainers")
+	}
+	if len(pod.ExtraContainers) > 0 {
+		fields = append(fields, "extraContainers")
+	}
+	if len(pod.Tolerations) > 0 {
+		fields = append(fields, "tolerations")
+	}
+	if pod.Affinity != nil {
+		fields = append(fields, "affinity")
+	}
+	if len(pod.NodeSelector) > 0 {
+		fields = append(fields, "nodeSelector")
+	}
+	if pod.PriorityClassName != "" {
+		fields = append(fields, "priorityClassName")
+	}
+	if len(pod.Command) > 0 {
+		fields = append(fields, "command")
+	}
+	return fields
 }
