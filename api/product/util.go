@@ -67,7 +67,7 @@ func DetermineMinAvailableReplicas(replicas int) int {
 // values winning on key collisions. It does not mutate either input map.
 func LabelMerge(m1 map[string]string, m2 map[string]string) map[string]string {
 	if m1 == nil && m2 == nil {
-		return make(map[string]string)
+		return nil
 	}
 	if m2 == nil {
 		return maps.Clone(m1)
