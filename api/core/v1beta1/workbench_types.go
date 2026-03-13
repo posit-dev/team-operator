@@ -25,6 +25,11 @@ const MaxLoginPageHtmlSize = 64 * 1024
 
 // WorkbenchSpec defines the desired state of Workbench
 type WorkbenchSpec struct {
+	// Suspended indicates Workbench should not run serving resources (Deployment, Service, Ingress)
+	// but should preserve data resources (PVC, database, secrets). Set by the Site controller.
+	// +optional
+	Suspended *bool `json:"suspended,omitempty"`
+
 	License       product.LicenseSpec    `json:"license,omitempty"`
 	Config        WorkbenchConfig        `json:"config,omitempty"`
 	SecretConfig  WorkbenchSecretConfig  `json:"secretConfig,omitempty"`
@@ -131,6 +136,8 @@ type WorkbenchSpec struct {
 
 // WorkbenchStatus defines the observed state of Workbench
 type WorkbenchStatus struct {
+	CommonProductStatus `json:",inline"`
+	// +optional
 	Ready        bool                   `json:"ready"`
 	KeySecretRef corev1.SecretReference `json:"keySecretRef,omitempty"`
 }
@@ -138,6 +145,9 @@ type WorkbenchStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:shortName={wb,wbs},path=workbenches,singular=workbench
+//+kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=='Ready')].status`
+//+kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.status.version`
+//+kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 //+genclient
 //+k8s:openapi-gen=true
 

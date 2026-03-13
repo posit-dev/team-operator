@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -93,5 +94,6 @@ func (r *ConnectReconciler) GetLogger(ctx context.Context) logr.Logger {
 func (r *ConnectReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&positcov1beta1.Connect{}).
+		Owns(&appsv1.Deployment{}).
 		Complete(r)
 }

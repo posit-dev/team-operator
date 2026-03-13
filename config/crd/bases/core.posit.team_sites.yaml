@@ -14,7 +14,14 @@ spec:
     singular: site
   scope: Namespaced
   versions:
-  - name: v1beta1
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1beta1
     schema:
       openAPIV3Schema:
         description: Site is the Schema for the sites API
@@ -52,6 +59,13 @@ spec:
                     type: object
                   agentImage:
                     type: string
+                  enabled:
+                    default: true
+                    description: |-
+                      Enabled controls whether Chronicle is running. Defaults to true.
+                      Setting to false suspends Chronicle: stops the StatefulSet and removes the service.
+                      Re-enabling restores full service.
+                    type: boolean
                   image:
                     type: string
                   imagePullPolicy:
@@ -64,6 +78,13 @@ spec:
                     type: object
                   s3Bucket:
                     type: string
+                  teardown:
+                    default: false
+                    description: |-
+                      Teardown permanently destroys all Chronicle resources.
+                      Only takes effect when Enabled is false.
+                      Re-enabling after teardown starts fresh.
+                    type: boolean
                 type: object
               clusterDate:
                 description: ClusterDate is the date id (YYYYmmdd) for the cluster.
@@ -724,6 +745,14 @@ spec:
                   domainPrefix:
                     default: packagemanager
                     type: string
+                  enabled:
+                    default: true
+                    description: |-
+                      Enabled controls whether Package Manager is running. Defaults to true.
+                      Setting to false suspends Package Manager: stops pods and removes ingress/service,
+                      but preserves PVC, database, and secrets so data is retained.
+                      Re-enabling restores full service without data loss.
+                    type: boolean
                   gitSSHKeys:
                     description: |-
                       GitSSHKeys defines SSH key configurations for Git authentication in Package Manager
@@ -840,6 +869,13 @@ spec:
                     type: integer
                   s3Bucket:
                     type: string
+                  teardown:
+                    default: false
+                    description: |-
+                      Teardown permanently destroys all Package Manager resources including the database,
+                      secrets, and persistent volume claim. Only takes effect when Enabled is false.
+                      Re-enabling after teardown starts fresh with a new empty database.
+                    type: boolean
                   volume:
                     description: VolumeSpec is a specification for a PersistentVolumeClaim
                       to be created (and/or mounted)
@@ -1159,6 +1195,14 @@ spec:
                   domainPrefix:
                     default: workbench
                     type: string
+                  enabled:
+                    default: true
+                    description: |-
+                      Enabled controls whether Workbench is running. Defaults to true.
+                      Setting to false suspends Workbench: stops pods and removes ingress/service,
+                      but preserves PVC, database, and secrets so data is retained.
+                      Re-enabling restores full service without data loss.
+                    type: boolean
                   experimentalFeatures:
                     description: ExperimentalFeatures allows enabling miscellaneous
                       experimental features for workbench
@@ -1600,6 +1644,13 @@ spec:
                       clientId:
                         type: string
                     type: object
+                  teardown:
+                    default: false
+                    description: |-
+                      Teardown permanently destroys all Workbench resources including the database,
+                      secrets, and persistent volume claim. Only takes effect when Enabled is false.
+                      Re-enabling after teardown starts fresh with a new empty database.
+                    type: boolean
                   tolerations:
                     description: Tolerations that are applied universally to server
                       and sessions
@@ -1718,6 +1769,97 @@ spec:
             type: object
           status:
             description: SiteStatus defines the observed state of Site
+            properties:
+              chronicleReady:
+                description: ChronicleReady indicates whether the Chronicle child
+                  resource is ready.
+                type: boolean
+              conditions:
+                description: Conditions represent the latest available observations
+                  of the resource's current state.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              connectReady:
+                description: ConnectReady indicates whether the Connect child resource
+                  is ready.
+                type: boolean
+              flightdeckReady:
+                description: FlightdeckReady indicates whether the Flightdeck child
+                  resource is ready.
+                type: boolean
+              observedGeneration:
+                description: |-
+                  ObservedGeneration is the most recent generation observed for this resource.
+                  It corresponds to the resource's generation, which is updated on mutation by the API Server.
+                format: int64
+                type: integer
+              packageManagerReady:
+                description: PackageManagerReady indicates whether the PackageManager
+                  child resource is ready.
+                type: boolean
+              version:
+                description: Version is the version of the product image being deployed.
+                type: string
+              workbenchReady:
+                description: WorkbenchReady indicates whether the Workbench child
+                  resource is ready.
+                type: boolean
             type: object
         type: object
     served: true

@@ -93,12 +93,24 @@ help: ## Display this help.
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	# Normalize jsonPath filter quoting: controller-gen emits single quotes, kubectl prefers double
+	$(SED) -i "s/@.type=='Ready'/@.type==\"Ready\"/g" config/crd/bases/core.posit.team_chronicles.yaml config/crd/bases/core.posit.team_connects.yaml config/crd/bases/core.posit.team_flightdecks.yaml config/crd/bases/core.posit.team_packagemanagers.yaml config/crd/bases/core.posit.team_postgresdatabases.yaml config/crd/bases/core.posit.team_sites.yaml config/crd/bases/core.posit.team_workbenches.yaml
+
+.PHONY: copy-crds
+copy-crds: manifests ## Copy generated CRDs to internal/crdapply/bases for embedding.
+	rm -f internal/crdapply/bases/*.yaml
+	cp config/crd/bases/*.yaml internal/crdapply/bases/
+
+.PHONY: verify-crds
+verify-crds: ## Verify that internal/crdapply/bases is in sync with config/crd/bases (fails if stale).
+	@diff -r --exclude='.*' config/crd/bases/ internal/crdapply/bases/ || \
+		(echo "internal/crdapply/bases/ is out of sync — run 'make copy-crds'" && exit 1)
 
 .PHONY: generate-all
 generate-all: generate generate-client generate-openapi
 
 .PHONY: verify-all
-verify-all: verify-apply verify-list verify-inform verify-client
+verify-all: verify-apply verify-list verify-inform verify-client verify-crds
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -177,7 +189,7 @@ test-integration: go-test test-kind ## Run all tests (unit + integration).
 ##@ Build
 
 .PHONY: build
-build: manifests generate-all fmt vet ## Build manager binary.
+build: copy-crds generate-all fmt vet ## Build manager binary.
 	go build -o bin/team-operator ./cmd/team-operator/main.go
 
 .PHONY: docker-build
@@ -239,6 +251,8 @@ helm-generate: manifests kubebuilder ## Regenerate Helm chart from kustomize
 	rm -f dist/chart/templates/rbac/auth_proxy_service.yaml
 	# Remove kubebuilder-generated test workflow - we use our own CI workflows
 	rm -f .github/workflows/test-chart.yml
+	# Normalize jsonPath filter quoting in Helm chart CRDs (matches config/crd/bases fixup above)
+	$(SED) -i "s/@.type=='Ready'/@.type==\"Ready\"/g" dist/chart/templates/crd/core.posit.team_chronicles.yaml dist/chart/templates/crd/core.posit.team_connects.yaml dist/chart/templates/crd/core.posit.team_flightdecks.yaml dist/chart/templates/crd/core.posit.team_packagemanagers.yaml dist/chart/templates/crd/core.posit.team_postgresdatabases.yaml dist/chart/templates/crd/core.posit.team_sites.yaml dist/chart/templates/crd/core.posit.team_workbenches.yaml
 
 .PHONY: helm-lint
 helm-lint: ## Lint the Helm chart

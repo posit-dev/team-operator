@@ -1,6 +1,6 @@
 # Team Operator Architecture
 
-This document provides detailed architecture diagrams and explanations for the Team Operator and its managed products.
+This document covers architecture diagrams and explanations for the Team Operator and its managed products.
 
 ## Table of Contents
 
@@ -16,7 +16,7 @@ This document provides detailed architecture diagrams and explanations for the T
 
 ## System Overview
 
-The Team Operator follows the Kubernetes operator pattern: a Site Custom Resource (CR) serves as the single source of truth, and controllers reconcile the desired state into running Kubernetes resources.
+The Team Operator follows the Kubernetes operator pattern. A Site Custom Resource (CR) is the single source of truth. Controllers reconcile the desired state into running Kubernetes resources.
 
 ```
 User creates Site CR
@@ -43,7 +43,7 @@ Kubernetes resources created (Deployments, Services, Ingress, etc.)
 
 ## Database Architecture
 
-Each Posit Team product requires database storage. The operator provisions separate databases with dedicated users and schemas.
+Each Posit Team product needs database storage. The operator provisions separate databases with dedicated users and schemas.
 
 ```mermaid
 flowchart TB
@@ -91,14 +91,14 @@ flowchart TB
 
 Each product gets a dedicated database user with access only to its own schemas. This provides:
 - **Security isolation**: Products cannot access each other's data
-- **Resource tracking**: Database connections can be attributed to specific products
+- **Resource tracking**: You can attribute database connections to specific products
 - **Independent credentials**: Rotating one product's credentials doesn't affect others
 
 ---
 
 ## Connect Architecture
 
-Posit Connect is a publishing platform for data science content. The operator manages its deployment including off-host content execution.
+Posit Connect is a publishing platform for data science content. The operator manages deployment, including off-host content execution.
 
 ```mermaid
 flowchart TB
@@ -176,7 +176,7 @@ flowchart TB
 
 | Component | Description |
 |-----------|-------------|
-| **Manual Setup** | One-time configuration performed by the administrator before deployment |
+| **Manual Setup** | One-time configuration an administrator performs before deployment |
 | **License** | Posit Connect license file or activation key, stored in a Kubernetes Secret or AWS Secrets Manager |
 | **Auth Client Secret** | OIDC/SAML client credentials for SSO integration (client ID and secret from your IdP) |
 | **Main DB Connection** | PostgreSQL connection string for the external database server |
@@ -186,27 +186,27 @@ flowchart TB
 | Component | Description |
 |-----------|-------------|
 | **Site Controller** | Watches Site CRs and creates product-specific CRs (Connect, Workbench, etc.). Manages shared resources like PersistentVolumes. |
-| **Database Controller** | Creates databases and schemas within the PostgreSQL server. Generates credentials and stores them in Secrets. |
-| **Connect Controller** | Watches Connect CRs and creates all Kubernetes resources needed to run Connect. |
+| **Database Controller** | Creates databases and schemas in the PostgreSQL server. Generates credentials and stores them in Secrets. |
+| **Connect Controller** | Watches Connect CRs and creates all Kubernetes resources Connect needs. |
 
 #### Kubernetes Resources (Green)
 
 | Component | Description |
 |-----------|-------------|
-| **PersistentVolume (PV)** | Cluster-level storage resource representing physical storage (NFS, FSx, Azure NetApp) |
-| **PersistentVolumeClaim (PVC)** | Namespace-scoped claim that binds to a PV. Mounted into the Connect pod for content storage. |
+| **PersistentVolume (PV)** | Cluster-level storage resource that represents physical storage (NFS, FSx, Azure NetApp) |
+| **PersistentVolumeClaim (PVC)** | Namespace-scoped claim that binds to a PV. Mounts into the Connect pod for content storage. |
 | **ConfigMaps** | Connect configuration files (`rstudio-connect.gcfg`) generated from the CR spec |
-| **DB Password Secret** | Auto-generated database credentials created by the Database Controller |
+| **DB Password Secret** | Auto-generated database credentials the Database Controller creates |
 | **Secret Key** | Encryption key for Connect's internal data encryption |
-| **Connect Pod** | The main Connect server container running the publishing platform |
-| **Ingress** | Routes external traffic to the Connect Service based on hostname |
-| **Service** | Kubernetes Service providing stable networking for the Connect Pod |
+| **Connect Pod** | The main Connect server container that runs the publishing platform |
+| **Ingress** | Routes external traffic to the Connect Service by hostname |
+| **Service** | Kubernetes Service that provides stable networking for the Connect Pod |
 
 ### Off-Host Execution
 
-When off-host execution is enabled, Connect runs content (Shiny apps, APIs, reports) in separate Kubernetes Jobs rather than in the main Connect pod. This provides:
+When off-host execution is enabled, Connect runs content (Shiny apps, APIs, reports) in separate Kubernetes Jobs instead of the main Connect pod. This provides:
 - **Resource isolation**: Content processes don't compete with the Connect server
-- **Scalability**: Content can scale independently
+- **Scalability**: Content scales independently
 - **Security**: Content runs with minimal privileges
 
 See the [Connect Configuration Guide](guides/connect-configuration.md) for details.
@@ -215,7 +215,7 @@ See the [Connect Configuration Guide](guides/connect-configuration.md) for detai
 
 ## Workbench Architecture
 
-Posit Workbench provides IDE environments (RStudio, VS Code, Jupyter) for data scientists. The operator manages both the main server and user session pods.
+Posit Workbench provides IDE environments (RStudio, VS Code, Jupyter) for data scientists. The operator manages the main server and user session pods.
 
 ```mermaid
 flowchart TB
@@ -328,28 +328,28 @@ Same as Connect - see [Connect Architecture](#component-descriptions) above.
 
 | Component | Description |
 |-----------|-------------|
-| **PersistentVolume / PVC** | Shared project storage accessible by both the server and all session pods |
+| **PersistentVolume / PVC** | Shared project storage the server and all session pods can access |
 | **Home Directory PVC** | User home directories, mounted into session pods at `/home/{username}` |
-| **ConfigMaps** | Workbench configuration files including `rserver.conf`, `launcher.conf`, and IDE settings |
-| **Job Templates** | Kubernetes Job/Service templates used by the Launcher to create session pods |
-| **Workbench Pod** | The main Workbench server handling authentication, the web UI, and session management |
+| **ConfigMaps** | Workbench configuration files: `rserver.conf`, `launcher.conf`, and IDE settings |
+| **Job Templates** | Kubernetes Job/Service templates the Launcher uses to create session pods |
+| **Workbench Pod** | The main Workbench server that handles authentication, the web UI, and session management |
 | **Ingress / Service** | Network routing for external access to Workbench |
 
 #### Session Infrastructure (Orange)
 
 | Component | Description |
 |-----------|-------------|
-| **Job Launcher** | Component within Workbench that creates Kubernetes Jobs for user sessions |
+| **Job Launcher** | Component in Workbench that creates Kubernetes Jobs for user sessions |
 | **Session Pod** | Individual IDE sessions (RStudio, VS Code, Jupyter) running as Kubernetes Jobs. Each user session gets its own pod with dedicated resources. |
 
 ### Session Lifecycle
 
 1. User logs into Workbench and requests a new session
-2. Job Launcher creates a Kubernetes Job using the configured template
-3. Session Pod starts with the selected IDE and mounts user's home directory
-4. User works in the session; all files are saved to persistent storage
+2. Job Launcher creates a Kubernetes Job from the configured template
+3. Session Pod starts with the selected IDE and mounts the user's home directory
+4. User works in the session. All files save to persistent storage
 5. When the session ends, the Job completes and the Pod is cleaned up
-6. User's work persists in the Home Directory PVC for the next session
+6. The user's work persists in the Home Directory PVC for the next session
 
 ### Storage Architecture
 
@@ -471,10 +471,10 @@ flowchart TB
 
 | Component | Description |
 |-----------|-------------|
-| **S3 Bucket** | AWS S3 storage for package binaries (recommended for AWS deployments) |
-| **Azure Files** | Azure file storage for package binaries (recommended for Azure deployments) |
+| **S3 Bucket** | AWS S3 storage for package binaries (recommended for AWS) |
+| **Azure Files** | Azure file storage for package binaries (recommended for Azure) |
 
-Package Manager can use either cloud storage backend. The choice typically depends on your cloud provider:
+Package Manager can use either cloud storage backend. The choice depends on your cloud provider:
 - **AWS**: Use S3 for best performance and cost
 - **Azure**: Use Azure Files with the CSI driver
 - **On-premises**: Use the local PVC for package storage
@@ -494,7 +494,7 @@ Package Manager can use either cloud storage backend. The choice typically depen
 | **PersistentVolume / PVC** | Local storage for temporary files and cache (when not using cloud storage) |
 | **ConfigMaps** | Package Manager configuration (`rstudio-pm.gcfg`) |
 | **SSH Key Secret** | Mounted SSH keys for Git authentication during package builds |
-| **Package Manager Pod** | The main server handling package requests, sync operations, and builds |
+| **Package Manager Pod** | The main server that handles package requests, sync operations, and builds |
 | **Ingress / Service** | Network routing for package installation requests |
 
 ### Package Storage Options
@@ -519,7 +519,7 @@ See the [Package Manager Configuration Guide](guides/packagemanager-configuratio
 
 ## Flightdeck Architecture
 
-Flightdeck is the landing page and navigation hub for Posit Team deployments. It provides a simple dashboard for users to access the various products.
+Flightdeck is the landing page and navigation hub for Posit Team deployments. It provides a dashboard for users to access the products.
 
 ```mermaid
 flowchart TB
@@ -593,8 +593,8 @@ flowchart TB
 
 | Component | Description |
 |-----------|-------------|
-| **ConfigMap** | Configuration for Flightdeck including enabled features and product URLs |
-| **Flightdeck Pod** | Static web server serving the landing page HTML/CSS/JS |
+| **ConfigMap** | Configuration for Flightdeck: enabled features and product URLs |
+| **Flightdeck Pod** | Static web server that serves the landing page HTML/CSS/JS |
 | **Ingress** | Routes traffic from the base domain to Flightdeck |
 | **Service** | Kubernetes Service for the Flightdeck Pod |
 
@@ -608,7 +608,7 @@ flowchart TB
 
 ### Features
 
-Flightdeck is intentionally simple:
+Flightdeck is simple by design:
 
 - **No database**: Serves static content only
 - **No authentication**: Relies on product-level authentication
@@ -627,7 +627,7 @@ Flightdeck is intentionally simple:
 
 ## Chronicle Architecture
 
-Chronicle is the telemetry and usage tracking service for Posit Team. It collects metrics from Connect and Workbench via sidecar containers.
+Chronicle is the telemetry and usage tracking service for Posit Team. It collects metrics from Connect and Workbench through sidecar containers.
 
 ```mermaid
 flowchart TB
@@ -730,7 +730,7 @@ flowchart TB
 | Component | Description |
 |-----------|-------------|
 | **Connect/Workbench Container** | Main product container that generates usage metrics |
-| **Chronicle Sidecar** | Lightweight agent that collects metrics from the main container and forwards them to the Chronicle service |
+| **Chronicle Sidecar** | Lightweight agent that collects metrics from the main container and forwards them to Chronicle |
 
 #### Telemetry Storage (Light Blue)
 

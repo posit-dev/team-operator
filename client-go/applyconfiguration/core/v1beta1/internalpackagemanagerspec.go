@@ -13,6 +13,8 @@ import (
 // InternalPackageManagerSpecApplyConfiguration represents a declarative configuration of the InternalPackageManagerSpec type for use
 // with apply.
 type InternalPackageManagerSpecApplyConfiguration struct {
+	Enabled             *bool                               `json:"enabled,omitempty"`
+	Teardown            *bool                               `json:"teardown,omitempty"`
 	License             *product.LicenseSpec                `json:"license,omitempty"`
 	Volume              *product.VolumeSpec                 `json:"volume,omitempty"`
 	NodeSelector        map[string]string                   `json:"nodeSelector,omitempty"`
@@ -34,6 +36,22 @@ type InternalPackageManagerSpecApplyConfiguration struct {
 // apply.
 func InternalPackageManagerSpec() *InternalPackageManagerSpecApplyConfiguration {
 	return &InternalPackageManagerSpecApplyConfiguration{}
+}
+
+// WithEnabled sets the Enabled field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Enabled field is set to the value of the last call.
+func (b *InternalPackageManagerSpecApplyConfiguration) WithEnabled(value bool) *InternalPackageManagerSpecApplyConfiguration {
+	b.Enabled = &value
+	return b
+}
+
+// WithTeardown sets the Teardown field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Teardown field is set to the value of the last call.
+func (b *InternalPackageManagerSpecApplyConfiguration) WithTeardown(value bool) *InternalPackageManagerSpecApplyConfiguration {
+	b.Teardown = &value
+	return b
 }
 
 // WithLicense sets the License field in the declarative configuration to the given value

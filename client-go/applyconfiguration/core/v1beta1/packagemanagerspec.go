@@ -13,6 +13,7 @@ import (
 // PackageManagerSpecApplyConfiguration represents a declarative configuration of the PackageManagerSpec type for use
 // with apply.
 type PackageManagerSpecApplyConfiguration struct {
+	Suspended                    *bool                                     `json:"suspended,omitempty"`
 	License                      *product.LicenseSpec                      `json:"license,omitempty"`
 	Config                       *PackageManagerConfigApplyConfiguration   `json:"config,omitempty"`
 	Volume                       *product.VolumeSpec                       `json:"volume,omitempty"`
@@ -44,6 +45,14 @@ type PackageManagerSpecApplyConfiguration struct {
 // apply.
 func PackageManagerSpec() *PackageManagerSpecApplyConfiguration {
 	return &PackageManagerSpecApplyConfiguration{}
+}
+
+// WithSuspended sets the Suspended field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Suspended field is set to the value of the last call.
+func (b *PackageManagerSpecApplyConfiguration) WithSuspended(value bool) *PackageManagerSpecApplyConfiguration {
+	b.Suspended = &value
+	return b
 }
 
 // WithLicense sets the License field in the declarative configuration to the given value

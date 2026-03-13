@@ -52,7 +52,7 @@ jobs:
                 "changelogFile": "CHANGELOG.md"
               }],
               ["@semantic-release/exec", {
-                "prepareCmd": "sed -i 's/version: .*/version: ${nextRelease.version}/' dist/chart/Chart.yaml && sed -i 's/appVersion: .*/appVersion: \"${nextRelease.version}\"/' dist/chart/Chart.yaml"
+                "prepareCmd": "sed -i 's/version: .*/version: v${nextRelease.version}/' dist/chart/Chart.yaml && sed -i 's/appVersion: .*/appVersion: \"v${nextRelease.version}\"/' dist/chart/Chart.yaml"
               }],
               ["@semantic-release/git", {
                 "assets": ["CHANGELOG.md", "dist/chart/Chart.yaml"],
@@ -67,6 +67,52 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx semantic-release
+
+  tag-docker-release:
+    needs: release
+    runs-on: ubuntu-latest
+    if: ${{ needs.release.result == 'success' }}
+    env:
+      DOCKER_HUB_ORG: posit
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Get latest tag
+        id: get-tag
+        run: |
+          git fetch --tags
+          TAG=$(git tag --sort=-version:refname | head -1 || echo "")
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Login to Docker Hub
+        if: steps.get-tag.outputs.tag != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Tag and push release version to Docker Hub
+        if: steps.get-tag.outputs.tag != ''
+        run: |
+          VERSION="${{ steps.get-tag.outputs.tag }}"
+          IMAGE="docker.io/${{ env.DOCKER_HUB_ORG }}/ptd-team-operator"
+          # Pull the latest image
+          docker pull "${IMAGE}:latest"
+          # Tag with the release version (e.g., v1.15.0) to match appVersion
+          docker tag "${IMAGE}:latest" "${IMAGE}:${VERSION}"
+          # Push the release tag
+          docker push "${IMAGE}:${VERSION}"
+
+      - name: Display Docker Hub release tag
+        if: steps.get-tag.outputs.tag != ''
+        run: |
+          echo "### Docker Hub Release Tag" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Tagged and pushed: \`docker.io/${{ env.DOCKER_HUB_ORG }}/ptd-team-operator:${{ steps.get-tag.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
 
   package-helm:
     needs: release
