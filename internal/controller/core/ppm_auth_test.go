@@ -174,6 +174,18 @@ func TestPPMAuthEnvVars(t *testing.T) {
 	require.Equal(t, "/mnt/ppm-auth", envs[1].Value)
 }
 
+func TestEffectiveOIDCAudience(t *testing.T) {
+	require.Equal(t, "sts.amazonaws.com", effectiveOIDCAudience(""))
+	require.Equal(t, "custom-audience", effectiveOIDCAudience("custom-audience"))
+}
+
+func TestPPMAuthTokenExchangeScriptJWTValidation(t *testing.T) {
+	script := PPMAuthTokenExchangeScript()
+	// Verify JWT dot-count validation is present
+	require.Contains(t, script, "DOT_COUNT")
+	require.Contains(t, script, "does not look like a JWT")
+}
+
 func TestSanitizePPMUrl(t *testing.T) {
 	require.Equal(t, "https://ppm.example.com", SanitizePPMUrl("ppm.example.com"))
 	require.Equal(t, "https://ppm.example.com", SanitizePPMUrl("https://ppm.example.com"))

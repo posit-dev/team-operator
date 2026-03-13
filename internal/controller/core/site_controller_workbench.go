@@ -262,7 +262,7 @@ func (r *SiteReconciler) reconcileWorkbench(
 			AuthenticatedRepos:           site.Spec.Workbench.AuthenticatedRepos,
 			PPMAuthImage:                 site.Spec.Workbench.PPMAuthImage,
 			PPMUrl:                       prefixDomain(site.Spec.PackageManager.DomainPrefix, getEffectiveBaseDomain(site.Spec.PackageManager.BaseDomain, site.Spec.Domain), v1beta1.SiteSubDomain),
-			PPMAuthAudience:              site.Spec.OIDCAudience,
+			PPMAuthAudience:              effectiveOIDCAudience(site.Spec.OIDCAudience),
 		},
 	}
 	// potentially enable experimental features

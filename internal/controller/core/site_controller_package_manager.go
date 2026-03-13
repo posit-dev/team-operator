@@ -151,9 +151,8 @@ func (r *SiteReconciler) reconcilePackageManager(
 		// Auto-configure Identity Federation entries based on product flags
 		var idfEntries []v1beta1.PackageManagerIdentityFederationConfig
 		if site.Spec.OIDCIssuerURL != "" {
-			audience := site.Spec.OIDCAudience
-			if audience == "" {
-				audience = "sts.amazonaws.com"
+			audience := effectiveOIDCAudience(site.Spec.OIDCAudience)
+			if site.Spec.OIDCAudience == "" {
 				l.Info("Using default OIDC audience for EKS clusters", "audience", audience, "reason", "OIDCAudience not specified in Site spec")
 			}
 			if site.Spec.Connect.AuthenticatedRepos {
@@ -250,6 +249,15 @@ func (r *SiteReconciler) cleanupPackageManager(ctx context.Context, req controll
 	}
 
 	return nil
+}
+
+// effectiveOIDCAudience returns the OIDC audience to use, defaulting to the
+// standard EKS STS audience when no explicit audience is configured.
+func effectiveOIDCAudience(audience string) string {
+	if audience == "" {
+		return "sts.amazonaws.com"
+	}
+	return audience
 }
 
 // containsGcfgKey checks whether a raw gcfg config string contains a key assignment

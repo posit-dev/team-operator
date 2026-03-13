@@ -265,3 +265,17 @@ func TestPackageManagerConfig_IdentityFederationNewFields(t *testing.T) {
 	require.Contains(t, str, "UsernameClaim = preferred_username")
 	require.Contains(t, str, "TokenLifetime = 2h")
 }
+
+func TestPackageManagerConfig_IdentityFederationRejectsCarriageReturn(t *testing.T) {
+	cfg := PackageManagerConfig{
+		IdentityFederation: []PackageManagerIdentityFederationConfig{
+			{
+				Name:   "bad\rname",
+				Issuer: "https://issuer.example.com",
+			},
+		},
+	}
+	_, err := cfg.GenerateGcfg()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "must not contain")
+}
