@@ -123,6 +123,26 @@ func (configStruct *PackageManagerConfig) GenerateGcfg() (string, error) {
 		if strings.ContainsAny(idf.Name, "\"]\n\r") {
 			return "", fmt.Errorf("invalid IdentityFederation name %q: must not contain '\"', ']', or newlines", idf.Name)
 		}
+		// Validate all string field values reject newlines to prevent gcfg injection
+		for _, kv := range []struct{ key, val string }{
+			{"Issuer", idf.Issuer},
+			{"Audience", idf.Audience},
+			{"Subject", idf.Subject},
+			{"AuthorizedParty", idf.AuthorizedParty},
+			{"Scope", idf.Scope},
+			{"CustomScope", idf.CustomScope},
+			{"GroupsClaim", idf.GroupsClaim},
+			{"GroupsSeparator", idf.GroupsSeparator},
+			{"RoleClaim", idf.RoleClaim},
+			{"RolesSeparator", idf.RolesSeparator},
+			{"UniqueIdClaim", idf.UniqueIdClaim},
+			{"UsernameClaim", idf.UsernameClaim},
+			{"TokenLifetime", idf.TokenLifetime},
+		} {
+			if strings.ContainsAny(kv.val, "\n\r") {
+				return "", fmt.Errorf("invalid IdentityFederation %q field %s: must not contain newlines", idf.Name, kv.key)
+			}
+		}
 		builder.WriteString(fmt.Sprintf("\n[IdentityFederation \"%s\"]\n", idf.Name))
 		if idf.Issuer != "" {
 			builder.WriteString("Issuer = " + idf.Issuer + "\n")

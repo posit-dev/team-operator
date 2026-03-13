@@ -152,8 +152,8 @@ func (r *SiteReconciler) reconcilePackageManager(
 		var idfEntries []v1beta1.PackageManagerIdentityFederationConfig
 		if site.Spec.OIDCIssuerURL != "" {
 			audience := effectiveOIDCAudience(site.Spec.OIDCAudience)
-			if site.Spec.OIDCAudience == "" {
-				l.Info("Using default OIDC audience for EKS clusters", "audience", audience, "reason", "OIDCAudience not specified in Site spec")
+			if audience == "" {
+				l.Info("OIDCAudience is not set; Identity Federation entries will have an empty audience and PPM auth projected SA tokens will not work. Set spec.oidcAudience (e.g. 'sts.amazonaws.com' for EKS)")
 			}
 			if site.Spec.Connect.AuthenticatedRepos {
 				idfEntries = append(idfEntries, v1beta1.PackageManagerIdentityFederationConfig{
@@ -251,12 +251,9 @@ func (r *SiteReconciler) cleanupPackageManager(ctx context.Context, req controll
 	return nil
 }
 
-// effectiveOIDCAudience returns the OIDC audience to use, defaulting to the
-// standard EKS STS audience when no explicit audience is configured.
+// effectiveOIDCAudience returns the OIDC audience to use.
+// Returns the audience as-is; callers must handle the empty case.
 func effectiveOIDCAudience(audience string) string {
-	if audience == "" {
-		return "sts.amazonaws.com"
-	}
 	return audience
 }
 
@@ -266,6 +263,10 @@ func containsGcfgKey(config, section, key string) bool {
 	inSection := false
 	for _, line := range strings.Split(config, "\n") {
 		trimmed := strings.TrimSpace(line)
+		// Skip gcfg comment lines (';' and '#' are valid comment prefixes)
+		if strings.HasPrefix(trimmed, ";") || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
 		if strings.HasPrefix(trimmed, "[") {
 			inSection = strings.EqualFold(trimmed, "["+section+"]")
 			continue

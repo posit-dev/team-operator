@@ -166,6 +166,20 @@ func PPMAuthSidecarContainer(image, ppmURL, refreshInterval string) corev1.Conta
 			RunAsUser:                ptr.To(int64(65534)), // nobody
 			AllowPrivilegeEscalation: ptr.To(false),
 		},
+		// LivenessProbe restarts the sidecar if the netrc file goes stale (not modified
+		// within 2x the refresh interval). This recovers from the 5-consecutive-failure exit.
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"sh", "-c",
+						fmt.Sprintf("test -f %s && test $(( $(date +%%s) - $(stat -c %%Y %s 2>/dev/null || stat -f %%m %s) )) -lt %d",
+							ppmAuthNetrcPath, ppmAuthNetrcPath, ppmAuthNetrcPath, ppmAuthLivenessThresholdSeconds(refreshInterval))},
+				},
+			},
+			InitialDelaySeconds: 60,
+			PeriodSeconds:       60,
+			FailureThreshold:    3,
+		},
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("10m"),
@@ -177,6 +191,24 @@ func PPMAuthSidecarContainer(image, ppmURL, refreshInterval string) corev1.Conta
 			},
 		},
 	}
+}
+
+// ppmAuthLivenessThresholdSeconds returns 2x the refresh interval in seconds.
+// Falls back to 2x the default if the interval is not parseable.
+func ppmAuthLivenessThresholdSeconds(refreshInterval string) int {
+	val := 0
+	for _, c := range refreshInterval {
+		if c >= '0' && c <= '9' {
+			val = val*10 + int(c-'0')
+		} else {
+			val = 0
+			break
+		}
+	}
+	if val <= 0 {
+		val = 3000 // fallback to default
+	}
+	return val * 2
 }
 
 // ppmAuthContainerVolumeMounts returns the volume mounts used by both init and sidecar containers

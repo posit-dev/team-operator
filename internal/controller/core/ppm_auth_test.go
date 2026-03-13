@@ -70,6 +70,10 @@ func TestPPMAuthSidecarContainer(t *testing.T) {
 	require.NotNil(t, c.SecurityContext.RunAsUser)
 	require.Equal(t, int64(65534), *c.SecurityContext.RunAsUser)
 	require.True(t, *c.SecurityContext.RunAsNonRoot)
+	// Verify liveness probe is set to recover from consecutive failures
+	require.NotNil(t, c.LivenessProbe, "Sidecar should have a liveness probe")
+	require.NotNil(t, c.LivenessProbe.Exec, "Liveness probe should use exec")
+	require.Contains(t, c.LivenessProbe.Exec.Command[2], ppmAuthNetrcPath, "Liveness probe should check netrc file")
 }
 
 func TestPPMAuthSidecarContainerCustomRefresh(t *testing.T) {
@@ -174,8 +178,22 @@ func TestPPMAuthEnvVars(t *testing.T) {
 	require.Equal(t, "/mnt/ppm-auth", envs[1].Value)
 }
 
+func TestContainsGcfgKey(t *testing.T) {
+	config := "[OpenIDConnect]\nScope = repos:read:*\nRoleClaim = roles\n"
+	require.True(t, containsGcfgKey(config, "OpenIDConnect", "Scope"))
+	require.True(t, containsGcfgKey(config, "OpenIDConnect", "RoleClaim"))
+	require.False(t, containsGcfgKey(config, "OpenIDConnect", "GroupToScopeMapping"))
+	require.False(t, containsGcfgKey(config, "OtherSection", "Scope"))
+}
+
+func TestContainsGcfgKeySkipsComments(t *testing.T) {
+	config := "[OpenIDConnect]\n; Scope = repos:read:*\n# RoleClaim = roles\n"
+	require.False(t, containsGcfgKey(config, "OpenIDConnect", "Scope"), "commented-out key with ; should be ignored")
+	require.False(t, containsGcfgKey(config, "OpenIDConnect", "RoleClaim"), "commented-out key with # should be ignored")
+}
+
 func TestEffectiveOIDCAudience(t *testing.T) {
-	require.Equal(t, "sts.amazonaws.com", effectiveOIDCAudience(""))
+	require.Equal(t, "", effectiveOIDCAudience(""))
 	require.Equal(t, "custom-audience", effectiveOIDCAudience("custom-audience"))
 }
 

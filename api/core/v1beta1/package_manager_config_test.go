@@ -279,3 +279,18 @@ func TestPackageManagerConfig_IdentityFederationRejectsCarriageReturn(t *testing
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "must not contain")
 }
+
+func TestPackageManagerConfig_IdentityFederationRejectsNewlineInValues(t *testing.T) {
+	cfg := PackageManagerConfig{
+		IdentityFederation: []PackageManagerIdentityFederationConfig{
+			{
+				Name:   "valid-name",
+				Issuer: "https://evil.com\nBadKey = badvalue",
+			},
+		},
+	}
+	_, err := cfg.GenerateGcfg()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "must not contain newlines")
+	require.Contains(t, err.Error(), "Issuer")
+}

@@ -528,6 +528,98 @@ func TestConnectReconciler_OIDC_DisableGroupsClaim(t *testing.T) {
 	assert.NotContains(t, config, "GroupsClaim = groups", "GroupsClaim should not have the default 'groups' value")
 }
 
+// TestConnectReconciler_PPMAuth verifies that when AuthenticatedRepos is enabled,
+// the Connect Deployment includes PPM auth init container, sidecar, volumes, volume mounts, and env vars.
+func TestConnectReconciler_PPMAuth(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "connect-ppm-auth"
+
+	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
+
+	c := defineDefaultConnect(t, ns, name)
+	c.Spec.AuthenticatedRepos = true
+	c.Spec.PPMUrl = "https://packagemanager.example.com"
+	c.Spec.PPMAuthAudience = "sts.amazonaws.com"
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	require.NoError(t, err)
+
+	// Create the PPM auth script ConfigMap that the volume references
+	scriptCM := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      PPMAuthConfigMapName(name),
+			Namespace: ns,
+		},
+		Data: map[string]string{"token-exchange.sh": "#!/bin/sh\necho test"},
+	}
+	require.NoError(t, cli.Create(ctx, scriptCM))
+
+	c = getConnect(t, cli, ns, name)
+
+	res, err := r.ReconcileConnect(ctx, req, c)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	deployment := getDeployment(t, cli, ns, name+"-connect")
+
+	// Verify init container
+	require.Len(t, deployment.Spec.Template.Spec.InitContainers, 1, "Should have PPM auth init container")
+	assert.Equal(t, "ppm-auth-init", deployment.Spec.Template.Spec.InitContainers[0].Name)
+
+	// Verify sidecar container is present (main container + sidecar)
+	var foundSidecar bool
+	for _, c := range deployment.Spec.Template.Spec.Containers {
+		if c.Name == "ppm-auth-sidecar" {
+			foundSidecar = true
+			break
+		}
+	}
+	assert.True(t, foundSidecar, "Should have PPM auth sidecar container")
+
+	// Verify PPM auth volumes
+	var foundTokenVol, foundNetrcVol, foundScriptVol bool
+	for _, v := range deployment.Spec.Template.Spec.Volumes {
+		switch v.Name {
+		case "ppm-sa-token":
+			foundTokenVol = true
+			require.NotNil(t, v.Projected)
+		case "ppm-auth":
+			foundNetrcVol = true
+			require.NotNil(t, v.EmptyDir)
+		case "ppm-auth-script":
+			foundScriptVol = true
+			require.NotNil(t, v.ConfigMap)
+		}
+	}
+	assert.True(t, foundTokenVol, "Should have projected SA token volume")
+	assert.True(t, foundNetrcVol, "Should have netrc emptyDir volume")
+	assert.True(t, foundScriptVol, "Should have script ConfigMap volume")
+
+	// Verify main container has PPM auth volume mount and env vars
+	mainContainer := deployment.Spec.Template.Spec.Containers[0]
+	var foundNetrcMount bool
+	for _, vm := range mainContainer.VolumeMounts {
+		if vm.Name == "ppm-auth" {
+			foundNetrcMount = true
+			break
+		}
+	}
+	assert.True(t, foundNetrcMount, "Main container should have ppm-auth volume mount")
+
+	var foundNetrcEnv, foundCurlHomeEnv bool
+	for _, env := range mainContainer.Env {
+		switch env.Name {
+		case "NETRC":
+			foundNetrcEnv = true
+		case "CURL_HOME":
+			foundCurlHomeEnv = true
+		}
+	}
+	assert.True(t, foundNetrcEnv, "Main container should have NETRC env var")
+	assert.True(t, foundCurlHomeEnv, "Main container should have CURL_HOME env var")
+}
+
 // TestConnectReconciler_Suspended verifies that when Connect has Suspended=true,
 // ReconcileConnect does not create serving resources (Deployment, Service, Ingress).
 func TestConnectReconciler_Suspended(t *testing.T) {
