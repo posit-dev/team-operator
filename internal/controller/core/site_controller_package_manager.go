@@ -136,9 +136,9 @@ func (r *SiteReconciler) reconcilePackageManager(
 			// PPM requires at least one of Scope, RoleClaim, or GroupToScopeMapping.
 			// Default to repos:read:* only when no alternative is configured via AdditionalConfig.
 			if site.Spec.PackageManager.AdditionalConfig == "" ||
-				(!containsGcfgKey(site.Spec.PackageManager.AdditionalConfig, "Scope") &&
-					!containsGcfgKey(site.Spec.PackageManager.AdditionalConfig, "RoleClaim") &&
-					!containsGcfgKey(site.Spec.PackageManager.AdditionalConfig, "GroupToScopeMapping")) {
+				(!containsGcfgKey(site.Spec.PackageManager.AdditionalConfig, "OpenIDConnect", "Scope") &&
+					!containsGcfgKey(site.Spec.PackageManager.AdditionalConfig, "OpenIDConnect", "RoleClaim") &&
+					!containsGcfgKey(site.Spec.PackageManager.AdditionalConfig, "OpenIDConnect", "GroupToScopeMapping")) {
 				pm.Spec.Config.OpenIDConnect.Scope = "repos:read:*"
 			}
 			if site.Spec.PackageManager.Auth.GroupsClaim != "" {
@@ -252,12 +252,24 @@ func (r *SiteReconciler) cleanupPackageManager(ctx context.Context, req controll
 	return nil
 }
 
-// containsGcfgKey checks whether a raw gcfg config string contains a key assignment (e.g. "Scope = ...").
-func containsGcfgKey(config, key string) bool {
+// containsGcfgKey checks whether a raw gcfg config string contains a key assignment
+// (e.g. "Scope = ...") within the given section (e.g. "OpenIDConnect").
+func containsGcfgKey(config, section, key string) bool {
+	inSection := false
 	for _, line := range strings.Split(config, "\n") {
 		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, key) && strings.Contains(trimmed, "=") {
-			return true
+		if strings.HasPrefix(trimmed, "[") {
+			inSection = strings.EqualFold(trimmed, "["+section+"]")
+			continue
+		}
+		if inSection && len(trimmed) >= len(key) &&
+			strings.EqualFold(trimmed[:len(key)], key) {
+			rest := trimmed[len(key):]
+			if len(rest) == 0 || rest[0] == ' ' || rest[0] == '\t' || rest[0] == '=' {
+				if strings.Contains(trimmed, "=") {
+					return true
+				}
+			}
 		}
 	}
 	return false

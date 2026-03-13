@@ -1960,6 +1960,7 @@ func TestSitePackageManagerOIDCDefaultScopeSkippedWithAdditionalConfig(t *testin
 		additionalConfig string
 	}{
 		{"Scope override", "[OpenIDConnect]\nScope = custom:scope"},
+		{"Scope override lowercase", "[OpenIDConnect]\nscope = custom:scope"},
 		{"RoleClaim override", "[OpenIDConnect]\nRoleClaim = role_claim"},
 		{"GroupToScopeMapping override", "[OpenIDConnect]\nGroupToScopeMapping = group1=scope1"},
 	}
@@ -1988,6 +1989,31 @@ func TestSitePackageManagerOIDCDefaultScopeSkippedWithAdditionalConfig(t *testin
 			assert.Empty(t, pm.Spec.Config.OpenIDConnect.Scope, "default Scope should NOT be set when %s is in AdditionalConfig", tt.name)
 		})
 	}
+}
+
+// TestSitePackageManagerOIDCScopeInWrongSection verifies that a Scope key under a
+// different gcfg section (e.g. [Server]) does NOT suppress the default OpenIDConnect scope.
+func TestSitePackageManagerOIDCScopeInWrongSection(t *testing.T) {
+	siteName := "pm-oidc-wrong-section"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.PackageManager.Auth = &v1beta1.AuthSpec{
+		Type:     v1beta1.AuthTypeOidc,
+		ClientId: "test-client",
+		Issuer:   "https://idp.example.com",
+	}
+	site.Spec.PackageManager.OIDCClientSecretKey = "oidc-secret"
+	site.Spec.PackageManager.AdditionalConfig = "[Server]\nScope = admin"
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	require.NoError(t, err)
+
+	pm := &v1beta1.PackageManager{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, pm)
+	require.NoError(t, err)
+
+	require.NotNil(t, pm.Spec.Config.OpenIDConnect, "OpenIDConnect config should be set")
+	assert.Equal(t, "repos:read:*", pm.Spec.Config.OpenIDConnect.Scope, "default Scope should still be set when Scope is in a different section")
 }
 
 // TestSitePackageManagerOIDCGroupsClaim verifies that GroupsClaim from the Site auth spec
