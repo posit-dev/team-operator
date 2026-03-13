@@ -145,6 +145,18 @@ func TestSetupPPMAuthFullSetup(t *testing.T) {
 	require.Len(t, setup.EnvVars, 2)
 	require.Len(t, setup.InitContainers, 1)
 	require.Len(t, setup.SidecarContainers, 1)
+	// Default image when ppmAuthImage is empty
+	require.Equal(t, "alpine:3", setup.InitContainers[0].Image)
+	require.Equal(t, "alpine:3", setup.SidecarContainers[0].Image)
+}
+
+func TestSetupPPMAuthCustomImage(t *testing.T) {
+	sink := &testLogSink{}
+	setup := SetupPPMAuth(true, "https://ppm.example.com", "registry.example.com/ppm-auth:v2", "sts.amazonaws.com", "mysite", logr.New(sink))
+	require.Len(t, setup.InitContainers, 1)
+	require.Len(t, setup.SidecarContainers, 1)
+	require.Equal(t, "registry.example.com/ppm-auth:v2", setup.InitContainers[0].Image)
+	require.Equal(t, "registry.example.com/ppm-auth:v2", setup.SidecarContainers[0].Image)
 }
 
 // testLogSink is a minimal logr.LogSink for testing SetupPPMAuth
