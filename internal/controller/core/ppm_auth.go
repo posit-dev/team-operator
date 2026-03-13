@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -53,6 +54,7 @@ exchange_token() {
 
     # Write POST data to a temp file to avoid exposing token in process args
     POST_DATA_FILE=$(mktemp)
+    trap 'rm -f "$POST_DATA_FILE"' EXIT
     printf "grant_type=urn:ietf:params:oauth:grant-type:token-exchange&subject_token=%s&subject_token_type=urn:ietf:params:oauth:token-type:id_token" "$SA_TOKEN" > "$POST_DATA_FILE"
 
     # Use wget (BusyBox built-in) instead of curl for zero-dependency operation
@@ -60,7 +62,7 @@ exchange_token() {
         --post-file="$POST_DATA_FILE" \
         "${PPM_URL}/__api__/token")
 
-    # Clean up temp file immediately
+    # Clean up temp file immediately (also handled by trap on failure)
     rm -f "$POST_DATA_FILE"
 
     PPM_TOKEN=$(extract_json_field "$RESPONSE" "access_token")
@@ -273,19 +275,17 @@ func SanitizePPMUrl(rawUrl string) string {
 
 // PPMAuthSetup contains the volumes, mounts, env vars, and containers needed for PPM auth
 type PPMAuthSetup struct {
-	Volumes          []corev1.Volume
-	VolumeMounts     []corev1.VolumeMount
-	EnvVars          []corev1.EnvVar
-	InitContainers   []corev1.Container
-	SidecarContainer []corev1.Container
+	Volumes           []corev1.Volume
+	VolumeMounts      []corev1.VolumeMount
+	EnvVars           []corev1.EnvVar
+	InitContainers    []corev1.Container
+	SidecarContainers []corev1.Container
 }
 
 // SetupPPMAuth configures PPM authenticated repos for a product if enabled.
 // Returns empty setup if AuthenticatedRepos is false or PPMUrl is empty.
 // Logs a warning if AuthenticatedRepos is true but PPMUrl is empty.
-func SetupPPMAuth(authenticatedRepos bool, ppmURL, ppmAuthImage, ppmAuthAudience, siteName string, logger interface {
-	Info(msg string, keysAndValues ...interface{})
-}) PPMAuthSetup {
+func SetupPPMAuth(authenticatedRepos bool, ppmURL, ppmAuthImage, ppmAuthAudience, siteName string, logger logr.Logger) PPMAuthSetup {
 	if !authenticatedRepos {
 		return PPMAuthSetup{}
 	}
@@ -308,7 +308,7 @@ func SetupPPMAuth(authenticatedRepos bool, ppmURL, ppmAuthImage, ppmAuthAudience
 		InitContainers: []corev1.Container{
 			PPMAuthInitContainer(ppmAuthImage, sanitizedURL),
 		},
-		SidecarContainer: []corev1.Container{
+		SidecarContainers: []corev1.Container{
 			PPMAuthSidecarContainer(ppmAuthImage, sanitizedURL, ""),
 		},
 	}
@@ -323,5 +323,5 @@ func UnpackPPMAuthSetup(setup PPMAuthSetup) (
 	initContainers []corev1.Container,
 	sidecarContainers []corev1.Container,
 ) {
-	return setup.Volumes, setup.VolumeMounts, setup.EnvVars, setup.InitContainers, setup.SidecarContainer
+	return setup.Volumes, setup.VolumeMounts, setup.EnvVars, setup.InitContainers, setup.SidecarContainers
 }

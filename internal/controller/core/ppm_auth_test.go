@@ -3,6 +3,7 @@ package core
 import (
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/require"
 )
 
@@ -110,44 +111,49 @@ func TestPPMAuthVolumesEmptyAudience(t *testing.T) {
 }
 
 func TestSetupPPMAuthDisabled(t *testing.T) {
-	logger := &testLogger{}
-	setup := SetupPPMAuth(false, "https://ppm.example.com", "", "sts.amazonaws.com", "mysite", logger)
+	sink := &testLogSink{}
+	setup := SetupPPMAuth(false, "https://ppm.example.com", "", "sts.amazonaws.com", "mysite", logr.New(sink))
 	require.Empty(t, setup.Volumes)
 	require.Empty(t, setup.InitContainers)
 }
 
 func TestSetupPPMAuthEmptyURL(t *testing.T) {
-	logger := &testLogger{}
-	setup := SetupPPMAuth(true, "", "", "sts.amazonaws.com", "mysite", logger)
+	sink := &testLogSink{}
+	setup := SetupPPMAuth(true, "", "", "sts.amazonaws.com", "mysite", logr.New(sink))
 	require.Empty(t, setup.Volumes)
 	require.Empty(t, setup.InitContainers)
-	require.Contains(t, logger.messages, "AuthenticatedRepos is enabled but PPMUrl is empty; skipping PPM auth setup")
+	require.Contains(t, sink.messages, "AuthenticatedRepos is enabled but PPMUrl is empty; skipping PPM auth setup")
 }
 
 func TestSetupPPMAuthEmptyAudience(t *testing.T) {
-	logger := &testLogger{}
-	setup := SetupPPMAuth(true, "https://ppm.example.com", "", "", "mysite", logger)
+	sink := &testLogSink{}
+	setup := SetupPPMAuth(true, "https://ppm.example.com", "", "", "mysite", logr.New(sink))
 	require.Empty(t, setup.Volumes)
 	require.Empty(t, setup.InitContainers)
-	require.Contains(t, logger.messages, "AuthenticatedRepos is enabled but PPMAuthAudience is empty; skipping PPM auth setup (projected SA token requires an audience)")
+	require.Contains(t, sink.messages, "AuthenticatedRepos is enabled but PPMAuthAudience is empty; skipping PPM auth setup (projected SA token requires an audience)")
 }
 
 func TestSetupPPMAuthFullSetup(t *testing.T) {
-	logger := &testLogger{}
-	setup := SetupPPMAuth(true, "https://ppm.example.com", "", "sts.amazonaws.com", "mysite", logger)
+	sink := &testLogSink{}
+	setup := SetupPPMAuth(true, "https://ppm.example.com", "", "sts.amazonaws.com", "mysite", logr.New(sink))
 	require.Len(t, setup.Volumes, 3)
 	require.Len(t, setup.VolumeMounts, 1)
 	require.Len(t, setup.EnvVars, 2)
 	require.Len(t, setup.InitContainers, 1)
-	require.Len(t, setup.SidecarContainer, 1)
+	require.Len(t, setup.SidecarContainers, 1)
 }
 
-// testLogger is a minimal logger for testing SetupPPMAuth
-type testLogger struct {
+// testLogSink is a minimal logr.LogSink for testing SetupPPMAuth
+type testLogSink struct {
 	messages []string
 }
 
-func (l *testLogger) Info(msg string, keysAndValues ...interface{}) {
+func (l *testLogSink) Init(logr.RuntimeInfo)                  {}
+func (l *testLogSink) Enabled(int) bool                       { return true }
+func (l *testLogSink) Error(error, string, ...interface{})    {}
+func (l *testLogSink) WithValues(...interface{}) logr.LogSink { return l }
+func (l *testLogSink) WithName(string) logr.LogSink           { return l }
+func (l *testLogSink) Info(_ int, msg string, _ ...interface{}) {
 	l.messages = append(l.messages, msg)
 }
 
