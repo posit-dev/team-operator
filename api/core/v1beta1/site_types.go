@@ -476,6 +476,11 @@ type InternalWorkbenchSpec struct {
 	// Keys are config file names (e.g., "rsession.conf", "repos.conf").
 	// +optional
 	AdditionalSessionConfigs map[string]string `json:"additionalSessionConfigs,omitempty"`
+
+	// SessionConfig allows configuring Workbench session pods, including dynamic labels,
+	// annotations, tolerations, and other pod-level settings.
+	// +optional
+	SessionConfig *product.SessionConfig `json:"sessionConfig,omitempty"`
 }
 
 type InternalWorkbenchExperimentalFeatures struct {

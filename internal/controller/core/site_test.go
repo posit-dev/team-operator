@@ -3,6 +3,8 @@ package core
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/posit-dev/team-operator/api/core/v1beta1"
@@ -1922,4 +1924,283 @@ func TestSiteFlightdeckDisableReenableCycle(t *testing.T) {
 	fd = &v1beta1.Flightdeck{}
 	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, fd)
 	assert.NoError(t, err, "Flightdeck CR should be recreated after re-enabling")
+}
+
+func TestSiteReconciler_SessionConfigMerge_NilSessionConfig(t *testing.T) {
+	// Verifies that when SessionConfig is nil on the Site, the operator-constructed
+	// defaults (ServiceAccountName, etc.) are preserved without interference.
+	siteName := "sc-nil"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	// Explicitly do NOT set site.Spec.Workbench.SessionConfig
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	wb := getWorkbench(t, cli, siteNamespace, siteName)
+	require.NotNil(t, wb.Spec.SessionConfig)
+	require.NotNil(t, wb.Spec.SessionConfig.Pod)
+	// Operator-managed defaults should still be present
+	assert.Equal(t, siteName+"-workbench-session", wb.Spec.SessionConfig.Pod.ServiceAccountName)
+	// No dynamic labels
+	assert.Empty(t, wb.Spec.SessionConfig.Pod.DynamicLabels)
+}
+
+func TestSiteReconciler_SessionConfigMerge_DynamicLabelsOnly(t *testing.T) {
+	siteName := "sc-dynamic-labels"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Workbench.SessionConfig = &product.SessionConfig{
+		Pod: &product.PodConfig{
+			DynamicLabels: []product.DynamicLabelRule{
+				{Field: "user", LabelKey: "posit.team/user"},
+			},
+		},
+	}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	wb := getWorkbench(t, cli, siteNamespace, siteName)
+	require.NotNil(t, wb.Spec.SessionConfig)
+	require.NotNil(t, wb.Spec.SessionConfig.Pod)
+	require.Len(t, wb.Spec.SessionConfig.Pod.DynamicLabels, 1)
+	assert.Equal(t, "user", wb.Spec.SessionConfig.Pod.DynamicLabels[0].Field)
+	assert.Equal(t, "posit.team/user", wb.Spec.SessionConfig.Pod.DynamicLabels[0].LabelKey)
+	// Operator-set defaults should still be present
+	assert.Equal(t, fmt.Sprintf("%s-workbench-session", siteName), wb.Spec.SessionConfig.Pod.ServiceAccountName)
+}
+
+func TestSiteReconciler_SessionConfigMerge_ServiceAndJobOverrides(t *testing.T) {
+	siteName := "sc-svc-job"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Workbench.SessionConfig = &product.SessionConfig{
+		Service: &product.ServiceConfig{
+			Type:        "NodePort",
+			Annotations: map[string]string{"svc-ann": "user-val"},
+			Labels:      map[string]string{"svc-label": "user-val"},
+		},
+		Job: &product.JobConfig{
+			Annotations: map[string]string{"job-ann": "user-val"},
+			Labels:      map[string]string{"job-label": "user-val"},
+		},
+	}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	wb := getWorkbench(t, cli, siteNamespace, siteName)
+	require.NotNil(t, wb.Spec.SessionConfig)
+
+	// Service overrides
+	require.NotNil(t, wb.Spec.SessionConfig.Service)
+	assert.Equal(t, "NodePort", wb.Spec.SessionConfig.Service.Type)
+	assert.Equal(t, "user-val", wb.Spec.SessionConfig.Service.Annotations["svc-ann"])
+	assert.Equal(t, "user-val", wb.Spec.SessionConfig.Service.Labels["svc-label"])
+
+	// Job overrides
+	require.NotNil(t, wb.Spec.SessionConfig.Job)
+	assert.Equal(t, "user-val", wb.Spec.SessionConfig.Job.Annotations["job-ann"])
+	assert.Equal(t, "user-val", wb.Spec.SessionConfig.Job.Labels["job-label"])
+}
+
+func TestSiteReconciler_SessionConfigMerge_AfterExperimentalFeatures(t *testing.T) {
+	siteName := "sc-exp-merge"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Workbench.ExperimentalFeatures = &v1beta1.InternalWorkbenchExperimentalFeatures{
+		SessionServiceAccountName: "custom-sa",
+		PrivilegedSessions:        true,
+	}
+	site.Spec.Workbench.SessionConfig = &product.SessionConfig{
+		Pod: &product.PodConfig{
+			Labels:      map[string]string{"env": "staging"},
+			Annotations: map[string]string{"note": "test"},
+			DynamicLabels: []product.DynamicLabelRule{
+				{Field: "args", Match: "--arg-(.*)", LabelPrefix: "posit.team/arg-"},
+			},
+		},
+	}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	wb := getWorkbench(t, cli, siteNamespace, siteName)
+	require.NotNil(t, wb.Spec.SessionConfig)
+	require.NotNil(t, wb.Spec.SessionConfig.Pod)
+
+	// ExperimentalFeatures should have set ServiceAccountName and PrivilegedSessions
+	assert.Equal(t, "custom-sa", wb.Spec.SessionConfig.Pod.ServiceAccountName)
+	require.NotNil(t, wb.Spec.SessionConfig.Pod.ContainerSecurityContext.Privileged)
+	assert.Equal(t, true, *wb.Spec.SessionConfig.Pod.ContainerSecurityContext.Privileged)
+
+	// SessionConfig merge should have added labels, annotations, and dynamic labels
+	assert.Equal(t, "staging", wb.Spec.SessionConfig.Pod.Labels["env"])
+	assert.Equal(t, "test", wb.Spec.SessionConfig.Pod.Annotations["note"])
+	require.Len(t, wb.Spec.SessionConfig.Pod.DynamicLabels, 1)
+	assert.Equal(t, "args", wb.Spec.SessionConfig.Pod.DynamicLabels[0].Field)
+}
+
+func TestSiteReconciler_SessionConfigMerge_PodLabelsMergedIntoOperatorPod(t *testing.T) {
+	// Tests that user-provided Pod labels are merged into the operator-constructed
+	// Pod config (non-nil opSC.Pod path) without disturbing operator-managed fields.
+	// Merge-precedence on key conflicts is tested at the unit level in TestLabelMerge.
+	siteName := "sc-merge-labels"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Workbench.ExperimentalFeatures = &v1beta1.InternalWorkbenchExperimentalFeatures{
+		SessionServiceAccountName: "custom-sa",
+	}
+	site.Spec.Workbench.SessionConfig = &product.SessionConfig{
+		Pod: &product.PodConfig{
+			Labels: map[string]string{
+				"user-label": "user-value",
+				"team":       "data-science",
+			},
+		},
+	}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	wb := getWorkbench(t, cli, siteNamespace, siteName)
+	require.NotNil(t, wb.Spec.SessionConfig)
+	require.NotNil(t, wb.Spec.SessionConfig.Pod)
+	// User-provided labels should be present
+	assert.Equal(t, "user-value", wb.Spec.SessionConfig.Pod.Labels["user-label"])
+	assert.Equal(t, "data-science", wb.Spec.SessionConfig.Pod.Labels["team"])
+	// Operator-managed fields should be preserved (not overwritten by merge)
+	assert.Equal(t, "custom-sa", wb.Spec.SessionConfig.Pod.ServiceAccountName)
+}
+
+func TestSiteReconciler_SessionConfigMerge_PodLabelsOnlyPreservesOperatorFields(t *testing.T) {
+	// Verifies that setting sessionConfig with only Pod.Labels (no DynamicLabels)
+	// preserves all operator-managed Pod fields set by defaults and ExperimentalFeatures.
+	siteName := "sc-labels-preserve"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Workbench.SessionTolerations = []corev1.Toleration{
+		{Key: "gpu", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule},
+	}
+	site.Spec.Workbench.ExperimentalFeatures = &v1beta1.InternalWorkbenchExperimentalFeatures{
+		SessionServiceAccountName: "special-sa",
+		SessionEnvVars: []corev1.EnvVar{
+			{Name: "MY_VAR", Value: "my-value"},
+		},
+	}
+	site.Spec.Workbench.SessionConfig = &product.SessionConfig{
+		Pod: &product.PodConfig{
+			Labels: map[string]string{"env": "staging"},
+		},
+	}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	wb := getWorkbench(t, cli, siteNamespace, siteName)
+	require.NotNil(t, wb.Spec.SessionConfig)
+	require.NotNil(t, wb.Spec.SessionConfig.Pod)
+
+	// User-provided labels merged in
+	assert.Equal(t, "staging", wb.Spec.SessionConfig.Pod.Labels["env"])
+	// No dynamic labels
+	assert.Empty(t, wb.Spec.SessionConfig.Pod.DynamicLabels)
+	// Operator-managed fields preserved
+	assert.Equal(t, "special-sa", wb.Spec.SessionConfig.Pod.ServiceAccountName)
+	require.Len(t, wb.Spec.SessionConfig.Pod.Tolerations, 1)
+	assert.Equal(t, "gpu", wb.Spec.SessionConfig.Pod.Tolerations[0].Key)
+	require.Len(t, wb.Spec.SessionConfig.Pod.Env, 1)
+	assert.Equal(t, "MY_VAR", wb.Spec.SessionConfig.Pod.Env[0].Name)
+}
+
+func TestUnsupportedSitePodFields(t *testing.T) {
+	t.Run("nil pod returns nil", func(t *testing.T) {
+		assert.Nil(t, unsupportedSitePodFields(nil))
+	})
+
+	t.Run("empty PodConfig returns nil", func(t *testing.T) {
+		assert.Nil(t, unsupportedSitePodFields(&product.PodConfig{}))
+	})
+
+	t.Run("only supported fields returns nil", func(t *testing.T) {
+		pod := &product.PodConfig{
+			Labels:      map[string]string{"app": "test"},
+			Annotations: map[string]string{"note": "ok"},
+			DynamicLabels: []product.DynamicLabelRule{
+				{Field: "user", LabelKey: "posit.co/user"},
+			},
+		}
+		assert.Nil(t, unsupportedSitePodFields(pod))
+	})
+
+	t.Run("unsupported fields are reported", func(t *testing.T) {
+		pod := &product.PodConfig{
+			ServiceAccountName:       "my-sa",
+			Tolerations:              []corev1.Toleration{{Key: "gpu"}},
+			Env:                      []corev1.EnvVar{{Name: "FOO", Value: "bar"}},
+			Volumes:                  []corev1.Volume{{Name: "data"}},
+			NodeSelector:             map[string]string{"zone": "us-east-1a"},
+			ContainerSecurityContext: corev1.SecurityContext{Privileged: ptr.To(true)},
+		}
+		fields := unsupportedSitePodFields(pod)
+		assert.ElementsMatch(t, []string{
+			"serviceAccountName",
+			"tolerations",
+			"env",
+			"volumes",
+			"nodeSelector",
+			"containerSecurityContext",
+		}, fields)
+	})
+}
+
+// TestUnsupportedSitePodFieldsDrift uses reflection to ensure that every PodConfig
+// field is either merged by the Site → Workbench path or checked by unsupportedSitePodFields.
+// If a new field is added to PodConfig, this test will fail until the field is accounted for.
+func TestUnsupportedSitePodFieldsDrift(t *testing.T) {
+	mergedTags := map[string]bool{
+		"labels":        true,
+		"annotations":   true,
+		"dynamicLabels": true,
+	}
+
+	// Call the function with every field set to a non-zero value so the checked
+	// set is derived from actual function behaviour, not a hand-maintained list.
+	fullyPopulated := product.PodConfig{
+		Labels:                   map[string]string{"k": "v"},
+		Annotations:              map[string]string{"k": "v"},
+		DynamicLabels:            []product.DynamicLabelRule{{}},
+		ServiceAccountName:       "x",
+		Volumes:                  []corev1.Volume{{}},
+		VolumeMounts:             []corev1.VolumeMount{{}},
+		Env:                      []corev1.EnvVar{{}},
+		ImagePullPolicy:          "Always",
+		ImagePullSecrets:         []corev1.LocalObjectReference{{}},
+		InitContainers:           []corev1.Container{{}},
+		ExtraContainers:          []corev1.Container{{}},
+		ContainerSecurityContext: corev1.SecurityContext{Privileged: ptr.To(true)},
+		DefaultSecurityContext:   corev1.SecurityContext{Privileged: ptr.To(true)},
+		SecurityContext:          corev1.SecurityContext{Privileged: ptr.To(true)},
+		Tolerations:              []corev1.Toleration{{}},
+		Affinity:                 &corev1.Affinity{},
+		NodeSelector:             map[string]string{"k": "v"},
+		PriorityClassName:        "x",
+		Command:                  []string{"x"},
+	}
+	reported := unsupportedSitePodFields(&fullyPopulated)
+
+	checkedTags := map[string]bool{}
+	for _, tag := range reported {
+		checkedTags[tag] = true
+	}
+
+	typ := reflect.TypeOf(product.PodConfig{})
+	for i := 0; i < typ.NumField(); i++ {
+		jsonTag := strings.Split(typ.Field(i).Tag.Get("json"), ",")[0]
+		if mergedTags[jsonTag] || checkedTags[jsonTag] {
+			continue
+		}
+		t.Errorf("PodConfig field %q (json:%q) is not detected by unsupportedSitePodFields and is not in the merged-fields set — add a check to unsupportedSitePodFields or add it to mergedTags", typ.Field(i).Name, jsonTag)
+	}
 }

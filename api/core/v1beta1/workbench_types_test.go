@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -238,4 +239,53 @@ func TestWorkbench_InitializeNonRootSupervisorConfig(t *testing.T) {
 	assert.NotContains(t, cfgProg.SupervisordIniConfig.Programs, "launcher.conf")
 	assert.Contains(t, cfgProg.SupervisordIniConfig.Programs["something.conf"], "some-launcher-program")
 	assert.NotContains(t, cfgProg.SupervisordIniConfig.Programs["something.conf"], "rstudio-launcher")
+}
+
+func TestWorkbench_SessionConfigTemplateData_DynamicLabels(t *testing.T) {
+	w := &Workbench{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "workbench-dynlabels",
+			Namespace: "posit-team",
+		},
+		Spec: WorkbenchSpec{
+			Secret: SecretConfig{
+				Type: product.SiteSecretAws,
+			},
+			License: product.LicenseSpec{
+				Type: product.LicenseTypeKey,
+				Key:  "test-key",
+			},
+			SessionConfig: &product.SessionConfig{
+				Pod: &product.PodConfig{
+					DynamicLabels: []product.DynamicLabelRule{
+						{
+							Field:    "user",
+							LabelKey: "session.posit.team/user",
+						},
+						{
+							Field:       "args",
+							Match:       "--ext-[a-z]+",
+							TrimPrefix:  "--ext-",
+							LabelPrefix: "session.posit.team/ext.",
+							LabelValue:  "enabled",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	cfg := &WorkbenchConfig{}
+	result := w.SessionConfigTemplateData(logr.Discard(), cfg)
+	require.NotEmpty(t, result)
+	assert.Contains(t, result, "\"dynamicLabels\"")
+	// Direct mapping rule
+	assert.Contains(t, result, "\"field\":\"user\"")
+	assert.Contains(t, result, "\"labelKey\":\"session.posit.team/user\"")
+	// Pattern extraction rule
+	assert.Contains(t, result, "\"field\":\"args\"")
+	assert.Contains(t, result, "\"match\":\"--ext-[a-z]+\"")
+	assert.Contains(t, result, "\"labelPrefix\":\"session.posit.team/ext.\"")
+	assert.Contains(t, result, "\"trimPrefix\":\"--ext-\"")
+	assert.Contains(t, result, "\"labelValue\":\"enabled\"")
 }

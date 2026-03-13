@@ -80,6 +80,39 @@ func TestLabelMerge(t *testing.T) {
 	result = product.LabelMerge(m1, m2)
 	expected = map[string]string{"vorpal": "sword"}
 	assert.Equal(t, expected, result)
+
+	// test that m2 (user-provided) wins on key conflicts
+	m1 = map[string]string{"shared": "operator-value", "operator-only": "kept"}
+	m2 = map[string]string{"shared": "user-wins", "user-only": "added"}
+	result = product.LabelMerge(m1, m2)
+	expected = map[string]string{"shared": "user-wins", "operator-only": "kept", "user-only": "added"}
+	assert.Equal(t, expected, result)
+
+	// test that nil,nil returns nil (avoids spurious empty-map diffs on Kubernetes objects)
+	result = product.LabelMerge(nil, nil)
+	assert.Nil(t, result)
+
+	// test that nil,non-nil returns a separate copy of m2
+	m2 = map[string]string{"key2": "val2"}
+	result = product.LabelMerge(nil, m2)
+	assert.Equal(t, map[string]string{"key2": "val2"}, result)
+	result["injected"] = "oops"
+	assert.Equal(t, map[string]string{"key2": "val2"}, m2, "m2 should not be mutated via returned map")
+
+	// test that non-nil,nil returns a separate copy of m1
+	m1 = map[string]string{"key1": "val1"}
+	result = product.LabelMerge(m1, nil)
+	assert.Equal(t, map[string]string{"key1": "val1"}, result)
+	result["injected"] = "oops"
+	assert.Equal(t, map[string]string{"key1": "val1"}, m1, "m1 should not be mutated via returned map")
+
+	// test that the original maps are not mutated
+	m1 = map[string]string{"key1": "val1"}
+	m2 = map[string]string{"key2": "val2"}
+	result = product.LabelMerge(m1, m2)
+	assert.Equal(t, map[string]string{"key1": "val1", "key2": "val2"}, result)
+	assert.Equal(t, map[string]string{"key1": "val1"}, m1, "m1 should not be mutated")
+	assert.Equal(t, map[string]string{"key2": "val2"}, m2, "m2 should not be mutated")
 }
 
 func TestGetAWSRegion(t *testing.T) {

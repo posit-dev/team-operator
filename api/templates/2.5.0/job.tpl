@@ -2,6 +2,36 @@
 # DO NOT MODIFY the "Version: " key
 # Helm Version: v1
 {{- $templateData := include "rstudio-library.templates.data" nil | mustFromJson }}
+{{- /* Convert .Job to a map so hasKey/index work regardless of whether the launcher passes a struct or map */ -}}
+{{- $jobMap := .Job | toJson | mustFromJson }}
+{{- /* Dynamic labels — see api/templates/job_tpl_test.go for isolated tests (including regexReplaceAll argument-order mock) */ -}}
+{{- $capStatus := dict }}
+{{- $matchCache := dict }}
+{{- $globalTotal := dict "n" 0 }}
+{{- /* Phase 1: pre-compute regex matches only. Direct-mapping rules (labelKey) don't need caching — they render inline in phase 2. */ -}}
+{{- with $templateData.pod.dynamicLabels }}
+{{- range $i, $rule := . }}
+{{- if and (hasKey $jobMap $rule.field) $rule.match }}
+{{- $val := index $jobMap $rule.field }}
+{{- $str := (kindIs "slice" $val) | ternary ($val | join " ") ($val | toString) }}
+{{- /* Cap raw matches at 500 to bound memory before dedup/per-rule cap (50) is applied. */ -}}
+{{- $matches := regexFindAll $rule.match $str 500 }}
+{{- /* Deduplicate matches so duplicates don't consume cap budget */ -}}
+{{- $seen := dict }}
+{{- $deduped := list }}
+{{- range $m := $matches }}
+{{- if not (hasKey $seen $m) }}{{- $_ := set $seen $m "1" }}{{- $deduped = append $deduped $m }}{{- end }}
+{{- end }}
+{{- $matches = $deduped }}
+{{- if gt (len $matches) 50 }}{{- $_ := set $capStatus "reached" "true" }}{{- $matches = slice $matches 0 50 }}{{- end }}
+{{- /* Global cap: at most 200 dynamic labels across all rules. */ -}}
+{{- $newTotal := add (index $globalTotal "n") (len $matches) | int }}
+{{- if gt $newTotal 200 }}{{- $allowed := sub 200 (index $globalTotal "n") | int }}{{- if gt $allowed 0 }}{{- $matches = slice $matches 0 $allowed }}{{- else }}{{- $matches = list }}{{- end }}{{- $_ := set $capStatus "reached" "true" }}{{- end }}
+{{- $_ := set $globalTotal "n" (add (index $globalTotal "n") (len $matches) | int) }}
+{{- $_ := set $matchCache (printf "%d" $i) $matches }}
+{{- end }}
+{{- end }}
+{{- end }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -64,6 +94,9 @@ spec:
         {{ $key }}: {{ toYaml $val | indent 8 | trimPrefix (repeat 8 " ") }}
         {{- end }}
         {{- end }}
+        {{- if hasKey $capStatus "reached" }}
+        posit.team/dynamic-label-cap-reached: "true"
+        {{- end }}
       labels:
         {{- with .Job.instanceId }}
         launcher-instance-id: {{ toYaml . }}
@@ -76,6 +109,46 @@ spec:
         {{- with $templateData.pod.labels }}
         {{- range $key, $val := . }}
         {{ $key }}: {{ toYaml $val | indent 8 | trimPrefix (repeat 8 " ") }}
+        {{- end }}
+        {{- end }}
+        {{- with $templateData.pod.dynamicLabels }}
+        {{- range $i, $rule := . }}
+        {{- if hasKey $jobMap $rule.field }}
+        {{- $val := index $jobMap $rule.field }}
+        {{- if $rule.labelKey }}
+        {{- /* regexReplaceAll uses Sprig arg order: (regex, source, replacement). Do NOT pipe into it — the piped value becomes the replacement, not the source. */ -}}
+        {{- $labelVal := regexReplaceAll "[^a-zA-Z0-9._-]" ($val | toString) "_" }}
+        {{- $labelVal = regexReplaceAll "_{2,}" $labelVal "_" }}
+        {{- $labelVal = $labelVal | trunc 63 }}
+        {{- $labelVal = regexReplaceAll "[^a-zA-Z0-9]+$" $labelVal "" }}
+        {{- $labelVal = regexReplaceAll "^[^a-zA-Z0-9]+" $labelVal "" }}
+        {{- if ne $labelVal "" }}
+        {{ $rule.labelKey }}: {{ $labelVal | quote }}
+        {{- end }}
+        {{- else if $rule.match }}
+        {{- $matches := index $matchCache (printf "%d" $i) }}
+        {{- $namePrefix := regexFind "[^/]*$" $rule.labelPrefix }}
+        {{- /* Go validation (ValidateDynamicLabelRules) enforces namePrefix < 53 chars, so $maxSuffix is always > 0. */ -}}
+        {{- $maxSuffix := int (sub 63 (len $namePrefix)) }}
+        {{- range $match := $matches }}
+        {{- $suffix := trimPrefix ($rule.trimPrefix | default "") $match | lower }}
+        {{- $suffix = regexReplaceAll "[^a-zA-Z0-9._-]" $suffix "_" }}
+        {{- $suffix = regexReplaceAll "_{2,}" $suffix "_" }}
+        {{- $suffix = $suffix | trunc $maxSuffix }}
+        {{- $suffix = regexReplaceAll "[^a-zA-Z0-9]+$" $suffix "" }}
+        {{- $suffix = regexReplaceAll "^[^a-zA-Z0-9]+" $suffix "" }}
+        {{- $computedKey := printf "%s%s" $rule.labelPrefix $suffix }}
+        {{- /* Guard: a regex rule could theoretically produce a label whose key matches the
+               operator's cap-reached annotation key (see annotations block above). Labels and
+               annotations are separate namespaces on a pod, so this wouldn't overwrite the
+               annotation, but a label with the same key would be confusing — skip it.
+               Must match reservedOperatorAnnotationKey in session_config.go. */ -}}
+        {{- if and (ne $suffix "") (ne $computedKey "posit.team/dynamic-label-cap-reached") }}
+        {{ $computedKey }}: {{ $rule.labelValue | default "true" | quote }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
         {{- end }}
         {{- end }}
       generateName: {{ toYaml .Job.generateName }}
