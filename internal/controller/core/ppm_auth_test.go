@@ -199,8 +199,20 @@ func TestContainsGcfgKey(t *testing.T) {
 }
 
 func TestContainsGcfgKeyWhitespaceInBrackets(t *testing.T) {
-	config := "[ OpenIDConnect ]\nScope = repos:read:*\n"
-	require.True(t, containsGcfgKey(config, "OpenIDConnect", "Scope"), "whitespace inside brackets should still match")
+	tests := []struct {
+		name   string
+		config string
+	}{
+		{"symmetric spaces", "[ OpenIDConnect ]\nScope = repos:read:*\n"},
+		{"leading space only", "[ OpenIDConnect]\nScope = repos:read:*\n"},
+		{"trailing space only", "[OpenIDConnect ]\nScope = repos:read:*\n"},
+		{"tabs", "[\tOpenIDConnect\t]\nScope = repos:read:*\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.True(t, containsGcfgKey(tt.config, "OpenIDConnect", "Scope"), "whitespace inside brackets should still match")
+		})
+	}
 }
 
 func TestContainsGcfgKeySkipsComments(t *testing.T) {
