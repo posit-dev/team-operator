@@ -40,7 +40,10 @@ REFRESH_INTERVAL="${REFRESH_INTERVAL:-3000}"
 
 # extract_json_field extracts a string value from a JSON object using only
 # shell builtins and sed. This avoids requiring jq in the container image.
-# Usage: extract_json_field '{"key":"value"}' "key"
+# Usage: extract_json_field '{"access_token":"eyJhbG.payload.sig"}' "access_token"
+#   → eyJhbG.payload.sig
+# Note: assumes flat JSON with unescaped string values (no nested objects,
+# no escaped quotes in values). Sufficient for OAuth token responses.
 extract_json_field() {
     echo "$1" | sed -n 's/.*"'"$2"'"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p'
 }
