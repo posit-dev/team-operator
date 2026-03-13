@@ -75,7 +75,7 @@ exchange_token() {
     fi
 
     # Sanity check: JWTs have exactly two dots (header.payload.signature)
-    DOT_COUNT=$(echo "$PPM_TOKEN" | tr -cd '.' | wc -c | tr -d ' ')
+    DOT_COUNT=$(printf '%s' "$PPM_TOKEN" | tr -cd '.' | wc -c | tr -d ' ')
     if [ "$DOT_COUNT" -ne 2 ]; then
         echo "ERROR: access_token does not look like a JWT (expected 2 dots, got $DOT_COUNT)" >&2
         return 1

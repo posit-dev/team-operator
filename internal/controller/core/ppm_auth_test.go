@@ -179,9 +179,12 @@ func TestEffectiveOIDCAudience(t *testing.T) {
 	require.Equal(t, "custom-audience", effectiveOIDCAudience("custom-audience"))
 }
 
+// TestPPMAuthTokenExchangeScriptJWTValidation is a source-level smoke check
+// that the JWT dot-count validation hasn't been accidentally removed from the
+// shell script. It does not execute the script; behavioral coverage comes from
+// integration/e2e tests.
 func TestPPMAuthTokenExchangeScriptJWTValidation(t *testing.T) {
 	script := PPMAuthTokenExchangeScript()
-	// Verify JWT dot-count validation is present
 	require.Contains(t, script, "DOT_COUNT")
 	require.Contains(t, script, "does not look like a JWT")
 }
