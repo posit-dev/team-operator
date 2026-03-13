@@ -2014,3 +2014,60 @@ func TestSitePackageManagerOIDCGroupsClaim(t *testing.T) {
 	require.NotNil(t, pm.Spec.Config.OpenIDConnect, "OpenIDConnect config should be set")
 	assert.Equal(t, "groups", pm.Spec.Config.OpenIDConnect.GroupsClaim)
 }
+
+// TestSitePackageManagerOIDCClientSecretFile verifies that the PPM OIDC config
+// uses ClientSecretFile (not ClientSecret) so PPM reads the secret from disk.
+func TestSitePackageManagerOIDCClientSecretFile(t *testing.T) {
+	siteName := "pm-oidc-secret-file"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.PackageManager.Auth = &v1beta1.AuthSpec{
+		Type:     v1beta1.AuthTypeOidc,
+		ClientId: "test-client",
+		Issuer:   "https://idp.example.com",
+	}
+	site.Spec.PackageManager.OIDCClientSecretKey = "oidc-secret"
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	require.NoError(t, err)
+
+	pm := &v1beta1.PackageManager{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, pm)
+	require.NoError(t, err)
+
+	require.NotNil(t, pm.Spec.Config.OpenIDConnect)
+	assert.Equal(t, "/etc/rstudio-pm/oidc-client-secret", pm.Spec.Config.OpenIDConnect.ClientSecretFile)
+	assert.Empty(t, pm.Spec.Config.OpenIDConnect.ClientSecret, "ClientSecret should not be set; ClientSecretFile should be used instead")
+}
+
+// TestSitePackageManagerIdentityFederationClaims verifies that identity federation
+// entries for Connect and Workbench set UniqueIdClaim and UsernameClaim to "sub"
+// since K8s service account tokens lack a preferred_username claim.
+func TestSitePackageManagerIdentityFederationClaims(t *testing.T) {
+	siteName := "pm-idf-claims"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.OIDCIssuerURL = "https://oidc.eks.example.com"
+	site.Spec.OIDCAudience = "sts.amazonaws.com"
+	site.Spec.Connect.AuthenticatedRepos = true
+	site.Spec.Workbench.AuthenticatedRepos = true
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	require.NoError(t, err)
+
+	pm := &v1beta1.PackageManager{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, pm)
+	require.NoError(t, err)
+
+	require.Len(t, pm.Spec.Config.IdentityFederation, 2)
+
+	connectIDF := pm.Spec.Config.IdentityFederation[0]
+	assert.Equal(t, "connect", connectIDF.Name)
+	assert.Equal(t, "sub", connectIDF.UniqueIdClaim)
+	assert.Equal(t, "sub", connectIDF.UsernameClaim)
+
+	workbenchIDF := pm.Spec.Config.IdentityFederation[1]
+	assert.Equal(t, "workbench", workbenchIDF.Name)
+	assert.Equal(t, "sub", workbenchIDF.UniqueIdClaim)
+	assert.Equal(t, "sub", workbenchIDF.UsernameClaim)
+}
