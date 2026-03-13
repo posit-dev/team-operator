@@ -26,7 +26,7 @@ type PackageManagerConfig struct {
 	// The value is appended verbatim after the generated config. gcfg parsing naturally handles
 	// conflicts: list values are combined, scalar values use the last occurrence.
 	// +optional
-	AdditionalConfig string `json:"AdditionalConfig,omitempty"`
+	AdditionalConfig string `json:"additionalConfig,omitempty"`
 }
 
 func (configStruct *PackageManagerConfig) GenerateGcfg() (string, error) {

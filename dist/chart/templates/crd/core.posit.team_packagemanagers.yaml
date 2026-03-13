@@ -241,7 +241,7 @@ spec:
                       Default:
                         type: string
                     type: object
-                  AdditionalConfig:
+                  additionalConfig:
                     description: |-
                       AdditionalConfig allows appending arbitrary gcfg config content not covered by typed fields.
                       The value is appended verbatim after the generated config. gcfg parsing naturally handles
