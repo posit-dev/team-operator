@@ -1,3 +1,10 @@
+# [1.21.0](https://github.com/posit-dev/team-operator/compare/v1.20.0...v1.21.0) (2026-03-13)
+
+
+### Features
+
+* add dynamicLabels to session pod config ([#113](https://github.com/posit-dev/team-operator/issues/113)) ([6b97627](https://github.com/posit-dev/team-operator/commit/6b97627fa4d582c87b64978984f194549629f8ea))
+
 # [1.20.0](https://github.com/posit-dev/team-operator/compare/v1.19.0...v1.20.0) (2026-03-11)
 
 
