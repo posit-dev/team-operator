@@ -24,7 +24,7 @@ const (
 	// ppmAuthDefaultImage uses alpine:3 which provides BusyBox (wget, sed, stat -c).
 	// Custom PPMAuthImage values must provide these utilities; distroless images
 	// without stat will cause liveness probe failures and restart loops.
-	ppmAuthDefaultImage   = "alpine:3"
+	ppmAuthDefaultImage   = "alpine:3.21.3"
 	ppmAuthDefaultRefresh = "3000" // 50 minutes (for 60 min token lifetime)
 )
 

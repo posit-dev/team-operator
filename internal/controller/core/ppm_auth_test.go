@@ -37,7 +37,7 @@ func TestPPMAuthConfigMapName(t *testing.T) {
 func TestPPMAuthInitContainer(t *testing.T) {
 	c := PPMAuthInitContainer("", "https://packagemanager.example.com")
 	require.Equal(t, "ppm-auth-init", c.Name)
-	require.Equal(t, "alpine:3", c.Image)
+	require.Equal(t, "alpine:3.21.3", c.Image)
 	require.Len(t, c.Env, 2)
 	require.Equal(t, "PPM_URL", c.Env[0].Name)
 	require.Equal(t, "https://packagemanager.example.com", c.Env[0].Value)
@@ -59,7 +59,7 @@ func TestPPMAuthInitContainerCustomImage(t *testing.T) {
 func TestPPMAuthSidecarContainer(t *testing.T) {
 	c := PPMAuthSidecarContainer("", "https://packagemanager.example.com", "")
 	require.Equal(t, "ppm-auth-sidecar", c.Name)
-	require.Equal(t, "alpine:3", c.Image)
+	require.Equal(t, "alpine:3.21.3", c.Image)
 	require.Len(t, c.Env, 3)
 	require.Equal(t, "MODE", c.Env[1].Name)
 	require.Equal(t, "sidecar", c.Env[1].Value)
@@ -146,8 +146,8 @@ func TestSetupPPMAuthFullSetup(t *testing.T) {
 	require.Len(t, setup.InitContainers, 1)
 	require.Len(t, setup.SidecarContainers, 1)
 	// Default image when ppmAuthImage is empty
-	require.Equal(t, "alpine:3", setup.InitContainers[0].Image)
-	require.Equal(t, "alpine:3", setup.SidecarContainers[0].Image)
+	require.Equal(t, "alpine:3.21.3", setup.InitContainers[0].Image)
+	require.Equal(t, "alpine:3.21.3", setup.SidecarContainers[0].Image)
 }
 
 func TestSetupPPMAuthCustomImage(t *testing.T) {

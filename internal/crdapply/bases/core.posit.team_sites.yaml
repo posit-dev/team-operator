@@ -190,8 +190,10 @@ spec:
                         type: array
                     type: object
                   authenticatedRepos:
-                    description: AuthenticatedRepos enables PPM authenticated repository
-                      access for Connect
+                    description: |-
+                      AuthenticatedRepos enables PPM authenticated repository access for Connect.
+                      PPM URL and audience are derived from site-level config (PackageManager domain and OIDCAudience);
+                      use a standalone Connect CR to override these per-product.
                     type: boolean
                   baseDomain:
                     description: |-
@@ -1167,8 +1169,10 @@ spec:
                     description: Workbench Auth/Login Landing Page Customization HTML
                     type: string
                   authenticatedRepos:
-                    description: AuthenticatedRepos enables PPM authenticated repository
-                      access for Workbench
+                    description: |-
+                      AuthenticatedRepos enables PPM authenticated repository access for Workbench.
+                      PPM URL and audience are derived from site-level config (PackageManager domain and OIDCAudience);
+                      use a standalone Workbench CR to override these per-product.
                     type: boolean
                   baseDomain:
                     description: |-

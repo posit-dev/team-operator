@@ -2106,3 +2106,42 @@ func TestSitePackageManagerIdentityFederationClaims(t *testing.T) {
 	assert.Equal(t, "sub", workbenchIDF.UniqueIdClaim)
 	assert.Equal(t, "sub", workbenchIDF.UsernameClaim)
 }
+
+// TestSiteReconciler_PPMAuthPropagation verifies the full Site reconciliation path
+// for authenticated repos: ConfigMap is created and PPM auth fields are propagated
+// from the Site spec to the child Connect and Workbench CRs.
+func TestSiteReconciler_PPMAuthPropagation(t *testing.T) {
+	siteName := "ppm-auth-prop"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Domain = "example.com"
+	site.Spec.PackageManager.DomainPrefix = "packagemanager"
+	site.Spec.OIDCIssuerURL = "https://oidc.eks.example.com"
+	site.Spec.OIDCAudience = "sts.amazonaws.com"
+	site.Spec.Connect.AuthenticatedRepos = true
+	site.Spec.Connect.PPMAuthImage = "custom-image:1.0"
+	site.Spec.Workbench.AuthenticatedRepos = true
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	require.NoError(t, err)
+
+	// Verify the PPM auth script ConfigMap was created
+	cm := &corev1.ConfigMap{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: PPMAuthConfigMapName(siteName), Namespace: siteNamespace}, cm)
+	require.NoError(t, err, "PPM auth script ConfigMap should be created")
+	assert.Contains(t, cm.Data, "token-exchange.sh")
+	assert.Equal(t, v1beta1.ManagedByLabelValue, cm.Labels[v1beta1.ManagedByLabelKey])
+
+	// Verify Connect CR has PPM auth fields propagated
+	connect := getConnect(t, cli, siteNamespace, siteName)
+	assert.True(t, connect.Spec.AuthenticatedRepos)
+	assert.Equal(t, "packagemanager.example.com", connect.Spec.PPMUrl)
+	assert.Equal(t, "sts.amazonaws.com", connect.Spec.PPMAuthAudience)
+	assert.Equal(t, "custom-image:1.0", connect.Spec.PPMAuthImage)
+
+	// Verify Workbench CR has PPM auth fields propagated
+	workbench := getWorkbench(t, cli, siteNamespace, siteName)
+	assert.True(t, workbench.Spec.AuthenticatedRepos)
+	assert.Equal(t, "packagemanager.example.com", workbench.Spec.PPMUrl)
+	assert.Equal(t, "sts.amazonaws.com", workbench.Spec.PPMAuthAudience)
+}

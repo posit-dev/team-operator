@@ -791,16 +791,38 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 	workbenchSecretVolumeFactory := w.CreateSecretVolumeFactory()
 
 	// PPM authenticated repos support
-	ppmAuthVolumes, ppmAuthVolumeMounts, ppmAuthEnvVars, ppmAuthInitContainers, ppmAuthSidecarContainers := UnpackPPMAuthSetup(
-		SetupPPMAuth(
-			w.Spec.AuthenticatedRepos,
-			w.Spec.PPMUrl,
-			w.Spec.PPMAuthImage,
-			w.Spec.PPMAuthAudience,
-			w.SiteName(),
-			l,
-		),
+	ppmAuthSetup := SetupPPMAuth(
+		w.Spec.AuthenticatedRepos,
+		w.Spec.PPMUrl,
+		w.Spec.PPMAuthImage,
+		w.Spec.PPMAuthAudience,
+		w.SiteName(),
+		l,
 	)
+	ppmAuthVolumes, ppmAuthVolumeMounts, ppmAuthEnvVars, ppmAuthInitContainers, ppmAuthSidecarContainers := UnpackPPMAuthSetup(ppmAuthSetup)
+
+	// Create the PPM auth script ConfigMap if PPM auth is active.
+	// In the Site path, the Site reconciler creates this ConfigMap. In standalone mode,
+	// the product reconciler must create it itself.
+	if len(ppmAuthSetup.Volumes) > 0 {
+		cm := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      PPMAuthConfigMapName(w.SiteName()),
+				Namespace: req.Namespace,
+			},
+		}
+		if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, cm, w, func() error {
+			cm.Labels = map[string]string{
+				positcov1beta1.ManagedByLabelKey: positcov1beta1.ManagedByLabelValue,
+			}
+			cm.Data = map[string]string{
+				"token-exchange.sh": PPMAuthTokenExchangeScript(),
+			}
+			return nil
+		}); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 
 	var chronicleSeededEnv []corev1.EnvVar
 	if w.Spec.ChronicleSidecarProductApiKeyEnabled {
