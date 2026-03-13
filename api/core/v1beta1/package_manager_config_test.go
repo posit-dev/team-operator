@@ -1,6 +1,7 @@
 package v1beta1
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -198,6 +199,34 @@ func TestPackageManagerConfig_OIDCNewFields(t *testing.T) {
 	require.Contains(t, str, "CustomScope = profile email groups")
 	require.Contains(t, str, "NoAutoGroupsScope = true")
 	require.Contains(t, str, "EnableDevicePKCE = true")
+}
+
+func TestPackageManagerConfig_IdentityFederationJSONRoundTrip(t *testing.T) {
+	original := PackageManagerConfig{
+		IdentityFederation: []PackageManagerIdentityFederationConfig{
+			{
+				Name:     "connect",
+				Issuer:   "https://issuer.example.com",
+				Audience: "my-audience",
+				Subject:  "system:serviceaccount:posit-team:mysite-connect",
+				Scope:    "repos:read:*",
+			},
+		},
+	}
+
+	data, err := json.Marshal(original)
+	require.NoError(t, err)
+
+	var roundTripped PackageManagerConfig
+	err = json.Unmarshal(data, &roundTripped)
+	require.NoError(t, err)
+
+	require.Len(t, roundTripped.IdentityFederation, 1)
+	require.Equal(t, "connect", roundTripped.IdentityFederation[0].Name)
+	require.Equal(t, "https://issuer.example.com", roundTripped.IdentityFederation[0].Issuer)
+	require.Equal(t, "my-audience", roundTripped.IdentityFederation[0].Audience)
+	require.Equal(t, "system:serviceaccount:posit-team:mysite-connect", roundTripped.IdentityFederation[0].Subject)
+	require.Equal(t, "repos:read:*", roundTripped.IdentityFederation[0].Scope)
 }
 
 func TestPackageManagerConfig_IdentityFederationNewFields(t *testing.T) {

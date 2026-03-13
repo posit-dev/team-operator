@@ -20,7 +20,7 @@ type PackageManagerConfig struct {
 	Debug              *PackageManagerDebugConfig               `json:"Debug,omitempty"`
 	Authentication     *PackageManagerAuthenticationConfig      `json:"Authentication,omitempty"`
 	OpenIDConnect      *PackageManagerOIDCConfig                `json:"OpenIDConnect,omitempty"`
-	IdentityFederation []PackageManagerIdentityFederationConfig `json:"identityFederation,omitempty"`
+	IdentityFederation []PackageManagerIdentityFederationConfig `json:"IdentityFederation,omitempty"`
 
 	// AdditionalConfig allows appending arbitrary gcfg config content not covered by typed fields.
 	// The value is appended verbatim after the generated config. gcfg parsing naturally handles

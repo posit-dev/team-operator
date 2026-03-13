@@ -21,7 +21,7 @@ type PackageManagerConfigApplyConfiguration struct {
 	Debug              *PackageManagerDebugConfigApplyConfiguration               `json:"Debug,omitempty"`
 	Authentication     *PackageManagerAuthenticationConfigApplyConfiguration      `json:"Authentication,omitempty"`
 	OpenIDConnect      *PackageManagerOIDCConfigApplyConfiguration                `json:"OpenIDConnect,omitempty"`
-	IdentityFederation []PackageManagerIdentityFederationConfigApplyConfiguration `json:"identityFederation,omitempty"`
+	IdentityFederation []PackageManagerIdentityFederationConfigApplyConfiguration `json:"IdentityFederation,omitempty"`
 	AdditionalConfig   *string                                                    `json:"additionalConfig,omitempty"`
 }
 
