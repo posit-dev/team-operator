@@ -198,6 +198,11 @@ func TestContainsGcfgKey(t *testing.T) {
 	require.False(t, containsGcfgKey(config, "OtherSection", "Scope"))
 }
 
+func TestContainsGcfgKeyWhitespaceInBrackets(t *testing.T) {
+	config := "[ OpenIDConnect ]\nScope = repos:read:*\n"
+	require.True(t, containsGcfgKey(config, "OpenIDConnect", "Scope"), "whitespace inside brackets should still match")
+}
+
 func TestContainsGcfgKeySkipsComments(t *testing.T) {
 	config := "[OpenIDConnect]\n; Scope = repos:read:*\n# RoleClaim = roles\n"
 	require.False(t, containsGcfgKey(config, "OpenIDConnect", "Scope"), "commented-out key with ; should be ignored")

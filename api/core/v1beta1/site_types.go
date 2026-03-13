@@ -334,7 +334,9 @@ type InternalConnectSpec struct {
 	// +optional
 	AdditionalConfig string `json:"additionalConfig,omitempty"`
 
-	// AuthenticatedRepos enables PPM authenticated repository access for Connect
+	// AuthenticatedRepos enables PPM authenticated repository access for Connect.
+	// PPM URL and audience are derived from site-level config (PackageManager domain and OIDCAudience);
+	// use a standalone Connect CR to override these per-product.
 	// +optional
 	AuthenticatedRepos bool `json:"authenticatedRepos,omitempty"`
 
@@ -494,7 +496,9 @@ type InternalWorkbenchSpec struct {
 	// +optional
 	AdditionalSessionConfigs map[string]string `json:"additionalSessionConfigs,omitempty"`
 
-	// AuthenticatedRepos enables PPM authenticated repository access for Workbench
+	// AuthenticatedRepos enables PPM authenticated repository access for Workbench.
+	// PPM URL and audience are derived from site-level config (PackageManager domain and OIDCAudience);
+	// use a standalone Workbench CR to override these per-product.
 	// +optional
 	AuthenticatedRepos bool `json:"authenticatedRepos,omitempty"`
 

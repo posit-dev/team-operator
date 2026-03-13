@@ -175,8 +175,8 @@ func PPMAuthSidecarContainer(image, ppmURL, refreshInterval string) corev1.Conta
 			ProbeHandler: corev1.ProbeHandler{
 				Exec: &corev1.ExecAction{
 					Command: []string{"sh", "-c",
-						fmt.Sprintf("test -f %s && test $(( $(date +%%s) - $(stat -c %%Y %s 2>/dev/null || stat -f %%m %s) )) -lt %d",
-							ppmAuthNetrcPath, ppmAuthNetrcPath, ppmAuthNetrcPath, ppmAuthLivenessThresholdSeconds(refreshInterval))},
+						fmt.Sprintf("MOD=$(stat -c %%Y %s 2>/dev/null || stat -f %%m %s 2>/dev/null) && test -n \"$MOD\" && test $(( $(date +%%s) - $MOD )) -lt %d",
+							ppmAuthNetrcPath, ppmAuthNetrcPath, ppmAuthLivenessThresholdSeconds(refreshInterval))},
 				},
 			},
 			InitialDelaySeconds: 60,

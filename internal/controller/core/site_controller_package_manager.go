@@ -153,8 +153,7 @@ func (r *SiteReconciler) reconcilePackageManager(
 		if site.Spec.OIDCIssuerURL != "" {
 			audience := site.Spec.OIDCAudience
 			if audience == "" {
-				// logr has no Warn; Error(nil) serves as warning level
-				l.Error(nil, "OIDCAudience is not set; Identity Federation entries will have an empty audience and PPM auth projected SA tokens will not work. Set spec.oidcAudience (e.g. 'sts.amazonaws.com' for EKS)")
+				l.V(0).Info("OIDCAudience is not set; Identity Federation entries will have an empty audience and PPM auth projected SA tokens will not work. Set spec.oidcAudience (e.g. 'sts.amazonaws.com' for EKS)")
 			}
 			if site.Spec.Connect.AuthenticatedRepos {
 				idfEntries = append(idfEntries, v1beta1.PackageManagerIdentityFederationConfig{
@@ -263,7 +262,10 @@ func containsGcfgKey(config, section, key string) bool {
 			continue
 		}
 		if strings.HasPrefix(trimmed, "[") {
-			inSection = strings.EqualFold(trimmed, "["+section+"]")
+			// Strip whitespace inside brackets so "[ OpenIDConnect ]" matches "OpenIDConnect"
+			inner := strings.TrimSuffix(strings.TrimPrefix(trimmed, "["), "]")
+			inner = strings.TrimSpace(inner)
+			inSection = strings.EqualFold(inner, section)
 			continue
 		}
 		if inSection && len(trimmed) >= len(key) &&
