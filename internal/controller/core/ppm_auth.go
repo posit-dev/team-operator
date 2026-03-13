@@ -64,6 +64,7 @@ exchange_token() {
 
     # Clean up temp file immediately (also handled by trap on failure)
     rm -f "$POST_DATA_FILE"
+    trap - EXIT
 
     PPM_TOKEN=$(extract_json_field "$RESPONSE" "access_token")
 
