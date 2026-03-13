@@ -22,7 +22,8 @@ type PackageManagerConfigApplyConfiguration struct {
 	Authentication     *PackageManagerAuthenticationConfigApplyConfiguration      `json:"Authentication,omitempty"`
 	OpenIDConnect      *PackageManagerOIDCConfigApplyConfiguration                `json:"OpenIDConnect,omitempty"`
 	IdentityFederation []PackageManagerIdentityFederationConfigApplyConfiguration `json:"IdentityFederation,omitempty"`
-	AdditionalConfig   *string                                                    `json:"additionalConfig,omitempty"`
+	// Uses camelCase JSON tag for backward compatibility with resources stored in etcd since v1.20.0.
+	AdditionalConfig *string `json:"additionalConfig,omitempty"`
 }
 
 // PackageManagerConfigApplyConfiguration constructs a declarative configuration of the PackageManagerConfig type for use with
