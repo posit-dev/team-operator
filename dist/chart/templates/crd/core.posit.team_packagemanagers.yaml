@@ -247,7 +247,7 @@ spec:
                       The value is appended verbatim after the generated config. gcfg parsing naturally handles
                       conflicts: list values are combined, scalar values use the last occurrence.
                     type: string
-                  identityFederation:
+                  IdentityFederation:
                     items:
                       properties:
                         Audience:
