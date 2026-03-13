@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
@@ -170,6 +171,101 @@ var _ = Describe("Site Controller (envtest)", func() {
 
 			Expect(createdPM.Name).To(Equal(pmName))
 			Expect(createdPM.Spec.Replicas).To(Equal(1))
+		})
+	})
+
+	Context("When cleaning up PPM auth ConfigMap", func() {
+		It("Should delete a managed ConfigMap", func() {
+			testNamespace := "posit-team"
+			siteName := "test-ppm-cleanup"
+
+			site := &corev1beta1.Site{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      siteName,
+					Namespace: testNamespace,
+				},
+			}
+
+			By("Creating a managed PPM auth ConfigMap")
+			cm := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      PPMAuthConfigMapName(siteName),
+					Namespace: testNamespace,
+					Labels: map[string]string{
+						corev1beta1.ManagedByLabelKey: corev1beta1.ManagedByLabelValue,
+					},
+				},
+				Data: map[string]string{
+					"token-exchange.sh": "#!/bin/sh\necho test",
+				},
+			}
+			Expect(k8sClient.Create(ctx, cm)).To(Succeed())
+
+			By("Running cleanupPPMAuthConfigMap")
+			reconciler := &SiteReconciler{Client: k8sClient}
+			req := ctrl.Request{NamespacedName: types.NamespacedName{Name: siteName, Namespace: testNamespace}}
+			Expect(reconciler.cleanupPPMAuthConfigMap(ctx, req, site)).To(Succeed())
+
+			By("Verifying the ConfigMap was deleted")
+			deleted := &corev1.ConfigMap{}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: PPMAuthConfigMapName(siteName), Namespace: testNamespace}, deleted)
+			Expect(err).To(HaveOccurred())
+			Expect(client.IgnoreNotFound(err)).To(Succeed())
+		})
+
+		It("Should skip deletion of a ConfigMap not managed by operator", func() {
+			testNamespace := "posit-team"
+			siteName := "test-ppm-cleanup-unmanaged"
+
+			site := &corev1beta1.Site{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      siteName,
+					Namespace: testNamespace,
+				},
+			}
+
+			By("Creating an unmanaged ConfigMap with the same name pattern")
+			cm := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      PPMAuthConfigMapName(siteName),
+					Namespace: testNamespace,
+					Labels: map[string]string{
+						corev1beta1.ManagedByLabelKey: "someone-else",
+					},
+				},
+				Data: map[string]string{
+					"token-exchange.sh": "#!/bin/sh\necho test",
+				},
+			}
+			Expect(k8sClient.Create(ctx, cm)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(k8sClient.Delete(ctx, cm)).To(Succeed())
+			})
+
+			By("Running cleanupPPMAuthConfigMap")
+			reconciler := &SiteReconciler{Client: k8sClient}
+			req := ctrl.Request{NamespacedName: types.NamespacedName{Name: siteName, Namespace: testNamespace}}
+			Expect(reconciler.cleanupPPMAuthConfigMap(ctx, req, site)).To(Succeed())
+
+			By("Verifying the ConfigMap still exists")
+			existing := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: PPMAuthConfigMapName(siteName), Namespace: testNamespace}, existing)).To(Succeed())
+		})
+
+		It("Should succeed when ConfigMap does not exist", func() {
+			testNamespace := "posit-team"
+			siteName := "test-ppm-cleanup-nonexistent"
+
+			site := &corev1beta1.Site{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      siteName,
+					Namespace: testNamespace,
+				},
+			}
+
+			reconciler := &SiteReconciler{Client: k8sClient}
+			req := ctrl.Request{NamespacedName: types.NamespacedName{Name: siteName, Namespace: testNamespace}}
+			Expect(reconciler.cleanupPPMAuthConfigMap(ctx, req, site)).To(Succeed())
 		})
 	})
 })

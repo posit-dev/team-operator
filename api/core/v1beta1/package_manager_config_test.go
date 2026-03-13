@@ -266,6 +266,34 @@ func TestPackageManagerConfig_IdentityFederationNewFields(t *testing.T) {
 	require.Contains(t, str, "TokenLifetime = 2h")
 }
 
+func TestPackageManagerConfig_IdentityFederationRejectsQuoteInName(t *testing.T) {
+	cfg := PackageManagerConfig{
+		IdentityFederation: []PackageManagerIdentityFederationConfig{
+			{
+				Name:   `bad"name`,
+				Issuer: "https://issuer.example.com",
+			},
+		},
+	}
+	_, err := cfg.GenerateGcfg()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "must not contain")
+}
+
+func TestPackageManagerConfig_IdentityFederationRejectsBracketInName(t *testing.T) {
+	cfg := PackageManagerConfig{
+		IdentityFederation: []PackageManagerIdentityFederationConfig{
+			{
+				Name:   `name"]`,
+				Issuer: "https://issuer.example.com",
+			},
+		},
+	}
+	_, err := cfg.GenerateGcfg()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "must not contain")
+}
+
 func TestPackageManagerConfig_IdentityFederationRejectsCarriageReturn(t *testing.T) {
 	cfg := PackageManagerConfig{
 		IdentityFederation: []PackageManagerIdentityFederationConfig{

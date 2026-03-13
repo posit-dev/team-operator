@@ -157,7 +157,7 @@ func (r *SiteReconciler) reconcileConnect(
 			AuthenticatedRepos:      site.Spec.Connect.AuthenticatedRepos,
 			PPMAuthImage:            site.Spec.Connect.PPMAuthImage,
 			PPMUrl:                  prefixDomain(site.Spec.PackageManager.DomainPrefix, getEffectiveBaseDomain(site.Spec.PackageManager.BaseDomain, site.Spec.Domain), v1beta1.SiteSubDomain),
-			PPMAuthAudience:         effectiveOIDCAudience(site.Spec.OIDCAudience),
+			PPMAuthAudience:         site.Spec.OIDCAudience,
 		},
 	}
 

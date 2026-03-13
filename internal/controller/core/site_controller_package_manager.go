@@ -151,7 +151,7 @@ func (r *SiteReconciler) reconcilePackageManager(
 		// Auto-configure Identity Federation entries based on product flags
 		var idfEntries []v1beta1.PackageManagerIdentityFederationConfig
 		if site.Spec.OIDCIssuerURL != "" {
-			audience := effectiveOIDCAudience(site.Spec.OIDCAudience)
+			audience := site.Spec.OIDCAudience
 			if audience == "" {
 				// logr has no Warn; Error(nil) serves as warning level
 				l.Error(nil, "OIDCAudience is not set; Identity Federation entries will have an empty audience and PPM auth projected SA tokens will not work. Set spec.oidcAudience (e.g. 'sts.amazonaws.com' for EKS)")
@@ -250,12 +250,6 @@ func (r *SiteReconciler) cleanupPackageManager(ctx context.Context, req controll
 	}
 
 	return nil
-}
-
-// effectiveOIDCAudience returns the OIDC audience to use.
-// Returns the audience as-is; callers must handle the empty case.
-func effectiveOIDCAudience(audience string) string {
-	return audience
 }
 
 // containsGcfgKey checks whether a raw gcfg config string contains a key assignment

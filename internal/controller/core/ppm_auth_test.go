@@ -213,11 +213,6 @@ func TestPpmAuthLivenessThresholdSeconds(t *testing.T) {
 	}
 }
 
-func TestEffectiveOIDCAudience(t *testing.T) {
-	require.Equal(t, "", effectiveOIDCAudience(""))
-	require.Equal(t, "custom-audience", effectiveOIDCAudience("custom-audience"))
-}
-
 // TestPPMAuthTokenExchangeScriptJWTValidation is a source-level smoke check
 // that the JWT dot-count validation hasn't been accidentally removed from the
 // shell script. It does not execute the script; behavioral coverage comes from
@@ -234,4 +229,8 @@ func TestSanitizePPMUrl(t *testing.T) {
 	require.Equal(t, "https://ppm.example.com", SanitizePPMUrl("http://ppm.example.com"))
 	require.Equal(t, "", SanitizePPMUrl(""))
 	require.Equal(t, "https://ppm.example.com:8080/api", SanitizePPMUrl("ppm.example.com:8080/api"))
+	// Trailing slashes are stripped to avoid double-slash in URLs like //__api__/token
+	require.Equal(t, "https://ppm.example.com", SanitizePPMUrl("https://ppm.example.com/"))
+	require.Equal(t, "https://ppm.example.com", SanitizePPMUrl("https://ppm.example.com///"))
+	require.Equal(t, "", SanitizePPMUrl("https:///"))
 }

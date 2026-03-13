@@ -21,7 +21,9 @@ const (
 	ppmAuthNetrcPath        = "/mnt/ppm-auth/netrc"
 	ppmAuthTokenMountPath   = "/var/run/secrets/ppm-auth"
 	ppmAuthScriptMountPath  = "/scripts"
-	// ppmAuthDefaultImage uses alpine:3 which has wget and sed via BusyBox
+	// ppmAuthDefaultImage uses alpine:3 which provides BusyBox (wget, sed, stat -c).
+	// Custom PPMAuthImage values must provide these utilities; distroless images
+	// without stat will cause liveness probe failures and restart loops.
 	ppmAuthDefaultImage   = "alpine:3"
 	ppmAuthDefaultRefresh = "3000" // 50 minutes (for 60 min token lifetime)
 )
@@ -302,6 +304,7 @@ func PPMAuthEnvVars() []corev1.EnvVar {
 // Returns an empty string if the input is empty.
 func SanitizePPMUrl(rawUrl string) string {
 	host := strings.TrimPrefix(strings.TrimPrefix(rawUrl, "https://"), "http://")
+	host = strings.TrimRight(host, "/")
 	if host == "" {
 		return ""
 	}
