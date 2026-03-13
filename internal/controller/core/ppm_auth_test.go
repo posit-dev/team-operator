@@ -100,7 +100,9 @@ func TestPPMAuthVolumesEmptyAudience(t *testing.T) {
 	vols := PPMAuthVolumes("mysite", "")
 	require.Len(t, vols, 3)
 
-	// When audience is empty, the ServiceAccountToken projection omits the audience field
+	// When audience is empty, the ServiceAccountToken projection has an empty audience,
+	// which defaults to the API server audience — not the intended OIDC provider.
+	// SetupPPMAuth guards against this; this test documents the raw behavior.
 	require.Equal(t, "ppm-sa-token", vols[0].Name)
 	require.NotNil(t, vols[0].Projected)
 	require.Len(t, vols[0].Projected.Sources, 1)
