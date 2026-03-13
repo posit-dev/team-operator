@@ -8,7 +8,7 @@ package v1beta1
 // PackageManagerIdentityFederationConfigApplyConfiguration represents a declarative configuration of the PackageManagerIdentityFederationConfig type for use
 // with apply.
 type PackageManagerIdentityFederationConfigApplyConfiguration struct {
-	Name              *string `json:"name,omitempty"`
+	Name              *string `json:"Name,omitempty"`
 	Issuer            *string `json:"Issuer,omitempty"`
 	Logging           *bool   `json:"Logging,omitempty"`
 	Audience          *string `json:"Audience,omitempty"`
