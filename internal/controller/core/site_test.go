@@ -1923,3 +1923,94 @@ func TestSiteFlightdeckDisableReenableCycle(t *testing.T) {
 	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, fd)
 	assert.NoError(t, err, "Flightdeck CR should be recreated after re-enabling")
 }
+
+// TestSitePackageManagerOIDCDefaultScope verifies that when OIDC is configured for PPM,
+// the default Scope "repos:read:*" is set automatically.
+func TestSitePackageManagerOIDCDefaultScope(t *testing.T) {
+	siteName := "pm-oidc-scope"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.PackageManager.Auth = &v1beta1.AuthSpec{
+		Type:     v1beta1.AuthTypeOidc,
+		ClientId: "test-client",
+		Issuer:   "https://idp.example.com",
+	}
+	site.Spec.PackageManager.OIDCClientSecretKey = "oidc-secret"
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	require.NoError(t, err)
+
+	pm := &v1beta1.PackageManager{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, pm)
+	require.NoError(t, err)
+
+	require.NotNil(t, pm.Spec.Config.OpenIDConnect, "OpenIDConnect config should be set")
+	assert.Equal(t, "repos:read:*", pm.Spec.Config.OpenIDConnect.Scope, "default Scope should be repos:read:*")
+	assert.Equal(t, "test-client", pm.Spec.Config.OpenIDConnect.ClientId)
+	assert.Equal(t, "https://idp.example.com", pm.Spec.Config.OpenIDConnect.Issuer)
+	assert.True(t, pm.Spec.Config.OpenIDConnect.RequireLogin)
+}
+
+// TestSitePackageManagerOIDCDefaultScopeSkippedWithAdditionalConfig verifies that the
+// default scope is not set when the user provides Scope, RoleClaim, or GroupToScopeMapping
+// via AdditionalConfig.
+func TestSitePackageManagerOIDCDefaultScopeSkippedWithAdditionalConfig(t *testing.T) {
+	tests := []struct {
+		name             string
+		additionalConfig string
+	}{
+		{"Scope override", "[OpenIDConnect]\nScope = custom:scope"},
+		{"RoleClaim override", "[OpenIDConnect]\nRoleClaim = role_claim"},
+		{"GroupToScopeMapping override", "[OpenIDConnect]\nGroupToScopeMapping = group1=scope1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			siteName := "pm-oidc-no-default"
+			siteNamespace := "posit-team"
+			site := defaultSite(siteName)
+			site.Spec.PackageManager.Auth = &v1beta1.AuthSpec{
+				Type:     v1beta1.AuthTypeOidc,
+				ClientId: "test-client",
+				Issuer:   "https://idp.example.com",
+			}
+			site.Spec.PackageManager.OIDCClientSecretKey = "oidc-secret"
+			site.Spec.PackageManager.AdditionalConfig = tt.additionalConfig
+
+			cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+			require.NoError(t, err)
+
+			pm := &v1beta1.PackageManager{}
+			err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, pm)
+			require.NoError(t, err)
+
+			require.NotNil(t, pm.Spec.Config.OpenIDConnect, "OpenIDConnect config should be set")
+			assert.Empty(t, pm.Spec.Config.OpenIDConnect.Scope, "default Scope should NOT be set when %s is in AdditionalConfig", tt.name)
+		})
+	}
+}
+
+// TestSitePackageManagerOIDCGroupsClaim verifies that GroupsClaim from the Site auth spec
+// is propagated to the PPM OIDC config.
+func TestSitePackageManagerOIDCGroupsClaim(t *testing.T) {
+	siteName := "pm-oidc-groups"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.PackageManager.Auth = &v1beta1.AuthSpec{
+		Type:        v1beta1.AuthTypeOidc,
+		ClientId:    "test-client",
+		Issuer:      "https://idp.example.com",
+		GroupsClaim: "groups",
+	}
+	site.Spec.PackageManager.OIDCClientSecretKey = "oidc-secret"
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	require.NoError(t, err)
+
+	pm := &v1beta1.PackageManager{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, pm)
+	require.NoError(t, err)
+
+	require.NotNil(t, pm.Spec.Config.OpenIDConnect, "OpenIDConnect config should be set")
+	assert.Equal(t, "groups", pm.Spec.Config.OpenIDConnect.GroupsClaim)
+}

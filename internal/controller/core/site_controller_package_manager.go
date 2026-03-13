@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/posit-dev/team-operator/api/core/v1beta1"
@@ -131,7 +132,14 @@ func (r *SiteReconciler) reconcilePackageManager(
 				ClientSecretFile: "/etc/rstudio-pm/oidc-client-secret",
 				Issuer:           site.Spec.PackageManager.Auth.Issuer,
 				RequireLogin:     true,
-				Scope:            "repos:read:*",
+			}
+			// PPM requires at least one of Scope, RoleClaim, or GroupToScopeMapping.
+			// Default to repos:read:* only when no alternative is configured via AdditionalConfig.
+			if site.Spec.PackageManager.AdditionalConfig == "" ||
+				(!containsGcfgKey(site.Spec.PackageManager.AdditionalConfig, "Scope") &&
+					!containsGcfgKey(site.Spec.PackageManager.AdditionalConfig, "RoleClaim") &&
+					!containsGcfgKey(site.Spec.PackageManager.AdditionalConfig, "GroupToScopeMapping")) {
+				pm.Spec.Config.OpenIDConnect.Scope = "repos:read:*"
 			}
 			if site.Spec.PackageManager.Auth.GroupsClaim != "" {
 				pm.Spec.Config.OpenIDConnect.GroupsClaim = site.Spec.PackageManager.Auth.GroupsClaim
@@ -242,4 +250,15 @@ func (r *SiteReconciler) cleanupPackageManager(ctx context.Context, req controll
 	}
 
 	return nil
+}
+
+// containsGcfgKey checks whether a raw gcfg config string contains a key assignment (e.g. "Scope = ...").
+func containsGcfgKey(config, key string) bool {
+	for _, line := range strings.Split(config, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, key) && strings.Contains(trimmed, "=") {
+			return true
+		}
+	}
+	return false
 }
