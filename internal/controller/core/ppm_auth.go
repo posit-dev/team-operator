@@ -71,19 +71,19 @@ exchange_token() {
     if [ -z "$PPM_TOKEN" ] || [ "$PPM_TOKEN" = "null" ]; then
         echo "ERROR: Failed to extract access_token from PPM response" >&2
         echo "Response length: ${#RESPONSE} bytes" >&2
-        exit 1
+        return 1
     fi
 
     PPM_HOST=$(echo "$PPM_URL" | sed 's|https\?://||' | sed 's|/.*||')
 
     # Write netrc (atomic: write to temp, then rename)
-    TMPFILE=$(mktemp "${NETRC_PATH}.XXXXXX")
-    printf "machine %s\nlogin __token__\npassword %s\n" "$PPM_HOST" "$PPM_TOKEN" > "$TMPFILE"
-    mv "$TMPFILE" "$NETRC_PATH"
+    TMPFILE=$(mktemp "${NETRC_PATH}.XXXXXX") || return 1
+    printf "machine %s\nlogin __token__\npassword %s\n" "$PPM_HOST" "$PPM_TOKEN" > "$TMPFILE" || return 1
+    mv "$TMPFILE" "$NETRC_PATH" || return 1
     chmod 600 "$NETRC_PATH"
 
     # Write curlrc so R's libcurl uses the netrc file
-    printf -- "--netrc-file %s\n" "$NETRC_PATH" > "$CURLRC_PATH"
+    printf -- "--netrc-file %s\n" "$NETRC_PATH" > "$CURLRC_PATH" || return 1
     chmod 600 "$CURLRC_PATH"
 }
 

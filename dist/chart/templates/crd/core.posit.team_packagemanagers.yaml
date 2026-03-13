@@ -283,6 +283,8 @@ spec:
                           type: string
                         Name:
                           type: string
+                      required:
+                      - Name
                       type: object
                     type: array
                 type: object
