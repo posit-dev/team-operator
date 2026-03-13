@@ -22,7 +22,8 @@ type PackageManagerConfig struct {
 	OpenIDConnect      *PackageManagerOIDCConfig                `json:"OpenIDConnect,omitempty"`
 	IdentityFederation []PackageManagerIdentityFederationConfig `json:"IdentityFederation,omitempty"`
 
-	// additionalConfig allows appending arbitrary gcfg config content not covered by typed fields.
+	// AdditionalConfig allows appending arbitrary gcfg config content not covered by typed fields.
+	// Note: the JSON key is "additionalConfig" (camelCase) for backward compatibility with v1.20.0.
 	// The value is appended verbatim after the generated config. gcfg parsing naturally handles
 	// conflicts: list values are combined, scalar values use the last occurrence.
 	// +optional

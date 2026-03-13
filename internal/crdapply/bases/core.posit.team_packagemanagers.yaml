@@ -127,6 +127,45 @@ spec:
                       Listen:
                         type: string
                     type: object
+                  IdentityFederation:
+                    items:
+                      properties:
+                        Audience:
+                          type: string
+                        AuthorizedParty:
+                          type: string
+                        CustomScope:
+                          type: string
+                        GroupsClaim:
+                          type: string
+                        GroupsSeparator:
+                          type: string
+                        Issuer:
+                          type: string
+                        Logging:
+                          type: boolean
+                        Name:
+                          type: string
+                        NoAutoGroupsScope:
+                          type: boolean
+                        RoleClaim:
+                          type: string
+                        RolesSeparator:
+                          type: string
+                        Scope:
+                          type: string
+                        Subject:
+                          type: string
+                        TokenLifetime:
+                          type: string
+                        UniqueIdClaim:
+                          type: string
+                        UsernameClaim:
+                          type: string
+                      required:
+                      - Name
+                      type: object
+                    type: array
                   Metrics:
                     properties:
                       Enabled:
@@ -223,6 +262,7 @@ spec:
                   additionalConfig:
                     description: |-
                       AdditionalConfig allows appending arbitrary gcfg config content not covered by typed fields.
+                      Note: the JSON key is "additionalConfig" (camelCase) for backward compatibility with v1.20.0.
                       The value is appended verbatim after the generated config. gcfg parsing naturally handles
                       conflicts: list values are combined, scalar values use the last occurrence.
                     type: string
