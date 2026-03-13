@@ -192,6 +192,27 @@ func TestContainsGcfgKeySkipsComments(t *testing.T) {
 	require.False(t, containsGcfgKey(config, "OpenIDConnect", "RoleClaim"), "commented-out key with # should be ignored")
 }
 
+func TestPpmAuthLivenessThresholdSeconds(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected int
+	}{
+		{"valid interval", "1500", 3000},
+		{"default interval", "3000", 6000},
+		{"empty string", "", 6000},
+		{"zero", "0", 6000},
+		{"negative", "-1", 6000},
+		{"unit suffix", "30s", 6000},
+		{"non-numeric", "abc", 6000},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.expected, ppmAuthLivenessThresholdSeconds(tt.input))
+		})
+	}
+}
+
 func TestEffectiveOIDCAudience(t *testing.T) {
 	require.Equal(t, "", effectiveOIDCAudience(""))
 	require.Equal(t, "custom-audience", effectiveOIDCAudience("custom-audience"))

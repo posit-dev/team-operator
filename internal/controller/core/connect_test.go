@@ -563,9 +563,15 @@ func TestConnectReconciler_PPMAuth(t *testing.T) {
 
 	deployment := getDeployment(t, cli, ns, name+"-connect")
 
-	// Verify init container
-	require.Len(t, deployment.Spec.Template.Spec.InitContainers, 1, "Should have PPM auth init container")
-	assert.Equal(t, "ppm-auth-init", deployment.Spec.Template.Spec.InitContainers[0].Name)
+	// Verify PPM auth init container is present
+	var foundPPMInit bool
+	for _, ic := range deployment.Spec.Template.Spec.InitContainers {
+		if ic.Name == "ppm-auth-init" {
+			foundPPMInit = true
+			break
+		}
+	}
+	assert.True(t, foundPPMInit, "Should have PPM auth init container")
 
 	// Verify sidecar container is present (main container + sidecar)
 	var foundSidecar bool

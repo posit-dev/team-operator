@@ -153,7 +153,7 @@ func (r *SiteReconciler) reconcilePackageManager(
 		if site.Spec.OIDCIssuerURL != "" {
 			audience := effectiveOIDCAudience(site.Spec.OIDCAudience)
 			if audience == "" {
-				l.Info("OIDCAudience is not set; Identity Federation entries will have an empty audience and PPM auth projected SA tokens will not work. Set spec.oidcAudience (e.g. 'sts.amazonaws.com' for EKS)")
+				l.Error(nil, "OIDCAudience is not set; Identity Federation entries will have an empty audience and PPM auth projected SA tokens will not work. Set spec.oidcAudience (e.g. 'sts.amazonaws.com' for EKS)")
 			}
 			if site.Spec.Connect.AuthenticatedRepos {
 				idfEntries = append(idfEntries, v1beta1.PackageManagerIdentityFederationConfig{

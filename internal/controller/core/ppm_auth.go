@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -194,19 +195,13 @@ func PPMAuthSidecarContainer(image, ppmURL, refreshInterval string) corev1.Conta
 }
 
 // ppmAuthLivenessThresholdSeconds returns 2x the refresh interval in seconds.
-// Falls back to 2x the default if the interval is not parseable.
+// refreshInterval must be a bare integer (seconds); values with unit suffixes
+// (e.g. "30s") are treated as unparseable and fall back to the default (3000).
 func ppmAuthLivenessThresholdSeconds(refreshInterval string) int {
-	val := 0
-	for _, c := range refreshInterval {
-		if c >= '0' && c <= '9' {
-			val = val*10 + int(c-'0')
-		} else {
-			val = 0
-			break
-		}
-	}
-	if val <= 0 {
-		val = 3000 // fallback to default
+	const defaultInterval = 3000
+	val, err := strconv.Atoi(refreshInterval)
+	if err != nil || val <= 0 {
+		val = defaultInterval
 	}
 	return val * 2
 }
