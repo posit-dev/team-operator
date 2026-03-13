@@ -22,7 +22,8 @@ type PackageManagerConfigApplyConfiguration struct {
 	Authentication     *PackageManagerAuthenticationConfigApplyConfiguration      `json:"Authentication,omitempty"`
 	OpenIDConnect      *PackageManagerOIDCConfigApplyConfiguration                `json:"OpenIDConnect,omitempty"`
 	IdentityFederation []PackageManagerIdentityFederationConfigApplyConfiguration `json:"IdentityFederation,omitempty"`
-	AdditionalConfig   *string                                                    `json:"additionalConfig,omitempty"`
+	// NOTE: camelCase JSON tag for backward compatibility with v1.20.0 (see api/core/v1beta1/package_manager_config.go).
+	AdditionalConfig *string `json:"additionalConfig,omitempty"`
 }
 
 // PackageManagerConfigApplyConfiguration constructs a declarative configuration of the PackageManagerConfig type for use with
