@@ -153,6 +153,7 @@ func (r *SiteReconciler) reconcilePackageManager(
 		if site.Spec.OIDCIssuerURL != "" {
 			audience := effectiveOIDCAudience(site.Spec.OIDCAudience)
 			if audience == "" {
+				// logr has no Warn; Error(nil) serves as warning level
 				l.Error(nil, "OIDCAudience is not set; Identity Federation entries will have an empty audience and PPM auth projected SA tokens will not work. Set spec.oidcAudience (e.g. 'sts.amazonaws.com' for EKS)")
 			}
 			if site.Spec.Connect.AuthenticatedRepos {
