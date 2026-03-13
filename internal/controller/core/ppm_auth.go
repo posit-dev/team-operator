@@ -80,11 +80,11 @@ exchange_token() {
     TMPFILE=$(mktemp "${NETRC_PATH}.XXXXXX") || return 1
     printf "machine %s\nlogin __token__\npassword %s\n" "$PPM_HOST" "$PPM_TOKEN" > "$TMPFILE" || return 1
     mv "$TMPFILE" "$NETRC_PATH" || return 1
-    chmod 600 "$NETRC_PATH"
+    chmod 600 "$NETRC_PATH" || return 1
 
     # Write curlrc so R's libcurl uses the netrc file
     printf -- "--netrc-file %s\n" "$NETRC_PATH" > "$CURLRC_PATH" || return 1
-    chmod 600 "$CURLRC_PATH"
+    chmod 600 "$CURLRC_PATH" || return 1
 }
 
 exchange_token
