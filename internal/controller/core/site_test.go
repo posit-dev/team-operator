@@ -2061,13 +2061,22 @@ func TestSitePackageManagerIdentityFederationClaims(t *testing.T) {
 
 	require.Len(t, pm.Spec.Config.IdentityFederation, 2)
 
-	connectIDF := pm.Spec.Config.IdentityFederation[0]
-	assert.Equal(t, "connect", connectIDF.Name)
+	idfByName := make(map[string]v1beta1.PackageManagerIdentityFederationConfig)
+	for _, idf := range pm.Spec.Config.IdentityFederation {
+		idfByName[idf.Name] = idf
+	}
+
+	connectIDF, ok := idfByName["connect"]
+	require.True(t, ok, "expected identity federation entry named 'connect'")
+	assert.Equal(t, "https://oidc.eks.example.com", connectIDF.Issuer)
+	assert.Equal(t, "sts.amazonaws.com", connectIDF.Audience)
 	assert.Equal(t, "sub", connectIDF.UniqueIdClaim)
 	assert.Equal(t, "sub", connectIDF.UsernameClaim)
 
-	workbenchIDF := pm.Spec.Config.IdentityFederation[1]
-	assert.Equal(t, "workbench", workbenchIDF.Name)
+	workbenchIDF, ok := idfByName["workbench"]
+	require.True(t, ok, "expected identity federation entry named 'workbench'")
+	assert.Equal(t, "https://oidc.eks.example.com", workbenchIDF.Issuer)
+	assert.Equal(t, "sts.amazonaws.com", workbenchIDF.Audience)
 	assert.Equal(t, "sub", workbenchIDF.UniqueIdClaim)
 	assert.Equal(t, "sub", workbenchIDF.UsernameClaim)
 }
