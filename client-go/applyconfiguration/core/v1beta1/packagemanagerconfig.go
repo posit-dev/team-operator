@@ -22,7 +22,7 @@ type PackageManagerConfigApplyConfiguration struct {
 	Authentication     *PackageManagerAuthenticationConfigApplyConfiguration      `json:"Authentication,omitempty"`
 	OpenIDConnect      *PackageManagerOIDCConfigApplyConfiguration                `json:"OpenIDConnect,omitempty"`
 	IdentityFederation []PackageManagerIdentityFederationConfigApplyConfiguration `json:"IdentityFederation,omitempty"`
-	AdditionalConfig   *string                                                    `json:"additionalConfig,omitempty"`
+	AdditionalConfig   *string                                                    `json:"AdditionalConfig,omitempty"`
 }
 
 // PackageManagerConfigApplyConfiguration constructs a declarative configuration of the PackageManagerConfig type for use with
