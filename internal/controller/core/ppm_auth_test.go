@@ -19,8 +19,11 @@ func TestPPMAuthTokenExchangeScript(t *testing.T) {
 	require.Contains(t, script, ".curlrc")
 	// Verify null token validation
 	require.Contains(t, script, `[ "$PPM_TOKEN" = "null" ]`)
-	// Verify sidecar resilience
-	require.Contains(t, script, "WARNING: token refresh failed, will retry")
+	// Verify sidecar resilience with failure counter
+	require.Contains(t, script, "FAIL_COUNT")
+	require.Contains(t, script, "MAX_FAILURES")
+	require.Contains(t, script, "WARNING: token refresh failed")
+	require.Contains(t, script, "ERROR: token refresh failed")
 	// Verify extract_json_field helper is present
 	require.Contains(t, script, "extract_json_field")
 }
@@ -91,6 +94,59 @@ func TestPPMAuthVolumes(t *testing.T) {
 	require.Equal(t, "ppm-auth-script", vols[2].Name)
 	require.NotNil(t, vols[2].ConfigMap)
 	require.Equal(t, "mysite-ppm-auth-script", vols[2].ConfigMap.Name)
+}
+
+func TestPPMAuthVolumesEmptyAudience(t *testing.T) {
+	vols := PPMAuthVolumes("mysite", "")
+	require.Len(t, vols, 3)
+
+	// When audience is empty, the ServiceAccountToken projection omits the audience field
+	require.Equal(t, "ppm-sa-token", vols[0].Name)
+	require.NotNil(t, vols[0].Projected)
+	require.Len(t, vols[0].Projected.Sources, 1)
+	require.Equal(t, "", vols[0].Projected.Sources[0].ServiceAccountToken.Audience)
+}
+
+func TestSetupPPMAuthDisabled(t *testing.T) {
+	logger := &testLogger{}
+	setup := SetupPPMAuth(false, "https://ppm.example.com", "", "sts.amazonaws.com", "mysite", logger)
+	require.Empty(t, setup.Volumes)
+	require.Empty(t, setup.InitContainers)
+}
+
+func TestSetupPPMAuthEmptyURL(t *testing.T) {
+	logger := &testLogger{}
+	setup := SetupPPMAuth(true, "", "", "sts.amazonaws.com", "mysite", logger)
+	require.Empty(t, setup.Volumes)
+	require.Empty(t, setup.InitContainers)
+	require.Contains(t, logger.messages, "AuthenticatedRepos is enabled but PPMUrl is empty; skipping PPM auth setup")
+}
+
+func TestSetupPPMAuthEmptyAudience(t *testing.T) {
+	logger := &testLogger{}
+	setup := SetupPPMAuth(true, "https://ppm.example.com", "", "", "mysite", logger)
+	require.Empty(t, setup.Volumes)
+	require.Empty(t, setup.InitContainers)
+	require.Contains(t, logger.messages, "AuthenticatedRepos is enabled but PPMAuthAudience is empty; skipping PPM auth setup (projected SA token requires an audience)")
+}
+
+func TestSetupPPMAuthFullSetup(t *testing.T) {
+	logger := &testLogger{}
+	setup := SetupPPMAuth(true, "https://ppm.example.com", "", "sts.amazonaws.com", "mysite", logger)
+	require.Len(t, setup.Volumes, 3)
+	require.Len(t, setup.VolumeMounts, 1)
+	require.Len(t, setup.EnvVars, 2)
+	require.Len(t, setup.InitContainers, 1)
+	require.Len(t, setup.SidecarContainer, 1)
+}
+
+// testLogger is a minimal logger for testing SetupPPMAuth
+type testLogger struct {
+	messages []string
+}
+
+func (l *testLogger) Info(msg string, keysAndValues ...interface{}) {
+	l.messages = append(l.messages, msg)
 }
 
 func TestPPMAuthVolumeMounts(t *testing.T) {

@@ -84,9 +84,20 @@ exchange_token() {
 exchange_token
 
 if [ "${MODE}" = "sidecar" ]; then
+    FAIL_COUNT=0
+    MAX_FAILURES=5
     while true; do
         sleep "$REFRESH_INTERVAL"
-        exchange_token || echo "WARNING: token refresh failed, will retry" >&2
+        if exchange_token; then
+            FAIL_COUNT=0
+        else
+            FAIL_COUNT=$((FAIL_COUNT + 1))
+            if [ "$FAIL_COUNT" -ge "$MAX_FAILURES" ]; then
+                echo "ERROR: token refresh failed $FAIL_COUNT consecutive times, exiting" >&2
+                exit 1
+            fi
+            echo "WARNING: token refresh failed ($FAIL_COUNT/$MAX_FAILURES), will retry" >&2
+        fi
     done
 fi
 `
@@ -279,6 +290,11 @@ func SetupPPMAuth(authenticatedRepos bool, ppmURL, ppmAuthImage, ppmAuthAudience
 	sanitizedURL := SanitizePPMUrl(ppmURL)
 	if sanitizedURL == "" {
 		logger.Info("AuthenticatedRepos is enabled but PPMUrl is empty; skipping PPM auth setup")
+		return PPMAuthSetup{}
+	}
+
+	if ppmAuthAudience == "" {
+		logger.Info("AuthenticatedRepos is enabled but PPMAuthAudience is empty; skipping PPM auth setup (projected SA token requires an audience)")
 		return PPMAuthSetup{}
 	}
 
