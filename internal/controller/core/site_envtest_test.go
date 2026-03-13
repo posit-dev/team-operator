@@ -200,6 +200,9 @@ var _ = Describe("Site Controller (envtest)", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, cm)).To(Succeed())
+			DeferCleanup(func() {
+				_ = client.IgnoreNotFound(k8sClient.Delete(ctx, cm))
+			})
 
 			By("Running cleanupPPMAuthConfigMap")
 			reconciler := &SiteReconciler{Client: k8sClient}

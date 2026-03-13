@@ -304,6 +304,8 @@ func PPMAuthEnvVars() []corev1.EnvVar {
 // Returns an empty string if the input is empty.
 func SanitizePPMUrl(rawUrl string) string {
 	host := strings.TrimPrefix(strings.TrimPrefix(rawUrl, "https://"), "http://")
+	// TrimRight (character-set trim) is intentional: strip all trailing slashes,
+	// not just one, so "https://host///" becomes "host" rather than "host//".
 	host = strings.TrimRight(host, "/")
 	if host == "" {
 		return ""

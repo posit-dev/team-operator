@@ -391,7 +391,7 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 
 	// PPM AUTH CONFIGMAP
 	if (site.Spec.Connect.AuthenticatedRepos || site.Spec.Workbench.AuthenticatedRepos) && !pmEnabled {
-		l.Info("AuthenticatedRepos is enabled but PackageManager is not enabled; PPM auth will have no effect")
+		l.V(1).Info("AuthenticatedRepos is enabled but PackageManager is not enabled; PPM auth will have no effect")
 	}
 	if site.Spec.Connect.AuthenticatedRepos || site.Spec.Workbench.AuthenticatedRepos {
 		if err := r.reconcilePPMAuthConfigMap(ctx, req, site); err != nil {
