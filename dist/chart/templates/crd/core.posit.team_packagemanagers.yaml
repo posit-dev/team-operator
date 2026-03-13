@@ -148,6 +148,48 @@ spec:
                       Listen:
                         type: string
                     type: object
+                  IdentityFederation:
+                    description: |-
+                      IdentityFederation was added after v1.20.0 and has never been released with a camelCase
+                      JSON tag, so the PascalCase key here is safe (no existing CRs to migrate).
+                    items:
+                      properties:
+                        Audience:
+                          type: string
+                        AuthorizedParty:
+                          type: string
+                        CustomScope:
+                          type: string
+                        GroupsClaim:
+                          type: string
+                        GroupsSeparator:
+                          type: string
+                        Issuer:
+                          type: string
+                        Logging:
+                          type: boolean
+                        Name:
+                          type: string
+                        NoAutoGroupsScope:
+                          type: boolean
+                        RoleClaim:
+                          type: string
+                        RolesSeparator:
+                          type: string
+                        Scope:
+                          type: string
+                        Subject:
+                          type: string
+                        TokenLifetime:
+                          type: string
+                        UniqueIdClaim:
+                          type: string
+                        UsernameClaim:
+                          type: string
+                      required:
+                      - Name
+                      type: object
+                    type: array
                   Metrics:
                     properties:
                       Enabled:
@@ -248,49 +290,6 @@ spec:
                       The value is appended verbatim after the generated config. gcfg parsing naturally handles
                       conflicts: list values are combined, scalar values use the last occurrence.
                     type: string
-                  IdentityFederation:
-                    description: |-
-                      IdentityFederation configures named OIDC identity federation entries for Package Manager.
-                      Note: the PascalCase JSON key is intentional — this field was added after v1.20.0 and has
-                      never been released with a camelCase key, so no migration is needed.
-                    items:
-                      properties:
-                        Audience:
-                          type: string
-                        AuthorizedParty:
-                          type: string
-                        CustomScope:
-                          type: string
-                        GroupsClaim:
-                          type: string
-                        GroupsSeparator:
-                          type: string
-                        Issuer:
-                          type: string
-                        Logging:
-                          type: boolean
-                        NoAutoGroupsScope:
-                          type: boolean
-                        RoleClaim:
-                          type: string
-                        RolesSeparator:
-                          type: string
-                        Scope:
-                          type: string
-                        Subject:
-                          type: string
-                        TokenLifetime:
-                          type: string
-                        UniqueIdClaim:
-                          type: string
-                        UsernameClaim:
-                          type: string
-                        Name:
-                          type: string
-                      required:
-                      - Name
-                      type: object
-                    type: array
                 type: object
               databaseConfig:
                 properties:

@@ -129,9 +129,8 @@ spec:
                     type: object
                   IdentityFederation:
                     description: |-
-                      IdentityFederation configures named OIDC identity federation entries for Package Manager.
-                      Note: the PascalCase JSON key is intentional — this field was added after v1.20.0 and has
-                      never been released with a camelCase key, so no migration is needed.
+                      IdentityFederation was added after v1.20.0 and has never been released with a camelCase
+                      JSON tag, so the PascalCase key here is safe (no existing CRs to migrate).
                     items:
                       properties:
                         Audience:

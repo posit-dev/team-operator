@@ -128,6 +128,9 @@ spec:
                         type: string
                     type: object
                   IdentityFederation:
+                    description: |-
+                      IdentityFederation was added after v1.20.0 and has never been released with a camelCase
+                      JSON tag, so the PascalCase key here is safe (no existing CRs to migrate).
                     items:
                       properties:
                         Audience:
