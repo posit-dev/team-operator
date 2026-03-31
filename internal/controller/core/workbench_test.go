@@ -826,7 +826,7 @@ func TestWorkbenchSCIM_DisableAfterEnable(t *testing.T) {
 }
 
 // TestWorkbenchSCIM_BYOTokenMissingKey verifies that when a BYO secret exists but lacks the
-// "token" key, reconciliation still succeeds (with a warning) and uses the BYO secret name.
+// "token" key, reconciliation fails with a descriptive error.
 func TestWorkbenchSCIM_BYOTokenMissingKey(t *testing.T) {
 	ctx := context.Background()
 	ns := "posit-team"
@@ -854,21 +854,7 @@ func TestWorkbenchSCIM_BYOTokenMissingKey(t *testing.T) {
 
 	wb = getWorkbench(t, cli, ns, name)
 
-	// Reconciliation should succeed — the operator warns but does not block.
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
-	require.NoError(t, err)
-	require.True(t, res.IsZero())
-
-	// The volume should still reference the BYO secret (operator does not stop the deployment).
-	deployment := getDeployment(t, cli, ns, wb.ComponentName())
-	var foundVolume bool
-	for _, v := range deployment.Spec.Template.Spec.Volumes {
-		if v.Name == "scim-token" {
-			foundVolume = true
-			require.NotNil(t, v.Secret)
-			assert.Equal(t, byoSecretName, v.Secret.SecretName)
-			break
-		}
-	}
-	assert.True(t, foundVolume, "scim-token volume should still be present even when BYO secret is missing 'token' key")
+	// Reconciliation should fail — missing "token" key is a blocking error.
+	_, err = r.ReconcileWorkbench(ctx, req, wb)
+	require.ErrorContains(t, err, `BYO SCIM token secret "my-incomplete-scim-secret" is missing required key "token"`)
 }
