@@ -2,6 +2,8 @@ package core
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -775,6 +777,14 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 		}
 	}
 
+	// SCIM TOKEN
+
+	scimTokenSecretName, err := r.reconcileSCIMToken(ctx, req, w)
+	if err != nil {
+		l.Error(err, "error reconciling SCIM token")
+		return ctrl.Result{}, err
+	}
+
 	// DEPLOYMENT
 
 	var pullSecrets []corev1.LocalObjectReference
@@ -851,6 +861,7 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 									workbenchSecretVolumeFactory.EnvVars(),
 									chronicleFactory.EnvVars(),
 									product.StringMapToEnvVars(w.Spec.AddEnv),
+									r.buildSCIMTokenEnvVars(w, scimTokenSecretName),
 									[]corev1.EnvVar{
 										{
 											Name:  "LAUNCHER_INSTANCE_ID",
@@ -880,6 +891,7 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 									workbenchSecretVolumeFactory.VolumeMounts(),
 									chronicleFactory.VolumeMounts(),
 									r.buildLoadBalancerVolumeMounts(w),
+									r.buildSCIMTokenVolumeMounts(w, scimTokenSecretName),
 								),
 								Resources: corev1.ResourceRequirements{
 									Requests: corev1.ResourceList{
@@ -924,6 +936,7 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 						workbenchSecretVolumeFactory.Volumes(),
 						chronicleFactory.Volumes(),
 						r.buildLoadBalancerVolumes(w),
+						r.buildSCIMTokenVolumes(w, scimTokenSecretName),
 					),
 				},
 			},
@@ -1321,6 +1334,132 @@ func (r *WorkbenchReconciler) buildLoadBalancerVolumes(w *positcov1beta1.Workben
 			Name: loadBalancerVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+	}
+}
+
+// reconcileSCIMToken ensures the SCIM bearer token secret exists and returns its name.
+// Returns ("", nil) if SCIM is not enabled.
+// If TokenSecretName is set, that secret is used as-is.
+// Otherwise, a managed secret named "<workbench-name>-scim-token" is created (or reused
+// if it already exists — the token is never rotated automatically).
+func (r *WorkbenchReconciler) reconcileSCIMToken(ctx context.Context, req ctrl.Request, w *positcov1beta1.Workbench) (string, error) {
+	if w.Spec.SCIM == nil || !w.Spec.SCIM.Enabled {
+		return "", nil
+	}
+
+	l := r.GetLogger(ctx).WithValues("event", "reconcile-scim-token")
+
+	// Warn if SSO is not configured — SCIM requires OIDC or SAML.
+	if w.Spec.Auth.Type != positcov1beta1.AuthTypeOidc && w.Spec.Auth.Type != positcov1beta1.AuthTypeSaml {
+		l.Info("WARNING: SCIM is enabled but SSO (OIDC or SAML) is not configured; SCIM endpoint may not function correctly")
+	}
+
+	// BYO mode: user supplied their own secret
+	if w.Spec.SCIM.TokenSecretName != "" {
+		byoSecret := &corev1.Secret{}
+		if err := r.Get(ctx, client.ObjectKey{Name: w.Spec.SCIM.TokenSecretName, Namespace: req.Namespace}, byoSecret); err != nil {
+			if kerrors.IsNotFound(err) {
+				l.Info("WARNING: BYO SCIM token secret not found; Workbench pod will fail to start until it exists", "secretName", w.Spec.SCIM.TokenSecretName)
+			} else {
+				return "", fmt.Errorf("error checking BYO SCIM token secret %q: %w", w.Spec.SCIM.TokenSecretName, err)
+			}
+		} else {
+			l.Info("using BYO SCIM token secret", "secretName", w.Spec.SCIM.TokenSecretName)
+		}
+		return w.Spec.SCIM.TokenSecretName, nil
+	}
+
+	// Managed mode: use <workbench-name>-scim-token
+	managedSecretName := fmt.Sprintf("%s-scim-token", w.ComponentName())
+
+	existing := &corev1.Secret{}
+	err := r.Get(ctx, client.ObjectKey{Name: managedSecretName, Namespace: req.Namespace}, existing)
+	if err == nil {
+		// Secret already exists; reuse it without rotation.
+		l.Info("SCIM token secret already exists, reusing", "secretName", managedSecretName)
+		return managedSecretName, nil
+	}
+	if !kerrors.IsNotFound(err) {
+		return "", fmt.Errorf("error checking for SCIM token secret %q: %w", managedSecretName, err)
+	}
+
+	// Secret does not exist — generate a new token and create the secret.
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return "", fmt.Errorf("error generating SCIM token: %w", err)
+	}
+	token := base64.RawURLEncoding.EncodeToString(tokenBytes)
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      managedSecretName,
+			Namespace: req.Namespace,
+			Labels: map[string]string{
+				positcov1beta1.ManagedByLabelKey: positcov1beta1.ManagedByLabelValue,
+			},
+			OwnerReferences: w.OwnerReferencesForChildren(),
+		},
+		StringData: map[string]string{
+			"token": token,
+		},
+	}
+	if err := r.Create(ctx, secret); err != nil {
+		return "", fmt.Errorf("error creating SCIM token secret %q: %w", managedSecretName, err)
+	}
+
+	l.Info("created managed SCIM token secret", "secretName", managedSecretName)
+	return managedSecretName, nil
+}
+
+// buildSCIMTokenEnvVars returns the env var that points Workbench at the SCIM token file, or nil if SCIM is not enabled.
+// Workbench locates the SCIM token exclusively via WORKBENCH_USER_SERVICE_AUTH_TOKEN_PATH — there is no hardcoded default.
+func (r *WorkbenchReconciler) buildSCIMTokenEnvVars(w *positcov1beta1.Workbench, secretName string) []corev1.EnvVar {
+	if w.Spec.SCIM == nil || !w.Spec.SCIM.Enabled || secretName == "" {
+		return nil
+	}
+	return []corev1.EnvVar{
+		{
+			Name:  "WORKBENCH_USER_SERVICE_AUTH_TOKEN_PATH",
+			Value: "/etc/rstudio/scim-token",
+		},
+	}
+}
+
+// buildSCIMTokenVolumeMounts returns the VolumeMount for the SCIM token file, or nil if SCIM is not enabled.
+func (r *WorkbenchReconciler) buildSCIMTokenVolumeMounts(w *positcov1beta1.Workbench, secretName string) []corev1.VolumeMount {
+	if w.Spec.SCIM == nil || !w.Spec.SCIM.Enabled || secretName == "" {
+		return nil
+	}
+	return []corev1.VolumeMount{
+		{
+			Name:      "scim-token",
+			MountPath: "/etc/rstudio/scim-token",
+			SubPath:   "scim-token",
+			ReadOnly:  true,
+		},
+	}
+}
+
+// buildSCIMTokenVolumes returns the Volume for the SCIM token secret, or nil if SCIM is not enabled.
+func (r *WorkbenchReconciler) buildSCIMTokenVolumes(w *positcov1beta1.Workbench, secretName string) []corev1.Volume {
+	if w.Spec.SCIM == nil || !w.Spec.SCIM.Enabled || secretName == "" {
+		return nil
+	}
+	return []corev1.Volume{
+		{
+			Name: "scim-token",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: secretName,
+					Items: []corev1.KeyToPath{
+						{
+							Key:  "token",
+							Path: "scim-token",
+						},
+					},
+				},
 			},
 		},
 	}
