@@ -761,3 +761,114 @@ func TestWorkbenchSCIM_NoTokenRotation(t *testing.T) {
 
 	assert.Equal(t, firstToken, secondToken, "SCIM token must not be rotated on re-reconcile")
 }
+
+// TestWorkbenchSCIM_DisableAfterEnable verifies that disabling SCIM after it was enabled removes
+// the scim-token volume mount, volume, and env var from the deployment.
+func TestWorkbenchSCIM_DisableAfterEnable(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-scim-disable-after-enable"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	wb := defineDefaultWorkbench(t, ns, name)
+	wb.Spec.SCIM = &positcov1beta1.WorkbenchSCIMConfig{
+		Enabled: true,
+	}
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	// First reconcile — SCIM enabled.
+	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	// Verify SCIM volume is present after the first reconcile.
+	deployment := getDeployment(t, cli, ns, wb.ComponentName())
+	var foundVolume bool
+	for _, v := range deployment.Spec.Template.Spec.Volumes {
+		if v.Name == "scim-token" {
+			foundVolume = true
+			break
+		}
+	}
+	require.True(t, foundVolume, "scim-token volume should be present when SCIM is enabled")
+
+	// Disable SCIM and reconcile again.
+	wb = getWorkbench(t, cli, ns, name)
+	wb.Spec.SCIM = &positcov1beta1.WorkbenchSCIMConfig{
+		Enabled: false,
+	}
+	err = cli.Update(ctx, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+	res, err = r.ReconcileWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	// All SCIM-related resources should be gone from the deployment.
+	deployment = getDeployment(t, cli, ns, wb.ComponentName())
+	mainContainer := deployment.Spec.Template.Spec.Containers[0]
+
+	for _, vm := range mainContainer.VolumeMounts {
+		assert.NotEqual(t, "scim-token", vm.Name, "scim-token volume mount should be removed when SCIM is disabled")
+	}
+	for _, v := range deployment.Spec.Template.Spec.Volumes {
+		assert.NotEqual(t, "scim-token", v.Name, "scim-token volume should be removed when SCIM is disabled")
+	}
+	for _, e := range mainContainer.Env {
+		assert.NotEqual(t, "WORKBENCH_USER_SERVICE_AUTH_TOKEN_PATH", e.Name, "WORKBENCH_USER_SERVICE_AUTH_TOKEN_PATH should be removed when SCIM is disabled")
+	}
+}
+
+// TestWorkbenchSCIM_BYOTokenMissingKey verifies that when a BYO secret exists but lacks the
+// "token" key, reconciliation still succeeds (with a warning) and uses the BYO secret name.
+func TestWorkbenchSCIM_BYOTokenMissingKey(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-scim-byo-missing-key"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	// Pre-create a BYO secret that is missing the "token" key.
+	byoSecretName := "my-incomplete-scim-secret"
+	byoSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: byoSecretName, Namespace: ns},
+		StringData: map[string]string{"wrong-key": "some-value"},
+	}
+	err := cli.Create(ctx, byoSecret)
+	require.NoError(t, err)
+
+	wb := defineDefaultWorkbench(t, ns, name)
+	wb.Spec.SCIM = &positcov1beta1.WorkbenchSCIMConfig{
+		Enabled:         true,
+		TokenSecretName: byoSecretName,
+	}
+
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	// Reconciliation should succeed — the operator warns but does not block.
+	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	// The volume should still reference the BYO secret (operator does not stop the deployment).
+	deployment := getDeployment(t, cli, ns, wb.ComponentName())
+	var foundVolume bool
+	for _, v := range deployment.Spec.Template.Spec.Volumes {
+		if v.Name == "scim-token" {
+			foundVolume = true
+			require.NotNil(t, v.Secret)
+			assert.Equal(t, byoSecretName, v.Secret.SecretName)
+			break
+		}
+	}
+	assert.True(t, foundVolume, "scim-token volume should still be present even when BYO secret is missing 'token' key")
+}

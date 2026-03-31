@@ -456,9 +456,7 @@ func (r *SiteReconciler) reconcileWorkbench(
 	}
 
 	// Propagate SCIM config
-	if site.Spec.Workbench.SCIM != nil {
-		targetWorkbench.Spec.SCIM = site.Spec.Workbench.SCIM
-	}
+	targetWorkbench.Spec.SCIM = site.Spec.Workbench.SCIM
 
 	// Merge user-provided sessionConfig from Site spec into the operator-constructed SessionConfig.
 	// DynamicLabels, Labels, and Annotations are merged for Pod/Service/Job configs.

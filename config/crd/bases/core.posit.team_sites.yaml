@@ -1581,6 +1581,7 @@ spec:
                           The secret must have a key named "token".
                           If not specified and Enabled is true, the operator generates a random token
                           and stores it in a Secret named "<workbench-name>-scim-token".
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                         type: string
                     required:
                     - enabled

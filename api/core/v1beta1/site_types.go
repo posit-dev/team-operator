@@ -500,6 +500,7 @@ type WorkbenchSCIMConfig struct {
 	// If not specified and Enabled is true, the operator generates a random token
 	// and stores it in a Secret named "<workbench-name>-scim-token".
 	// +optional
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 	TokenSecretName string `json:"tokenSecretName,omitempty"`
 }
 
