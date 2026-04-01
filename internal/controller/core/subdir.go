@@ -93,96 +93,124 @@ func (r *SiteReconciler) provisionSubDirectoryCreator(ctx context.Context, req c
 		return err
 	}
 
-	// TODO: some way to ensure that we do not spawn _too many_ jobs...?
-
 	if !site.Spec.VolumeSubdirJobOff {
-		args := []string{
-			fmt.Sprintf("/mnt/%s/connect", site.Name),
-			fmt.Sprintf("/mnt/%s/workbench", site.Name),
-			fmt.Sprintf("/mnt/%s/workbench-shared-storage", site.Name),
+		// Skip Job creation if a successfully completed subdir Job already exists.
+		// The Job is idempotent (mkdir -p), so re-running it is harmless but wasteful —
+		// previous code created a new Job with a random suffix on every reconcile.
+		var existingJobs batchv1.JobList
+		if err := r.List(ctx, &existingJobs,
+			client.InNamespace(req.Namespace),
+			client.MatchingLabels(site.KubernetesLabels()),
+		); err != nil {
+			l.Error(err, "Error listing existing subdir jobs")
+			return err
 		}
-		if site.Spec.SharedDirectory != "" {
-			args = append(args, fmt.Sprintf("/mnt/%s/shared", site.Name))
+		hasCompletedJob := false
+		for i := range existingJobs.Items {
+			job := &existingJobs.Items[i]
+			if len(job.Name) > len(provisionerName) && job.Name[:len(provisionerName)+1] == provisionerName+"-" {
+				for _, cond := range job.Status.Conditions {
+					if cond.Type == batchv1.JobComplete && cond.Status == v1.ConditionTrue {
+						hasCompletedJob = true
+						break
+					}
+				}
+			}
+			if hasCompletedJob {
+				break
+			}
 		}
-		provisionerNameTemp := provisionerName + "-" + RandStringBytes(6)
+		if hasCompletedJob {
+			l.V(1).Info("Subdir provisioning job already completed; skipping")
+		} else {
+			args := []string{
+				fmt.Sprintf("/mnt/%s/connect", site.Name),
+				fmt.Sprintf("/mnt/%s/workbench", site.Name),
+				fmt.Sprintf("/mnt/%s/workbench-shared-storage", site.Name),
+			}
+			if site.Spec.SharedDirectory != "" {
+				args = append(args, fmt.Sprintf("/mnt/%s/shared", site.Name))
+			}
+			provisionerNameTemp := provisionerName + "-" + RandStringBytes(6)
 
-		provisionerJob := &batchv1.Job{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      provisionerNameTemp,
-				Namespace: req.Namespace,
-			},
-		}
+			provisionerJob := &batchv1.Job{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      provisionerNameTemp,
+					Namespace: req.Namespace,
+				},
+			}
 
-		if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, provisionerJob, site, func() error {
-			provisionerJob.Labels = site.KubernetesLabels()
-			provisionerJob.Spec = batchv1.JobSpec{
-				// 2 hours to live
-				TTLSecondsAfterFinished: ptr.To(int32(2 * 60 * 60)),
-				Template: v1.PodTemplateSpec{
-					Spec: v1.PodSpec{
-						EnableServiceLinks: ptr.To(false),
-						RestartPolicy:      v1.RestartPolicyOnFailure,
-						Containers: []v1.Container{
-							{
-								Name:  "subdir-maker",
-								Image: "ghcr.io/rstudio/rstudio-workbench-preview:jammy-daily",
-								Command: []string{
-									"/subdir-provisioner.sh",
-								},
-								Args: args,
-								VolumeMounts: []v1.VolumeMount{
-									{
-										Name:      "exec-script",
-										ReadOnly:  false,
-										MountPath: "/subdir-provisioner.sh",
-										SubPath:   "subdir-provisioner.sh",
+			if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, provisionerJob, site, func() error {
+				provisionerJob.Labels = site.KubernetesLabels()
+				provisionerJob.Spec = batchv1.JobSpec{
+					// 2 hours to live
+					TTLSecondsAfterFinished: ptr.To(int32(2 * 60 * 60)),
+					Template: v1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							EnableServiceLinks: ptr.To(false),
+							RestartPolicy:      v1.RestartPolicyOnFailure,
+							Containers: []v1.Container{
+								{
+									Name:  "subdir-maker",
+									Image: "ghcr.io/rstudio/rstudio-workbench-preview:jammy-daily",
+									Command: []string{
+										"/subdir-provisioner.sh",
 									},
-									{
-										Name:      "data-volume",
-										ReadOnly:  false,
-										MountPath: "/mnt/",
+									Args: args,
+									VolumeMounts: []v1.VolumeMount{
+										{
+											Name:      "exec-script",
+											ReadOnly:  false,
+											MountPath: "/subdir-provisioner.sh",
+											SubPath:   "subdir-provisioner.sh",
+										},
+										{
+											Name:      "data-volume",
+											ReadOnly:  false,
+											MountPath: "/mnt/",
+										},
 									},
 								},
 							},
-						},
-						SecurityContext: &v1.PodSecurityContext{
-							RunAsUser: ptr.To(int64(0)),
-						},
-						Volumes: []v1.Volume{
-							{
-								Name: "exec-script",
-								VolumeSource: v1.VolumeSource{
-									ConfigMap: &v1.ConfigMapVolumeSource{
-										LocalObjectReference: v1.LocalObjectReference{
-											Name: provisionerName,
-										},
-										Items: []v1.KeyToPath{
-											{
-												Key:  "subdir-provisioner.sh",
-												Path: "subdir-provisioner.sh",
+							SecurityContext: &v1.PodSecurityContext{
+								RunAsUser: ptr.To(int64(0)),
+							},
+							Volumes: []v1.Volume{
+								{
+									Name: "exec-script",
+									VolumeSource: v1.VolumeSource{
+										ConfigMap: &v1.ConfigMapVolumeSource{
+											LocalObjectReference: v1.LocalObjectReference{
+												Name: provisionerName,
 											},
+											Items: []v1.KeyToPath{
+												{
+													Key:  "subdir-provisioner.sh",
+													Path: "subdir-provisioner.sh",
+												},
+											},
+											DefaultMode: ptr.To(product.MustParseOctal("755")),
 										},
-										DefaultMode: ptr.To(product.MustParseOctal("755")),
 									},
 								},
-							},
-							{
-								Name: "data-volume",
-								VolumeSource: v1.VolumeSource{
-									PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-										ClaimName: provisionerName,
-										ReadOnly:  false,
+								{
+									Name: "data-volume",
+									VolumeSource: v1.VolumeSource{
+										PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+											ClaimName: provisionerName,
+											ReadOnly:  false,
+										},
 									},
 								},
 							},
 						},
 					},
-				},
+				}
+				return nil
+			}); err != nil {
+				l.Error(err, "Error creating provisioner job")
+				return err
 			}
-			return nil
-		}); err != nil {
-			l.Error(err, "Error creating provisioner job")
-			return err
 		}
 	}
 	return nil
