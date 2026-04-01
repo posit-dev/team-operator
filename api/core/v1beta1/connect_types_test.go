@@ -121,22 +121,22 @@ func TestCreateVolumeFactory_OffHost(t *testing.T) {
 	fmt.Printf("VolMounts: %+v\n", volMounts)
 	assert.Len(t, volMounts, 6)
 
-	// config volumes
+	// config volumes (sorted by MountPath within the same volume name)
 	checkVolumeMount(t, volMounts[0], "config-volume",
-		"/etc/rstudio-connect/rstudio-connect.gcfg", "rstudio-connect.gcfg", true)
-	checkVolumeMount(t, volMounts[1], "config-volume",
-		"/etc/rstudio-connect/runtime.yaml", "runtime.yaml", true)
-	checkVolumeMount(t, volMounts[2], "config-volume",
 		"/etc/rstudio-connect/launcher/launcher.kubernetes.profiles.conf",
 		"launcher.kubernetes.profiles.conf", true)
+	checkVolumeMount(t, volMounts[1], "config-volume",
+		"/etc/rstudio-connect/rstudio-connect.gcfg", "rstudio-connect.gcfg", true)
+	checkVolumeMount(t, volMounts[2], "config-volume",
+		"/etc/rstudio-connect/runtime.yaml", "runtime.yaml", true)
 
-	// template volumes
+	// template volumes (sorted by MountPath within the same volume name)
 	checkVolumeMount(t, volMounts[3], "template-config",
-		"/var/lib/rstudio-connect-launcher/Kubernetes/rstudio-library-templates-data.tpl",
-		"rstudio-library-templates-data.tpl", true)
-	checkVolumeMount(t, volMounts[4], "template-config",
 		"/var/lib/rstudio-connect-launcher/Kubernetes/job.tpl",
 		"job.tpl", true)
+	checkVolumeMount(t, volMounts[4], "template-config",
+		"/var/lib/rstudio-connect-launcher/Kubernetes/rstudio-library-templates-data.tpl",
+		"rstudio-library-templates-data.tpl", true)
 	checkVolumeMount(t, volMounts[5], "template-config",
 		"/var/lib/rstudio-connect-launcher/Kubernetes/service.tpl",
 		"service.tpl", true)
