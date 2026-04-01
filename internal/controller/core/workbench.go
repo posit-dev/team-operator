@@ -653,7 +653,15 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 		if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, secret, w, func() error {
 			secret.Labels = w.KubernetesLabels()
 			secret.Immutable = nil
-			secret.StringData = secretData
+			// Use Data ([]byte) instead of StringData (string) to avoid a spurious
+			// diff on every reconcile. StringData is write-only: the API server
+			// converts it to Data on create, and returns StringData as nil on read.
+			// CreateOrUpdate compares the pre-mutation snapshot (StringData=nil) with
+			// the post-mutation object (StringData set), always seeing a diff.
+			secret.Data = make(map[string][]byte, len(secretData))
+			for k, v := range secretData {
+				secret.Data[k] = []byte(v)
+			}
 			secret.Type = "Opaque"
 			return nil
 		}); err != nil {
