@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -579,6 +580,7 @@ func getResourceProfileKeys(resourceProfiles map[string]*v1beta1.WorkbenchLaunch
 	for key := range resourceProfiles {
 		keys = append(keys, key)
 	}
+	sort.Strings(keys)
 	return keys
 }
 

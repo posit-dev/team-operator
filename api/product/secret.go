@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -58,10 +59,15 @@ func (t *TestSecretProvider) GetSecretWithFallback(key string) string {
 }
 
 func mapToJmesPath(input map[string]string) (jmes []secretObjectJmesPath) {
-	for k, v := range input {
+	keys := make([]string, 0, len(input))
+	for k := range input {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
 		jmes = append(jmes, secretObjectJmesPath{
 			// ensure this path is quoted appropriately...
-			Path:        fmt.Sprintf("\"%s\"", v),
+			Path:        fmt.Sprintf("\"%s\"", input[k]),
 			ObjectAlias: k,
 		})
 	}
@@ -83,11 +89,22 @@ func generateSecretObjectYaml(name string, keys map[string]string) (string, erro
 }
 
 func generateSecretObjects(p KubernetesOwnerProvider, secrets map[string]map[string]string) (output []*v1.SecretObject) {
-	for k, v := range secrets {
+	outerKeys := make([]string, 0, len(secrets))
+	for k := range secrets {
+		outerKeys = append(outerKeys, k)
+	}
+	sort.Strings(outerKeys)
+	for _, k := range outerKeys {
+		v := secrets[k]
+		innerKeys := make([]string, 0, len(v))
+		for dk := range v {
+			innerKeys = append(innerKeys, dk)
+		}
+		sort.Strings(innerKeys)
 		var objData []*v1.SecretObjectData
-		for dk, dv := range v {
+		for _, dk := range innerKeys {
 			objData = append(objData, &v1.SecretObjectData{
-				ObjectName: dv,
+				ObjectName: v[dk],
 				Key:        dk,
 			})
 		}
