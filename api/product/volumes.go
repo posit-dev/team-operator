@@ -114,7 +114,10 @@ func (v *VolumeFactory) VolumeMounts() []corev1.VolumeMount {
 		}
 	}
 	sort.Slice(vms, func(i, j int) bool {
-		return vms[i].Name < vms[j].Name
+		if vms[i].Name != vms[j].Name {
+			return vms[i].Name < vms[j].Name
+		}
+		return vms[i].MountPath < vms[j].MountPath
 	})
 	return vms
 }
