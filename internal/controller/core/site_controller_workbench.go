@@ -456,6 +456,9 @@ func (r *SiteReconciler) reconcileWorkbench(
 		targetWorkbench.Spec.AuthLoginPageHtml = site.Spec.Workbench.AuthLoginPageHtml
 	}
 
+	// Propagate SCIM config
+	targetWorkbench.Spec.SCIM = site.Spec.Workbench.SCIM
+
 	// Merge user-provided sessionConfig from Site spec into the operator-constructed SessionConfig.
 	// DynamicLabels, Labels, and Annotations are merged for Pod/Service/Job configs.
 	// Service.Type is overwritten when non-empty. Other Pod fields (Tolerations,

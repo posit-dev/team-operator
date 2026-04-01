@@ -114,6 +114,10 @@ type WorkbenchSpec struct {
 	// Empty or whitespace-only content will be ignored.
 	// See: https://docs.posit.co/ide/server-pro/admin/authenticating_users/customizing_signin.html
 	AuthLoginPageHtml string `json:"authLoginPageHtml,omitempty"`
+
+	// SCIM configures SCIM user provisioning.
+	// +optional
+	SCIM *WorkbenchSCIMConfig `json:"scim,omitempty"`
 }
 
 // TODO: Validation should require Volume definition for off-host-execution...

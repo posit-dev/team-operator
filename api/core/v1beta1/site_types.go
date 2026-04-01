@@ -481,6 +481,27 @@ type InternalWorkbenchSpec struct {
 	// annotations, tolerations, and other pod-level settings.
 	// +optional
 	SessionConfig *product.SessionConfig `json:"sessionConfig,omitempty"`
+
+	// SCIM configures SCIM user provisioning for Workbench.
+	// Requires SSO (OIDC or SAML) to be configured.
+	// +optional
+	SCIM *WorkbenchSCIMConfig `json:"scim,omitempty"`
+}
+
+// WorkbenchSCIMConfig configures SCIM user provisioning for Workbench.
+type WorkbenchSCIMConfig struct {
+	// Enabled controls whether SCIM provisioning is active.
+	// +kubebuilder:default=false
+	Enabled bool `json:"enabled"`
+
+	// TokenSecretName is the name of a pre-existing Kubernetes Secret in the same
+	// namespace that contains the SCIM bearer token.
+	// The secret must have a key named "token".
+	// If not specified and Enabled is true, the operator generates a random token
+	// and stores it in a Secret named "<workbench-name>-scim-token".
+	// +optional
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	TokenSecretName string `json:"tokenSecretName,omitempty"`
 }
 
 type InternalWorkbenchExperimentalFeatures struct {

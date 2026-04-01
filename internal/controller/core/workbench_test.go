@@ -555,3 +555,306 @@ func TestWorkbenchReconciler_CleanupDeletesDatabasePasswordSecret(t *testing.T) 
 	err = cli.Get(ctx, client.ObjectKey{Name: secretName, Namespace: ns}, deleted)
 	assert.True(t, apierrors.IsNotFound(err), "DB password secret should be deleted after CleanupWorkbench")
 }
+
+// TestWorkbenchSCIM_Disabled verifies that when SCIM is not configured, no SCIM secret is
+// created and no scim-token volume mount is added to the deployment.
+func TestWorkbenchSCIM_Disabled(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-scim-disabled"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	wb := defineDefaultWorkbench(t, ns, name)
+	// SCIM is nil by default — do not set it.
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	// No managed SCIM secret should be created.
+	scimSecret := &corev1.Secret{}
+	err = cli.Get(ctx, client.ObjectKey{Name: wb.ComponentName() + "-scim-token", Namespace: ns}, scimSecret)
+	assert.True(t, apierrors.IsNotFound(err), "managed SCIM secret should not exist when SCIM is disabled")
+
+	// No scim-token volume mount, volume, or env var on the main container.
+	deployment := getDeployment(t, cli, ns, wb.ComponentName())
+	mainContainer := deployment.Spec.Template.Spec.Containers[0]
+	for _, vm := range mainContainer.VolumeMounts {
+		assert.NotEqual(t, "scim-token", vm.Name, "scim-token volume mount should not exist when SCIM is disabled")
+	}
+	for _, v := range deployment.Spec.Template.Spec.Volumes {
+		assert.NotEqual(t, "scim-token", v.Name, "scim-token volume should not exist when SCIM is disabled")
+	}
+	for _, e := range mainContainer.Env {
+		assert.NotEqual(t, "WORKBENCH_USER_SERVICE_AUTH_TOKEN_PATH", e.Name, "WORKBENCH_USER_SERVICE_AUTH_TOKEN_PATH should not be set when SCIM is disabled")
+	}
+}
+
+// TestWorkbenchSCIM_EnabledManagedToken verifies that when SCIM is enabled with no tokenSecretName,
+// the operator creates a managed secret with a random token and wires a volume mount into the deployment.
+func TestWorkbenchSCIM_EnabledManagedToken(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-scim-managed"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	wb := defineDefaultWorkbench(t, ns, name)
+	wb.Spec.SCIM = &positcov1beta1.WorkbenchSCIMConfig{
+		Enabled: true,
+	}
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	// Managed SCIM secret should be created with a non-empty token.
+	managedSecretName := wb.ComponentName() + "-scim-token"
+	scimSecret := &corev1.Secret{}
+	err = cli.Get(ctx, client.ObjectKey{Name: managedSecretName, Namespace: ns}, scimSecret)
+	require.NoError(t, err, "managed SCIM secret should be created")
+	assert.NotEmpty(t, scimSecret.Data["token"], "managed SCIM secret should have a non-empty token")
+
+	// Deployment should have scim-token volume and volume mount.
+	deployment := getDeployment(t, cli, ns, wb.ComponentName())
+	mainContainer := deployment.Spec.Template.Spec.Containers[0]
+
+	var foundMount bool
+	for _, vm := range mainContainer.VolumeMounts {
+		if vm.Name == "scim-token" {
+			foundMount = true
+			assert.Equal(t, "/etc/rstudio/scim-token", vm.MountPath)
+			assert.Equal(t, "scim-token", vm.SubPath)
+			assert.True(t, vm.ReadOnly)
+			break
+		}
+	}
+	assert.True(t, foundMount, "scim-token volume mount should be present when SCIM is enabled")
+
+	var foundVolume bool
+	for _, v := range deployment.Spec.Template.Spec.Volumes {
+		if v.Name == "scim-token" {
+			foundVolume = true
+			require.NotNil(t, v.Secret, "scim-token volume should be backed by a Secret")
+			assert.Equal(t, managedSecretName, v.Secret.SecretName)
+			break
+		}
+	}
+	assert.True(t, foundVolume, "scim-token volume should be present when SCIM is enabled")
+
+	var foundEnvVar bool
+	for _, e := range mainContainer.Env {
+		if e.Name == "WORKBENCH_USER_SERVICE_AUTH_TOKEN_PATH" {
+			foundEnvVar = true
+			assert.Equal(t, "/etc/rstudio/scim-token", e.Value)
+			break
+		}
+	}
+	assert.True(t, foundEnvVar, "WORKBENCH_USER_SERVICE_AUTH_TOKEN_PATH should be set when SCIM is enabled")
+}
+
+// TestWorkbenchSCIM_BYOToken verifies that when tokenSecretName is specified, the operator
+// uses that secret directly and does not create a managed secret.
+func TestWorkbenchSCIM_BYOToken(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-scim-byo"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	// Pre-create the BYO secret.
+	byoSecretName := "my-custom-scim-token"
+	byoSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: byoSecretName, Namespace: ns},
+		StringData: map[string]string{"token": "my-byo-token"},
+	}
+	err := cli.Create(ctx, byoSecret)
+	require.NoError(t, err)
+
+	wb := defineDefaultWorkbench(t, ns, name)
+	wb.Spec.SCIM = &positcov1beta1.WorkbenchSCIMConfig{
+		Enabled:         true,
+		TokenSecretName: byoSecretName,
+	}
+
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	// No managed secret should be created.
+	managedSecretName := wb.ComponentName() + "-scim-token"
+	managedSecret := &corev1.Secret{}
+	err = cli.Get(ctx, client.ObjectKey{Name: managedSecretName, Namespace: ns}, managedSecret)
+	assert.True(t, apierrors.IsNotFound(err), "managed SCIM secret should not be created in BYO mode")
+
+	// The volume should reference the BYO secret.
+	deployment := getDeployment(t, cli, ns, wb.ComponentName())
+	var foundVolume bool
+	for _, v := range deployment.Spec.Template.Spec.Volumes {
+		if v.Name == "scim-token" {
+			foundVolume = true
+			require.NotNil(t, v.Secret)
+			assert.Equal(t, byoSecretName, v.Secret.SecretName, "volume should reference the BYO secret")
+			break
+		}
+	}
+	assert.True(t, foundVolume, "scim-token volume should be present in BYO mode")
+}
+
+// TestWorkbenchSCIM_NoTokenRotation verifies that a second reconcile does not rotate the token
+// when the managed secret already exists.
+func TestWorkbenchSCIM_NoTokenRotation(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-scim-no-rotate"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	wb := defineDefaultWorkbench(t, ns, name)
+	wb.Spec.SCIM = &positcov1beta1.WorkbenchSCIMConfig{
+		Enabled: true,
+	}
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	// First reconcile — creates the managed secret.
+	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	managedSecretName := wb.ComponentName() + "-scim-token"
+	firstSecret := &corev1.Secret{}
+	err = cli.Get(ctx, client.ObjectKey{Name: managedSecretName, Namespace: ns}, firstSecret)
+	require.NoError(t, err)
+	firstToken := string(firstSecret.Data["token"])
+	require.NotEmpty(t, firstToken)
+
+	// Second reconcile — token must not change.
+	wb = getWorkbench(t, cli, ns, name)
+	res, err = r.ReconcileWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	secondSecret := &corev1.Secret{}
+	err = cli.Get(ctx, client.ObjectKey{Name: managedSecretName, Namespace: ns}, secondSecret)
+	require.NoError(t, err)
+	secondToken := string(secondSecret.Data["token"])
+
+	assert.Equal(t, firstToken, secondToken, "SCIM token must not be rotated on re-reconcile")
+}
+
+// TestWorkbenchSCIM_DisableAfterEnable verifies that disabling SCIM after it was enabled removes
+// the scim-token volume mount, volume, and env var from the deployment.
+func TestWorkbenchSCIM_DisableAfterEnable(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-scim-disable-after-enable"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	wb := defineDefaultWorkbench(t, ns, name)
+	wb.Spec.SCIM = &positcov1beta1.WorkbenchSCIMConfig{
+		Enabled: true,
+	}
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	// First reconcile — SCIM enabled.
+	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	// Verify SCIM volume is present after the first reconcile.
+	deployment := getDeployment(t, cli, ns, wb.ComponentName())
+	var foundVolume bool
+	for _, v := range deployment.Spec.Template.Spec.Volumes {
+		if v.Name == "scim-token" {
+			foundVolume = true
+			break
+		}
+	}
+	require.True(t, foundVolume, "scim-token volume should be present when SCIM is enabled")
+
+	// Disable SCIM and reconcile again.
+	wb = getWorkbench(t, cli, ns, name)
+	wb.Spec.SCIM = &positcov1beta1.WorkbenchSCIMConfig{
+		Enabled: false,
+	}
+	err = cli.Update(ctx, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+	res, err = r.ReconcileWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	// All SCIM-related resources should be gone from the deployment.
+	deployment = getDeployment(t, cli, ns, wb.ComponentName())
+	mainContainer := deployment.Spec.Template.Spec.Containers[0]
+
+	for _, vm := range mainContainer.VolumeMounts {
+		assert.NotEqual(t, "scim-token", vm.Name, "scim-token volume mount should be removed when SCIM is disabled")
+	}
+	for _, v := range deployment.Spec.Template.Spec.Volumes {
+		assert.NotEqual(t, "scim-token", v.Name, "scim-token volume should be removed when SCIM is disabled")
+	}
+	for _, e := range mainContainer.Env {
+		assert.NotEqual(t, "WORKBENCH_USER_SERVICE_AUTH_TOKEN_PATH", e.Name, "WORKBENCH_USER_SERVICE_AUTH_TOKEN_PATH should be removed when SCIM is disabled")
+	}
+}
+
+// TestWorkbenchSCIM_BYOTokenMissingKey verifies that when a BYO secret exists but lacks the
+// "token" key, reconciliation fails with a descriptive error.
+func TestWorkbenchSCIM_BYOTokenMissingKey(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-scim-byo-missing-key"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	// Pre-create a BYO secret that is missing the "token" key.
+	byoSecretName := "my-incomplete-scim-secret"
+	byoSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: byoSecretName, Namespace: ns},
+		StringData: map[string]string{"wrong-key": "some-value"},
+	}
+	err := cli.Create(ctx, byoSecret)
+	require.NoError(t, err)
+
+	wb := defineDefaultWorkbench(t, ns, name)
+	wb.Spec.SCIM = &positcov1beta1.WorkbenchSCIMConfig{
+		Enabled:         true,
+		TokenSecretName: byoSecretName,
+	}
+
+	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	// Reconciliation should fail — missing "token" key is a blocking error.
+	_, err = r.ReconcileWorkbench(ctx, req, wb)
+	require.ErrorContains(t, err, `BYO SCIM token secret "my-incomplete-scim-secret" is missing required key "token"`)
+}
