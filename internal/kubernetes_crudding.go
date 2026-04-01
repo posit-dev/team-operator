@@ -288,13 +288,15 @@ func CreateOrUpdateResource(
 		"namespace", namespace,
 	)
 
-	// Capture pre-mutation state for diff logging
 	var snapshotJSON []byte
-	if obj.GetResourceVersion() != "" {
-		snapshotJSON, _ = json.Marshal(obj)
-	}
 
 	result, err := controllerutil.CreateOrUpdate(ctx, c, obj, func() error {
+		// Capture pre-mutation state for diff logging (must be inside closure,
+		// after CreateOrUpdate has fetched the object from the API server)
+		if obj.GetResourceVersion() != "" {
+			snapshotJSON, _ = json.Marshal(obj)
+		}
+
 		// For existing objects, validate managed-by label before allowing mutations
 		if obj.GetResourceVersion() != "" {
 			labels := obj.GetLabels()
