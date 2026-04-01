@@ -29,8 +29,14 @@ type MultiContainerVolumeFactory struct {
 }
 
 func (m *MultiContainerVolumeFactory) InitContainers() []corev1.Container {
-	containers := []corev1.Container{}
-	for k, s := range m.InitContainerDefs {
+	keys := make([]string, 0, len(m.InitContainerDefs))
+	for k := range m.InitContainerDefs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	containers := make([]corev1.Container, 0, len(keys))
+	for _, k := range keys {
+		s := m.InitContainerDefs[k]
 		containers = append(containers, corev1.Container{
 			Name:            k,
 			Image:           s.Image,
@@ -45,8 +51,14 @@ func (m *MultiContainerVolumeFactory) InitContainers() []corev1.Container {
 }
 
 func (m *MultiContainerVolumeFactory) Sidecars() []corev1.Container {
-	containers := []corev1.Container{}
-	for k, s := range m.SidecarDefs {
+	keys := make([]string, 0, len(m.SidecarDefs))
+	for k := range m.SidecarDefs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	containers := make([]corev1.Container, 0, len(keys))
+	for _, k := range keys {
+		s := m.SidecarDefs[k]
 		containers = append(containers, corev1.Container{
 			Name:            k,
 			Image:           s.Image,

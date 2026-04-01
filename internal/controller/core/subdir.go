@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"strings"
 
 	"github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/product"
@@ -95,8 +96,7 @@ func (r *SiteReconciler) provisionSubDirectoryCreator(ctx context.Context, req c
 
 	if !site.Spec.VolumeSubdirJobOff {
 		// Skip Job creation if a successfully completed subdir Job already exists.
-		// The Job is idempotent (mkdir -p), so re-running it is harmless but wasteful —
-		// previous code created a new Job with a random suffix on every reconcile.
+		// The Job is idempotent (mkdir -p), so re-running it is harmless but wasteful
 		var existingJobs batchv1.JobList
 		if err := r.List(ctx, &existingJobs,
 			client.InNamespace(req.Namespace),
@@ -108,7 +108,7 @@ func (r *SiteReconciler) provisionSubDirectoryCreator(ctx context.Context, req c
 		hasCompletedJob := false
 		for i := range existingJobs.Items {
 			job := &existingJobs.Items[i]
-			if len(job.Name) > len(provisionerName) && job.Name[:len(provisionerName)+1] == provisionerName+"-" {
+			if strings.HasPrefix(job.Name, provisionerName+"-") {
 				for _, cond := range job.Status.Conditions {
 					if cond.Type == batchv1.JobComplete && cond.Status == v1.ConditionTrue {
 						hasCompletedJob = true
