@@ -1,3 +1,10 @@
+# [1.22.0](https://github.com/posit-dev/team-operator/compare/v1.21.1...v1.22.0) (2026-04-01)
+
+
+### Features
+
+* add optional SCIM provisioning support for Workbench ([#120](https://github.com/posit-dev/team-operator/issues/120)) ([531e45f](https://github.com/posit-dev/team-operator/commit/531e45f96da52eacb397082ca516de18c993a580))
+
 ## [1.21.1](https://github.com/posit-dev/team-operator/compare/v1.21.0...v1.21.1) (2026-04-01)
 
 
