@@ -824,98 +824,116 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 	//   CustomComparator... or just decide to inline the logic
 	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, deployment, w, func() error {
 		deployment.Labels = w.KubernetesLabels()
-		// Set individual fields instead of replacing the entire Spec to preserve
-		// server-side defaults (strategy, revisionHistoryLimit, progressDeadlineSeconds,
-		// etc.) that the API server adds. Full spec replacement strips these on every
-		// reconcile, causing a perpetual diff via Owns(&Deployment{}).
-		deployment.Spec.Replicas = ptr.To(int32(product.PassDefaultReplicas(w.Spec.Replicas, 1)))
-		deployment.Spec.Selector = &metav1.LabelSelector{
-			MatchLabels: w.SelectorLabels(),
-		}
-		deployment.Spec.Template = corev1.PodTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: w.KubernetesLabels(),
-				Annotations: map[string]string{
-					// TODO: this is a hack to get config changes to trigger a new deployment (for now)
-					//   In the future, we could use our own mechanism and decide whether to restart or SIGHUP the service...
-					workbenchConfigShaKey:   cmSha,
-					workbenchSessionShaKey:  sessionCmSha,
-					workbenchSecretShaKey:   secretSha,
-					workbenchTemplateShaKey: templateSha,
-				},
+		deployment.Spec = appsv1.DeploymentSpec{
+			Replicas: ptr.To(int32(product.PassDefaultReplicas(w.Spec.Replicas, 1))),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: w.SelectorLabels(),
 			},
-			Spec: corev1.PodSpec{
-				EnableServiceLinks:           ptr.To(false),
-				NodeSelector:                 w.Spec.NodeSelector,
-				ImagePullSecrets:             pullSecrets,
-				ServiceAccountName:           maybeServiceAccountName,
-				AutomountServiceAccountToken: ptr.To(true),
-				InitContainers:               r.buildWorkbenchInitContainers(w),
-				Containers: product.ConcatLists(
-					[]corev1.Container{
-						{
-							Name:            "workbench",
-							Image:           w.Spec.Image,
-							ImagePullPolicy: w.Spec.ImagePullPolicy,
-							Env: product.ConcatLists(
-								workbenchVolumeFactory.EnvVars(),
-								workbenchSecretVolumeFactory.EnvVars(),
-								chronicleFactory.EnvVars(),
-								product.StringMapToEnvVars(w.Spec.AddEnv),
-								[]corev1.EnvVar{
-									{
-										Name:  "LAUNCHER_INSTANCE_ID",
-										Value: w.ComponentName(),
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: w.KubernetesLabels(),
+					Annotations: map[string]string{
+						// TODO: this is a hack to get config changes to trigger a new deployment (for now)
+						//   In the future, we could use our own mechanism and decide whether to restart or SIGHUP the service...
+						workbenchConfigShaKey:   cmSha,
+						workbenchSessionShaKey:  sessionCmSha,
+						workbenchSecretShaKey:   secretSha,
+						workbenchTemplateShaKey: templateSha,
+					},
+				},
+				Spec: corev1.PodSpec{
+					EnableServiceLinks:           ptr.To(false),
+					NodeSelector:                 w.Spec.NodeSelector,
+					ImagePullSecrets:             pullSecrets,
+					ServiceAccountName:           maybeServiceAccountName,
+					AutomountServiceAccountToken: ptr.To(true),
+					InitContainers:               r.buildWorkbenchInitContainers(w),
+					Containers: product.ConcatLists(
+						[]corev1.Container{
+							{
+								Name:            "workbench",
+								Image:           w.Spec.Image,
+								ImagePullPolicy: w.Spec.ImagePullPolicy,
+								Env: product.ConcatLists(
+									workbenchVolumeFactory.EnvVars(),
+									workbenchSecretVolumeFactory.EnvVars(),
+									chronicleFactory.EnvVars(),
+									product.StringMapToEnvVars(w.Spec.AddEnv),
+									[]corev1.EnvVar{
+										{
+											Name:  "LAUNCHER_INSTANCE_ID",
+											Value: w.ComponentName(),
+										},
+									},
+								),
+								Command: []string{"supervisord"},
+								Args:    []string{},
+								Ports: []corev1.ContainerPort{
+									internal.DefaultPortWorkbenchHTTP.ContainerPort("http"),
+									internal.DefaultPortWorkbenchMetrics.ContainerPort("metrics"),
+								},
+								SecurityContext: &corev1.SecurityContext{
+									//RunAsUser:                ptr.To(int64(0)),
+									RunAsNonRoot:             ptr.To(false),
+									AllowPrivilegeEscalation: ptr.To(true),
+									Capabilities:             &corev1.Capabilities{
+										// Drop: []corev1.Capability{"ALL"},
+									},
+									//SeccompProfile: &corev1.SeccompProfile{
+									// Type: "RuntimeDefault",
+									//},
+								},
+								VolumeMounts: product.ConcatLists(
+									workbenchVolumeFactory.VolumeMounts(),
+									workbenchSecretVolumeFactory.VolumeMounts(),
+									chronicleFactory.VolumeMounts(),
+									r.buildLoadBalancerVolumeMounts(w),
+								),
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										// TODO: resources for Workbench
+										//"cpu":               resource.Quantity{Format: "2000m"},
+										//"memory":            resource.Quantity{Format: "3Gi"},
+										//"ephemeral-storage": resource.Quantity{Format: "100Mi"},
+									},
+									Limits: corev1.ResourceList{
+										//"cpu":               resource.Quantity{Format: "6000m"},
+										//"memory":            resource.Quantity{Format: "8Gi"},
+										//"ephemeral-storage": resource.Quantity{Format: "200Mi"},
 									},
 								},
-							),
-							Command: []string{"supervisord"},
-							Args:    []string{},
-							Ports: []corev1.ContainerPort{
-								internal.DefaultPortWorkbenchHTTP.ContainerPort("http"),
-								internal.DefaultPortWorkbenchMetrics.ContainerPort("metrics"),
-							},
-							SecurityContext: &corev1.SecurityContext{
-								RunAsNonRoot:             ptr.To(false),
-								AllowPrivilegeEscalation: ptr.To(true),
-								Capabilities:             &corev1.Capabilities{},
-							},
-							VolumeMounts: product.ConcatLists(
-								workbenchVolumeFactory.VolumeMounts(),
-								workbenchSecretVolumeFactory.VolumeMounts(),
-								chronicleFactory.VolumeMounts(),
-								r.buildLoadBalancerVolumeMounts(w),
-							),
-							Resources: corev1.ResourceRequirements{},
-							ReadinessProbe: &corev1.Probe{
-								ProbeHandler: corev1.ProbeHandler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path: "/health-check",
-										Port: intstr.IntOrString{Type: intstr.String, StrVal: "http"},
+								ReadinessProbe: &corev1.Probe{
+									ProbeHandler: corev1.ProbeHandler{
+										HTTPGet: &corev1.HTTPGetAction{
+											Path: "/health-check",
+											Port: intstr.IntOrString{Type: intstr.String, StrVal: "http"},
+										},
 									},
+									InitialDelaySeconds:           3,
+									TimeoutSeconds:                1,
+									PeriodSeconds:                 3,
+									SuccessThreshold:              1,
+									FailureThreshold:              3,
+									TerminationGracePeriodSeconds: nil,
 								},
-								InitialDelaySeconds:           3,
-								TimeoutSeconds:                1,
-								PeriodSeconds:                 3,
-								SuccessThreshold:              1,
-								FailureThreshold:              3,
-								TerminationGracePeriodSeconds: nil,
 							},
 						},
+						chronicleFactory.Sidecars(),
+					),
+					Affinity: &corev1.Affinity{
+						PodAntiAffinity: positcov1beta1.ComponentSpecPodAntiAffinity(w, req.Namespace),
 					},
-					chronicleFactory.Sidecars(),
-				),
-				Affinity: &corev1.Affinity{
-					PodAntiAffinity: positcov1beta1.ComponentSpecPodAntiAffinity(w, req.Namespace),
+					SecurityContext: &corev1.PodSecurityContext{
+						//FSGroup: ptr.To(int64(999)),
+					},
+					Tolerations: w.Spec.Tolerations,
+					Volumes: product.ConcatLists(
+						workbenchVolumeFactory.Volumes(),
+						workbenchSecretVolumeFactory.Volumes(),
+						chronicleFactory.Volumes(),
+						r.buildLoadBalancerVolumes(w),
+					),
 				},
-				SecurityContext: &corev1.PodSecurityContext{},
-				Tolerations:     w.Spec.Tolerations,
-				Volumes: product.ConcatLists(
-					workbenchVolumeFactory.Volumes(),
-					workbenchSecretVolumeFactory.Volumes(),
-					chronicleFactory.Volumes(),
-					r.buildLoadBalancerVolumes(w),
-				),
 			},
 		}
 		if w.Spec.Sleep {
@@ -938,22 +956,22 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, service, w, func() error {
 		service.Labels = w.KubernetesLabels()
 		service.Annotations = internal.TraefikStickyServiceAnnotations(w)
-		// Set individual fields instead of replacing the entire Spec to preserve
-		// server-side defaults (clusterIP, sessionAffinity, ipFamilyPolicy, etc.).
-		service.Spec.Ports = []corev1.ServicePort{
-			{
-				Name:     "http",
-				Protocol: corev1.ProtocolTCP,
-				Port:     80,
-				TargetPort: intstr.IntOrString{
-					Type:   1,
-					StrVal: "http",
+		service.Spec = corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:     "http",
+					Protocol: corev1.ProtocolTCP,
+					Port:     80,
+					TargetPort: intstr.IntOrString{
+						Type:   1,
+						StrVal: "http",
+					},
 				},
 			},
+			Selector:                 w.KubernetesLabels(),
+			Type:                     "ClusterIP",
+			PublishNotReadyAddresses: false,
 		}
-		service.Spec.Selector = w.KubernetesLabels()
-		service.Spec.Type = "ClusterIP"
-		service.Spec.PublishNotReadyAddresses = false
 		return nil
 	}); err != nil {
 		return ctrl.Result{}, err

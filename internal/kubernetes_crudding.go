@@ -2,7 +2,6 @@ package internal
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"reflect"
 	"strings"
@@ -288,15 +287,7 @@ func CreateOrUpdateResource(
 		"namespace", namespace,
 	)
 
-	var snapshotJSON []byte
-
 	result, err := controllerutil.CreateOrUpdate(ctx, c, obj, func() error {
-		// Capture pre-mutation state for diff logging (must be inside closure,
-		// after CreateOrUpdate has fetched the object from the API server)
-		if obj.GetResourceVersion() != "" {
-			snapshotJSON, _ = json.Marshal(obj)
-		}
-
 		// For existing objects, validate managed-by label before allowing mutations
 		if obj.GetResourceVersion() != "" {
 			labels := obj.GetLabels()
@@ -335,15 +326,6 @@ func CreateOrUpdateResource(
 		l.Info("created object")
 	case controllerutil.OperationResultUpdated:
 		l.Info("updated object")
-		// Temporary: log before/after JSON to diagnose spurious updates
-		if snapshotJSON != nil {
-			afterJSON, _ := json.Marshal(obj)
-			if string(snapshotJSON) != string(afterJSON) {
-				l.Info("DEBUG-DIFF", "before", string(snapshotJSON), "after", string(afterJSON))
-			} else {
-				l.Info("DEBUG-DIFF: JSON identical but DeepEqual said different")
-			}
-		}
 	case controllerutil.OperationResultNone:
 		l.V(1).Info("object unchanged")
 	}
