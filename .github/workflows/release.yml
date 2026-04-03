@@ -12,9 +12,11 @@ on:
     branches:
       - main
     paths-ignore:
-      - '*.md'
+      - '**/*.md'
       - 'docs/**'
       - '.github/workflows/**'
+      - '.claude/**'
+      - 'LICENSE'
   workflow_dispatch:
 
 permissions:
@@ -68,6 +70,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx semantic-release
 
+  # Tags the Docker Hub `:latest` image with the release version (e.g., :v1.22.0).
+  # Both release.yml and build.yml trigger on push to main. build.yml takes ~10 min
+  # to build and push `:latest`, while this workflow's semantic-release + tag job
+  # completes in under a minute. Without the wait step below, this job would pull a
+  # stale `:latest` from the *previous* release and tag it with the *new* version.
   tag-docker-release:
     needs: release
     runs-on: ubuntu-latest
@@ -87,6 +94,41 @@ jobs:
           git fetch --tags
           TAG=$(git tag --sort=-version:refname | head -1 || echo "")
           echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      # On push: wait for build.yml to finish so :latest has the current commit's code.
+      # On workflow_dispatch: skip the wait — dispatch is used for manual recovery when
+      # :latest is already correct but the version tag needs to be re-applied.
+      - name: Wait for build workflow to push Docker image
+        if: steps.get-tag.outputs.tag != '' && github.event_name == 'push'
+        timeout-minutes: 15
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Waiting for build workflow to push Docker image..."
+          # Find the build workflow run for this exact commit (not just the latest run,
+          # which could belong to a different merge if two PRs land in quick succession).
+          # Retry because the build.yml run may not be registered yet when this executes.
+          for i in $(seq 1 5); do
+            RUN_ID=$(gh run list \
+              --workflow="build.yml" \
+              --branch=main \
+              --commit="${{ github.sha }}" \
+              --limit=1 \
+              --json databaseId \
+              --jq '.[0].databaseId')
+            [ -n "$RUN_ID" ] && break
+            echo "Build run not found yet, retrying in 10s..."
+            sleep 10
+          done
+
+          if [ -z "$RUN_ID" ]; then
+            echo "::error::Could not find build workflow run for commit ${{ github.sha }}"
+            exit 1
+          fi
+
+          echo "Waiting for build workflow run ${RUN_ID} to complete..."
+          gh run watch "$RUN_ID" --exit-status
+          echo "Build workflow completed successfully."
 
       - name: Login to Docker Hub
         if: steps.get-tag.outputs.tag != ''
