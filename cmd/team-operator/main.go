@@ -84,13 +84,21 @@ func applyCRDs(ctx context.Context, timeout time.Duration, cfg *rest.Config) err
 	return crdapply.ApplyCRDs(crdCtx, cfg, setupLog)
 }
 
+func getEnv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
 func main() {
 	var (
-		metricsAddr          string
-		enableLeaderElection bool
-		probeAddr            string
-		manageCRDs           bool
-		crdApplyTimeout      time.Duration
+		metricsAddr              string
+		enableLeaderElection     bool
+		probeAddr                string
+		manageCRDs               bool
+		crdApplyTimeout          time.Duration
+		enableSessionGroupLabels bool
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
@@ -104,6 +112,11 @@ func main() {
 		"Apply CRDs on startup to ensure schema is in sync with operator version")
 	flag.DurationVar(&crdApplyTimeout, "crd-apply-timeout", 60*time.Second,
 		"Timeout for applying CRDs at startup")
+
+	flag.BoolVar(&enableSessionGroupLabels, "enable-session-group-labels", false,
+		"Enable the session group label controller, which reads Entra group names from "+
+			"the --container-user-groups arg of Workbench session pods and writes one "+
+			"label per group onto the pod for OpenCost/Infracost cost attribution")
 
 	opts := zap.Options{Development: true}
 
@@ -224,6 +237,28 @@ func main() {
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Flightdeck")
 		os.Exit(1)
+	}
+
+	// Session group label controller is optional — disabled by default.
+	// When enabled, reads Entra groups from Workbench session pod args and
+	// writes one label per group for OpenCost/Infracost cost attribution.
+	if enableSessionGroupLabels {
+		if err = (&corecontroller.SessionGroupLabelReconciler{
+			Client: mgr.GetClient(),
+			Log:    setupLog,
+			Config: corecontroller.SessionGroupLabelConfig{
+				LabelKeyPrefix: getEnv("SESSION_GROUP_LABEL_KEY_PREFIX", "user-group-"),
+				MatchPattern:   getEnv("SESSION_GROUP_LABEL_PATTERN", `_entra_[^ ,]+`),
+				TrimPrefix:     getEnv("SESSION_GROUP_LABEL_TRIM", "_"),
+			},
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "SessionGroupLabel")
+			os.Exit(1)
+		}
+		setupLog.Info("session group label controller enabled",
+			"labelKeyPrefix", getEnv("SESSION_GROUP_LABEL_KEY_PREFIX", "user-group-"),
+			"pattern", getEnv("SESSION_GROUP_LABEL_PATTERN", `_entra_[^ ,]+`),
+		)
 	}
 
 	//+kubebuilder:scaffold:builder

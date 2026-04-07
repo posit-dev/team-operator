@@ -21,6 +21,7 @@ When configured via a Site resource, Workbench does the following:
 4. [IDE Configuration](#ide-configuration)
 5. [Data Integrations](#data-integrations)
 6. [Session Customization](#session-customization)
+   - [Session Group Labels (OpenCost / Infracost)](#session-group-labels-opencost--infracost)
 7. [Non-Root Execution Mode](#non-root-execution-mode)
 8. [Experimental Features](#experimental-features)
 9. [Example Configurations](#example-configurations)
@@ -649,6 +650,65 @@ spec:
     experimentalFeatures:
       launcherEnvPath: "/opt/R/4.3/bin:/opt/python/3.11/bin:/usr/local/bin:/usr/bin:/bin"
 ```
+
+### Session Group Labels (OpenCost / Infracost)
+
+The operator can watch Workbench session pods and automatically write one label per Entra group onto each pod, enabling per-group cost attribution in OpenCost or Infracost.
+
+This feature is **disabled by default** and is configured at the **operator level** — not in the Site CR. It applies cluster-wide to all Workbench session pods and has no per-site toggle.
+
+> **This is not a `site.yaml` setting.** It is a Helm chart flag enabled through PTD or
+> direct Helm, not through the Site resource.
+
+#### How it works
+
+When enabled, the operator reads the `--container-user-groups` arg from each new session pod's first container. It filters entries matching the configured pattern (default: `_entra_[^ ,]+`), strips the leading `_` from each match, and writes numbered labels onto the pod:
+
+```
+user-group-1: entra_research_team
+user-group-2: entra_data_science
+```
+
+A `posit.co/session-group-labels-injected: "true"` marker is added to prevent reprocessing. Labels are added within seconds of pod creation — no restart or webhook required.
+
+Non-Entra group entries (e.g. `group_uuid` entries added by the container runtime) are silently skipped. If `--container-user-groups` is absent or contains no matching entries, the pod is left unchanged with no error.
+
+#### Enabling via PTD (`ptd.yaml`)
+
+Add `team_operator_session_group_labels_enabled: true` to the cluster spec in your workload's `ptd.yaml`, then run `ptd ensure`:
+
+```yaml
+# infra/__work__/<workload-name>/ptd.yaml
+clusters:
+  "20250115":
+    spec:
+      cluster_version: "1.33"
+      # ... other cluster config ...
+      team_operator_session_group_labels_enabled: true
+```
+
+This is the only change needed. PTD passes the flag through to the team-operator Helm chart automatically.
+
+#### Enabling via direct Helm install
+
+For non-PTD deployments, set the value at install or upgrade time:
+
+```bash
+helm upgrade --install team-operator oci://ghcr.io/posit-dev/charts/team-operator \
+  --namespace posit-team-system \
+  --set sessionGroupLabels.enable=true
+```
+
+#### Configuration reference
+
+| PTD field (`ptd.yaml`) | Helm value | Env var | Default | Description |
+|---|---|---|---|---|
+| `team_operator_session_group_labels_enabled` | `sessionGroupLabels.enable` | — | `false` | Enable the controller |
+| — | `sessionGroupLabels.labelKeyPrefix` | `SESSION_GROUP_LABEL_KEY_PREFIX` | `user-group-` | Base of numbered label keys |
+| — | `sessionGroupLabels.pattern` | `SESSION_GROUP_LABEL_PATTERN` | `_entra_[^ ,]+` | Regex to match group entries |
+| — | `sessionGroupLabels.trimPrefix` | `SESSION_GROUP_LABEL_TRIM` | `_` | Stripped from each match before it becomes the label value |
+
+The pattern, prefix, and trim options are not exposed in `ptd.yaml` — the defaults match the Entra group format used by Workbench. Override them via env vars or a Helm values file only if your group naming convention differs.
 
 ---
 
