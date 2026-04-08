@@ -54,8 +54,7 @@ var (
 )
 
 // SessionGroupLabelReconciler watches Workbench session pods and writes one
-// numbered label per matching group found in the configured pod field,
-// enabling per-group cost attribution in OpenCost/Infracost.
+// numbered label per matching group found in the configured pod field.
 //
 // Configuration is read per-site from the Workbench CR's SessionLabels field.
 // If the Workbench CR has no SessionLabels, the pod is marked as processed and

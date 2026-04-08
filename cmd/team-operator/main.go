@@ -114,9 +114,9 @@ func main() {
 		"Timeout for applying CRDs at startup")
 
 	flag.BoolVar(&enableSessionGroupLabels, "enable-session-group-labels", false,
-		"Enable the session group label controller, which reads Entra group names from "+
-			"the --container-user-groups arg of Workbench session pods and writes one "+
-			"label per group onto the pod for OpenCost/Infracost cost attribution")
+		"Enable the session group label controller, which reads group names from a "+
+			"configurable Workbench session pod field and writes one numbered label per "+
+			"match onto the pod. Per-site config lives in the Workbench CR's sessionLabels field.")
 
 	opts := zap.Options{Development: true}
 
@@ -241,7 +241,7 @@ func main() {
 
 	// Session group label controller is optional — disabled by default.
 	// When enabled, watches Workbench session pods and reads per-site config from
-	// the Workbench CR's sessionLabels field for OpenCost/Infracost cost attribution.
+	// the Workbench CR's sessionLabels field to inject numbered group labels.
 	if enableSessionGroupLabels {
 		if err = (&corecontroller.SessionGroupLabelReconciler{
 			Client: mgr.GetClient(),

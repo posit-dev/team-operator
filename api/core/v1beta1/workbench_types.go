@@ -119,11 +119,11 @@ type WorkbenchSpec struct {
 	// +optional
 	SCIM *WorkbenchSCIMConfig `json:"scim,omitempty"`
 
-	// SessionLabels configures automatic label injection onto Workbench session pods
-	// for OpenCost/Infracost cost attribution. When present, the session label
-	// controller reads the specified pod field, applies searchRegex to find matching
-	// group names, and writes one numbered label per match (e.g. user-group-1,
-	// user-group-2). Omit this field to disable the feature for this site.
+	// SessionLabels configures automatic label injection onto Workbench session pods.
+	// When present, the session label controller reads the specified pod field,
+	// applies searchRegex to find matching group names, and writes one numbered
+	// label per match (e.g. user-group-1, user-group-2).
+	// Omit this field to disable the feature for this site.
 	// +optional
 	SessionLabels *SessionLabelsConfig `json:"sessionLabels,omitempty"`
 }
