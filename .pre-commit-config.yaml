@@ -3,9 +3,10 @@ repos:
     hooks:
       - id: format
         name: Format code
-        entry: just format
+        entry: bash -c 'test -z "$(gofmt -l .)"'
         language: system
         pass_filenames: false
+        files: \.go$
 
       - id: vet
         name: Go vet
