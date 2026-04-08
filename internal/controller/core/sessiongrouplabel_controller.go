@@ -54,7 +54,8 @@ var (
 )
 
 // SessionGroupLabelReconciler watches Workbench session pods and writes one
-// numbered label per matching group found in the configured pod field.
+// numbered label per entry that matches the configured regex in the configured
+// pod field.
 //
 // Configuration is read per-site from the Workbench CR's SessionLabels field.
 // If the Workbench CR has no SessionLabels, the pod is marked as processed and
@@ -127,16 +128,16 @@ func (r *SessionGroupLabelReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	cfg := workbench.Spec.SessionLabels
 
-	// Extract one numbered label per matching group from the configured field.
+	// Extract one numbered label per matching entry from the configured field.
 	groupLabels, err := r.extractGroupLabels(&pod, cfg)
 	if err != nil {
-		l.Error(err, "failed to extract group labels",
+		l.Error(err, "failed to extract labels",
 			"sourceField", cfg.SourceField, "site", siteName)
 		return ctrl.Result{}, err
 	}
 
 	if len(groupLabels) == 0 {
-		l.V(1).Info("no matching groups found, marking pod to skip future reconciles", "site", siteName)
+		l.V(1).Info("no matching entries found, marking pod to skip future reconciles", "site", siteName)
 	}
 
 	// Always set the processed marker so we don't re-reconcile this pod.
@@ -155,7 +156,7 @@ func (r *SessionGroupLabelReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-		l.Error(err, "failed to patch group labels onto pod")
+		l.Error(err, "failed to patch labels onto pod")
 		return ctrl.Result{}, err
 	}
 
@@ -164,7 +165,7 @@ func (r *SessionGroupLabelReconciler) Reconcile(ctx context.Context, req ctrl.Re
 }
 
 // markProcessed patches only the processed marker onto the pod without adding
-// any group labels. Used when the feature is disabled for the site.
+// any labels. Used when the feature is disabled for the site.
 func (r *SessionGroupLabelReconciler) markProcessed(ctx context.Context, pod *corev1.Pod) (ctrl.Result, error) {
 	patch := client.MergeFrom(pod.DeepCopy())
 	if pod.Labels == nil {
@@ -178,8 +179,8 @@ func (r *SessionGroupLabelReconciler) markProcessed(ctx context.Context, pod *co
 }
 
 // extractGroupLabels resolves the configured field path in the pod, reads the
-// raw comma-separated group string, and returns a map of numbered label keys
-// to sanitized group name values.
+// raw comma-separated value string, and returns a map of numbered label keys
+// to sanitized values for each entry matching the configured regex.
 func (r *SessionGroupLabelReconciler) extractGroupLabels(pod *corev1.Pod, cfg *v1beta1.SessionLabelsConfig) (map[string]string, error) {
 	labels := make(map[string]string)
 
@@ -331,7 +332,7 @@ func walkJSONPath(v interface{}, path string) (interface{}, error) {
 	return walkJSONPath(child, rest)
 }
 
-// sanitizeGroupLabelValue cleans a group name for use as a Kubernetes label
+// sanitizeGroupLabelValue cleans a string for use as a Kubernetes label
 // value. Label values must be 63 characters or less, start and end with an
 // alphanumeric character, and contain only alphanumerics, dashes, underscores,
 // and dots.

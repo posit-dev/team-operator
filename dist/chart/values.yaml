@@ -110,7 +110,7 @@ certmanager:
 networkPolicy:
   enable: false
 
-# [SESSION GROUP LABELS]: Per-group label injection for Workbench session pods.
+# [SESSION GROUP LABELS]: Label injection for Workbench session pods.
 # Enabled automatically by PTD when any site.yaml has workbench.sessionLabels configured.
 # Per-site config (sourceField, sourceKey, searchRegex, etc.) is set in site.yaml
 # under workbench.sessionLabels — see the team-operator docs for the schema.
