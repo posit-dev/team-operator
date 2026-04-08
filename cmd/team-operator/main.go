@@ -240,25 +240,17 @@ func main() {
 	}
 
 	// Session group label controller is optional — disabled by default.
-	// When enabled, reads Entra groups from Workbench session pod args and
-	// writes one label per group for OpenCost/Infracost cost attribution.
+	// When enabled, watches Workbench session pods and reads per-site config from
+	// the Workbench CR's sessionLabels field for OpenCost/Infracost cost attribution.
 	if enableSessionGroupLabels {
 		if err = (&corecontroller.SessionGroupLabelReconciler{
 			Client: mgr.GetClient(),
 			Log:    setupLog,
-			Config: corecontroller.SessionGroupLabelConfig{
-				LabelKeyPrefix: getEnv("SESSION_GROUP_LABEL_KEY_PREFIX", "user-group-"),
-				MatchPattern:   getEnv("SESSION_GROUP_LABEL_PATTERN", `_entra_[^ ,]+`),
-				TrimPrefix:     getEnv("SESSION_GROUP_LABEL_TRIM", "_"),
-			},
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SessionGroupLabel")
 			os.Exit(1)
 		}
-		setupLog.Info("session group label controller enabled",
-			"labelKeyPrefix", getEnv("SESSION_GROUP_LABEL_KEY_PREFIX", "user-group-"),
-			"pattern", getEnv("SESSION_GROUP_LABEL_PATTERN", `_entra_[^ ,]+`),
-		)
+		setupLog.Info("session group label controller enabled")
 	}
 
 	//+kubebuilder:scaffold:builder

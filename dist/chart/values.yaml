@@ -110,21 +110,12 @@ certmanager:
 networkPolicy:
   enable: false
 
-# [SESSION GROUP LABELS]: Per-group label injection for Workbench session pods
-# When enabled, the operator reads the --container-user-groups arg from each
-# Workbench session pod and writes one label per matching group onto the pod,
-# enabling per-group cost attribution in OpenCost/Infracost.
+# [SESSION GROUP LABELS]: Per-group label injection for Workbench session pods.
+# When enabled, the operator watches session pods and reads per-site configuration
+# from each Workbench CR's sessionLabels field for OpenCost/Infracost cost attribution.
+# Per-site config (sourceField, sourceKey, searchRegex, etc.) is set in site.yaml
+# under workbench.sessionLabels — see the team-operator docs for the schema.
 sessionGroupLabels:
-  # Set to true to enable the session group label controller (default: false)
+  # Set to true to deploy the session group label controller (default: false).
+  # Per-site enablement is controlled by the presence of sessionLabels in site.yaml.
   enable: false
-  # Base of the numbered label keys written onto session pods.
-  # Default "user-group-" produces "user-group-1", "user-group-2", etc.
-  labelKeyPrefix: "user-group-"
-  # Regex pattern applied to each comma-separated entry in the
-  # --container-user-groups arg to decide whether to include it.
-  # Default matches Entra group entries: "_entra_[^ ,]+"
-  pattern: "_entra_[^ ,]+"
-  # String stripped from the start of each matched group name before it
-  # becomes the label value. Matches ltrimstr("_") in the original script:
-  # "_entra_research_team" → "entra_research_team"
-  trimPrefix: "_"

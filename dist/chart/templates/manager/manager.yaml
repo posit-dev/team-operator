@@ -42,19 +42,11 @@ spec:
           {{- else }}
           image: {{ .Values.controllerManager.container.image.repository }}:{{ $tag }}
           {{- end }}
-          {{- if or .Values.controllerManager.container.env .Values.sessionGroupLabels.enable }}
+          {{- if .Values.controllerManager.container.env }}
           env:
             {{- range $key, $value := .Values.controllerManager.container.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}
-            {{- end }}
-            {{- if .Values.sessionGroupLabels.enable }}
-            - name: SESSION_GROUP_LABEL_KEY_PREFIX
-              value: {{ .Values.sessionGroupLabels.labelKeyPrefix | quote }}
-            - name: SESSION_GROUP_LABEL_PATTERN
-              value: {{ .Values.sessionGroupLabels.pattern | quote }}
-            - name: SESSION_GROUP_LABEL_TRIM
-              value: {{ .Values.sessionGroupLabels.trimPrefix | quote }}
             {{- end }}
           {{- end }}
           livenessProbe:

@@ -459,6 +459,9 @@ func (r *SiteReconciler) reconcileWorkbench(
 	// Propagate SCIM config
 	targetWorkbench.Spec.SCIM = site.Spec.Workbench.SCIM
 
+	// Propagate session label controller config (nil = feature disabled for this site)
+	targetWorkbench.Spec.SessionLabels = site.Spec.Workbench.SessionLabels
+
 	// Merge user-provided sessionConfig from Site spec into the operator-constructed SessionConfig.
 	// DynamicLabels, Labels, and Annotations are merged for Pod/Service/Job configs.
 	// Service.Type is overwritten when non-empty. Other Pod fields (Tolerations,

@@ -5,69 +5,72 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
+	v1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 const (
-	// sessionGroupLabelsInjectedMarker is set on pods after group labels have been
-	// injected to prevent reprocessing on subsequent reconciliations.
+	// sessionGroupLabelsInjectedMarker is set on pods after the controller has
+	// processed them, preventing reprocessing on subsequent reconciliations.
 	sessionGroupLabelsInjectedMarker = "posit.co/session-group-labels-injected"
 
 	// launcherInstanceIDLabel identifies Workbench session pods created by the launcher.
 	launcherInstanceIDLabel = "launcher-instance-id"
 
-	// containerUserGroupsArg is the container arg whose next value holds the
-	// comma-separated list of user groups for a Workbench session.
-	containerUserGroupsArg = "--container-user-groups"
+	// defaultSourceField is the dot-path used when SessionLabelsConfig.SourceField is empty.
+	defaultSourceField = "spec.containers[0].args"
+
+	// defaultSourceKey is used when SessionLabelsConfig.SourceKey is empty.
+	defaultSourceKey = "--container-user-groups"
+
+	// defaultSearchRegex is used when SessionLabelsConfig.SearchRegex is empty.
+	defaultSearchRegex = `_entra_[^ ,]+`
+
+	// defaultLabelKeyPrefix is used when SessionLabelsConfig.LabelKeyPrefix is empty.
+	defaultLabelKeyPrefix = "user-group-"
+
+	// defaultTrimPrefix is used when SessionLabelsConfig.TrimPrefix is empty.
+	defaultTrimPrefix = "_"
 )
 
-// SessionGroupLabelConfig holds configuration for extracting Entra group names
-// from Workbench session pod args and writing them as numbered pod labels.
-type SessionGroupLabelConfig struct {
-	// LabelKeyPrefix is the base of the numbered label keys.
-	// Default "user-group-" produces "user-group-1", "user-group-2", etc.
-	LabelKeyPrefix string
-
-	// MatchPattern is the regex applied to each comma-separated entry in the
-	// --container-user-groups value to decide whether to include it.
-	// Default: "_entra_[^ ,]+"
-	MatchPattern string
-
-	// TrimPrefix is stripped from the start of each matched group name
-	// before it becomes the label value. Matches the ltrimstr("_") behaviour
-	// in the original script: "_entra_team" → "entra_team".
-	// Default: "_"
-	TrimPrefix string
-}
+var (
+	// sanitizeInvalidChars replaces characters that are not valid in Kubernetes
+	// label values with underscores.
+	sanitizeInvalidChars = regexp.MustCompile(`[^a-zA-Z0-9._-]`)
+	// sanitizeMultiUnderscore collapses consecutive underscores to a single one.
+	sanitizeMultiUnderscore = regexp.MustCompile(`_{2,}`)
+)
 
 // SessionGroupLabelReconciler watches Workbench session pods and writes one
-// numbered label per Entra group found in the --container-user-groups arg,
+// numbered label per matching group found in the configured pod field,
 // enabling per-group cost attribution in OpenCost/Infracost.
 //
-// Label format (mirrors the original pod-labeler script):
+// Configuration is read per-site from the Workbench CR's SessionLabels field.
+// If the Workbench CR has no SessionLabels, the pod is marked as processed and
+// skipped. Default label format (when all defaults apply):
 //
 //	user-group-1: entra_research_team
 //	user-group-2: entra_data_science
 type SessionGroupLabelReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Config SessionGroupLabelConfig
-
-	matchRegex *regexp.Regexp
+	Log logr.Logger
 }
 
-// Reconcile handles pod events. For each unlabeled Workbench session pod it
-// extracts group names from the --container-user-groups arg and patches one
-// numbered label per group onto the pod.
+// Reconcile handles pod events. For each unprocessed Workbench session pod it
+// looks up the site's Workbench CR to read the SessionLabels config, then
+// extracts group names from the configured field and patches numbered labels.
 func (r *SessionGroupLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := r.getLogger(ctx).WithValues(
 		"controller", "SessionGroupLabel",
@@ -83,12 +86,12 @@ func (r *SessionGroupLabelReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	// Skip if not a Workbench session pod
+	// Skip if not a Workbench session pod (missing launcher label)
 	if _, ok := pod.Labels[launcherInstanceIDLabel]; !ok {
 		return ctrl.Result{}, nil
 	}
 
-	// Skip if group labels were already injected
+	// Skip if already processed (whether or not groups were found)
 	if _, ok := pod.Labels[sessionGroupLabelsInjectedMarker]; ok {
 		return ctrl.Result{}, nil
 	}
@@ -98,17 +101,49 @@ func (r *SessionGroupLabelReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, nil
 	}
 
-	// Extract one numbered label per group from --container-user-groups arg
-	groupLabels := r.extractGroupLabels(&pod)
-	if len(groupLabels) == 0 {
-		l.V(1).Info("no matching groups found in --container-user-groups arg")
+	// Derive the site name from the pod label — maps to the Workbench CR name.
+	siteName := pod.Labels[v1beta1.SiteLabelKey]
+	if siteName == "" {
+		l.V(1).Info("pod has no posit.team/site label, skipping")
 		return ctrl.Result{}, nil
 	}
 
-	// Add marker so we don't reprocess this pod
+	// Look up the Workbench CR for this site to read the SessionLabels config.
+	var workbench v1beta1.Workbench
+	if err := r.Get(ctx, types.NamespacedName{Name: siteName, Namespace: pod.Namespace}, &workbench); err != nil {
+		if apierrors.IsNotFound(err) {
+			// Workbench may not be reconciled yet; leave pod unmarked so we retry.
+			l.V(1).Info("workbench CR not found, will retry", "site", siteName)
+			return ctrl.Result{}, nil
+		}
+		l.Error(err, "failed to get workbench CR", "site", siteName)
+		return ctrl.Result{}, err
+	}
+
+	// If the Workbench has no sessionLabels config, mark and skip — feature is
+	// not enabled for this site.
+	if workbench.Spec.SessionLabels == nil {
+		return r.markProcessed(ctx, &pod)
+	}
+
+	cfg := workbench.Spec.SessionLabels
+
+	// Extract one numbered label per matching group from the configured field.
+	groupLabels, err := r.extractGroupLabels(&pod, cfg)
+	if err != nil {
+		l.Error(err, "failed to extract group labels",
+			"sourceField", cfg.SourceField, "site", siteName)
+		return ctrl.Result{}, err
+	}
+
+	if len(groupLabels) == 0 {
+		l.V(1).Info("no matching groups found, marking pod to skip future reconciles", "site", siteName)
+	}
+
+	// Always set the processed marker so we don't re-reconcile this pod.
 	groupLabels[sessionGroupLabelsInjectedMarker] = "true"
 
-	// Patch the pod with the new labels
+	// Patch the pod with the extracted labels + marker.
 	patch := client.MergeFrom(pod.DeepCopy())
 	if pod.Labels == nil {
 		pod.Labels = make(map[string]string)
@@ -119,62 +154,182 @@ func (r *SessionGroupLabelReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	if err := r.Patch(ctx, &pod, patch); err != nil {
 		if apierrors.IsNotFound(err) {
-			// Pod deleted between Get and Patch — nothing to do
 			return ctrl.Result{}, nil
 		}
 		l.Error(err, "failed to patch group labels onto pod")
 		return ctrl.Result{}, err
 	}
 
-	l.Info("injected session group labels", "labels", groupLabels)
+	l.Info("processed session group labels", "labels", groupLabels, "site", siteName)
 	return ctrl.Result{}, nil
 }
 
-// extractGroupLabels reads the value of the --container-user-groups arg from
-// containers[0], splits it by comma, filters entries with the configured regex,
-// and returns a map of numbered label keys to group name values.
-//
-// Example output for "--container-user-groups _entra_research_team,_entra_data_science":
-//
-//	"user-group-1" → "entra_research_team"
-//	"user-group-2" → "entra_data_science"
-//
-// Only containers[0] is checked because Workbench session pods always carry
-// the launcher args there. Group order matches the original comma-separated
-// list, so label numbering is stable across reconciliations.
-func (r *SessionGroupLabelReconciler) extractGroupLabels(pod *corev1.Pod) map[string]string {
+// markProcessed patches only the processed marker onto the pod without adding
+// any group labels. Used when the feature is disabled for the site.
+func (r *SessionGroupLabelReconciler) markProcessed(ctx context.Context, pod *corev1.Pod) (ctrl.Result, error) {
+	patch := client.MergeFrom(pod.DeepCopy())
+	if pod.Labels == nil {
+		pod.Labels = make(map[string]string)
+	}
+	pod.Labels[sessionGroupLabelsInjectedMarker] = "true"
+	if err := r.Patch(ctx, pod, patch); err != nil && !apierrors.IsNotFound(err) {
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{}, nil
+}
+
+// extractGroupLabels resolves the configured field path in the pod, reads the
+// raw comma-separated group string, and returns a map of numbered label keys
+// to sanitized group name values.
+func (r *SessionGroupLabelReconciler) extractGroupLabels(pod *corev1.Pod, cfg *v1beta1.SessionLabelsConfig) (map[string]string, error) {
 	labels := make(map[string]string)
 
-	if len(pod.Spec.Containers) == 0 {
-		return labels
+	raw, ok, err := r.extractSourceValue(pod, cfg)
+	if err != nil {
+		return nil, err
+	}
+	if !ok || raw == "" {
+		return labels, nil
 	}
 
-	args := pod.Spec.Containers[0].Args
-	for i, arg := range args {
-		if arg != containerUserGroupsArg || i+1 >= len(args) {
+	searchRegex := cfg.SearchRegex
+	if searchRegex == "" {
+		searchRegex = defaultSearchRegex
+	}
+	re, err := regexp.Compile(searchRegex)
+	if err != nil {
+		return nil, fmt.Errorf("invalid searchRegex %q: %w", searchRegex, err)
+	}
+
+	prefix := cfg.LabelKeyPrefix
+	if prefix == "" {
+		prefix = defaultLabelKeyPrefix
+	}
+	trimPrefix := cfg.TrimPrefix
+	if trimPrefix == "" {
+		trimPrefix = defaultTrimPrefix
+	}
+
+	n := 1
+	for _, entry := range strings.Split(raw, ",") {
+		entry = strings.TrimSpace(entry)
+		if !re.MatchString(entry) {
 			continue
 		}
-
-		n := 1
-		for _, entry := range strings.Split(args[i+1], ",") {
-			entry = strings.TrimSpace(entry)
-			if !r.matchRegex.MatchString(entry) {
-				continue
-			}
-			// Replace = with - to match the original script's gsub("="; "-")
-			entry = strings.ReplaceAll(entry, "=", "-")
-			// Strip TrimPrefix to match ltrimstr("_"): "_entra_team" → "entra_team"
-			entry = strings.TrimPrefix(entry, r.Config.TrimPrefix)
-			entry = sanitizeGroupLabelValue(entry)
-			if entry != "" {
-				labels[fmt.Sprintf("%s%d", r.Config.LabelKeyPrefix, n)] = entry
-				n++
-			}
+		// Replace = with - to match the original script's gsub("="; "-")
+		entry = strings.ReplaceAll(entry, "=", "-")
+		// Strip configured prefix: "_entra_team" → "entra_team"
+		entry = strings.TrimPrefix(entry, trimPrefix)
+		entry = sanitizeGroupLabelValue(entry)
+		if entry != "" {
+			labels[fmt.Sprintf("%s%d", prefix, n)] = entry
+			n++
 		}
-		break
 	}
 
-	return labels
+	return labels, nil
+}
+
+// extractSourceValue walks SourceField in the pod's JSON representation and
+// returns the raw comma-separated group string. See walkJSONPath for path syntax.
+//
+// Leaf-type behaviour:
+//   - string: returned directly; SourceKey is ignored.
+//   - []string: SourceKey is the flag name; the next element is the value.
+//   - map[string]string: SourceKey is the map key.
+func (r *SessionGroupLabelReconciler) extractSourceValue(pod *corev1.Pod, cfg *v1beta1.SessionLabelsConfig) (string, bool, error) {
+	field := cfg.SourceField
+	if field == "" {
+		field = defaultSourceField
+	}
+	key := cfg.SourceKey
+	if key == "" {
+		key = defaultSourceKey
+	}
+
+	data, err := json.Marshal(pod)
+	if err != nil {
+		return "", false, fmt.Errorf("marshaling pod: %w", err)
+	}
+	var root interface{}
+	if err := json.Unmarshal(data, &root); err != nil {
+		return "", false, fmt.Errorf("unmarshaling pod JSON: %w", err)
+	}
+
+	leaf, err := walkJSONPath(root, field)
+	if err != nil {
+		// Field absent or invalid path — treat as "not found", not a hard error.
+		return "", false, nil
+	}
+
+	switch v := leaf.(type) {
+	case string:
+		return v, true, nil
+	case []interface{}:
+		for i, elem := range v {
+			if s, ok := elem.(string); ok && s == key && i+1 < len(v) {
+				if next, ok := v[i+1].(string); ok {
+					return next, true, nil
+				}
+			}
+		}
+		return "", false, nil
+	case map[string]interface{}:
+		if val, ok := v[key]; ok {
+			if s, ok := val.(string); ok {
+				return s, true, nil
+			}
+		}
+		return "", false, nil
+	}
+	return "", false, nil
+}
+
+// walkJSONPath navigates a decoded JSON value using a dot-path that supports
+// array index notation. Examples:
+//
+//	"spec.containers[0].args"   navigates object→array[0]→object
+//	"metadata.annotations"      navigates object→object
+func walkJSONPath(v interface{}, path string) (interface{}, error) {
+	if path == "" {
+		return v, nil
+	}
+
+	seg, rest, _ := strings.Cut(path, ".")
+
+	if open := strings.Index(seg, "["); open >= 0 {
+		close := strings.Index(seg, "]")
+		if close < open {
+			return nil, fmt.Errorf("invalid path segment %q", seg)
+		}
+		arrayKey := seg[:open]
+		idx, err := strconv.Atoi(seg[open+1 : close])
+		if err != nil {
+			return nil, fmt.Errorf("non-integer array index in %q", seg)
+		}
+		m, ok := v.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("expected object at %q, got %T", arrayKey, v)
+		}
+		arr, ok := m[arrayKey].([]interface{})
+		if !ok {
+			return nil, fmt.Errorf("expected array at %q", arrayKey)
+		}
+		if idx < 0 || idx >= len(arr) {
+			return nil, fmt.Errorf("index %d out of range for %q (len %d)", idx, arrayKey, len(arr))
+		}
+		return walkJSONPath(arr[idx], rest)
+	}
+
+	m, ok := v.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("expected object at %q, got %T", seg, v)
+	}
+	child, ok := m[seg]
+	if !ok {
+		return nil, fmt.Errorf("field %q not found", seg)
+	}
+	return walkJSONPath(child, rest)
 }
 
 // sanitizeGroupLabelValue cleans a group name for use as a Kubernetes label
@@ -182,24 +337,17 @@ func (r *SessionGroupLabelReconciler) extractGroupLabels(pod *corev1.Pod) map[st
 // alphanumeric character, and contain only alphanumerics, dashes, underscores,
 // and dots.
 func sanitizeGroupLabelValue(s string) string {
-	s = regexp.MustCompile(`[^a-zA-Z0-9._-]`).ReplaceAllString(s, "_")
-	s = regexp.MustCompile(`_{2,}`).ReplaceAllString(s, "_")
+	s = sanitizeInvalidChars.ReplaceAllString(s, "_")
+	s = sanitizeMultiUnderscore.ReplaceAllString(s, "_")
 	if len(s) > 63 {
 		s = s[:63]
 	}
 	return strings.Trim(s, "_.-")
 }
 
-// SetupWithManager registers the controller with the manager and compiles the
-// match regex. Only pods that already carry the launcher-instance-id label
-// (i.e. Workbench session pods) are enqueued.
+// SetupWithManager registers the controller with the manager. Only pods that
+// carry the launcher-instance-id label (i.e. Workbench session pods) are enqueued.
 func (r *SessionGroupLabelReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	var err error
-	r.matchRegex, err = regexp.Compile(r.Config.MatchPattern)
-	if err != nil {
-		return err
-	}
-
 	sessionPodPredicate := predicate.NewPredicateFuncs(func(obj client.Object) bool {
 		pod, ok := obj.(*corev1.Pod)
 		if !ok {
