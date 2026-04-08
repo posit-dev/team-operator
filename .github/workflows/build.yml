@@ -15,12 +15,14 @@ on:
       - '**/*.md'
       - 'docs/**'
       - '.claude/**'
+      - '.github/**'
       - 'LICENSE'
   pull_request:
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
       - '.claude/**'
+      - '.github/**'
       - 'LICENSE'
 
 permissions:
