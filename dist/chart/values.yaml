@@ -111,11 +111,8 @@ networkPolicy:
   enable: false
 
 # [SESSION GROUP LABELS]: Per-group label injection for Workbench session pods.
-# When enabled, the operator watches session pods and reads per-site configuration
-# from each Workbench CR's sessionLabels field for OpenCost/Infracost cost attribution.
+# Enabled automatically by PTD when any site.yaml has workbench.sessionLabels configured.
 # Per-site config (sourceField, sourceKey, searchRegex, etc.) is set in site.yaml
 # under workbench.sessionLabels — see the team-operator docs for the schema.
 sessionGroupLabels:
-  # Set to true to deploy the session group label controller (default: false).
-  # Per-site enablement is controlled by the presence of sessionLabels in site.yaml.
   enable: false
