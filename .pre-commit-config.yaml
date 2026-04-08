@@ -26,7 +26,7 @@ repos:
         entry: just helm-generate
         language: system
         pass_filenames: false
-        files: ^config/
+        files: ^(config/|api/.*\.go$)
 
       - id: helm-lint
         name: Lint Helm chart
