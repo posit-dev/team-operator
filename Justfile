@@ -81,7 +81,7 @@ crds:
   make install
 
 mgenerate:
-  make generate-all && make manifests
+  make generate-all && make manifests && make copy-crds
 
 crd-test:
   #!/bin/bash
