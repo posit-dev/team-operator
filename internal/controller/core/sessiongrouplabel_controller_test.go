@@ -6,9 +6,9 @@ package core
 import (
 	"testing"
 
+	v1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	v1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -263,8 +263,8 @@ func TestSessionGroupLabelReconciler_ExtractGroupLabels(t *testing.T) {
 					Name:      "session-abc",
 					Namespace: "posit-team",
 					Labels: map[string]string{
-						launcherInstanceIDLabel:  "abc",
-						v1beta1.SiteLabelKey:     "qa",
+						launcherInstanceIDLabel: "abc",
+						v1beta1.SiteLabelKey:    "qa",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -396,7 +396,7 @@ func podWithArgs(name string, args []string) *corev1.Pod {
 			Namespace: "posit-team",
 			Labels: map[string]string{
 				launcherInstanceIDLabel: "abc123",
-				v1beta1.SiteLabelKey:   "qa",
+				v1beta1.SiteLabelKey:    "qa",
 			},
 		},
 		Spec: corev1.PodSpec{
@@ -411,11 +411,11 @@ func podWithArgs(name string, args []string) *corev1.Pod {
 func podWithAnnotations(name string, annotations map[string]string) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			Namespace:   "posit-team",
+			Name:      name,
+			Namespace: "posit-team",
 			Labels: map[string]string{
 				launcherInstanceIDLabel: "abc123",
-				v1beta1.SiteLabelKey:   "qa",
+				v1beta1.SiteLabelKey:    "qa",
 			},
 			Annotations: annotations,
 		},
