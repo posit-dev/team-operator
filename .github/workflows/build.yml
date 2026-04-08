@@ -133,6 +133,11 @@ jobs:
           git diff --exit-code
           git diff --cached --exit-code
 
+      - name: Hint on failure
+        if: failure()
+        run: |
+          echo "::warning::If this failed due to formatting or codegen drift, run 'just deps' to install pre-commit hooks and catch these issues locally before pushing."
+
       - name: Get build metadata
         id: metadata
         run: |
