@@ -176,6 +176,13 @@ type SessionLabelsConfig struct {
 	// Default: "_"
 	// +optional
 	TrimPrefix string `json:"trimPrefix,omitempty"`
+
+	// Reprocess, when true, causes the controller to re-inject labels onto session
+	// pods that have already been processed. Toggle on to force re-labelling of
+	// existing pods (e.g. after changing searchRegex or trimPrefix), then set back
+	// to false when done.
+	// +optional
+	Reprocess bool `json:"reprocess,omitempty"`
 }
 
 // TODO: Validation should require Volume definition for off-host-execution...

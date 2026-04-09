@@ -8543,6 +8543,13 @@ spec:
                           LabelKeyPrefix is prepended to the sequential index to form each label key.
                           Default "user-group-" produces labels user-group-1, user-group-2, etc.
                         type: string
+                      reprocess:
+                        description: |-
+                          Reprocess, when true, causes the controller to re-inject labels onto session
+                          pods that have already been processed. Toggle on to force re-labelling of
+                          existing pods (e.g. after changing searchRegex or trimPrefix), then set back
+                          to false when done.
+                        type: boolean
                       searchRegex:
                         description: |-
                           SearchRegex is applied to each comma-separated entry in the source value to

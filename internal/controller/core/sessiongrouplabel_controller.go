@@ -18,7 +18,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 const (
@@ -91,11 +93,6 @@ func (r *SessionGroupLabelReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, nil
 	}
 
-	// Skip if already processed (whether or not groups were found)
-	if _, ok := pod.Labels[sessionGroupLabelsInjectedMarker]; ok {
-		return ctrl.Result{}, nil
-	}
-
 	// Skip pods that are terminating
 	if pod.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
@@ -127,6 +124,11 @@ func (r *SessionGroupLabelReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	}
 
 	cfg := workbench.Spec.SessionLabels
+
+	// Skip already-processed pods unless reprocess is explicitly enabled.
+	if _, ok := pod.Labels[sessionGroupLabelsInjectedMarker]; ok && !cfg.Reprocess {
+		return ctrl.Result{}, nil
+	}
 
 	// Extract one numbered label per matching entry from the configured field.
 	groupLabels, err := r.extractGroupLabels(&pod, cfg)
@@ -345,8 +347,41 @@ func sanitizeGroupLabelValue(s string) string {
 	return strings.Trim(s, "_.-")
 }
 
+// workbenchToSessionPods maps a Workbench CR change to the session pods that
+// should be re-enqueued. Only enqueues pods when reprocess is enabled, so that
+// toggling reprocess: true triggers re-labelling of all existing session pods
+// for that site without waiting for new pod events.
+func (r *SessionGroupLabelReconciler) workbenchToSessionPods(ctx context.Context, obj client.Object) []reconcile.Request {
+	workbench, ok := obj.(*v1beta1.Workbench)
+	if !ok || workbench.Spec.SessionLabels == nil || !workbench.Spec.SessionLabels.Reprocess {
+		return nil
+	}
+
+	var podList corev1.PodList
+	if err := r.List(ctx, &podList,
+		client.InNamespace(workbench.Namespace),
+		client.MatchingLabels{v1beta1.SiteLabelKey: workbench.Name},
+	); err != nil {
+		r.Log.Error(err, "failed to list pods for reprocess", "workbench", workbench.Name)
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 0, len(podList.Items))
+	for _, pod := range podList.Items {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      pod.Name,
+				Namespace: pod.Namespace,
+			},
+		})
+	}
+	return requests
+}
+
 // SetupWithManager registers the controller with the manager. Only pods that
 // carry the launcher-instance-id label (i.e. Workbench session pods) are enqueued.
+// Also watches Workbench CRs so that toggling reprocess: true immediately
+// re-enqueues all existing session pods for that site.
 func (r *SessionGroupLabelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	sessionPodPredicate := predicate.NewPredicateFuncs(func(obj client.Object) bool {
 		pod, ok := obj.(*corev1.Pod)
@@ -360,6 +395,10 @@ func (r *SessionGroupLabelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Pod{}).
 		WithEventFilter(sessionPodPredicate).
+		Watches(
+			&v1beta1.Workbench{},
+			handler.EnqueueRequestsFromMapFunc(r.workbenchToSessionPods),
+		).
 		Complete(r)
 }
 

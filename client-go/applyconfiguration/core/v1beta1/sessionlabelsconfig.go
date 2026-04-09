@@ -13,6 +13,7 @@ type SessionLabelsConfigApplyConfiguration struct {
 	SearchRegex    *string `json:"searchRegex,omitempty"`
 	LabelKeyPrefix *string `json:"labelKeyPrefix,omitempty"`
 	TrimPrefix     *string `json:"trimPrefix,omitempty"`
+	Reprocess      *bool   `json:"reprocess,omitempty"`
 }
 
 // SessionLabelsConfigApplyConfiguration constructs a declarative configuration of the SessionLabelsConfig type for use with
@@ -58,5 +59,13 @@ func (b *SessionLabelsConfigApplyConfiguration) WithLabelKeyPrefix(value string)
 // If called multiple times, the TrimPrefix field is set to the value of the last call.
 func (b *SessionLabelsConfigApplyConfiguration) WithTrimPrefix(value string) *SessionLabelsConfigApplyConfiguration {
 	b.TrimPrefix = &value
+	return b
+}
+
+// WithReprocess sets the Reprocess field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Reprocess field is set to the value of the last call.
+func (b *SessionLabelsConfigApplyConfiguration) WithReprocess(value bool) *SessionLabelsConfigApplyConfiguration {
+	b.Reprocess = &value
 	return b
 }
