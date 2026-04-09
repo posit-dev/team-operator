@@ -263,8 +263,8 @@ func TestSessionGroupLabelReconciler_ExtractGroupLabels(t *testing.T) {
 					Name:      "session-abc",
 					Namespace: "posit-team",
 					Labels: map[string]string{
-						launcherInstanceIDLabel: "abc",
-						v1beta1.SiteLabelKey:    "qa",
+						v1beta1.LauncherInstanceIDKey: "abc",
+						v1beta1.SiteLabelKey:          "qa",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -284,8 +284,8 @@ func TestSessionGroupLabelReconciler_ExtractGroupLabels(t *testing.T) {
 					Name:      "session-abc",
 					Namespace: "posit-team",
 					Labels: map[string]string{
-						launcherInstanceIDLabel: "abc",
-						v1beta1.SiteLabelKey:    "qa",
+						v1beta1.LauncherInstanceIDKey: "abc",
+						v1beta1.SiteLabelKey:          "qa",
 					},
 				},
 				Spec: corev1.PodSpec{},
@@ -341,9 +341,9 @@ func TestSessionGroupLabelReconciler_ExtractGroupLabels(t *testing.T) {
 					Name:      "session-abc",
 					Namespace: "posit-team",
 					Labels: map[string]string{
-						launcherInstanceIDLabel: "abc123",
-						v1beta1.SiteLabelKey:    "qa",
-						"posit.co/group":        "_entra_platform_team",
+						v1beta1.LauncherInstanceIDKey: "abc123",
+						v1beta1.SiteLabelKey:          "qa",
+						"posit.co/group":              "_entra_platform_team",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -395,8 +395,8 @@ func podWithArgs(name string, args []string) *corev1.Pod {
 			Name:      name,
 			Namespace: "posit-team",
 			Labels: map[string]string{
-				launcherInstanceIDLabel: "abc123",
-				v1beta1.SiteLabelKey:    "qa",
+				v1beta1.LauncherInstanceIDKey: "abc123",
+				v1beta1.SiteLabelKey:          "qa",
 			},
 		},
 		Spec: corev1.PodSpec{
@@ -414,8 +414,8 @@ func podWithAnnotations(name string, annotations map[string]string) *corev1.Pod 
 			Name:      name,
 			Namespace: "posit-team",
 			Labels: map[string]string{
-				launcherInstanceIDLabel: "abc123",
-				v1beta1.SiteLabelKey:    "qa",
+				v1beta1.LauncherInstanceIDKey: "abc123",
+				v1beta1.SiteLabelKey:          "qa",
 			},
 			Annotations: annotations,
 		},

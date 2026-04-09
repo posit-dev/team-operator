@@ -28,9 +28,6 @@ const (
 	// processed them, preventing reprocessing on subsequent reconciliations.
 	sessionGroupLabelsInjectedMarker = "posit.co/session-group-labels-injected"
 
-	// launcherInstanceIDLabel identifies Workbench session pods created by the launcher.
-	launcherInstanceIDLabel = "launcher-instance-id"
-
 	// defaultSourceField is the dot-path used when SessionLabelsConfig.SourceField is empty.
 	defaultSourceField = "spec.containers[0].args"
 
@@ -96,7 +93,7 @@ func (r *SessionGroupLabelReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	}
 
 	// Skip if not a Workbench session pod (missing launcher label)
-	if _, ok := pod.Labels[launcherInstanceIDLabel]; !ok {
+	if _, ok := pod.Labels[v1beta1.LauncherInstanceIDKey]; !ok {
 		return ctrl.Result{}, nil
 	}
 
@@ -157,6 +154,19 @@ func (r *SessionGroupLabelReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	if pod.Labels == nil {
 		pod.Labels = make(map[string]string)
 	}
+
+	// Remove any stale group labels from a previous reconcile so that
+	// reprocessing with fewer matches doesn't leave old labels behind.
+	prefix := cfg.LabelKeyPrefix
+	if prefix == "" {
+		prefix = defaultLabelKeyPrefix
+	}
+	for k := range pod.Labels {
+		if strings.HasPrefix(k, prefix) {
+			delete(pod.Labels, k)
+		}
+	}
+
 	for k, v := range groupLabels {
 		pod.Labels[k] = v
 	}
@@ -222,6 +232,8 @@ func (r *SessionGroupLabelReconciler) extractGroupLabels(pod *corev1.Pod, cfg *v
 	n := 1
 	for _, entry := range strings.Split(raw, ",") {
 		if n > maxGroupLabels {
+			r.Log.V(1).Info("group label cap reached, remaining entries skipped",
+				"cap", maxGroupLabels)
 			break
 		}
 		entry = strings.TrimSpace(entry)
@@ -371,6 +383,7 @@ func (r *SessionGroupLabelReconciler) workbenchToSessionPods(ctx context.Context
 	if err := r.List(ctx, &podList,
 		client.InNamespace(workbench.Namespace),
 		client.MatchingLabels{v1beta1.SiteLabelKey: workbench.Name},
+		client.HasLabels{v1beta1.LauncherInstanceIDKey},
 	); err != nil {
 		r.Log.Error(err, "failed to list pods for reprocess", "workbench", workbench.Name)
 		return nil
@@ -398,7 +411,7 @@ func (r *SessionGroupLabelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		if !ok {
 			return false
 		}
-		_, ok = pod.Labels[launcherInstanceIDLabel]
+		_, ok = pod.Labels[v1beta1.LauncherInstanceIDKey]
 		return ok
 	})
 

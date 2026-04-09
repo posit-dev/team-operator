@@ -696,7 +696,7 @@ sessionLabels:
   reprocess: true   # re-labels all existing session pods for this site immediately
 ```
 
-Setting this flag causes the controller to re-enqueue all session pods for the site as soon as the Workbench CR is updated. Set it back to `false` (or omit it) once done.
+Setting this flag causes the controller to re-enqueue all session pods for the site as soon as the Workbench CR is updated. When reprocessing, any previously written group labels are cleared before the new set is applied — so if the new config produces fewer matches, stale labels from the old run are removed. Set `reprocess` back to `false` (or omit it) once done.
 
 #### Configuration reference
 
@@ -704,10 +704,10 @@ Setting this flag causes the controller to re-enqueue all session pods for the s
 |---|---|---|
 | `sourceField` | `spec.containers[0].args` | Dot-path into the pod spec identifying the field with the comma-separated group list. Supports array index notation. |
 | `sourceKey` | `--container-user-groups` | Flag name (for args slices) or map key (for annotations/labels) used to locate the group string within the resolved field. |
-| `searchRegex` | `_entra_[^ ,]+` | Regex applied to each comma-separated entry; only matching entries produce labels. |
-| `labelKeyPrefix` | `user-group-` | Prefix for numbered label keys (`user-group-1`, `user-group-2`, …). |
+| `searchRegex` | `_entra_[^ ,]+` | Regex applied to each comma-separated entry; only matching entries produce labels. Max 256 characters. |
+| `labelKeyPrefix` | `user-group-` | Prefix for numbered label keys (`user-group-1`, `user-group-2`, …). At most 30 labels are written per pod. |
 | `trimPrefix` | `_` | Stripped from the start of each matched value before it becomes the label value. |
-| `reprocess` | `false` | When `true`, re-labels already-processed pods and re-enqueues existing session pods on Workbench CR changes. |
+| `reprocess` | `false` | When `true`, re-labels already-processed pods (clearing stale group labels first) and re-enqueues existing session pods on Workbench CR changes. |
 
 ---
 

@@ -3,7 +3,7 @@ repos:
     hooks:
       - id: format
         name: Format code
-        entry: bash -c 'test -z "$(gofmt -l .)"'
+        entry: bash -c 'gofmt -l -w . && test -z "$(gofmt -l .)"'
         language: system
         pass_filenames: false
         files: \.go$
