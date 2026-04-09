@@ -84,13 +84,6 @@ func applyCRDs(ctx context.Context, timeout time.Duration, cfg *rest.Config) err
 	return crdapply.ApplyCRDs(crdCtx, cfg, setupLog)
 }
 
-func getEnv(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
-}
-
 func main() {
 	var (
 		metricsAddr              string

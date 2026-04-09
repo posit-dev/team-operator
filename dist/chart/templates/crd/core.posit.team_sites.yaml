@@ -8576,6 +8576,7 @@ spec:
                           SearchRegex is applied to each comma-separated entry in the source value to
                           decide whether to include it as a label. Only matching entries are labelled.
                           Default: "_entra_[^ ,]+"
+                        maxLength: 256
                         type: string
                       sourceField:
                         description: |-

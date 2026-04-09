@@ -45,6 +45,10 @@ const (
 
 	// defaultTrimPrefix is used when SessionLabelsConfig.TrimPrefix is empty.
 	defaultTrimPrefix = "_"
+
+	// maxGroupLabels is the maximum number of group labels written per pod to
+	// avoid excessive metadata growth.
+	maxGroupLabels = 30
 )
 
 var (
@@ -54,6 +58,9 @@ var (
 	// sanitizeMultiUnderscore collapses consecutive underscores to a single one.
 	sanitizeMultiUnderscore = regexp.MustCompile(`_{2,}`)
 )
+
+//+kubebuilder:rbac:namespace=posit-team,groups="",resources=pods,verbs=get;list;watch;patch
+//+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=workbenches,verbs=get
 
 // SessionGroupLabelReconciler watches Workbench session pods and writes one
 // numbered label per entry that matches the configured regex in the configured
@@ -214,6 +221,9 @@ func (r *SessionGroupLabelReconciler) extractGroupLabels(pod *corev1.Pod, cfg *v
 
 	n := 1
 	for _, entry := range strings.Split(raw, ",") {
+		if n > maxGroupLabels {
+			break
+		}
 		entry = strings.TrimSpace(entry)
 		if !re.MatchString(entry) {
 			continue

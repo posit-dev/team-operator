@@ -655,14 +655,11 @@ spec:
 
 The operator can watch Workbench session pods and automatically write one label per Entra group onto each pod, enabling per-group cost attribution in OpenCost or Infracost.
 
-This feature is **disabled by default** and is configured at the **operator level** — not in the Site CR. It applies cluster-wide to all Workbench session pods and has no per-site toggle.
-
-> **This is not a `site.yaml` setting.** It is a Helm chart flag enabled through PTD or
-> direct Helm, not through the Site resource.
+This is a **per-site setting** configured in `site.yaml` under `workbench.sessionLabels`. The controller is automatically enabled by PTD when any site has the block configured — no separate Helm flag or PTD infrastructure setting is needed.
 
 #### How it works
 
-When enabled, the operator reads the `--container-user-groups` arg from each new session pod's first container. It filters entries matching the configured pattern (default: `_entra_[^ ,]+`), strips the leading `_` from each match, and writes numbered labels onto the pod:
+When a session pod is created, the controller reads a configurable field from the pod (default: `spec.containers[0].args`), finds entries matching the configured regex, sanitizes them to valid Kubernetes label values, and patches numbered labels onto the pod:
 
 ```
 user-group-1: entra_research_team
@@ -671,44 +668,46 @@ user-group-2: entra_data_science
 
 A `posit.co/session-group-labels-injected: "true"` marker is added to prevent reprocessing. Labels are added within seconds of pod creation — no restart or webhook required.
 
-Non-Entra group entries (e.g. `group_uuid` entries added by the container runtime) are silently skipped. If `--container-user-groups` is absent or contains no matching entries, the pod is left unchanged with no error.
+Non-Entra group entries (e.g. `group_uuid` entries added by the container runtime) are silently skipped. If `--container-user-groups` is absent or contains no matching entries, the pod is marked as processed and left unchanged with no error.
 
-#### Enabling via PTD (`ptd.yaml`)
+#### Enabling
 
-Add `team_operator_session_group_labels_enabled: true` to the cluster spec in your workload's `ptd.yaml`, then run `ptd ensure`:
+Add a `sessionLabels` block under `workbench` in `site.yaml`:
 
 ```yaml
-# infra/__work__/<workload-name>/ptd.yaml
-clusters:
-  "20250115":
-    spec:
-      cluster_version: "1.33"
-      # ... other cluster config ...
-      team_operator_session_group_labels_enabled: true
+# site.yaml
+spec:
+  workbench:
+    sessionLabels:
+      sourceField: "spec.containers[0].args"  # dot-path into pod spec; supports array index notation
+      sourceKey: "--container-user-groups"     # flag name (args) or map key (annotations/labels)
+      searchRegex: "_entra_[^ ,]+"            # only matching comma-separated entries become labels
+      trimPrefix: "_"                          # stripped from the start of each matched value
 ```
 
-This is the only change needed. PTD passes the flag through to the team-operator Helm chart automatically.
+All fields are optional — the defaults above cover the standard Workbench + Entra ID setup. PTD detects the block and enables the Helm flag automatically when you run `ptd ensure`.
 
-#### Enabling via direct Helm install
+#### Reprocessing existing pods
 
-For non-PTD deployments, set the value at install or upgrade time:
+By default, already-processed pods (those with the marker label) are skipped. To force re-labeling of existing session pods — for example, after changing `searchRegex` or `trimPrefix` — set `reprocess: true`:
 
-```bash
-helm upgrade --install team-operator oci://ghcr.io/posit-dev/charts/team-operator \
-  --namespace posit-team-system \
-  --set sessionGroupLabels.enable=true
+```yaml
+sessionLabels:
+  reprocess: true   # re-labels all existing session pods for this site immediately
 ```
+
+Setting this flag causes the controller to re-enqueue all session pods for the site as soon as the Workbench CR is updated. Set it back to `false` (or omit it) once done.
 
 #### Configuration reference
 
-| PTD field (`ptd.yaml`) | Helm value | Env var | Default | Description |
-|---|---|---|---|---|
-| `team_operator_session_group_labels_enabled` | `sessionGroupLabels.enable` | — | `false` | Enable the controller |
-| — | `sessionGroupLabels.labelKeyPrefix` | `SESSION_GROUP_LABEL_KEY_PREFIX` | `user-group-` | Base of numbered label keys |
-| — | `sessionGroupLabels.pattern` | `SESSION_GROUP_LABEL_PATTERN` | `_entra_[^ ,]+` | Regex to match group entries |
-| — | `sessionGroupLabels.trimPrefix` | `SESSION_GROUP_LABEL_TRIM` | `_` | Stripped from each match before it becomes the label value |
-
-The pattern, prefix, and trim options are not exposed in `ptd.yaml` — the defaults match the Entra group format used by Workbench. Override them via env vars or a Helm values file only if your group naming convention differs.
+| Field | Default | Description |
+|---|---|---|
+| `sourceField` | `spec.containers[0].args` | Dot-path into the pod spec identifying the field with the comma-separated group list. Supports array index notation. |
+| `sourceKey` | `--container-user-groups` | Flag name (for args slices) or map key (for annotations/labels) used to locate the group string within the resolved field. |
+| `searchRegex` | `_entra_[^ ,]+` | Regex applied to each comma-separated entry; only matching entries produce labels. |
+| `labelKeyPrefix` | `user-group-` | Prefix for numbered label keys (`user-group-1`, `user-group-2`, …). |
+| `trimPrefix` | `_` | Stripped from the start of each matched value before it becomes the label value. |
+| `reprocess` | `false` | When `true`, re-labels already-processed pods and re-enqueues existing session pods on Workbench CR changes. |
 
 ---
 

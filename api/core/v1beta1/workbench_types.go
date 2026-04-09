@@ -164,6 +164,7 @@ type SessionLabelsConfig struct {
 	// decide whether to include it as a label. Only matching entries are labelled.
 	// Default: "_entra_[^ ,]+"
 	// +optional
+	// +kubebuilder:validation:MaxLength=256
 	SearchRegex string `json:"searchRegex,omitempty"`
 
 	// LabelKeyPrefix is prepended to the sequential index to form each label key.
