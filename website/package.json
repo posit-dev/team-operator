@@ -7,8 +7,10 @@
     "preview": "astro preview"
   },
   "dependencies": {
+    "@astrojs/starlight": "^0.38.3",
+    "@fontsource/open-sans": "^5.2.7",
+    "@fontsource/source-code-pro": "^5.2.7",
     "astro": "^6.0.0",
-    "@astrojs/starlight": "latest",
-    "astro-mermaid": "latest"
+    "astro-mermaid": "^2.0.1"
   }
 }

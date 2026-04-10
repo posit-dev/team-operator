@@ -8,7 +8,14 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'Team Operator',
-      customCss: ['./src/assets/custom.css'],
+      customCss: [
+        '@fontsource/open-sans/400.css',
+        '@fontsource/open-sans/600.css',
+        '@fontsource/open-sans/700.css',
+        '@fontsource/source-code-pro/400.css',
+        '@fontsource/source-code-pro/500.css',
+        './src/assets/custom.css',
+      ],
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/posit-dev/team-operator' },
       ],

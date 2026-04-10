@@ -11,12 +11,8 @@ on:
       - 'docs/**'
       - 'website/**'
 
-permissions:
-  contents: write
-  pull-requests: write
-
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,16 +34,51 @@ jobs:
       - name: Create .nojekyll
         run: touch website/dist/.nojekyll
 
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-dist
+          path: website/dist/
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docs-dist
+          path: website/dist/
+
       - name: Deploy to GitHub Pages
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: website/dist
           branch: gh-pages
           clean-exclude: pr-preview/
 
+  preview:
+    needs: build
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docs-dist
+          path: website/dist/
+
       - name: Deploy PR preview
-        if: github.event_name == 'pull_request'
         uses: rossjrw/pr-preview-action@v1
         with:
           source-dir: website/dist
