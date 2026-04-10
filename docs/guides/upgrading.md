@@ -5,7 +5,9 @@ description: Upgrading Team Operator including pre-upgrade preparation and versi
 
 # Upgrading Team Operator
 
-This guide covers upgrading the Team Operator: pre-upgrade preparation, upgrade procedures, version-specific migrations, and troubleshooting.
+Upgrading Team Operator is straightforward in most cases, but doing it safely requires preparation. The operator manages stateful workloads — databases, storage volumes, running user sessions — so an upgrade that goes wrong can affect production users. This guide walks through the full process: what to do before upgrading, how to perform the upgrade, what version-specific migrations are required, how to verify success, and how to roll back if needed.
+
+**Read the version-specific migrations section** for your target version before doing anything else. Some versions require manual steps that must be completed before upgrading the operator, and skipping them will cause failures.
 
 ## CRD Management (v1.15+)
 
@@ -56,9 +58,11 @@ kubectl delete crd <crd-name>.core.posit.team
 
 ## Before Upgrading
 
+Before you run any upgrade command, work through the steps in this section. A few minutes of preparation can prevent hours of recovery work.
+
 ### Backup Procedures
 
-Before performing any upgrade, create backups of critical resources:
+Create backups of all critical resources before performing any upgrade. If something goes wrong, these backups let you restore to a known-good state.
 
 #### 1. Backup Custom Resources
 
@@ -90,7 +94,7 @@ kubectl get secrets -n posit-team -o yaml | gpg -c > secrets-backup.yaml.gpg
 
 #### 3. Backup Databases
 
-If using external databases for products (Connect, Workbench, Package Manager), back up databases before upgrading. The operator manages `PostgresDatabase` resources that schema changes may affect.
+If you are using external databases for Connect, Workbench, or Package Manager, back them up before upgrading. The operator manages `PostgresDatabase` resources that schema changes may affect, and some version upgrades include database-related migrations.
 
 ```bash
 # List managed databases
@@ -118,21 +122,11 @@ kubectl get crds | grep posit.team
 
 ### Review Changelog
 
-Review the [CHANGELOG.md](../../CHANGELOG.md) for breaking changes between your current version and the target version. Look for:
-
-- Breaking changes that require configuration updates
-- Deprecated fields that need migration
-- New required fields
+Review the [CHANGELOG.md](../../CHANGELOG.md) for every version between your current version and the target. Pay attention to breaking changes that require configuration updates, deprecated fields that need migration, and new required fields. The version-specific migrations section in this guide summarizes the most significant changes, but the CHANGELOG is the authoritative source.
 
 ### Test in Non-Production
 
-**Critical**: Test upgrades in a non-production environment first:
-
-1. Create a staging cluster or namespace that mirrors production
-2. Apply the same Site configuration
-3. Perform the upgrade
-4. Verify all products function
-5. Test any automated integrations
+Test the upgrade in a staging environment before touching production. Create an environment that mirrors production as closely as possible, apply the same Site configuration, perform the upgrade, verify all products function, and test any automated integrations before proceeding to production.
 
 ## Upgrade Methods
 
@@ -213,13 +207,15 @@ kubectl get sites -A -o json | jq '.items[] | select(.status.conditions[]?.reaso
 
 ## Version-Specific Migrations
 
+This section covers changes that require action before or after upgrading. Read the section for every version between your current version and your target version, not just the latest.
+
 ### v1.15.0
 
 **Breaking Change: Database Password Secret Rename**
 
-The Kubernetes Secret used to store the database password for each product component has been renamed from `<component-name>` to `<component-name>-db-password`.
+In v1.15.0, the Kubernetes Secret that stores each product component's database password was renamed from `<component-name>` to `<component-name>-db-password`. This change was made to make the purpose of the secret unambiguous when listing secrets in a namespace.
 
-If you are upgrading an existing installation that has already run the operator against live clusters, you must migrate the existing secrets before upgrading. Otherwise, the operator will create new secrets at the new name with freshly generated passwords, leaving the old secrets orphaned and causing database authentication failures.
+If you are upgrading an existing installation, you must migrate the secrets before upgrading the operator. If you do not, the operator will generate new secrets at the new name with freshly generated passwords. The old secrets will be orphaned with the old passwords still set in PostgreSQL, and products will fail to connect to their databases.
 
 **Migration steps (run before upgrading the operator):**
 
@@ -252,26 +248,15 @@ If you are upgrading an existing installation that has already run the operator 
 
 3. Proceed with the operator upgrade.
 
-If you are performing a fresh installation or upgrading a cluster that has never had the operator running against it, no migration is needed.
+Fresh installations and clusters that have never had the operator running against them do not need this migration.
 
 ### v1.2.0
 
-**New Features:**
-- Added `CreateOrUpdateResource` helper for improved reconciliation
-- Post-mutation label validation for Traefik resources
-
-**Deprecations:**
-- `BasicCreateOrUpdate` function is deprecated in favor of `CreateOrUpdateResource`
-
-No configuration changes required for users.
+v1.2.0 adds an improved `CreateOrUpdateResource` helper for reconciliation and post-mutation label validation for Traefik resources. The older `BasicCreateOrUpdate` function is deprecated in favor of the new helper, but this is an internal implementation change. No configuration changes are required for users upgrading to this version.
 
 ### v1.1.0
 
-**New Features:**
-- Added `tolerations` and `nodeSelector` support for controller manager
-
-**Migration:**
-If you used workarounds for pod scheduling, update your values:
+v1.1.0 adds native `tolerations` and `nodeSelector` support for the controller manager. Previously, users who needed the operator to schedule on specific nodes had to use workarounds. If you have a custom workaround in place, replace it with the official Helm values:
 
 ```yaml
 controllerManager:
@@ -285,21 +270,15 @@ controllerManager:
 
 ### v1.0.4
 
-**Bug Fixes:**
-- Removed `kustomize-adopt` hook that could fail on tainted clusters
-
-No migration required.
+v1.0.4 removes the `kustomize-adopt` hook that could fail on clusters with tainted nodes. No migration is required.
 
 ### v1.0.0
 
-**Initial Release:**
-- Migration from `rstudio/ptd` repository
-
-If upgrading from the legacy `rstudio/ptd` operator, contact Posit support for migration assistance.
+v1.0.0 is the initial release following migration from the `rstudio/ptd` repository. If you are upgrading from the legacy `rstudio/ptd` operator, contact Posit support for migration assistance.
 
 ### Known Deprecated Fields
 
-The following fields are deprecated and will be removed in future versions:
+The fields listed below are deprecated and will be removed in a future version. Migrate away from them before they are removed to avoid unexpected breakage during a future upgrade.
 
 | CRD | Field | Replacement | Notes |
 |-----|-------|-------------|-------|
@@ -334,15 +313,17 @@ spec:
         clientId: "<client-id>"
 ```
 
-### Key Migration
+### Encryption Key Migration
 
-The operator migrates legacy UUID-format and binary-format encryption keys to the new hex256 format. This happens during reconciliation. Monitor logs for migration messages:
+The operator automatically migrates legacy UUID-format and binary-format encryption keys to the current hex256 format. This migration happens transparently during reconciliation — no manual action is required. You can monitor logs to confirm the migration completed:
 
 ```bash
 kubectl logs -n posit-team-system deployment/team-operator-controller-manager | grep -i "migrating"
 ```
 
 ## Post-Upgrade Verification
+
+After upgrading, verify the operator and all products are healthy before declaring success. Work through these checks in order.
 
 ### 1. Check Operator Health
 
@@ -396,23 +377,21 @@ curl -I https://packagemanager.<your-domain>
 
 ### 4. Monitor for Issues
 
-Watch operator logs for the first 15-30 minutes after upgrade:
+Watch operator logs for the first 15-30 minutes after upgrade. The reconciliation loop runs frequently, so issues typically surface quickly:
 
 ```bash
 kubectl logs -n posit-team-system deployment/team-operator-controller-manager -f
 ```
 
-Look for:
-- Reconciliation errors
-- CRD validation failures
-- Database connection issues
-- Certificate/TLS errors
+Pay particular attention to reconciliation errors, CRD validation failures, database connection issues, and certificate or TLS errors.
 
 ## Rollback Procedures
 
+If you discover a problem after upgrading that cannot be quickly fixed forward, roll back to the previous operator version. Be aware of the data implications described below before proceeding.
+
 ### Helm Rollback
 
-If issues occur after upgrade, rollback to the previous release:
+Roll back to a previous Helm release revision:
 
 ```bash
 # List release history
@@ -427,7 +406,7 @@ helm rollback team-operator 2 -n posit-team-system
 
 ### CRD Considerations During Rollback
 
-**Important**: CRDs are not rolled back with Helm rollback due to the `keep` annotation. If the new CRDs added fields, older operator versions may still work but won't recognize new fields.
+CRDs are not rolled back automatically with Helm rollback due to the `keep` annotation. If the new CRD version added fields, the older operator will still function but will not recognize or manage those fields. In most cases this is acceptable, but if the CRD schema changed in a way that breaks older operators, you will need to roll back the CRDs manually as well.
 
 If CRD rollback is necessary:
 
@@ -444,63 +423,57 @@ kubectl get sites -A
 
 ### Data Implications
 
-Consider these data implications during rollback:
+Before rolling back, understand these constraints:
 
-1. **Database Schema Changes**: If the upgrade included database schema changes, rollback may require database schema rollback as well.
+Database schema changes made by the upgrade are not automatically reversed. If the new version ran migrations against your PostgreSQL databases, rolling back the operator does not undo those changes, and you may need to roll back the database schema separately.
 
-2. **Secret Format Changes**: The operator's automatic key migration is one-way. Rolled-back operators will still work with migrated keys.
+Encryption key migrations are one-way. The automatic migration of legacy keys to the hex256 format is idempotent and cannot be reversed, but rolled-back operators will continue to work with the migrated key format.
 
-3. **Configuration Changes**: CRs modified to use new fields will need manual cleanup if rolling back to a version that doesn't support those fields.
+Custom Resources that were updated to use new fields will need manual cleanup if rolling back to a version that does not support those fields. Review any CR changes you made since the upgrade before proceeding.
 
 ## Zero-Downtime Upgrades
 
+The operator restart during an upgrade typically takes less than 30 seconds, during which reconciliation is paused but products continue serving traffic normally. Understanding this separation is key to planning a production upgrade with minimal risk.
+
 ### Best Practices for Production Upgrades
 
-1. **Use Maintenance Windows**: Schedule upgrades during low-traffic periods.
+Schedule upgrades during low-traffic periods when possible. While products remain available during operator restart, any configuration changes submitted during that window will not be applied until reconciliation resumes.
 
-2. **Rolling Update Strategy**: The operator uses a single replica by default. During operator restarts:
-   - Products continue running if the operator is briefly unavailable
-   - No reconciliation occurs during operator restart (typically < 30 seconds)
+The operator runs a single replica by default. Products continue running if the operator is briefly unavailable during the restart, but no reconciliation occurs during that period.
 
-3. **Staged Rollout**:
-   ```bash
-   # First, upgrade operator in staging
-   helm upgrade team-operator ./dist/chart -n posit-team-system-staging
+For staged rollouts, upgrade staging before production and verify each environment fully before proceeding:
 
-   # Verify staging works
-   # Then upgrade production
-   helm upgrade team-operator ./dist/chart -n posit-team-system
-   ```
+```bash
+# First, upgrade operator in staging
+helm upgrade team-operator ./dist/chart -n posit-team-system-staging
 
-4. **Health Check**:
-   - Liveness probe: `/healthz` (port 8081)
-   - Readiness probe: `/readyz` (port 8081)
-   - These probes ensure the operator is ready before receiving reconciliation requests
+# Verify staging works, then upgrade production
+helm upgrade team-operator ./dist/chart -n posit-team-system
+```
 
-5. **Leader Election**: If running multiple operator replicas (uncommon), leader election ensures one active reconciler:
-   ```yaml
-   controllerManager:
-     container:
-       args:
-         - "--leader-elect"
-   ```
+The operator exposes health endpoints that Kubernetes uses to verify readiness before routing reconciliation requests:
+
+- Liveness probe: `/healthz` (port 8081)
+- Readiness probe: `/readyz` (port 8081)
+
+If running multiple operator replicas (uncommon), enable leader election to ensure only one active reconciler:
+
+```yaml
+controllerManager:
+  container:
+    args:
+      - "--leader-elect"
+```
 
 ### Product Availability During Upgrades
 
-- **Workbench**: Sessions continue running; new sessions may be delayed
-- **Connect**: Published content remains accessible
-- **Package Manager**: Package downloads continue working
-- **Flightdeck**: Landing page remains accessible
-
-Only reconciliation (applying changes) is affected during operator restart.
+During an operator restart, all products remain available to end users. Workbench sessions continue running, though new sessions may be delayed until reconciliation resumes. Connect published content stays accessible, Package Manager package downloads continue working, and the Flightdeck landing page remains accessible. Only the ability to apply configuration changes is temporarily suspended.
 
 ## Troubleshooting Upgrades
 
-### Common Upgrade Issues
+### If CRs fail validation after a CRD update
 
-#### CRD Validation Failures
-
-**Symptom**: CRs fail validation after CRD update
+After a CRD schema change, existing CRs are validated against the new schema. CRs that use removed or renamed fields will fail validation.
 
 ```bash
 # Check for invalid CRs
@@ -510,26 +483,29 @@ kubectl get sites -A 2>&1 | grep -i error
 kubectl describe site <site-name> -n <namespace>
 ```
 
-**Solution**: Update CRs to match new schema requirements or remove deprecated fields.
+Update CRs to match the new schema requirements, removing deprecated fields and adding any new required ones.
 
-#### Webhook Issues
+### If you see admission webhook errors after upgrading
 
-**Symptom**: Admission webhook errors after upgrade
+Webhook failures usually mean cert-manager is not properly configured or the webhook certificate has not been provisioned.
 
 ```bash
 # Check webhook configuration
 kubectl get validatingwebhookconfigurations | grep posit
 kubectl get mutatingwebhookconfigurations | grep posit
+```
 
-# If webhooks are causing issues and you need to disable temporarily
+If webhooks are preventing the operator from starting and you need to remove them temporarily:
+
+```bash
 kubectl delete validatingwebhookconfigurations <webhook-name>
 ```
 
-**Solution**: Ensure cert-manager is properly configured if webhooks are enabled.
+Ensure cert-manager is running and the operator's certificate resources are healthy before re-enabling webhooks.
 
-#### Operator Pod CrashLoopBackOff
+### If the operator pod is in CrashLoopBackOff after upgrading
 
-**Symptom**: Operator pod fails to start
+A new version may require RBAC permissions for resources it did not previously manage. Check pod events and logs:
 
 ```bash
 # Check pod events
@@ -539,34 +515,26 @@ kubectl describe pod -n posit-team-system -l control-plane=controller-manager
 kubectl logs -n posit-team-system -l control-plane=controller-manager --previous
 ```
 
-**Common Causes**:
-- Missing RBAC permissions for new resources
-- Invalid environment variables
-- Certificate issues
+Common causes are missing RBAC permissions for new resources, invalid environment variables, and certificate issues. Verify Helm values are complete for the new version and that all required permissions are granted.
 
-**Solution**: Check Helm values and ensure all required permissions are granted.
+### If the operator is in a continuous reconciliation loop after upgrading
 
-#### Reconciliation Loops
-
-**Symptom**: Operator continuously reconciles resources without reaching a stable state
+If the operator reconciles repeatedly without reaching a stable state, check for label or annotation conflicts between the new operator version and existing resources:
 
 ```bash
 # Watch operator logs for repeated reconciliation
 kubectl logs -n posit-team-system deployment/team-operator-controller-manager -f | grep "Reconciling"
 ```
 
-**Solution**: Check for label/annotation conflicts or resources being modified by multiple controllers.
+Resources being modified by multiple controllers simultaneously can also trigger loops. Check whether any other tools (Flux, ArgoCD, custom controllers) are modifying the same resources.
 
-#### Database Connection Errors
+### If products fail to start due to database errors after upgrading
 
-**Symptom**: Products fail to start due to database errors
+Verify database credentials are still correct in the secrets and that network policies have not been tightened during the upgrade:
 
 ```bash
-# Check database connectivity
 kubectl logs -n posit-team <product-pod> | grep -i database
 ```
-
-**Solution**: Verify database credentials in secrets and ensure network policies allow database access.
 
 ### Getting Help
 

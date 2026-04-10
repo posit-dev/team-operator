@@ -5,11 +5,13 @@ description: Managing Site resources in Team Operator for platform engineers dep
 
 # Site Management Guide
 
-This guide covers the management of Site resources in Team Operator for platform engineers deploying Posit Team.
+The `Site` Custom Resource is the central concept in Team Operator. It is the single configuration object that describes an entire Posit Team deployment: which products to run, how they authenticate, where they store data, and how they are exposed to users. Everything else the operator manages — Connect, Workbench, Package Manager, Chronicle, Flightdeck — derives from the Site spec.
+
+Understanding the Site CR means understanding how Team Operator works. When you change a Site, the operator propagates that change through the entire product stack automatically. When you delete a Site, the operator tears down all the resources it created. You do not manage individual product CRs directly; you declare the desired state in the Site, and the operator reconciles the rest.
 
 ## Overview
 
-The `Site` Custom Resource Definition (CRD) is the **single source of truth** for a Posit Team deployment. A Site represents a complete deployment environment that includes:
+A Site represents a complete deployment environment that includes the following components:
 
 - **Flightdeck** - Landing page dashboard
 - **Connect** - Publishing and sharing platform
@@ -30,32 +32,22 @@ To create a new Posit Team deployment, apply a Site manifest:
 kubectl apply -f site.yaml -n posit-team
 ```
 
-When a Site is created, the Site controller:
-
-1. Provisions storage volumes (FSx, NFS, or Azure NetApp based on configuration)
-2. Creates subdirectory provisioning jobs for shared storage
-3. Reconciles the Flightdeck landing page
-4. Creates Connect, Workbench, Package Manager, and Chronicle CRs
-5. Sets up network policies for product communication
-6. Creates any extra service accounts specified
+On creation, the Site controller works through a predictable sequence: it provisions storage volumes (FSx, NFS, or Azure NetApp based on your configuration), runs subdirectory provisioning jobs for shared storage, creates the Flightdeck landing page CR, creates the Connect, Workbench, Package Manager, and Chronicle CRs, establishes network policies for product communication, and creates any extra service accounts you specified.
 
 ### Updating Site Configuration
 
-To update a Site:
+To update a Site, either edit it in-place or apply an updated manifest:
 
 ```bash
 kubectl edit site <site-name> -n posit-team
 ```
 
-Or apply an updated manifest:
-
 ```bash
 kubectl apply -f site.yaml -n posit-team
 ```
 
-The Site controller detects changes and propagates them to child product CRs. Product controllers then reconcile their respective deployments.
+The Site controller detects the change and propagates it through the stack. Changes flow from the Site spec down through each product CR, and then each product controller reconciles its own deployment, services, and ingress resources:
 
-**Configuration Flow:**
 ```
 Site spec change
     -> Site controller reconciles
@@ -66,25 +58,17 @@ Site spec change
 
 ### Deleting a Site
 
-When you delete a Site:
+Deleting a Site removes all resources the operator created for that deployment:
 
 ```bash
 kubectl delete site <site-name> -n posit-team
 ```
 
-The Site controller cleans up:
-
-1. Connect CR and all its resources
-2. Workbench CR and all its resources
-3. Package Manager CR and all its resources
-4. Flightdeck CR and all its resources
-5. Network policies
-
-Child resources have owner references to the Site, so Kubernetes garbage collection handles most cleanup automatically.
-
-If `dropDatabaseOnTearDown: true` is set, product databases will be dropped during cleanup.
+Child resources hold owner references to the Site, so Kubernetes garbage collection handles most of the cleanup automatically. The operator also removes the Connect, Workbench, Package Manager, Flightdeck, and network policy resources. If you set `dropDatabaseOnTearDown: true`, product databases will be dropped as well — use that option with caution in production environments.
 
 ## Site Spec Structure
+
+The Site spec is organized into logical sections: core settings that apply across all products, followed by per-product configuration blocks. The sections below walk through each area with the key fields and their purpose.
 
 ### Core Configuration
 
@@ -150,7 +134,7 @@ spec:
 
 ### Secret Management
 
-Team Operator supports multiple secret backends:
+The operator reads authentication credentials (OIDC client secrets, database passwords, and similar values) from a secrets backend that you configure at the Site level. This keeps sensitive values out of the Site spec itself. The operator supports two backends: standard Kubernetes Secrets and AWS Secrets Manager. For multi-site workloads, you can configure a separate workload-scoped secret in addition to the site-scoped one.
 
 ```yaml
 spec:
@@ -170,14 +154,14 @@ spec:
     vaultName: "rds!db-example-database-id"
 ```
 
-**Secret Types:**
-
 | Type | Description |
 |------|-------------|
 | `kubernetes` | Standard Kubernetes Secrets |
 | `aws` | AWS Secrets Manager |
 
 ### Storage Configuration
+
+The operator can provision and manage persistent storage for product data. Storage is configured via a `volumeSource` that specifies the underlying storage technology. In AWS deployments, FSx for OpenZFS is the typical choice; Azure deployments use Azure NetApp Files; and generic NFS works across any environment. If you leave `volumeSource` empty, the operator does not create any managed volumes and you are responsible for providing storage.
 
 #### Volume Source Types
 
@@ -226,6 +210,8 @@ spec:
 ```
 
 ### Product Enablement
+
+Each product has its own configuration block in the Site spec. All products are enabled by default. Setting `enabled: false` on a product suspends it without deleting its data, while setting `teardown: true` permanently removes all associated resources. The sections below cover the key configuration options for each product.
 
 #### Flightdeck (Landing Page)
 
@@ -495,6 +481,8 @@ spec:
 
 ### Authentication Configuration
 
+Authentication is configured per-product. Each product (Connect and Workbench) has an independent `auth` block where you specify the type and provider-specific settings. This allows Connect and Workbench to use different IdPs or different clients on the same IdP. For detailed configuration and provider-specific examples, see the [Authentication Setup Guide](./authentication-setup.md).
+
 Team Operator supports multiple authentication methods:
 
 #### OIDC Authentication
@@ -547,7 +535,7 @@ spec:
 
 ### Database Configuration
 
-All stateful products (Connect, Workbench, Package Manager) use PostgreSQL:
+All stateful products — Connect, Workbench, and Package Manager — require PostgreSQL. The operator provisions separate database schemas for each product using the credentials you provide in `mainDatabaseCredentialSecret`. Database URLs are derived automatically from the workload secret configuration; you do not specify them directly in the Site spec.
 
 ```yaml
 spec:
@@ -559,8 +547,6 @@ spec:
   # Drop databases when Site is deleted (use with caution!)
   dropDatabaseOnTearDown: false
 ```
-
-Database URLs are determined automatically from the workload secret configuration.
 
 ### Image Pull Configuration
 
@@ -588,6 +574,8 @@ spec:
 ```
 
 ## Common Site Configurations
+
+The examples below show two complete configurations: a minimal development setup using password authentication and Kubernetes secrets, and a production setup with OIDC, FSx storage, and AWS Secrets Manager. Use the minimal configuration to get up and running quickly; use the production configuration as a starting template for environments that need SSO and cloud-native storage.
 
 ### Minimal Development Site
 
@@ -706,7 +694,7 @@ spec:
 
 ## Troubleshooting
 
-### Viewing Site Status
+Start by checking the Site status and operator logs. The `kubectl describe` output includes status conditions and recent events that usually point directly to the problem.
 
 ```bash
 # List all Sites
@@ -719,82 +707,57 @@ kubectl describe site <site-name> -n posit-team
 kubectl logs -n posit-team -l app.kubernetes.io/name=team-operator --tail=100
 ```
 
-### Common Issues
+For deeper troubleshooting, see the [Troubleshooting Guide](./troubleshooting.md). The quick reference below covers issues specific to the Site lifecycle.
 
-#### Products Not Deploying
+#### If products are not deploying
 
-1. Verify Site controller logs for errors:
-   ```bash
-   kubectl logs -n posit-team deploy/team-operator | grep -i error
-   ```
+Check whether the operator created the child product CRs. If they don't exist, the problem is in the Site reconciliation loop. If they exist but pods are not running, the problem is in the individual product controller.
 
-2. Verify product CRs were created:
-   ```bash
-   kubectl get connect,workbench,packagemanager,chronicle -n posit-team
-   ```
+```bash
+kubectl logs -n posit-team deploy/team-operator | grep -i error
+kubectl get connect,workbench,packagemanager,chronicle -n posit-team
+```
 
-3. Verify individual product controller logs if CRs exist but pods are not running.
+#### If database connections are failing
 
-#### Database Connection Failures
+Verify the credential secret exists and contains the expected keys, then confirm the database host is reachable from within the cluster and that the SSL mode matches your database server configuration.
 
-1. Verify database credential secret exists and is accessible:
-   ```bash
-   # For Kubernetes secrets
-   kubectl get secret <secret-name> -n posit-team
+```bash
+kubectl get secret <secret-name> -n posit-team
+```
 
-   # For AWS Secrets Manager, check operator logs for fetch errors
-   ```
+#### If volume provisioning is failing
 
-2. Verify database host is reachable from the cluster.
+For FSx volumes, double-check the volume ID and DNS name. Then inspect the subdirectory provisioning job for errors:
 
-3. Verify SSL mode configuration matches your database server.
+```bash
+kubectl get jobs -n posit-team | grep subdir
+kubectl logs job/<site-name>-subdir-creator -n posit-team
+```
 
-#### Volume Provisioning Issues
+#### If ingress is not routing traffic
 
-1. For FSx volumes, verify the volume ID and DNS name are correct.
+Confirm the ingress class matches your controller, that ingress resources were created, and that DNS records resolve to your ingress controller:
 
-2. Check subdirectory provisioning job:
-   ```bash
-   kubectl get jobs -n posit-team | grep subdir
-   kubectl logs job/<site-name>-subdir-creator -n posit-team
-   ```
+```bash
+kubectl get ingress -n posit-team
+```
 
-3. Verify storage class exists for your volume type.
+#### If authentication is failing
 
-#### Ingress Not Working
+For OIDC, verify the client ID and issuer URL. Confirm redirect URIs are registered in your IdP and review product logs for detailed error messages:
 
-1. Verify ingress class is correct and controller is running.
+```bash
+kubectl logs -n posit-team deploy/<site-name>-connect
+```
 
-2. Check ingress resources were created:
-   ```bash
-   kubectl get ingress -n posit-team
-   ```
+#### If the operator is in a constant reconciliation loop
 
-3. Verify DNS records point to your ingress controller.
+Compare the live Site spec against your source manifest to look for fields that may be mutating on each reconcile. External processes modifying resources can also trigger loops.
 
-#### Authentication Failures
-
-1. For OIDC, verify client ID and issuer URL.
-
-2. Verify redirect URIs are configured in your IdP.
-
-3. Review product logs for detailed auth error messages:
-   ```bash
-   kubectl logs -n posit-team deploy/<site-name>-connect
-   ```
-
-### Reconciliation Loop Detection
-
-If you notice constant reconciliation:
-
-1. Check for spec fields that might be mutating:
-   ```bash
-   kubectl get site <site-name> -o yaml | diff - site.yaml
-   ```
-
-2. Review controller logs for validation errors.
-
-3. Verify no external processes are modifying resources.
+```bash
+kubectl get site <site-name> -o yaml | diff - site.yaml
+```
 
 ## Related Documentation
 

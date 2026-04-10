@@ -1,30 +1,12 @@
 # Team Operator
 
-The Team Operator manages deployment and configuration of Posit Team products in Kubernetes.
+Team Operator is a Kubernetes operator that manages the full lifecycle of Posit Team products — deployment, configuration, upgrades, and reconciliation. It is intended for platform engineers and administrators running Posit Workbench, Connect, Package Manager, Chronicle, and Keycloak on Kubernetes.
 
-## Overview
+## How It Works
 
-The operator automates deployment and lifecycle management of:
-- **Posit Workbench** - Interactive development environment
-- **Posit Connect** - Publishing and sharing platform
-- **Posit Package Manager** - Package repository management
-- **Posit Chronicle** - Telemetry and monitoring
-- **Keycloak** - Authentication and identity management
+The operator's central concept is the `Site` Custom Resource (CR). Rather than configuring each product separately, you define a single Site object that describes your entire Posit Team deployment — which products to enable, what domain to use, how storage is provisioned, and product-specific settings. The Site controller reads this resource and creates individual product CRs for each enabled product. Each product then has its own controller that translates that CR into the Deployments, Services, Ingresses, ConfigMaps, Secrets, and PVCs that Kubernetes actually runs.
 
-## Architecture
-
-The operator uses a hierarchical configuration model:
-
-```
-Site CRD (single source of truth)
-    ├── Connect configuration
-    ├── Workbench configuration
-    ├── Package Manager configuration
-    ├── Chronicle configuration
-    └── Keycloak configuration
-```
-
-The Site controller watches Site resources and creates product-specific Custom Resources for enabled products.
+This hierarchy means you have one place to look when something is misconfigured, and one place to make changes that propagate consistently across all products.
 
 ### Overall System Architecture
 
@@ -103,219 +85,6 @@ flowchart TB
     class deployments,services,ingresses,configmaps,secrets,pvcs,rbac k8sStyle
 ```
 
-### Reconciliation Flow
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant K8s as Kubernetes API
-    participant SiteCtrl as Site Controller
-    participant ProductCR as Product CRs
-    participant ProductCtrl as Product Controllers
-    participant Resources as K8s Resources
-
-    User->>K8s: Create/Update Site CR
-    K8s->>SiteCtrl: Watch event triggered
-
-    rect rgb(227, 242, 253)
-        Note over SiteCtrl: Site Reconciliation
-        SiteCtrl->>SiteCtrl: Determine database URL
-        SiteCtrl->>SiteCtrl: Provision volumes (if needed)
-        SiteCtrl->>ProductCR: Create/Update Connect CR
-        SiteCtrl->>ProductCR: Create/Update Workbench CR
-        SiteCtrl->>ProductCR: Create/Update PackageManager CR
-        SiteCtrl->>ProductCR: Create/Update Chronicle CR
-        SiteCtrl->>ProductCR: Create/Update Flightdeck CR
-        SiteCtrl->>ProductCR: Create/Update Keycloak CR
-    end
-
-    ProductCR->>ProductCtrl: Watch events triggered
-
-    rect rgb(232, 245, 233)
-        Note over ProductCtrl: Product Reconciliation
-        ProductCtrl->>ProductCtrl: Ensure database exists
-        ProductCtrl->>Resources: Create ConfigMaps
-        ProductCtrl->>Resources: Create Secrets
-        ProductCtrl->>Resources: Create PVCs
-        ProductCtrl->>Resources: Create Deployment
-        ProductCtrl->>Resources: Create Service
-        ProductCtrl->>Resources: Create Ingress
-        ProductCtrl->>Resources: Create RBAC (if off-host)
-    end
-
-    Resources-->>K8s: Resources created
-    K8s-->>User: Site ready
-```
-
-### Workbench Architecture
-
-```mermaid
-flowchart TB
-    subgraph external [External Access]
-        user[User Browser]
-        ingress[Ingress Controller]
-    end
-
-    subgraph workbench_pod [Workbench Pod]
-        wb_server[Workbench Server]
-        launcher[Job Launcher]
-    end
-
-    subgraph k8s_api [Kubernetes API]
-        api[API Server]
-    end
-
-    subgraph sessions [Session Pods]
-        session1[Session Pod 1<br/>RStudio/VS Code/Jupyter]
-        session2[Session Pod 2<br/>RStudio/VS Code/Jupyter]
-        session3[Session Pod N<br/>...]
-    end
-
-    subgraph storage [Shared Storage]
-        home_pvc[Home Directory PVC<br/>ReadWriteMany]
-        shared_pvc[Shared Storage PVC<br/>ReadWriteMany]
-    end
-
-    subgraph config [Configuration]
-        cm[ConfigMaps]
-        templates[Job Templates]
-        session_cm[Session ConfigMap]
-    end
-
-    %% User flow
-    user --> ingress
-    ingress --> wb_server
-
-    %% Launcher creates sessions
-    wb_server --> launcher
-    launcher --> api
-    api --> session1
-    api --> session2
-    api --> session3
-
-    %% Storage connections
-    wb_server --> home_pvc
-    session1 --> home_pvc
-    session2 --> home_pvc
-    session3 --> home_pvc
-    session1 --> shared_pvc
-    session2 --> shared_pvc
-    session3 --> shared_pvc
-
-    %% Configuration
-    cm --> wb_server
-    templates --> launcher
-    session_cm --> session1
-    session_cm --> session2
-    session_cm --> session3
-
-    classDef external fill:#FAEEE9,stroke:#ab4d26
-    classDef workbench fill:#E3F2FD,stroke:#1976D2
-    classDef session fill:#E8F5E9,stroke:#388E3C
-    classDef storage fill:#FFF3E0,stroke:#F57C00
-    classDef config fill:#F3E5F5,stroke:#7B1FA2
-
-    class user,ingress external
-    class wb_server,launcher workbench
-    class session1,session2,session3 session
-    class home_pvc,shared_pvc storage
-    class cm,templates,session_cm config
-```
-
-### Component Relationships
-
-```mermaid
-flowchart LR
-    subgraph products [Posit Team Products]
-        flightdeck[Flightdeck<br/>Landing Page]
-        workbench[Workbench<br/>Development]
-        connect[Connect<br/>Publishing]
-        pm[Package Manager<br/>Packages]
-        chronicle[Chronicle<br/>Telemetry]
-    end
-
-    subgraph shared [Shared Infrastructure]
-        keycloak[Keycloak<br/>Authentication]
-        postgres[(PostgreSQL<br/>Database)]
-        storage[(Shared Storage<br/>NFS/EFS/FSx)]
-    end
-
-    %% Landing page links to products
-    flightdeck -.-> workbench
-    flightdeck -.-> connect
-    flightdeck -.-> pm
-
-    %% Product interactions
-    workbench -->|Publish content| connect
-    workbench -->|Fetch packages| pm
-    connect -->|Fetch packages| pm
-
-    %% Shared infrastructure
-    workbench --> keycloak
-    connect --> keycloak
-    pm --> keycloak
-
-    workbench --> postgres
-    connect --> postgres
-    pm --> postgres
-    chronicle --> postgres
-
-    workbench --> storage
-    connect --> storage
-
-    %% Chronicle collects from products
-    chronicle -.->|Collect metrics| workbench
-    chronicle -.->|Collect metrics| connect
-    chronicle -.->|Collect metrics| pm
-
-    classDef product fill:#E3F2FD,stroke:#1976D2
-    classDef infra fill:#E8F5E9,stroke:#388E3C
-
-    class flightdeck,workbench,connect,pm,chronicle product
-    class keycloak,postgres,storage infra
-```
-
-## Key Concepts
-
-### Site CRD
-
-The `Site` Custom Resource is the primary configuration point. It contains:
-- Global settings (domain, secrets, storage)
-- Product-specific configuration sections
-- Feature flags and experimental options
-
-### Configuration Propagation
-
-Configuration flows from Site CRD to product CRDs:
-
-1. User edits Site spec
-2. Site controller detects change
-3. Site controller updates product CRs
-4. Product controllers reconcile deployments
-
-See [Adding Config Options](../guides/adding-config-options.md) for extending configuration.
-
-## Quick Start
-
-### View Sites
-
-```bash
-kubectl get sites -n posit-team
-```
-
-### Edit a Site
-
-```bash
-kubectl edit site main -n posit-team
-```
-
-### Check Operator Logs
-
-```bash
-# Operator runs in posit-team-system namespace
-kubectl logs -n posit-team-system deployment/team-operator-controller-manager
-```
-
 ## Namespaces
 
 Team Operator uses two namespaces:
@@ -325,29 +94,40 @@ Team Operator uses two namespaces:
 | `posit-team-system` | Operator controller runs here |
 | `posit-team` (or configured `watchNamespace`) | Site CRs and deployed products run here |
 
-## Related Documentation
+## Common Operations
 
-### Deployment and Operations
+```bash
+# List Site resources
+kubectl get sites -n posit-team
 
-- [Site Management Guide](guides/product-team-site-management.md) - Creating, updating, and managing Site resources
-- [Upgrading Guide](guides/upgrading.md) - Upgrade procedures and version migrations
-- [Troubleshooting Guide](guides/troubleshooting.md) - Common issues and debugging techniques
+# Edit a Site
+kubectl edit site main -n posit-team
 
-### Product Configuration
+# Check operator logs
+kubectl logs -n posit-team-system deployment/team-operator-controller-manager
+```
 
-- [Workbench Configuration](guides/workbench-configuration.md) - Interactive development environment setup
-- [Connect Configuration](guides/connect-configuration.md) - Publishing platform configuration
-- [Package Manager Configuration](guides/packagemanager-configuration.md) - Package repository management
+## Where to Go Next
 
-### Authentication and Security
+Choose based on what you're trying to do:
 
-- [Authentication Setup](guides/authentication-setup.md) - SSO, OAuth, and Keycloak integration
+**Installing or operating Team Operator**
+- [Installation Guide](guides/installation.md) — Installing Team Operator on Kubernetes using Helm
+- [Site Management Guide](guides/product-team-site-management.md) — Creating, updating, and managing Site resources
+- [Upgrading Guide](guides/upgrading.md) — Upgrade procedures and version migrations
+- [Troubleshooting Guide](guides/troubleshooting.md) — Common issues and debugging techniques
 
-### Reference
+**Configuring a specific product**
+- [Workbench Configuration](guides/workbench-configuration.md) — Interactive development environment setup
+- [Connect Configuration](guides/connect-configuration.md) — Publishing platform configuration
+- [Package Manager Configuration](guides/packagemanager-configuration.md) — Package repository management
 
-- [Architecture](architecture.md) - Detailed architecture diagrams with component explanations
-- [API Reference](api-reference.md) - Complete CRD field reference for all resources
+**Setting up authentication**
+- [Authentication Setup](guides/authentication-setup.md) — SSO, OAuth, and Keycloak integration
 
-### For Contributors
+**Understanding how it works**
+- [Architecture](architecture.md) — Detailed architecture diagrams with per-component explanations
+- [API Reference](api-reference.md) — Complete CRD field reference for all resources
 
-- [Adding Config Options](guides/adding-config-options.md) - How to extend Site/product configurations
+**Contributing**
+- [Adding Config Options](guides/adding-config-options.md) — How to extend Site and product configurations

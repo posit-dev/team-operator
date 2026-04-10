@@ -5,11 +5,13 @@ description: How to configure Posit Package Manager within Team Operator
 
 # Package Manager Configuration Guide
 
-This guide documents how to configure Posit Package Manager within the Team Operator.
+Posit Package Manager (PPM) gives your data science platform a controlled, reproducible source for R and Python packages. Rather than fetching packages directly from CRAN, PyPI, or Bioconductor, users install from Package Manager, which mirrors those sources internally and can also build packages from private Git repositories. This improves reproducibility, speeds up installs in air-gapped or bandwidth-constrained environments, and gives administrators visibility into what packages are in use.
+
+When you enable Package Manager in a Site resource, the operator deploys the server, provisions database schemas, configures storage, and wires up ingress. The most common configuration decisions are: choosing a storage backend (S3 for AWS, Azure Files for Azure, or a local PVC for development), providing a license, and setting up Git SSH keys if you need to build packages from private repositories.
 
 ## Overview
 
-Posit Package Manager (PPM) provides R and Python packages from CRAN, Bioconductor, and PyPI, plus internal packages built from Git repositories. In Team Operator, Package Manager is deployed as a child resource of a Site.
+Posit Package Manager provides R and Python packages from CRAN, Bioconductor, and PyPI, plus internal packages built from Git repositories. In Team Operator, Package Manager is deployed as a child resource of a Site.
 
 ### Architecture
 
@@ -29,6 +31,8 @@ Site CR
 When you configure Package Manager in a Site spec, the Site controller creates a `PackageManager` Custom Resource. The PackageManager controller reconciles the Kubernetes resources needed to run the service.
 
 ## Basic Configuration
+
+This section covers the foundational fields: lifecycle controls, the container image, replica count, domain prefix, licensing, volume, and storage backend.
 
 ### Enabling/Disabling Package Manager
 
@@ -83,6 +87,8 @@ spec:
 
 ### Minimal Configuration
 
+The minimal configuration requires only an image and a license. Add a storage backend (`s3Bucket` or `azureFiles`) for production use.
+
 ```yaml
 apiVersion: core.posit.team/v1beta1
 kind: Site
@@ -100,6 +106,8 @@ spec:
 ```
 
 ### Full Configuration Reference
+
+The table below covers all top-level Package Manager fields. Detailed explanations of storage, SSH keys, and database settings follow in subsequent sections.
 
 ```yaml
 spec:
@@ -163,7 +171,9 @@ spec:
 
 ## License Configuration
 
-Package Manager requires a valid license. The license can be provided in two ways:
+Package Manager requires a valid license to start. The operator supports three ways to provide it: a Kubernetes Secret containing the license file, a license key string, or a secret stored in AWS Secrets Manager. File-based licenses are recommended for production.
+
+The license can be provided in the following ways:
 
 ### File License (Recommended)
 
@@ -216,7 +226,7 @@ The license is expected in the vault under the key `pkg-license`.
 
 ## Database Configuration
 
-Package Manager uses PostgreSQL for metadata and usage metrics. The operator provisions two database schemas:
+Package Manager uses PostgreSQL for application metadata and usage metrics. The operator constructs database connection strings automatically from your Site's database credentials secret — you do not need to supply connection details manually. The operator provisions two schemas:
 
 | Schema | Purpose |
 |--------|---------|
@@ -225,7 +235,7 @@ Package Manager uses PostgreSQL for metadata and usage metrics. The operator pro
 
 ### Database Connection
 
-Database configuration is managed at the Site level and propagated to Package Manager:
+Database credentials are configured at the Site level and propagated automatically to Package Manager. Reference an AWS Secrets Manager vault or a Kubernetes Secret containing your database credentials.
 
 ```yaml
 spec:
@@ -264,11 +274,13 @@ The operator uses `require` SSL mode by default for production deployments.
 
 ## Storage Backends
 
-Package Manager supports multiple storage backends for package data.
+Package Manager stores package binaries and metadata on a storage backend. Choose the backend that matches your infrastructure: S3 for AWS deployments, Azure Files for Azure deployments, or a local PVC for development and testing. S3 and Azure Files are recommended for production because they scale independently of the Package Manager pod.
+
+Package Manager supports the following storage backends.
 
 ### S3 Storage (AWS Recommended)
 
-For production deployments on AWS, use S3 storage:
+For production deployments on AWS, use S3 storage. The operator configures IRSA (IAM Roles for Service Accounts) automatically — the Package Manager ServiceAccount receives an annotation with the appropriate IAM role ARN.
 
 ```yaml
 spec:
@@ -361,7 +373,7 @@ allowVolumeExpansion: true
 
 ### Local Volume Storage
 
-For development or small deployments, use local persistent volume storage:
+For development or small deployments without a cloud storage backend, use a local persistent volume. This is not recommended for production — the volume is tied to the pod's lifecycle and does not scale with the deployment.
 
 ```yaml
 spec:
@@ -376,7 +388,7 @@ spec:
 
 ## Git Builder Configuration
 
-Package Manager can build packages from Git repositories. Private repositories require SSH key authentication.
+Package Manager can build R packages directly from Git repositories, making it possible to serve internal packages alongside public CRAN and PyPI mirrors. Private repositories require SSH key authentication; configure one entry in `gitSSHKeys` per host you need to access.
 
 ### SSH Key Configuration
 
@@ -401,7 +413,7 @@ spec:
 
 ### AWS Secrets Manager SSH Keys
 
-With AWS Secrets Manager, SSH keys are stored in a dedicated vault:
+When using AWS Secrets Manager, SSH keys are stored in a dedicated vault following a naming convention. The operator creates a `SecretProviderClass` and mounts each key as a file at `/mnt/ssh-keys/<name>`.
 
 **Vault naming convention:**
 ```
@@ -422,7 +434,7 @@ The operator creates:
 
 ### Kubernetes Secret SSH Keys
 
-For Kubernetes-native secrets:
+For clusters not using AWS Secrets Manager, store SSH keys as Kubernetes Secrets and reference them directly.
 
 ```bash
 # Create the SSH key secret
@@ -445,7 +457,7 @@ spec:
 
 ### Passphrase-Protected Keys
 
-For SSH keys with passphrases:
+If your SSH keys are encrypted with a passphrase, reference the passphrase secret alongside the key. The operator passes it to the SSH agent at startup.
 
 ```yaml
 spec:
@@ -474,7 +486,7 @@ AllowUnsandboxedGitBuilds = true
 
 ## Package Repository Configuration
 
-The operator pre-configures default repository names:
+The operator pre-configures default repository names for CRAN, Bioconductor, and PyPI in the generated `rstudio-pm.gcfg`. These names determine the URL paths under which packages are served. You can adjust them through the Package Manager admin interface after deployment.
 
 ```yaml
 # Generated configuration
@@ -496,7 +508,7 @@ RVersion = /opt/R/default
 
 ## Secret Management
 
-Secret management depends on the Site's secret type.
+Package Manager requires three secrets at runtime: the license, an encryption key for sensitive data, and the database password. The operator retrieves these from the secret backend you configured at the Site level — either AWS Secrets Manager or a Kubernetes Secret.
 
 ### AWS Secrets Manager
 
@@ -526,6 +538,8 @@ Expected secret keys:
 - `pkg-db-password`: Database password
 
 ## Resource Configuration
+
+The operator applies default resource requests and limits to the Package Manager pod. For most deployments these defaults are appropriate; adjust them if your Package Manager serves a large number of users or hosts a very large package mirror.
 
 ### Default Resources
 
@@ -829,9 +843,11 @@ This changes the container command to `sleep infinity`, allowing you to exec int
 
 ## Configuration Reference
 
+The following sections describe the configuration file the operator generates and the environment variables it injects at runtime. These are provided for reference when troubleshooting or auditing the deployment — you do not need to manage these directly.
+
 ### Generated Config File (rstudio-pm.gcfg)
 
-The operator generates a configuration file with these sections:
+The operator generates a configuration file from the Site spec and mounts it into the Package Manager pod. The sections below represent a typical production configuration:
 
 ```ini
 [Server]

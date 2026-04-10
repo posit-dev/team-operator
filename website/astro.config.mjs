@@ -26,6 +26,7 @@ export default defineConfig({
         {
           label: 'Guides',
           items: [
+            { label: 'Installation', slug: 'guides/installation' },
             { label: 'Site Management', slug: 'guides/product-team-site-management' },
             // AKS Deployment guide will be added when docs/guides/aks-deployment.md exists (PR 1)
             { label: 'Authentication', slug: 'guides/authentication-setup' },

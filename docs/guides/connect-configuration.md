@@ -5,7 +5,9 @@ description: Configuration options for Posit Connect when deployed via Team Oper
 
 # Connect Configuration Guide
 
-This guide covers configuration options for Posit Connect when deployed via Team Operator.
+Posit Connect is a publishing platform for sharing data science work — Shiny apps, R Markdown and Quarto documents, Python APIs, scheduled reports, and interactive dashboards. When you enable Connect in a Site resource, the operator deploys the server, configures off-host execution via the Kubernetes Launcher, provisions the database schemas, and wires up ingress. Content executes in isolated Kubernetes Jobs rather than on the Connect server pod.
+
+The most common configuration tasks are: choosing a server image, providing a license, configuring authentication, and setting up any data integrations or GPU access your content requires. For most deployments, the operator's defaults for scheduling and content execution are sufficient out of the box.
 
 ## Table of Contents
 
@@ -65,6 +67,8 @@ When using a Site resource, the Site controller generates and manages the Connec
 
 ## Basic Configuration
 
+This section covers the foundational fields: lifecycle controls, the server image, replica count, ingress, storage, and licensing.
+
 ### Enabling/Disabling Connect
 
 Connect can be suspended or permanently torn down using the `enabled` and `teardown` fields.
@@ -118,6 +122,8 @@ spec:
 
 ### Image Configuration
 
+The `image` field sets the Connect server version. The `sessionImage` is used as an init container in content execution jobs — it prepares the runtime environment before content runs and must be compatible with the server version.
+
 ```yaml
 spec:
   connect:
@@ -135,6 +141,8 @@ spec:
 
 ### Resource Scaling
 
+Running multiple replicas distributes incoming requests and improves availability. The operator automatically creates a PodDisruptionBudget based on replica count to ensure at least one pod remains available during cluster maintenance or rolling updates.
+
 ```yaml
 spec:
   connect:
@@ -142,9 +150,9 @@ spec:
     replicas: 2
 ```
 
-The operator automatically creates a PodDisruptionBudget based on replica count to ensure availability during updates.
-
 ### Domain and Ingress
+
+Connect's public URL is constructed from the Site `domain` and the `domainPrefix` field. Ingress annotations are passed through to the generated Ingress resource, making it straightforward to attach middleware such as forward auth.
 
 ```yaml
 spec:
@@ -164,6 +172,8 @@ spec:
 
 ### Node Selection
 
+Pin the Connect server pod to specific nodes using a node selector. This is separate from session pod scheduling, which is configured via `sessionConfig.pod.nodeSelector`.
+
 ```yaml
 spec:
   connect:
@@ -173,6 +183,8 @@ spec:
 ```
 
 ### Additional Environment Variables
+
+Use `addEnv` to inject environment variables into the Connect server container. These apply to the server itself; for variables needed in content execution sessions, use `experimentalFeatures.sessionEnvVars`.
 
 ```yaml
 spec:
@@ -186,7 +198,7 @@ spec:
 
 ### Volume Configuration
 
-Connect requires persistent storage for its data directory (`/var/lib/rstudio-connect`):
+Connect stores content bundles, logs, and other application data on a persistent volume at `/var/lib/rstudio-connect`. For single-replica deployments `ReadWriteOnce` is sufficient; for multi-replica deployments use a shared storage class that supports `ReadWriteMany`.
 
 ```yaml
 spec:
@@ -221,6 +233,8 @@ spec:
 
 ### License Configuration
 
+Connect requires a valid license to start. Reference an existing Kubernetes Secret containing the license file, or provide a license key directly. File-based licenses are preferred for production.
+
 ```yaml
 spec:
   connect:
@@ -245,7 +259,7 @@ spec:
 
 ### Warning Messages
 
-Display warning messages to users on the Connect dashboard:
+Display informational banners on the Connect dashboard — useful for communicating environment type, data sensitivity policies, or scheduled maintenance windows.
 
 ```yaml
 spec:
@@ -261,7 +275,9 @@ spec:
 
 ## Authentication Configuration
 
-Connect supports multiple authentication providers. Authentication is configured through the `auth` section.
+Connect supports multiple authentication providers. OIDC is recommended for production — it supports group synchronization and maps directly to Connect's role system. SAML is available when your IdP does not support OIDC. Password authentication is for isolated development environments only.
+
+Authentication is configured through the `auth` section.
 
 ### OIDC Authentication (Recommended)
 
@@ -337,7 +353,7 @@ spec:
 
 ### Role Mappings
 
-Map IdP groups to Connect roles (works with both OIDC and SAML when groups are enabled):
+Map IdP groups to Connect roles to control what users can publish, view, and administer. Role mappings work with both OIDC and SAML when group synchronization is enabled.
 
 ```yaml
 spec:
@@ -364,7 +380,7 @@ spec:
 
 ## Database Configuration
 
-Connect requires PostgreSQL for storing application metadata, user information, and content settings.
+Connect requires PostgreSQL for storing application metadata, user information, and content settings. The operator constructs database connection strings automatically from your Site's database credentials secret — you do not need to provide connection details manually. You can customize the schema names if you need to share a database with other applications or want a non-default layout.
 
 ### Basic Database Settings
 
@@ -416,6 +432,8 @@ spec:
 
 ## Off-Host Execution / Kubernetes Launcher
 
+Off-host execution is one of the key benefits of running Connect via Team Operator. Rather than running R, Python, and Quarto processes directly on the Connect server, the Kubernetes Launcher creates a dedicated Job for each content execution request. This isolates content from the server, allows resource limits per job, and enables scheduling content on specialized node pools such as GPU nodes.
+
 Off-host execution is **enabled by default** when Connect is deployed via Team Operator. Content runs in isolated Kubernetes Jobs rather than on the Connect server.
 
 ### How It Works
@@ -428,7 +446,7 @@ Off-host execution is **enabled by default** when Connect is deployed via Team O
 
 ### Session Configuration
 
-Customize session pods via `sessionConfig`:
+The `sessionConfig` block gives you full control over the Kubernetes resources created for content execution — pod annotations, labels, service accounts, image pull settings, environment variables, volumes, node selection, tolerations, and sidecar containers. This is the primary way to adapt Connect's content execution environment to your cluster's security and networking requirements.
 
 ```yaml
 apiVersion: core.posit.team/v1beta1
@@ -527,7 +545,7 @@ spec:
 
 ### Session Images (Runtime Configuration)
 
-Connect uses runtime images for content execution. The default runtime.yaml includes two image configurations:
+Connect uses runtime images to match content to the right R, Python, and Quarto installations. The operator generates a `runtime.yaml` with sensible defaults; the images listed here determine what runtime environments are available when users publish content.
 
 ```yaml
 # Default runtime images (auto-generated)
@@ -566,7 +584,7 @@ images:
 
 ### Additional Volumes for Sessions
 
-Mount additional volumes into session pods:
+Mount shared data volumes into content execution pods. This is useful for providing access to large datasets, model files, or shared configuration that should not be bundled inside the content itself.
 
 ```yaml
 spec:
@@ -591,6 +609,8 @@ spec:
 ---
 
 ## GPU Support
+
+Connect can schedule content execution jobs onto GPU nodes, enabling machine learning inference and training workloads to run directly from published applications. GPU support requires compatible nodes, the appropriate device plugin, and runtime images that include the necessary GPU libraries (CUDA for NVIDIA, ROCm for AMD).
 
 Connect supports both NVIDIA and AMD GPUs for content execution.
 
@@ -662,9 +682,11 @@ spec:
 
 ## Content Execution Settings
 
+These settings control how Connect schedules and limits content jobs. The operator configures sensible defaults; adjust them when your workloads consistently need more resources than the defaults allow, or when you want to prevent any single piece of content from consuming too much cluster capacity.
+
 ### Scheduler Configuration
 
-Control resource limits for content execution:
+Control resource limits and concurrency for content execution:
 
 ```yaml
 spec:
@@ -711,7 +733,7 @@ Authorization:
 
 ## Chronicle Integration
 
-Chronicle provides telemetry and metrics collection for Connect. When configured, a Chronicle agent sidecar is injected into the Connect deployment.
+Chronicle collects telemetry and usage metrics from Connect and stores them in S3 for analysis. When configured at the Site level, a Chronicle agent sidecar is automatically injected into the Connect deployment — no changes to the Connect configuration are needed beyond enabling it at the Site.
 
 ### Enabling Chronicle
 
@@ -754,6 +776,8 @@ This requires a secret `pub-chronicle-api-key` in your secret backend.
 
 ## SMTP/Email Configuration (Experimental)
 
+Connect can send email notifications for scheduled report completion, content sharing, and user management events. SMTP support in Team Operator is experimental — for production email delivery, configure Connect's built-in email settings through the admin interface after deployment. The operator-level SMTP configuration is most useful for testing or simple environments.
+
 Enable email notifications from Connect for scheduled reports and user notifications.
 
 ```yaml
@@ -793,9 +817,11 @@ For AWS Secrets Manager, these keys are automatically mapped to the `<site>-conn
 
 ## Data Integrations
 
+These integrations inject managed credentials into content execution sessions so published applications can connect to external data platforms without embedding secrets in content bundles.
+
 ### Databricks Integration
 
-Configure Databricks connectivity for content:
+Configure Databricks connectivity for content. OAuth credentials are made available inside session pods, allowing R and Python content to authenticate to Databricks without hardcoded secrets.
 
 ```yaml
 spec:
@@ -816,7 +842,7 @@ spec:
 
 ### DSN/ODBC Secrets
 
-Mount ODBC configuration files into Connect sessions for database connectivity:
+Mount an `odbc.ini` configuration file into Connect session pods to make ODBC data sources available to content without requiring users to configure connections manually. Store the file contents as a secret key and reference it here.
 
 ```yaml
 spec:
@@ -842,7 +868,7 @@ This mounts to `/etc/odbc.ini` in session pods.
 
 ## Experimental Features
 
-All experimental features are configured under `experimentalFeatures`:
+The `experimentalFeatures` block groups settings that are still evolving and may be renamed or restructured in future releases. These include SMTP configuration, DSN secrets, session environment variables, and Chronicle integration options.
 
 ```yaml
 spec:
@@ -877,7 +903,7 @@ spec:
 
 ### Session Environment Variables
 
-Inject custom environment variables into all content execution sessions:
+Inject environment variables into every content execution session pod. You can use plain values, ConfigMap references, Secret references, or AWS Secrets Manager references via the `secret://` prefix. Note that the `secret://` prefix causes the operator to create CSI secret mounts rather than environment variables, so the value is retrieved at runtime from Secrets Manager.
 
 ```yaml
 spec:

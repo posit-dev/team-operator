@@ -5,7 +5,7 @@ description: Common issues and solutions when running Posit Team products via Te
 
 # Team Operator Troubleshooting Guide
 
-This guide covers common issues and solutions when running Posit Team products via the Team Operator.
+This guide is organized by symptom so you can quickly find the section that matches what you are seeing. Start with the General Debugging section to collect the basic information needed for any investigation, then jump to the symptom that applies.
 
 ## Table of Contents
 
@@ -27,6 +27,8 @@ This guide covers common issues and solutions when running Posit Team products v
 ---
 
 ## General Debugging
+
+When something is wrong, start here. Operator logs and CR status conditions together tell most of the story.
 
 ### Checking Operator Logs
 
@@ -110,13 +112,10 @@ This enables debug logging for all products deployed by the Site.
 
 ## Operator Issues
 
-### Operator Not Starting
+### If the operator pod is not running or is in CrashLoopBackOff
 
-**Symptoms:**
-- Team operator pod not running
-- CrashLoopBackOff status on operator pod
+Check the pod status and logs to identify the cause:
 
-**Diagnosis:**
 ```bash
 # Check operator pod status
 kubectl get pods -n posit-team-system
@@ -128,8 +127,6 @@ kubectl logs -n posit-team-system deployment/team-operator-controller-manager --
 kubectl describe pod -n posit-team-system -l control-plane=controller-manager
 ```
 
-**Common Causes and Solutions:**
-
 | Cause | Solution |
 |-------|----------|
 | CRD not installed | Run `kubectl apply -f config/crd/bases/` or reinstall via Helm |
@@ -137,13 +134,10 @@ kubectl describe pod -n posit-team-system -l control-plane=controller-manager
 | Insufficient resources | Increase memory/CPU limits for operator deployment |
 | Invalid configuration | Check operator ConfigMap for syntax errors |
 
-### Permission Errors (RBAC)
+### If you see "forbidden" or "unauthorized" errors in operator logs
 
-**Symptoms:**
-- Error messages containing `forbidden` or `unauthorized`
-- Resources not being created despite no errors in Site spec
+These errors mean the operator's service account does not have the permissions it needs. Check the current RBAC configuration:
 
-**Diagnosis:**
 ```bash
 # Check operator service account
 kubectl get serviceaccount -n posit-team-system
@@ -153,8 +147,6 @@ kubectl get clusterrole team-operator-manager-role -o yaml
 kubectl get rolebinding -n posit-team -l app.kubernetes.io/managed-by=team-operator
 ```
 
-**Common Causes and Solutions:**
-
 | Error Message | Solution |
 |---------------|----------|
 | `cannot create resource "deployments"` | Ensure RBAC includes apps/deployments verb |
@@ -162,13 +154,10 @@ kubectl get rolebinding -n posit-team -l app.kubernetes.io/managed-by=team-opera
 | `cannot patch resource "secrets"` | Verify secrets verbs include patch |
 | `object not managed by team-operator` | Resource was created outside operator; delete and let operator recreate |
 
-### Leader Election Issues
+### If the operator is not reconciling despite running
 
-**Symptoms:**
-- Multiple operator instances running but not reconciling
-- Operator logs showing leader election failures
+If multiple operator instances are running, leader election failures can prevent reconciliation. Check the lease and logs:
 
-**Diagnosis:**
 ```bash
 # Check for leader election lease
 kubectl get lease -n posit-team-system
@@ -177,20 +166,16 @@ kubectl get lease -n posit-team-system
 kubectl logs -n posit-team-system deployment/team-operator-controller-manager | grep -i "leader"
 ```
 
-**Solutions:**
-- Ensure only one operator instance is running (check replicas)
-- Delete the leader election lease to force re-election:
-  ```bash
-  kubectl delete lease team-operator-leader-election -n posit-team-system
-  ```
+Ensure only one operator instance is running (check replicas). If the lease is stale, delete it to force re-election:
 
-### CRD Installation Problems
+```bash
+kubectl delete lease team-operator-leader-election -n posit-team-system
+```
 
-**Symptoms:**
-- `no matches for kind "Site" in version "core.posit.team/v1beta1"`
-- Resources not recognized by kubectl
+### If you see "no matches for kind 'Site' in version 'core.posit.team/v1beta1'"
 
-**Diagnosis:**
+This error means the CRDs are not installed. Verify their presence and install if missing:
+
 ```bash
 # List installed CRDs
 kubectl get crd | grep posit
@@ -199,24 +184,20 @@ kubectl get crd | grep posit
 kubectl describe crd sites.core.posit.team
 ```
 
-**Solutions:**
-- Install CRDs manually:
-  ```bash
-  kubectl apply -f config/crd/bases/
-  ```
-- Reinstall via Helm with CRD installation enabled:
-  ```bash
-  helm upgrade --install team-operator ./dist/chart --set installCRDs=true
-  ```
+Install CRDs manually or via Helm:
 
-### Operator Pod Stuck in Pending (Scheduling Failures)
+```bash
+kubectl apply -f config/crd/bases/
+# or
+helm upgrade --install team-operator ./dist/chart --set installCRDs=true
+```
 
-**Symptoms:**
-- Operator pod stays in `Pending` state indefinitely
-- `kubectl describe pod` shows taint-related scheduling errors
-- Events contain messages like `node(s) had taints that the pod didn't tolerate`
+### If the operator pod is stuck in Pending
 
-**Diagnosis:**
+If `kubectl describe pod` shows taint-related scheduling errors or events like `node(s) had taints that the pod didn't tolerate`, the operator pod cannot be scheduled because cluster nodes have taints it doesn't tolerate. This is common with dedicated node pools (GPU nodes, session nodes), nodes reserved for system components, or cloud-provider managed node pools with default taints.
+
+Identify the taints on your nodes, then configure matching tolerations:
+
 ```bash
 # Check operator pod status
 kubectl get pods -n posit-team-system
@@ -227,18 +208,6 @@ kubectl describe pod -n posit-team-system -l control-plane=controller-manager
 # List node taints to understand what tolerations are needed
 kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
 ```
-
-**Cause:**
-
-Kubernetes nodes can have [taints](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) that prevent pods from scheduling unless the pod has a matching toleration. Common scenarios:
-
-- Dedicated node pools for specific workloads (GPU nodes, session nodes)
-- Nodes reserved for critical system components
-- Cloud provider managed node pools with default taints
-
-Without matching tolerations, the operator pod remains in `Pending` state.
-
-**Solution:**
 
 Configure tolerations in your Helm values to match your cluster's node taints:
 
@@ -307,22 +276,20 @@ kubectl get deployment team-operator-controller-manager -n posit-team-system \
 
 ## Site Reconciliation Issues
 
-### Site Stuck in Reconciling
+### If the Site exists but products are not being created
 
-**Symptoms:**
-- Site CR exists but products not being created
-- Operator continuously reconciling without progress
+Check whether the operator created the child product CRs. If the CRs do not exist, the reconciliation is failing before product creation. If the CRs exist but pods are not running, the problem is downstream in the individual product controller.
 
-**Diagnosis:**
 ```bash
 # Check Site events
 kubectl describe site <site-name> -n posit-team
 
 # View operator logs for the site
 kubectl logs -n posit-team-system deployment/team-operator-controller-manager | grep <site-name>
-```
 
-**Common Causes:**
+# Check if product CRs were created
+kubectl get connects,workbenches,packagemanagers -n posit-team
+```
 
 | Cause | Symptom | Solution |
 |-------|---------|----------|
@@ -331,31 +298,12 @@ kubectl logs -n posit-team-system deployment/team-operator-controller-manager | 
 | Database unreachable | Connection timeout errors | Verify database connectivity and credentials |
 | Volume provisioning failed | PVC pending | Check storage class and provisioner |
 
-### Products Not Being Created
+If product CRs are absent, check for validation errors in operator logs and verify that all required fields are populated in the Site spec. Products are created by default — if `enabled: false` is not set, their absence indicates an error in reconciliation.
 
-**Symptoms:**
-- Site created but no Connect/Workbench/PackageManager CRs
+### If product status shows "ready: false" despite pods running
 
-**Diagnosis:**
-```bash
-# Check if product CRs exist
-kubectl get connects,workbenches,packagemanagers -n posit-team
+Status conditions update after a successful reconciliation cycle. If pods are running but status is not updating, check readiness probes:
 
-# Check operator logs for specific product
-kubectl logs -n posit-team-system deployment/team-operator-controller-manager | grep -i "reconcile"
-```
-
-**Solutions:**
-- Verify the product is enabled in the Site spec (products are created by default)
-- Check for validation errors in operator logs
-- Verify all required fields are populated
-
-### Status Conditions Not Updating
-
-**Symptoms:**
-- Product status shows `ready: false` despite pods running
-
-**Diagnosis:**
 ```bash
 # Check product status
 kubectl get connect <site-name> -n posit-team -o jsonpath='{.status}'
@@ -364,97 +312,36 @@ kubectl get connect <site-name> -n posit-team -o jsonpath='{.status}'
 kubectl get pods -n posit-team -l app.kubernetes.io/name=connect
 ```
 
-**Solutions:**
-- Status updates occur after successful reconciliation
-- Check readiness probes are passing on pods
-- Operator may need to be restarted if stuck
+If readiness probes are passing but status remains stuck, restarting the operator forces a fresh reconciliation cycle.
 
 ---
 
 ## Database Issues
 
-### PostgresDatabase Not Ready
+### If you see "error determining database url" or "postgres database no main database url found"
 
-**Symptoms:**
-- PostgresDatabase CR exists but `ready` status is false
-- Product pods failing to start due to database errors
+These errors mean the operator cannot find or read the database credential secret. Check the secret exists and contains the expected keys:
 
-**Diagnosis:**
-```bash
-# Check PostgresDatabase status
-kubectl describe postgresdatabase <database-name> -n posit-team
-
-# Check operator logs for database operations
-kubectl logs -n posit-team-system deployment/team-operator-controller-manager | grep -i "database\|postgres"
-```
-
-**Common Causes:**
-
-| Cause | Solution |
-|-------|----------|
-| Main database unreachable | Verify `mainDatabaseCredentialSecret` points to valid credentials |
-| Invalid database URL | Check database host, port, and SSL mode |
-| Role creation failed | Ensure main database user has CREATE ROLE permission |
-| Database creation failed | Ensure main database user has CREATE DATABASE permission |
-
-### Connection Failures
-
-**Symptoms:**
-- `error determining database url` in operator logs
-- `postgres database no main database url found`
-
-**Diagnosis:**
 ```bash
 # Check database credential secret
 kubectl get secret -n posit-team | grep -i db
 
-# View secret contents (base64 encoded)
-kubectl get secret <db-secret-name> -n posit-team -o yaml
+# Verify the secret exists with correct keys
+kubectl get secret <secret-name> -n posit-team -o jsonpath='{.data}' | jq
 ```
 
-**Solutions:**
+If the secret exists, test database connectivity directly from a pod to confirm the host is reachable and credentials are valid:
 
-1. Verify the secret exists with correct keys:
-   ```bash
-   kubectl get secret <secret-name> -n posit-team -o jsonpath='{.data}' | jq
-   ```
-
-2. Test database connectivity from a pod:
-   ```bash
-   kubectl run -it --rm psql-test --image=postgres:15 --restart=Never -- \
-     psql "postgresql://<user>:<password>@<host>/<database>?sslmode=require"
-   ```
-
-3. Check SSL mode configuration:
-   - Verify `sslmode` matches your database requirements (require, verify-full, etc.)
-
-### Schema Creation Errors
-
-**Symptoms:**
-- `error with alter schema` or `error creating schema` in logs
-- Product pod starts but database operations fail
-
-**Diagnosis:**
 ```bash
-# Check operator logs for schema errors
-kubectl logs -n posit-team-system deployment/team-operator-controller-manager | grep -i "schema"
+kubectl run -it --rm psql-test --image=postgres:15 --restart=Never -- \
+  psql "postgresql://<user>:<password>@<host>/<database>?sslmode=require"
 ```
 
-**Common Error Codes:**
+Verify that the `sslmode` in the connection string matches your database server's requirements (`require`, `verify-full`, etc.).
 
-| PostgreSQL Error Code | Meaning | Solution |
-|-----------------------|---------|----------|
-| 3F000 | Schema does not exist | Schema will be created automatically |
-| 42501 | Insufficient privileges | Grant schema permissions to user |
-| 42P04 | Duplicate database | Database already exists (usually OK) |
+### If you see "postgres database no spec url credentials found" or "postgres database mismatched db host"
 
-### Credential Issues
-
-**Symptoms:**
-- `postgres database no spec url credentials found`
-- `postgres database mismatched db host`
-
-**Solutions:**
+These errors indicate a mismatch between the credential secret content and what the operator expects. Verify the secret structure matches the configuration:
 
 1. **For AWS Secrets Manager:**
    ```yaml
@@ -483,15 +370,10 @@ kubectl logs -n posit-team-system deployment/team-operator-controller-manager | 
 
 ## Product-Specific Issues
 
-### Connect Issues
+### If Connect is in CrashLoopBackOff or failing readiness probes
 
-#### Connect Not Starting
+Check the pod logs and events to identify the specific failure:
 
-**Symptoms:**
-- Connect pod in CrashLoopBackOff or Error state
-- Container failing readiness probes
-
-**Diagnosis:**
 ```bash
 # Check Connect pod status
 kubectl get pods -n posit-team -l app.kubernetes.io/name=connect
@@ -503,8 +385,6 @@ kubectl logs -n posit-team deploy/<site-name>-connect -c connect
 kubectl describe pod -n posit-team -l app.kubernetes.io/name=connect
 ```
 
-**Common Causes:**
-
 | Symptom | Cause | Solution |
 |---------|-------|----------|
 | License error in logs | Invalid or missing license | Verify license secret and key |
@@ -512,13 +392,10 @@ kubectl describe pod -n posit-team -l app.kubernetes.io/name=connect
 | Permission denied on volume | PVC mounted with wrong permissions | Check storage class and PVC settings |
 | Config file not found | ConfigMap not mounted | Verify ConfigMap exists |
 
-#### Connect Sessions Not Running
+### If Connect content execution fails or session jobs are not running
 
-**Symptoms:**
-- Content execution fails
-- Session jobs not created or failing
+Check whether session jobs are being created and inspect them for errors:
 
-**Diagnosis:**
 ```bash
 # List session jobs
 kubectl get jobs -n posit-team -l posit.team/component=connect-session
@@ -530,8 +407,6 @@ kubectl logs -n posit-team job/<session-job-name>
 kubectl describe job <session-job-name> -n posit-team
 ```
 
-**Common Causes:**
-
 | Cause | Solution |
 |-------|----------|
 | Init container failed | Check session image is accessible |
@@ -539,15 +414,10 @@ kubectl describe job <session-job-name> -n posit-team
 | Service account missing | Check session service account exists |
 | RBAC insufficient | Verify session RBAC permissions |
 
-### Workbench Issues
+### If Workbench user sessions are not starting or the IDE is not loading
 
-#### Workbench Sessions Failing
+Check whether session pods are being created and examine the launcher logs:
 
-**Symptoms:**
-- User sessions not starting
-- IDE not loading after login
-
-**Diagnosis:**
 ```bash
 # List session pods
 kubectl get pods -n posit-team -l posit.team/component=workbench-session
@@ -556,8 +426,6 @@ kubectl get pods -n posit-team -l posit.team/component=workbench-session
 kubectl logs -n posit-team deploy/<site-name>-workbench -c workbench | grep -i launcher
 ```
 
-**Common Causes:**
-
 | Cause | Solution |
 |-------|----------|
 | Launcher not starting | Check launcher configuration in ConfigMap |
@@ -565,8 +433,9 @@ kubectl logs -n posit-team deploy/<site-name>-workbench -c workbench | grep -i l
 | Volume mount issues | Check PVC and storage class |
 | Databricks config error | Move Databricks config from `Config` to `SecretConfig` |
 
-**Databricks Configuration Error:**
-If you see `the Databricks configuration should be in SecretConfig, not Config`, update your configuration.
+### If you see "the Databricks configuration should be in SecretConfig, not Config"
+
+Databricks configuration was moved from the `config` block to the top-level `databricks` field on the Workbench spec. Update the configuration:
 
 ```yaml
 # Wrong
@@ -585,23 +454,14 @@ spec:
         clientId: "client-id"
 ```
 
-#### Workbench HTML Login Page Too Large
+### If you see "authLoginPageHtml content exceeds maximum size"
 
-**Symptoms:**
-- Error about `authLoginPageHtml content exceeds maximum size`
+The custom login HTML is limited to 64KB. Reduce the HTML content size or externalize assets such as images and stylesheets.
 
-**Solution:**
-The custom login HTML is limited to 64KB. Reduce the HTML content size or externalize assets.
+### If Package Manager builds are failing or Git sources are not accessible
 
-### Package Manager Issues
+Check Package Manager logs and verify SSH key and storage configuration:
 
-#### Package Manager Build Issues
-
-**Symptoms:**
-- Package builds failing
-- Git sources not accessible
-
-**Diagnosis:**
 ```bash
 # Check Package Manager logs
 kubectl logs -n posit-team deploy/<site-name>-packagemanager
@@ -610,20 +470,16 @@ kubectl logs -n posit-team deploy/<site-name>-packagemanager
 kubectl get secretproviderclass -n posit-team | grep ssh
 ```
 
-**Common Causes:**
-
 | Cause | Solution |
 |-------|----------|
 | SSH keys not mounted | Verify GitSSHKeys configuration |
 | S3 bucket inaccessible | Check IAM role and bucket permissions |
 | Azure Files PVC pending | Verify storage class and share size |
 
-**Azure Files Configuration Error:**
-```
-Invalid AzureFiles configuration. Missing StorageClassName or invalid ShareSizeGiB (minimum 100 GiB).
-```
+### If you see "Invalid AzureFiles configuration. Missing StorageClassName or invalid ShareSizeGiB"
 
-**Solution:**
+The minimum share size for Azure Files is 100 GiB, and the storage class name must be set:
+
 ```yaml
 spec:
   packageManager:
@@ -632,15 +488,10 @@ spec:
       shareSizeGiB: 100  # Minimum 100 GiB required
 ```
 
-### Chronicle Issues
+### If Chronicle metrics are not being collected
 
-#### Chronicle Sidecar Problems
+Check whether the Chronicle sidecar container is present in the product pods:
 
-**Symptoms:**
-- Metrics not being collected
-- Chronicle container not running in product pods
-
-**Diagnosis:**
 ```bash
 # Check if Chronicle sidecar exists
 kubectl get pods -n posit-team -l app.kubernetes.io/name=connect -o jsonpath='{.items[*].spec.containers[*].name}'
@@ -648,8 +499,6 @@ kubectl get pods -n posit-team -l app.kubernetes.io/name=connect -o jsonpath='{.
 # View Chronicle sidecar logs
 kubectl logs -n posit-team deploy/<site-name>-connect -c chronicle
 ```
-
-**Common Causes:**
 
 | Cause | Solution |
 |-------|----------|
@@ -661,13 +510,10 @@ kubectl logs -n posit-team deploy/<site-name>-connect -c chronicle
 
 ## Networking Issues
 
-### Ingress Not Working
+### If product URLs return 404 or 502
 
-**Symptoms:**
-- Product URLs return 404 or 502
-- Cannot access products externally
+Check that ingress resources were created and the ingress class is correct for your controller:
 
-**Diagnosis:**
 ```bash
 # Check Ingress resources
 kubectl get ingress -n posit-team
@@ -679,8 +525,6 @@ kubectl describe ingress <site-name>-connect -n posit-team
 kubectl logs -n <ingress-namespace> deploy/<ingress-controller>
 ```
 
-**Common Causes:**
-
 | Cause | Solution |
 |-------|----------|
 | Wrong IngressClass | Set `spec.ingressClass` to match your controller |
@@ -688,39 +532,28 @@ kubectl logs -n <ingress-namespace> deploy/<ingress-controller>
 | Backend service unavailable | Verify product service and pods are running |
 | Middleware error | Check Traefik middleware configuration |
 
-### TLS/Certificate Problems
+### If you see certificate errors in the browser or HTTPS is not working
 
-**Symptoms:**
-- Certificate errors in browser
-- HTTPS not working
+Check the certificate secret and cert-manager status if you are using it:
 
-**Solutions:**
+```bash
+kubectl get secret -n posit-team | grep tls
+kubectl get certificate -n posit-team
+kubectl describe certificate <cert-name> -n posit-team
+```
 
-1. **Check certificate secret:**
-   ```bash
-   kubectl get secret -n posit-team | grep tls
-   ```
+To configure cert-manager certificate provisioning via ingress annotations:
 
-2. **Verify cert-manager (if used):**
-   ```bash
-   kubectl get certificate -n posit-team
-   kubectl describe certificate <cert-name> -n posit-team
-   ```
+```yaml
+spec:
+  ingressAnnotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+```
 
-3. **Configure TLS in Ingress:**
-   ```yaml
-   spec:
-     ingressAnnotations:
-       cert-manager.io/cluster-issuer: "letsencrypt-prod"
-   ```
+### If products cannot communicate with each other or Chronicle cannot reach metrics endpoints
 
-### Service Discovery Issues
+Test DNS resolution and service connectivity from within the cluster to isolate the problem:
 
-**Symptoms:**
-- Products cannot communicate with each other
-- Chronicle cannot reach product metrics endpoints
-
-**Diagnosis:**
 ```bash
 # Test DNS resolution
 kubectl run -it --rm dns-test --image=busybox --restart=Never -- nslookup <service-name>.<namespace>.svc.cluster.local
@@ -729,22 +562,16 @@ kubectl run -it --rm dns-test --image=busybox --restart=Never -- nslookup <servi
 kubectl run -it --rm curl-test --image=curlimages/curl --restart=Never -- curl http://<service-name>.<namespace>.svc.cluster.local
 ```
 
-**Solutions:**
-- Ensure services are in the same namespace
-- Check network policies allow inter-service communication
-- Verify service selectors match pod labels
+Ensure services are in the same namespace, that network policies allow inter-service communication, and that service selectors match the pod labels.
 
 ---
 
 ## Storage Issues
 
-### PVC Not Binding
+### If a PVC is stuck in Pending and pods cannot start
 
-**Symptoms:**
-- PVC stuck in `Pending` state
-- Product pods failing to start due to volume issues
+PVCs stay in Pending when there is no storage provisioner that can satisfy the request. Describe the PVC to see the specific error:
 
-**Diagnosis:**
 ```bash
 # Check PVC status
 kubectl get pvc -n posit-team
@@ -756,8 +583,6 @@ kubectl describe pvc <pvc-name> -n posit-team
 kubectl get pv
 ```
 
-**Common Causes:**
-
 | Cause | Solution |
 |-------|----------|
 | Storage class not found | Create storage class or use existing one |
@@ -765,13 +590,10 @@ kubectl get pv
 | Access mode mismatch | Verify PVC access modes match PV |
 | Capacity insufficient | Increase PV size or reduce request |
 
-### Volume Mount Failures
+### If you see "MountVolume.SetUp failed" or a pod stuck in ContainerCreating
 
-**Symptoms:**
-- `MountVolume.SetUp failed`
-- Pod stuck in `ContainerCreating`
+Volume mount failures are usually caused by an unreachable storage backend or a missing CSI driver. Check pod events and CSI driver status:
 
-**Diagnosis:**
 ```bash
 # Check pod events
 kubectl describe pod <pod-name> -n posit-team | grep -A10 Events
@@ -780,8 +602,6 @@ kubectl describe pod <pod-name> -n posit-team | grep -A10 Events
 kubectl get pods -n kube-system | grep csi
 ```
 
-**Common Causes:**
-
 | Cause | Solution |
 |-------|----------|
 | NFS server unreachable | Verify NFS server connectivity |
@@ -789,13 +609,10 @@ kubectl get pods -n kube-system | grep csi
 | CSI driver not running | Restart CSI driver pods |
 | Azure Files secret missing | Create storage account credentials secret |
 
-### Permission Issues
+### If you see "permission denied" errors in pod logs
 
-**Symptoms:**
-- `permission denied` errors in pod logs
-- Product cannot write to data directory
+The pod is running as a user that does not own the volume's files. Check the ownership and security context:
 
-**Diagnosis:**
 ```bash
 # Check file ownership in pod
 kubectl exec -it <pod-name> -n posit-team -- ls -la /var/lib/<product>
@@ -804,7 +621,7 @@ kubectl exec -it <pod-name> -n posit-team -- ls -la /var/lib/<product>
 kubectl get pod <pod-name> -n posit-team -o jsonpath='{.spec.securityContext}'
 ```
 
-**Solutions:**
+Fix by setting the FSGroup in the security context, or by running a one-time init container to correct ownership:
 
 1. **Set FSGroup in security context:**
    ```yaml
@@ -828,13 +645,12 @@ kubectl get pod <pod-name> -n posit-team -o jsonpath='{.spec.securityContext}'
 
 ## Authentication Issues
 
-### OIDC Callback Errors
+For detailed authentication troubleshooting, see the [Authentication Setup Guide](./authentication-setup.md#troubleshooting). The sections below cover the most common issues seen at the operator level.
 
-**Symptoms:**
-- `Invalid redirect URI` error from IdP
-- Login redirects fail
+### If you see "Invalid redirect URI" from your IdP
 
-**Diagnosis:**
+The redirect URI registered in the IdP does not match what Connect or Workbench sends. Check OAuth errors in the logs and verify the callback URL in the ConfigMap:
+
 ```bash
 # Check Connect logs for OAuth errors
 kubectl logs -n posit-team deploy/<site-name>-connect -c connect | grep -i oauth
@@ -843,62 +659,32 @@ kubectl logs -n posit-team deploy/<site-name>-connect -c connect | grep -i oauth
 kubectl get configmap <site-name>-connect -n posit-team -o yaml | grep -i callback
 ```
 
-**Solutions:**
+Verify redirect URIs are registered exactly as shown:
+- Connect: `https://<connect-url>/__login__/callback`
+- Workbench: `https://<workbench-url>/oidc/callback`
 
-1. **Verify redirect URIs in your IdP:**
-   - Connect: `https://<connect-url>/__login__/callback`
-   - Workbench: `https://<workbench-url>/oidc/callback`
+The client ID and issuer must match the IdP exactly. Enable debug logging to see the full OAuth flow:
 
-2. **Check client ID and issuer:**
-   ```yaml
-   spec:
-     connect:
-       auth:
-         type: "oidc"
-         clientId: "your-client-id"  # Must match IdP
-         issuer: "https://your-idp.com"  # Must be exact
-   ```
+```yaml
+spec:
+  debug: true
+```
 
-3. **Enable debug logging:**
-   ```yaml
-   spec:
-     debug: true
-   ```
+### If you see "SAML authentication requires a metadata URL to be specified"
 
-### SAML Metadata Issues
+The `samlMetadataUrl` field is missing from the auth configuration, or the URL is unreachable from within the cluster. Test the URL from a pod:
 
-**Symptoms:**
-- `SAML authentication requires a metadata URL to be specified`
-- SAML metadata URL not accessible
-
-**Diagnosis:**
 ```bash
-# Test metadata URL accessibility
 kubectl run -it --rm curl-test --image=curlimages/curl --restart=Never -- \
   curl -v <saml-metadata-url>
 ```
 
-**Solutions:**
+Verify that DNS resolves the URL and that firewall rules allow outbound HTTPS from the cluster.
 
-1. **Verify the metadata URL is correct:**
-   ```yaml
-   spec:
-     connect:
-       auth:
-         type: "saml"
-         samlMetadataUrl: "https://idp.example.com/saml/metadata"
-   ```
+### If you see "SAML IdPAttributeProfile cannot be specified together with individual SAML attribute mappings"
 
-2. **Check network access from the cluster:**
-   - Verify DNS resolution works
-   - Check firewall rules allow outbound HTTPS
+`samlIdPAttributeProfile` and individual attribute fields are mutually exclusive. Use one or the other:
 
-**Configuration Conflict Error:**
-```
-SAML IdPAttributeProfile cannot be specified together with individual SAML attribute mappings
-```
-
-**Solution:** Use either `samlIdPAttributeProfile` OR individual attributes, not both:
 ```yaml
 # Option 1: Profile
 samlIdPAttributeProfile: "azure"
@@ -908,47 +694,15 @@ samlIdPAttributeProfile: "azure"
 # samlEmailAttribute: "..."
 ```
 
-### Token/Claim Problems
+### If users are not getting the correct roles or groups are not syncing
 
-**Symptoms:**
-- Users not getting correct roles
-- Groups not syncing from IdP
+Enable debug logging and check logs for claim and group-related messages:
 
-**Diagnosis:**
 ```bash
-# Enable debug logging and check logs
 kubectl logs -n posit-team deploy/<site-name>-connect -c connect | grep -i "claim\|group\|role"
 ```
 
-**Solutions:**
-
-1. **Verify claims configuration:**
-   ```yaml
-   spec:
-     connect:
-       auth:
-         usernameClaim: "preferred_username"
-         emailClaim: "email"
-         groupsClaim: "groups"
-   ```
-
-2. **Check scopes include groups:**
-   ```yaml
-   scopes:
-     - "openid"
-     - "profile"
-     - "email"
-     - "groups"
-   ```
-
-3. **Disable groups claim if your IdP doesn't support it:**
-   ```yaml
-   disableGroupsClaim: true
-   ```
-
-4. **Debug JWT tokens:**
-   - Use [jwt.io](https://jwt.io) to inspect tokens
-   - Verify expected claims are present
+Verify that the claims configuration matches your IdP, that the `groups` scope is requested, and that group names in role mappings are an exact case-sensitive match to what the IdP sends. If your IdP does not support a groups claim, set `disableGroupsClaim: true` while keeping `groups: true` for auto-provisioning. Use [jwt.io](https://jwt.io) to decode a token from your IdP and inspect the actual claim names.
 
 ---
 

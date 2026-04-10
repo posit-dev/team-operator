@@ -5,7 +5,11 @@ description: Authentication configuration for Posit Team Operator including OIDC
 
 # Authentication Setup Guide
 
-This guide documents authentication configuration in Posit Team Operator. Team Operator supports multiple authentication methods for both Posit Connect and Posit Workbench.
+Configuring authentication is often the most environment-specific part of a Posit Team deployment. The right choice depends on what your organization already uses and what your security requirements are.
+
+Team Operator supports three authentication types. **Password authentication** stores credentials locally in each product's database and requires no external dependencies. It is appropriate for development environments and quick proof-of-concept deployments, but it does not provide SSO and requires managing users separately in each product. **OIDC** (OpenID Connect) is the recommended choice for production. It integrates with standard identity providers — Okta, Azure AD/Entra ID, Auth0, Keycloak — and supports group-based role mapping. **SAML 2.0** is available for environments where OIDC is not an option, typically older enterprise identity providers.
+
+Authentication is configured independently for Connect and Workbench. Both products can use the same IdP with different client registrations, or different IdPs if your organization requires it.
 
 ## Table of Contents
 
@@ -63,7 +67,7 @@ Team Operator supports three authentication types:
 
 ## OIDC Configuration
 
-OpenID Connect (OIDC) is recommended for enterprise deployments.
+OpenID Connect is the recommended authentication method for production deployments. Before configuring OIDC in Team Operator, you need to register the application in your IdP, configure redirect URIs, and store the client secret in your secrets backend.
 
 ### Basic OIDC Configuration
 
@@ -83,14 +87,12 @@ spec:
 
 ### Required IdP Settings
 
-Before configuring OIDC in Team Operator, configure your Identity Provider:
+In your identity provider, create an OAuth2/OIDC application for each product. Configure the redirect URIs exactly as shown below — the paths are fixed by each product and cannot be changed:
 
-1. Create an OAuth2/OIDC Application in your IdP
-2. Configure Redirect URIs:
-   - Connect: `https://connect.example.com/__login__/callback`
-   - Workbench: `https://workbench.example.com/oidc/callback`
-3. Note the Client ID (used in the spec)
-4. Generate a Client Secret (stored in secrets)
+- Connect: `https://connect.example.com/__login__/callback`
+- Workbench: `https://workbench.example.com/oidc/callback`
+
+Note the Client ID from the IdP registration (this goes in the spec) and generate a client secret (this goes in your secrets backend, not in the spec).
 
 ### Client Secret Configuration
 
@@ -106,7 +108,7 @@ The client secret must be stored in your secrets provider:
 
 ### Claims Mapping
 
-Configure how OIDC claims map to user attributes:
+OIDC tokens carry user attributes as claims. The operator maps claims to user identity fields. If your IdP uses non-standard claim names, configure the mapping explicitly:
 
 ```yaml
 spec:
@@ -126,7 +128,7 @@ spec:
 
 ### Group Claim Configuration
 
-Enable group synchronization from your IdP:
+Group synchronization lets the operator read a user's group membership from the OIDC token and use it for role mapping. Enable it by adding `groups: true` and specifying the claim that carries group membership. You also need to request the appropriate scope so the IdP includes groups in the token:
 
 ```yaml
 spec:
@@ -144,9 +146,9 @@ spec:
         - "groups"                    # Scope to request groups
 ```
 
-**Disabling Groups Claim:**
+**Disabling the Groups Claim:**
 
-Some IdPs do not support a groups claim. Disable it explicitly:
+Some IdPs support group-based auto-provisioning but do not include groups in the token. In that case, you can still enable group auto-provisioning while telling the operator not to read groups from the token:
 
 ```yaml
 spec:
@@ -178,6 +180,8 @@ spec:
 ```
 
 ### OIDC Examples by IdP
+
+The configurations below are starting points for common identity providers. Replace placeholder values with your actual tenant IDs, client IDs, and domain names.
 
 #### Okta
 
@@ -262,7 +266,7 @@ spec:
 
 ## SAML Configuration
 
-SAML 2.0 authentication is supported for enterprise environments.
+SAML 2.0 authentication is available for enterprise environments where OIDC is not an option. Before configuring SAML, you need to register the Service Provider (SP) details in your IdP and obtain the metadata URL. The metadata URL must be reachable from within the cluster at runtime.
 
 ### Basic SAML Configuration
 
@@ -278,7 +282,7 @@ spec:
 
 ### Attribute Profiles
 
-Team Operator supports two approaches for SAML attribute mapping.
+SAML assertions use attribute URIs to carry user identity information, and different IdPs use different URI formats. Team Operator supports two approaches for mapping those attributes.
 
 #### 1. Using IdP Attribute Profiles
 
@@ -383,7 +387,7 @@ spec:
 
 ## Password Authentication
 
-Password authentication is the simplest method, suitable for development environments.
+Password authentication stores credentials in each product's own database and requires no external IdP. It is the quickest way to get a deployment running, but it does not provide SSO, and user management must be done separately within each product. Reserve it for development and testing environments.
 
 ### Configuration
 
@@ -397,31 +401,21 @@ spec:
       type: "password"
 ```
 
-### When to Use Password Authentication
-
-- Development and testing environments
-- Quick proof-of-concept deployments
-- Environments without enterprise SSO requirements
-
-### Security Considerations
-
-- Password authentication stores credentials in the product's database
-- Not recommended for production environments with security requirements
-- Does not provide SSO capabilities
-- User management must be done within each product
+Password authentication is appropriate for development and testing, quick proof-of-concept deployments, and environments without enterprise SSO requirements. It stores credentials in the product's own database, does not provide SSO capabilities, and requires user management within each product. It is not recommended for production environments with security requirements.
 
 ## Role-Based Access Control
 
-Team Operator supports automatic role mapping based on IdP group membership.
+When using OIDC or SAML with group synchronization, the operator can automatically assign Connect roles based on IdP group membership. Users are assigned the highest matching role when they log in, so a user in both a publisher group and an admin group gets the administrator role.
 
 ### Connect Role Mappings
 
-Connect supports three roles:
+Connect supports three roles. Each role can map to multiple groups:
+
 - **Viewer** - Can view published content
 - **Publisher** - Can publish and manage content
 - **Administrator** - Full administrative access
 
-Configure role mappings:
+Configure role mappings in the auth block:
 
 ```yaml
 spec:
@@ -443,16 +437,7 @@ spec:
         - "platform-admins"
 ```
 
-### How Role Mapping Works
-
-1. When a user logs in, Connect reads their group membership from the `groupsClaim`
-2. The user is assigned the highest matching role:
-   - If any group matches `administratorRoleMapping` -> Administrator
-   - Else if any group matches `publisherRoleMapping` -> Publisher
-   - Else if any group matches `viewerRoleMapping` -> Viewer
-   - Else -> Default role (configured separately)
-
-### Role Mapping with SAML
+When a user logs in, Connect reads their group membership from the `groupsClaim` and checks it against each role mapping list. The user receives the highest matching role: Administrator takes precedence over Publisher, which takes precedence over Viewer. Users who match no mapping receive the default role configured separately in Connect.
 
 Role mappings work the same way with SAML authentication, provided your IdP sends group membership in the SAML assertion.
 
@@ -486,7 +471,7 @@ spec:
 
 ## Keycloak Integration
 
-Team Operator can deploy and manage a Keycloak instance for authentication.
+Team Operator can deploy and manage a Keycloak instance directly within the cluster. This is useful when your organization does not have an existing IdP or when you want a self-contained deployment. When enabled, the operator provisions Keycloak with its own PostgreSQL database and ingress, and you then configure Connect and Workbench to use it as their OIDC provider.
 
 ### Enabling Keycloak
 
@@ -505,11 +490,7 @@ spec:
 
 ### Keycloak Features
 
-When enabled, Team Operator does the following:
-- Deploys a Keycloak instance in the namespace
-- Creates a PostgreSQL database for Keycloak
-- Configures ingress routing to `key.<domain>`
-- Sets up service accounts and RBAC
+When enabled, Team Operator deploys a Keycloak instance in the namespace, provisions a PostgreSQL database for it, configures ingress routing to `key.<domain>`, and sets up the necessary service accounts and RBAC.
 
 ### Using Keycloak with Products
 
@@ -530,16 +511,11 @@ spec:
 
 ### Keycloak Realm Configuration
 
-After Keycloak deploys, complete these steps:
-1. Access the Keycloak admin console at `https://key.<domain>`
-2. Create a realm (e.g., "posit")
-3. Create clients for each product
-4. Configure client credentials and redirect URIs
-5. Set up user federation if needed (LDAP, AD, etc.)
+After Keycloak deploys, you need to complete the initial setup through the admin console. Access it at `https://key.<domain>`, create a realm (for example, "posit"), create a client for each product, configure client credentials and redirect URIs, and set up user federation if you need LDAP or Active Directory integration.
 
 ## Secrets Management
 
-Authentication requires properly configured secrets in your secrets provider.
+Client secrets and tokens are never placed in the Site spec. Instead, the operator reads them from your configured secrets backend at reconciliation time. The keys in the secret must match the names listed below exactly — the operator looks up these specific keys.
 
 ### Kubernetes Secrets
 
@@ -584,38 +560,37 @@ For `secret.type: aws`, store secrets in AWS Secrets Manager:
 
 ## Troubleshooting
 
-### Common OIDC Issues
+### If you see "Invalid redirect URI" from your IdP
 
-#### 1. "Invalid redirect URI" Error
+The redirect URI registered in the IdP does not match what Connect or Workbench sends. The paths are fixed — verify they are registered exactly as shown:
 
-**Cause:** The redirect URI in the IdP doesn't match what the product sends.
-
-**Solution:** Verify redirect URIs are configured exactly:
 - Connect: `https://<connect-url>/__login__/callback`
 - Workbench: `https://<workbench-url>/oidc/callback`
 
-#### 2. Groups Not Syncing
+### If groups are not syncing from your IdP
 
-**Cause:** Groups claim not configured or not included in token.
+Check that `groups: true` is set, that `groupsClaim` matches the claim name your IdP actually sends, and that the `groups` scope is included in `scopes`. Some IdPs require additional configuration to include group claims in tokens. Enable debug logging to see the raw claims:
 
-**Debug steps:**
-1. Verify `groups: true` is set
-2. Verify `groupsClaim` matches what your IdP sends
-3. Verify the `groups` scope is requested
-4. Check if your IdP requires special configuration for group claims
-
-**Enable OIDC logging for Connect:**
 ```yaml
 spec:
   connect:
     debug: true   # Enables OAuth2 logging
 ```
 
-#### 3. User Identity Issues
+Then check the logs:
 
-**Cause:** Claims mapping doesn't match IdP token.
+```bash
+kubectl logs -n posit-team deploy/<site>-connect -f
+```
 
-**Solution:** Verify your IdP token contains the expected claims:
+### If users are not getting the correct roles
+
+Group names in role mappings are case-sensitive and must match exactly what the IdP sends. Check that groups are included in the token (not truncated due to token size limits), and that `groupsClaim` matches the actual claim path. For IdPs using nested claims (for example, `realm_access.roles` in Keycloak), the claim path must reflect the nesting.
+
+### If OIDC claims are not mapping to user attributes
+
+Use [jwt.io](https://jwt.io) to decode a token from your IdP and inspect the actual claim names. Then update your spec to match:
+
 ```yaml
 spec:
   connect:
@@ -624,94 +599,39 @@ spec:
       emailClaim: "email"                  # Must exist in token
 ```
 
-### Common SAML Issues
+### If the SAML metadata URL is not accessible
 
-#### 1. "Metadata URL Not Accessible"
+The metadata URL must be reachable from within the cluster at runtime. Test it from a pod to rule out DNS or network policy issues:
 
-**Cause:** The SAML metadata URL is unreachable from the cluster.
+```bash
+kubectl run -it --rm curl-test --image=curlimages/curl --restart=Never -- curl -v <saml-metadata-url>
+```
 
-**Solutions:**
-- Verify the metadata URL is accessible from pods
-- Verify network policies allow outbound connections
-- Verify DNS resolution works
+### If you see "IdPAttributeProfile Cannot Be Specified Together..."
 
-#### 2. "IdPAttributeProfile Cannot Be Specified Together..."
+This error means both `samlIdPAttributeProfile` and individual attribute fields are set. They are mutually exclusive — use one or the other:
 
-**Cause:** Both `samlIdPAttributeProfile` and individual attributes are set.
-
-**Solution:** Use one approach:
 ```yaml
 # Option 1: Use profile
 samlIdPAttributeProfile: "azure"
 
-# Option 2: Use individual attributes
+# Option 2: Use individual attributes (mutually exclusive with profile)
 samlUsernameAttribute: "..."
 samlEmailAttribute: "..."
 ```
 
-#### 3. Attribute Mapping Not Working
+### If Workbench redirect URIs include port numbers
 
-**Debug steps:**
-1. Check the SAML assertion from your IdP
-2. Verify attribute names match exactly (case-sensitive)
-3. Use full URIs for standard attributes:
-   ```yaml
-   samlUsernameAttribute: "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn"
-   ```
+Workbench may append port 443 to redirect URIs in some configurations. The operator sets an `X-Rstudio-Request` header to prevent this. If you still see port numbers in redirect URIs, verify the Traefik middleware is correctly applied to the Workbench ingress.
 
-### Debugging Token Claims
+### If Workbench users are not being provisioned on first login
 
-To debug OIDC token claims:
+Set `createUsersAutomatically: true` in the Workbench spec. Without this, Workbench requires a pre-existing system user account to match the authenticated identity:
 
-1. **Enable Debug Logging:**
-   ```yaml
-   spec:
-     connect:
-       debug: true
-   ```
-
-2. **Check Pod Logs:**
-   ```bash
-   kubectl logs -n posit-team deploy/<site>-connect -f
-   ```
-
-3. **Decode JWT Tokens:**
-   Use [jwt.io](https://jwt.io) to inspect tokens and verify claims.
-
-### Group Membership Issues
-
-If users aren't getting the correct roles:
-
-1. **Verify group claim is present:**
-   - Check the `groupsClaim` field matches your IdP
-   - Some IdPs use nested claims (e.g., `realm_access.roles`)
-
-2. **Check group name matching:**
-   - Group names in role mappings must match exactly
-   - Group names are case-sensitive
-
-3. **Verify IdP configuration:**
-   - Verify groups are included in the token
-   - Check token size limits (large group lists may be truncated)
-
-### Workbench-Specific Issues
-
-#### OIDC Callback URL Issues
-
-Workbench may include port numbers in redirect URIs. The operator sets a header to prevent this:
-```yaml
-X-Rstudio-Request: https://<workbench-url>
-```
-
-If you see port 443 in redirect URIs, verify Traefik middleware is correctly applied.
-
-#### User Provisioning
-
-For Workbench with OIDC/SAML:
 ```yaml
 spec:
   workbench:
-    createUsersAutomatically: true  # Create system users on first login
+    createUsersAutomatically: true
 ```
 
 ## Complete Example

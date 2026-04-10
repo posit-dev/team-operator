@@ -5,11 +5,13 @@ description: Configuration of Posit Workbench in Team Operator including authent
 
 # Workbench Configuration Guide
 
-This guide covers configuration of Posit Workbench in Team Operator, including options for authentication, off-host execution, IDE settings, data integrations, and advanced features.
+Posit Workbench is an interactive development environment for data science teams, supporting RStudio, VS Code, Positron, and Jupyter in a single platform. When you enable Workbench in a Site resource, the operator handles the Kubernetes deployment, session job management, ingress, storage, and configuration — you specify intent in the Site spec and the operator reconciles the rest.
+
+The most common things you will configure here are: the container image and replica count, a license, an authentication method, and the default session image for off-host execution. For production deployments you will also want to set resource profiles and, if applicable, data integrations such as Databricks or Snowflake.
 
 ## Overview
 
-Posit Workbench provides an interactive development environment for data science teams. In Team Operator, Workbench runs on Kubernetes with off-host execution enabled by default. User sessions run as separate Kubernetes Jobs rather than on the Workbench server pod itself.
+In Team Operator, Workbench runs on Kubernetes with off-host execution enabled by default. User sessions run as separate Kubernetes Jobs rather than on the Workbench server pod itself, providing resource isolation and scalability across the cluster.
 
 When configured via a Site resource, Workbench does the following:
 - Uses the Kubernetes Job Launcher for session management
@@ -34,6 +36,8 @@ When configured via a Site resource, Workbench does the following:
 ---
 
 ## Basic Configuration
+
+This section covers the foundational fields every Workbench deployment needs: lifecycle controls, the server image, licensing, storage, and node placement.
 
 ### Enabling/Disabling Workbench
 
@@ -88,7 +92,7 @@ spec:
 
 ### Image and Resources
 
-Configure the Workbench server image and basic settings:
+The `image` field controls which Workbench server version runs. Setting `replicas` above 1 enables load balancing; the operator automatically provisions a shared storage volume at `/mnt/shared-storage` when you do.
 
 ```yaml
 apiVersion: core.posit.team/v1beta1
@@ -113,7 +117,7 @@ spec:
 
 ### Licensing
 
-Workbench requires a valid license. Configure via Kubernetes Secret:
+Workbench requires a valid license to start. Store the license file or key in a Kubernetes Secret and reference it here. The operator mounts the secret into the Workbench pod at startup.
 
 ```yaml
 spec:
@@ -130,7 +134,7 @@ License types:
 
 ### Volume Configuration
 
-Workbench uses persistent storage for user home directories:
+Workbench stores user home directories on a persistent volume. For multi-replica deployments, the storage class must support `ReadWriteMany` access (for example, EFS on AWS or Azure NetApp Files on Azure). You can also mount additional volumes into every session pod via `additionalVolumes`.
 
 ```yaml
 spec:
@@ -157,7 +161,7 @@ When `replicas > 1`, a shared storage volume is automatically created at `/mnt/s
 
 ### Node Placement
 
-Control where Workbench server pods are scheduled:
+Use `nodeSelector` and `tolerations` to constrain which nodes the Workbench server pod runs on. These settings apply to the server pod; session pods inherit the node selector and can be further targeted via resource profile placement constraints.
 
 ```yaml
 spec:
@@ -176,7 +180,7 @@ spec:
 
 ### Environment Variables
 
-Add custom environment variables to the Workbench server:
+Use `addEnv` to inject environment variables into the Workbench server container. These are set on the server pod itself; for variables needed inside user sessions, see the `sessionEnvVars` option under [Session Customization](#session-customization).
 
 ```yaml
 spec:
@@ -190,7 +194,9 @@ spec:
 
 ## Authentication
 
-Workbench integrates with Site-level authentication. Supported methods:
+Workbench integrates with Site-level authentication. For production deployments, OIDC is the recommended approach as it supports group-based access control and integrates with most enterprise identity providers. SAML is available for environments where OIDC is not supported. Password authentication is suitable only for local development.
+
+Supported methods:
 
 ### OIDC Authentication
 
@@ -241,7 +247,7 @@ spec:
 
 ### User Provisioning
 
-Control automatic user account creation:
+Control whether Workbench automatically creates local user accounts on first login, and which IdP groups receive admin access.
 
 ```yaml
 spec:
@@ -261,7 +267,7 @@ spec:
 
 ### Custom Login Page
 
-Customize the login page with HTML content:
+You can inject custom HTML into the Workbench login page — useful for adding branding, legal notices, or usage guidelines. The HTML is mounted at `/etc/rstudio/login.html` and must be under 64KB.
 
 ```yaml
 spec:
@@ -279,6 +285,8 @@ The HTML content is mounted at `/etc/rstudio/login.html` and must be less than 6
 
 ## Off-Host Execution / Kubernetes Launcher
 
+Off-host execution is one of the most important aspects of running Workbench on Kubernetes. Rather than running user sessions directly on the server pod, the Kubernetes Launcher creates a dedicated Job for each session. This gives each user their own isolated compute environment with configurable CPU, memory, and GPU resources.
+
 Off-host execution runs user sessions as Kubernetes Jobs, providing isolation, resource management, and scalability. This is enabled by default in Team Operator.
 
 ### How It Works
@@ -290,7 +298,7 @@ Off-host execution runs user sessions as Kubernetes Jobs, providing isolation, r
 
 ### Session Images
 
-Configure the container images available for sessions:
+The `defaultSessionImage` is the container image used for new sessions. You can offer additional images via `extraSessionImages`; users will see them as selectable options in the session launch dialog.
 
 ```yaml
 spec:
@@ -319,7 +327,7 @@ spec:
 
 ### Resource Profiles
 
-Resource profiles define CPU and memory allocations that users can select:
+Resource profiles let users choose their compute allocation when launching a session. Define as many profiles as you need; the `default` key specifies what users see if they do not make a selection. Profiles support CPU, memory, NVIDIA and AMD GPUs, and placement constraints for targeting specific node types.
 
 ```yaml
 spec:
@@ -361,7 +369,7 @@ spec:
 
 ### Request Ratios
 
-Control the ratio of requests to limits for session pods:
+Kubernetes distinguishes between resource requests (used for scheduling) and limits (enforced at runtime). By default the operator sets requests as a fraction of limits, which allows the scheduler to bin-pack sessions efficiently without over-provisioning. Adjust these ratios if your workloads have bursty or consistent resource usage patterns.
 
 ```yaml
 spec:
@@ -386,9 +394,11 @@ Sessions are configured via launcher templates. The operator manages these files
 
 ## IDE Configuration
 
+Workbench supports four IDEs: RStudio (the default), VS Code, Positron, and Jupyter. All run as off-host sessions via the Kubernetes Launcher. Each IDE has its own configuration section below; most production deployments enable at least RStudio and one of the Python-focused IDEs.
+
 ### RStudio IDE
 
-RStudio is enabled by default. Configure via the Workbench spec:
+RStudio is enabled by default. You can customize project templates and session save behavior for a better Kubernetes experience.
 
 ```yaml
 spec:
@@ -402,6 +412,8 @@ spec:
 ```
 
 ### VS Code / Code Server
+
+VS Code runs via Code Server. You can pre-install extensions, set default user settings, and configure a shared extensions directory — useful when multiple users benefit from the same tooling without downloading it on every session start.
 
 ```yaml
 spec:
@@ -435,7 +447,7 @@ spec:
 
 ### Positron IDE
 
-Positron is Posit's next-generation IDE. Enable and configure it:
+Positron is Posit's next-generation IDE for data science, built on a VS Code foundation with deep R and Python integration. Enable it alongside other IDEs; users can choose which to launch at session start.
 
 ```yaml
 spec:
@@ -472,6 +484,8 @@ spec:
 
 ### Jupyter Notebooks and JupyterLab
 
+Configure Jupyter Notebook Classic and JupyterLab, including idle kernel culling to reclaim cluster resources when sessions are left idle.
+
 ```yaml
 spec:
   workbench:
@@ -503,9 +517,11 @@ spec:
 
 ## Data Integrations
 
+These integrations surface managed credentials inside Workbench sessions, so users authenticate to external data platforms through the IDE rather than managing credentials manually.
+
 ### Databricks Integration
 
-Connect to one or more Databricks workspaces:
+Connect to one or more Databricks workspaces. The operator injects OAuth credentials into sessions so users can authenticate without managing secrets directly. Client secrets must be stored in the site secret vault.
 
 ```yaml
 spec:
@@ -531,6 +547,8 @@ spec:
 
 ### Snowflake Integration
 
+Configure OAuth-based Snowflake connectivity. The client secret is read from the site secret vault under the key `snowflake-client-secret`.
+
 ```yaml
 spec:
   workbench:
@@ -543,7 +561,7 @@ The Snowflake client secret must be stored in the site secret vault as `snowflak
 
 ### DSN / ODBC Configuration
 
-Mount ODBC data source configurations into sessions:
+Mount an `odbc.ini` file into every session pod to make ODBC data sources available to R and Python without users needing to configure connections themselves. Store the file contents as a key in your site secret vault and reference it here.
 
 ```yaml
 spec:
@@ -575,9 +593,11 @@ Schema = PUBLIC
 
 ## Session Customization
 
+These settings control the Kubernetes configuration of session pods specifically, separate from the Workbench server pod. They are useful when your cluster has dedicated node pools for interactive sessions or when sessions need access to resources (such as GPUs or shared data) that the server itself does not.
+
 ### Session Tolerations
 
-Apply tolerations specifically to session pods (not the server):
+The server-level `tolerations` apply to the Workbench server pod. Use `sessionTolerations` to allow session pods to be scheduled on nodes with specific taints — for example, GPU nodes or dedicated session compute nodes.
 
 ```yaml
 spec:
@@ -602,11 +622,11 @@ spec:
 
 ### Session Node Selector
 
-The server-level `nodeSelector` is inherited by sessions. Sessions use placement constraints from resource profiles for additional targeting.
+The server-level `nodeSelector` is inherited by session pods. For more granular targeting — for example, routing GPU sessions to GPU nodes — use `placementConstraints` within individual resource profiles instead.
 
 ### Session Environment Variables
 
-Inject environment variables into all sessions:
+Inject environment variables into all session pods. You can reference Kubernetes Secrets or ConfigMaps, making this a good way to provide database URLs, API keys, or shared configuration without hard-coding values into session images.
 
 ```yaml
 spec:
@@ -624,7 +644,7 @@ spec:
 
 ### Session Service Account
 
-Specify a custom service account for session pods:
+By default, session pods use the service account created by the operator. Override this to grant sessions access to AWS IAM roles, Kubernetes RBAC permissions, or other cluster resources that require a specific service account.
 
 ```yaml
 spec:
@@ -635,7 +655,7 @@ spec:
 
 ### Session Image Pull Policy
 
-Control when session images are pulled:
+Controls when Kubernetes pulls the session container image. Use `Always` when iterating on custom session images; use `IfNotPresent` in production to avoid unnecessary pulls on every session start.
 
 ```yaml
 spec:
@@ -646,7 +666,7 @@ spec:
 
 ### Launcher Environment (PATH)
 
-Customize the PATH for launcher sessions:
+Override the PATH variable for launcher sessions. This is useful when R or Python installations live outside the default system paths and need to be discoverable by the launcher.
 
 ```yaml
 spec:
@@ -659,7 +679,7 @@ spec:
 
 ## Non-Root Execution Mode
 
-Enable "maximally rootless" execution for better security:
+Some organizations require that all containers run without root privileges. Enabling non-root mode configures Workbench and its launcher to operate within these constraints. Review the requirements and limitations below before enabling this in production.
 
 ```yaml
 spec:
@@ -686,7 +706,7 @@ When enabled:
 
 ## Experimental Features
 
-The `experimentalFeatures` section contains advanced options subject to change:
+The `experimentalFeatures` section groups advanced and in-progress options. These settings are subject to change between operator versions. Use them when you need capabilities not yet promoted to top-level fields, but be aware they may be renamed or restructured in future releases.
 
 ```yaml
 spec:
@@ -716,7 +736,7 @@ spec:
 
 ### Workbench API Settings
 
-Enable the Workbench REST API:
+Enable the Workbench REST API for programmatic access to sessions, users, and job management. The admin and super-admin endpoints expose privileged operations and should only be enabled for trusted automation.
 
 ```yaml
 spec:

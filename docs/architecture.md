@@ -5,7 +5,7 @@ description: Architecture diagrams and explanations for Team Operator and its ma
 
 # Team Operator Architecture
 
-This document covers architecture diagrams and explanations for the Team Operator and its managed products.
+This document covers the architecture of Team Operator and each of the products it manages. Each section describes the relevant components, shows a diagram of how they interact, and calls out the details that matter most for operating or extending the system.
 
 ## Table of Contents
 
@@ -21,34 +21,210 @@ This document covers architecture diagrams and explanations for the Team Operato
 
 ## System Overview
 
-The Team Operator follows the Kubernetes operator pattern. A Site Custom Resource (CR) is the single source of truth. Controllers reconcile the desired state into running Kubernetes resources.
+Team Operator follows the standard Kubernetes operator pattern: you declare desired state in a Custom Resource, and controllers continuously reconcile actual state to match it. The top-level resource is the `Site` CR, which acts as the single source of truth for an entire Posit Team deployment. When you create or update a Site, the Site controller fans out product-specific CRs — one per enabled product — and each product controller then manages its own Kubernetes resources independently.
 
-```
-User creates Site CR
-        ↓
-Site Controller reconciles
-        ↓
-Product CRs created (Connect, Workbench, PackageManager, etc.)
-        ↓
-Product Controllers reconcile
-        ↓
-Kubernetes resources created (Deployments, Services, Ingress, etc.)
-```
-
-### Key Concepts
+The following key concepts underpin all of the more detailed diagrams in this document:
 
 | Concept | Description |
 |---------|-------------|
 | **Site CR** | The top-level resource that defines an entire Posit Team deployment |
-| **Product CR** | Child resources (Connect, Workbench, PackageManager) created by the Site controller |
+| **Product CR** | Child resources (Connect, Workbench, PackageManager, etc.) created by the Site controller |
 | **Controller** | Watches resources and reconciles them to the desired state |
 | **Reconciliation** | The process of comparing desired state (CR spec) with actual state and making corrections |
+
+The diagram below shows the full flow from a user applying a Site CR through to running Kubernetes resources. The three-tier structure — Custom Resources, Controllers, Kubernetes Resources — applies consistently to every product in the system.
+
+```mermaid
+flowchart TB
+    subgraph user [User Interface]
+        kubectl(kubectl / Helm)
+    end
+
+    subgraph crd [Custom Resources]
+        site[Site CRD]
+        connect_cr[Connect CR]
+        workbench_cr[Workbench CR]
+        pm_cr[PackageManager CR]
+        chronicle_cr[Chronicle CR]
+        keycloak_cr[Keycloak CR]
+        flightdeck_cr[Flightdeck CR]
+        pgdb_cr[PostgresDatabase CR]
+    end
+
+    subgraph controllers [Controllers]
+        site_ctrl[Site Controller]
+        connect_ctrl[Connect Controller]
+        workbench_ctrl[Workbench Controller]
+        pm_ctrl[PackageManager Controller]
+        chronicle_ctrl[Chronicle Controller]
+        db_ctrl[Database Controller]
+        flightdeck_ctrl[Flightdeck Controller]
+    end
+
+    subgraph k8s [Kubernetes Resources]
+        deployments[Deployments]
+        services[Services]
+        ingresses[Ingresses]
+        configmaps[ConfigMaps]
+        secrets[Secrets]
+        pvcs[PVCs]
+        rbac[RBAC]
+    end
+
+    %% User creates Site
+    kubectl --> site
+
+    %% Site controller creates product CRs
+    site --> site_ctrl
+    site_ctrl --> connect_cr
+    site_ctrl --> workbench_cr
+    site_ctrl --> pm_cr
+    site_ctrl --> chronicle_cr
+    site_ctrl --> keycloak_cr
+    site_ctrl --> flightdeck_cr
+    site_ctrl --> pgdb_cr
+
+    %% Product controllers watch CRs
+    connect_cr --> connect_ctrl
+    workbench_cr --> workbench_ctrl
+    pm_cr --> pm_ctrl
+    chronicle_cr --> chronicle_ctrl
+    pgdb_cr --> db_ctrl
+    flightdeck_cr --> flightdeck_ctrl
+
+    %% Controllers create K8s resources
+    connect_ctrl --> k8s
+    workbench_ctrl --> k8s
+    pm_ctrl --> k8s
+    chronicle_ctrl --> k8s
+    db_ctrl --> k8s
+    flightdeck_ctrl --> k8s
+
+    classDef crdStyle fill:#E8F5E9,stroke:#388E3C
+    classDef ctrlStyle fill:#E3F2FD,stroke:#1976D2
+    classDef k8sStyle fill:#FFF3E0,stroke:#F57C00
+
+    class site,connect_cr,workbench_cr,pm_cr,chronicle_cr,keycloak_cr,flightdeck_cr,pgdb_cr crdStyle
+    class site_ctrl,connect_ctrl,workbench_ctrl,pm_ctrl,chronicle_ctrl,db_ctrl,flightdeck_ctrl ctrlStyle
+    class deployments,services,ingresses,configmaps,secrets,pvcs,rbac k8sStyle
+```
+
+The Site controller is the orchestration layer: it determines which products are enabled, resolves shared configuration (database URLs, storage volumes), and creates or updates product CRs accordingly. Product controllers are deliberately isolated — each one only knows about its own CR and is responsible for driving its product to a healthy running state.
+
+### Reconciliation Flow
+
+Understanding the order of operations during reconciliation helps when diagnosing problems. The sequence diagram below shows what happens from the moment you apply a change to a Site CR through to running product resources. The two colored blocks represent the Site and product reconciliation phases, which happen independently and can run concurrently for different products.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant K8s as Kubernetes API
+    participant SiteCtrl as Site Controller
+    participant ProductCR as Product CRs
+    participant ProductCtrl as Product Controllers
+    participant Resources as K8s Resources
+
+    User->>K8s: Create/Update Site CR
+    K8s->>SiteCtrl: Watch event triggered
+
+    rect rgb(227, 242, 253)
+        Note over SiteCtrl: Site Reconciliation
+        SiteCtrl->>SiteCtrl: Determine database URL
+        SiteCtrl->>SiteCtrl: Provision volumes (if needed)
+        SiteCtrl->>ProductCR: Create/Update Connect CR
+        SiteCtrl->>ProductCR: Create/Update Workbench CR
+        SiteCtrl->>ProductCR: Create/Update PackageManager CR
+        SiteCtrl->>ProductCR: Create/Update Chronicle CR
+        SiteCtrl->>ProductCR: Create/Update Flightdeck CR
+        SiteCtrl->>ProductCR: Create/Update Keycloak CR
+    end
+
+    ProductCR->>ProductCtrl: Watch events triggered
+
+    rect rgb(232, 245, 233)
+        Note over ProductCtrl: Product Reconciliation
+        ProductCtrl->>ProductCtrl: Ensure database exists
+        ProductCtrl->>Resources: Create ConfigMaps
+        ProductCtrl->>Resources: Create Secrets
+        ProductCtrl->>Resources: Create PVCs
+        ProductCtrl->>Resources: Create Deployment
+        ProductCtrl->>Resources: Create Service
+        ProductCtrl->>Resources: Create Ingress
+        ProductCtrl->>Resources: Create RBAC (if off-host)
+    end
+
+    Resources-->>K8s: Resources created
+    K8s-->>User: Site ready
+```
+
+A key property of this design is that product controllers are idempotent — they can safely re-run at any time and will converge to the desired state without side effects. If a product CR is updated (because you changed the Site spec), the product controller reconciles again and applies only the delta.
+
+### Component Relationships
+
+The products in a Posit Team deployment are not fully independent — they share infrastructure and integrate with each other. The diagram below shows the runtime relationships between products and the shared services they depend on.
+
+```mermaid
+flowchart LR
+    subgraph products [Posit Team Products]
+        flightdeck[Flightdeck<br/>Landing Page]
+        workbench[Workbench<br/>Development]
+        connect[Connect<br/>Publishing]
+        pm[Package Manager<br/>Packages]
+        chronicle[Chronicle<br/>Telemetry]
+    end
+
+    subgraph shared [Shared Infrastructure]
+        keycloak[Keycloak<br/>Authentication]
+        postgres[(PostgreSQL<br/>Database)]
+        storage[(Shared Storage<br/>NFS/EFS/FSx)]
+    end
+
+    %% Landing page links to products
+    flightdeck -.-> workbench
+    flightdeck -.-> connect
+    flightdeck -.-> pm
+
+    %% Product interactions
+    workbench -->|Publish content| connect
+    workbench -->|Fetch packages| pm
+    connect -->|Fetch packages| pm
+
+    %% Shared infrastructure
+    workbench --> keycloak
+    connect --> keycloak
+    pm --> keycloak
+
+    workbench --> postgres
+    connect --> postgres
+    pm --> postgres
+    chronicle --> postgres
+
+    workbench --> storage
+    connect --> storage
+
+    %% Chronicle collects from products
+    chronicle -.->|Collect metrics| workbench
+    chronicle -.->|Collect metrics| connect
+    chronicle -.->|Collect metrics| pm
+
+    classDef product fill:#E3F2FD,stroke:#1976D2
+    classDef infra fill:#E8F5E9,stroke:#388E3C
+
+    class flightdeck,workbench,connect,pm,chronicle product
+    class keycloak,postgres,storage infra
+```
+
+PostgreSQL and shared storage are used by multiple products, and Keycloak provides SSO authentication for all three primary products. This shared infrastructure is why the Site CR exists: a single resource can enforce consistent configuration (same database host, same domain, same auth settings) across everything.
+
+The sections below detail each product's internal architecture. Database provisioning is covered first because it is a prerequisite for Connect, Workbench, and Package Manager.
 
 ---
 
 ## Database Architecture
 
-Each Posit Team product needs database storage. The operator provisions separate databases with dedicated users and schemas.
+Connect, Workbench, and Package Manager each require a PostgreSQL database. Rather than sharing a single database, the operator provisions separate databases with dedicated users so that each product has isolated credentials, schemas, and connection pools.
+
+The diagram below shows the three databases — PublishDB (Connect), PackageDB (Package Manager), and DevDB (Workbench) — and the schemas within each. The color highlights database users, which are created with access only to their own product's schemas.
 
 ```mermaid
 flowchart TB
@@ -80,6 +256,8 @@ flowchart TB
     class pub-user,pkg-user,dev-user userNode
 ```
 
+The isolation between database users is intentional: products cannot access each other's data, you can attribute database connections to a specific product, and rotating credentials for one product does not affect the others. The Database Controller handles provisioning — it creates the database, user, and schemas, then stores the generated credentials in a Kubernetes Secret that the product controller mounts into the product pod.
+
 ### Component Descriptions
 
 | Component | Description |
@@ -92,18 +270,13 @@ flowchart TB
 | **DevDB** | PostgreSQL database for Workbench. Stores user sessions, project metadata, and launcher state. |
 | **Public Schema** | Workbench uses a single schema for all data |
 
-### Database User Isolation
-
-Each product gets a dedicated database user with access only to its own schemas. This provides:
-- **Security isolation**: Products cannot access each other's data
-- **Resource tracking**: You can attribute database connections to specific products
-- **Independent credentials**: Rotating one product's credentials doesn't affect others
-
 ---
 
 ## Connect Architecture
 
-Posit Connect is a publishing platform for data science content. The operator manages deployment, including off-host content execution.
+Posit Connect is a publishing platform for data science content — Shiny apps, R Markdown reports, Jupyter notebooks, APIs, and more. The operator manages Connect's deployment including its optional off-host content execution mode, where content runs in separate Kubernetes Jobs instead of the main Connect pod.
+
+The diagram below shows the complete set of inputs, operator components, and Kubernetes resources involved in running Connect. Items in coral require one-time manual setup by an administrator before deployment. The operator handles everything in blue and green.
 
 ```mermaid
 flowchart TB
@@ -175,6 +348,8 @@ flowchart TB
     class pv,pvc,cm,dbsecret,secretkey,pubdeploy,ing,svc k8s
 ```
 
+The Connect pod assembles configuration from several sources: the `rstudio-connect.gcfg` ConfigMap (generated from the Site CR spec), the database credentials Secret (created by the Database Controller), the encryption Secret Key, and the externally-managed license and auth client secret. All of these must be present before the Connect pod will start successfully.
+
 ### Component Descriptions
 
 #### External Configuration (Coral)
@@ -190,7 +365,7 @@ flowchart TB
 
 | Component | Description |
 |-----------|-------------|
-| **Site Controller** | Watches Site CRs and creates product-specific CRs (Connect, Workbench, etc.). Manages shared resources like PersistentVolumes. |
+| **Site Controller** | Watches Site CRs and creates product-specific CRs. Manages shared resources like PersistentVolumes. |
 | **Database Controller** | Creates databases and schemas in the PostgreSQL server. Generates credentials and stores them in Secrets. |
 | **Connect Controller** | Watches Connect CRs and creates all Kubernetes resources Connect needs. |
 
@@ -209,18 +384,15 @@ flowchart TB
 
 ### Off-Host Execution
 
-When off-host execution is enabled, Connect runs content (Shiny apps, APIs, reports) in separate Kubernetes Jobs instead of the main Connect pod. This provides:
-- **Resource isolation**: Content processes don't compete with the Connect server
-- **Scalability**: Content scales independently
-- **Security**: Content runs with minimal privileges
-
-See the [Connect Configuration Guide](guides/connect-configuration.md) for details.
+When off-host execution is enabled, Connect runs content (Shiny apps, APIs, reports) in separate Kubernetes Jobs instead of the main Connect pod. Content processes no longer compete with the Connect server for resources, they can scale independently, and they run with minimal privileges. See the [Connect Configuration Guide](guides/connect-configuration.md) for details.
 
 ---
 
 ## Workbench Architecture
 
-Posit Workbench provides IDE environments (RStudio, VS Code, Jupyter) for data scientists. The operator manages the main server and user session pods.
+Posit Workbench provides interactive IDE environments — RStudio, VS Code, and Jupyter — for data scientists. Its architecture is notably different from Connect and Package Manager because each user session runs as an independent Kubernetes Job pod, not a process inside the main server.
+
+Workbench shares the same external configuration requirements as Connect (license, auth client secret, database connection), with one addition: a home directory PVC that persists user files across sessions. The diagram below shows both the main Workbench deployment and the session infrastructure it manages.
 
 ```mermaid
 flowchart TB
@@ -315,11 +487,9 @@ flowchart TB
     class launcher,sessionpod1,sessionpod2 session
 ```
 
+The Job Launcher component — running inside the Workbench pod — is what creates and manages session pods. It uses Kubernetes Job Templates (ConfigMaps) to define how sessions are created, and it communicates with the Kubernetes API directly to schedule new pods. Both the Workbench server and all session pods mount the same Home Directory PVC, which is what allows user files to persist between sessions and be accessible from any pod.
+
 ### Component Descriptions
-
-#### External Configuration (Coral)
-
-Same as Connect - see [Connect Architecture](#component-descriptions) above.
 
 #### Team Operator (Blue)
 
@@ -358,7 +528,7 @@ Same as Connect - see [Connect Architecture](#component-descriptions) above.
 
 ### Storage Architecture
 
-Workbench requires careful storage planning:
+Workbench requires careful storage planning. All PVCs used by sessions must support `ReadWriteMany` access mode so multiple pods can mount them simultaneously.
 
 | Storage | Purpose | Access Mode |
 |---------|---------|-------------|
@@ -372,7 +542,9 @@ See the [Workbench Configuration Guide](guides/workbench-configuration.md) for d
 
 ## Package Manager Architecture
 
-Posit Package Manager provides a local repository for R and Python packages. It can mirror public repositories and host private packages.
+Posit Package Manager provides a local repository for R and Python packages. It can mirror public repositories (CRAN, PyPI, Bioconductor), host private packages, and build packages from Git repositories. Package Manager is the package source that both Workbench and Connect are typically configured to use, which is why it appears in the component relationships diagram as a shared dependency.
+
+Package Manager's architecture is similar to Connect's, with two notable differences: it can use cloud object storage (S3 or Azure Files) for package binaries instead of a local PVC, and it may require SSH keys if you configure Git-based package builds.
 
 ```mermaid
 flowchart TB
@@ -460,6 +632,8 @@ flowchart TB
     class s3,azfiles cloud
 ```
 
+Package binaries — the actual `.tar.gz` and `.whl` files — can be large. For production deployments, storing them in cloud object storage rather than a local PVC avoids capacity constraints and simplifies multi-replica deployments. The local PVC remains available as a default for development or air-gapped environments.
+
 ### Component Descriptions
 
 #### External Configuration (Coral)
@@ -478,11 +652,6 @@ flowchart TB
 |-----------|-------------|
 | **S3 Bucket** | AWS S3 storage for package binaries (recommended for AWS) |
 | **Azure Files** | Azure file storage for package binaries (recommended for Azure) |
-
-Package Manager can use either cloud storage backend. The choice depends on your cloud provider:
-- **AWS**: Use S3 for best performance and cost
-- **Azure**: Use Azure Files with the CSI driver
-- **On-premises**: Use the local PVC for package storage
 
 #### Team Operator (Blue)
 
@@ -512,19 +681,15 @@ Package Manager can use either cloud storage backend. The choice depends on your
 
 ### Git Builder Integration
 
-Package Manager can build R packages from Git repositories. This requires:
-
-1. **SSH Keys**: Private keys with access to your Git repositories
-2. **Known Hosts**: SSH host key verification (optional but recommended)
-3. **Build Resources**: CPU/memory for compilation
-
-See the [Package Manager Configuration Guide](guides/packagemanager-configuration.md) for details.
+Package Manager can build R packages from Git repositories. This requires SSH keys with access to your repositories, optional SSH host key verification, and sufficient CPU and memory allocated for compilation. See the [Package Manager Configuration Guide](guides/packagemanager-configuration.md) for details.
 
 ---
 
 ## Flightdeck Architecture
 
-Flightdeck is the landing page and navigation hub for Posit Team deployments. It provides a dashboard for users to access the products.
+Flightdeck is the landing page and navigation hub for a Posit Team deployment. It is intentionally simple — a static web server with no database and no authentication of its own — that provides users with a single URL to reach all products in the deployment.
+
+Because Flightdeck has no dependencies on the Database Controller and requires no external credentials, its architecture is the most straightforward of the product components. The diagram below reflects that simplicity.
 
 ```mermaid
 flowchart TB
@@ -585,6 +750,8 @@ flowchart TB
     class browser user
 ```
 
+The Flightdeck pod renders its landing page using configuration from a single ConfigMap, which the Flightdeck Controller generates from the Site spec. The dashed arrows to product ingresses represent client-side navigation links — Flightdeck does not proxy traffic to those products, it simply links to them.
+
 ### Component Descriptions
 
 #### Team Operator (Blue)
@@ -611,16 +778,9 @@ flowchart TB
 | **Connect Ingress** | Flightdeck links to `connect.{domain}` |
 | **Package Manager Ingress** | Flightdeck links to `packagemanager.{domain}` |
 
-### Features
-
-Flightdeck is simple by design:
-
-- **No database**: Serves static content only
-- **No authentication**: Relies on product-level authentication
-- **Configurable layout**: Shows only enabled products
-- **Optional Academy**: Can display a fourth card for Posit Academy
-
 ### Configuration Options
+
+Flightdeck shows only the products that are enabled in the Site spec. A fourth card for Posit Academy can optionally be displayed.
 
 | Option | Description |
 |--------|-------------|
@@ -632,7 +792,9 @@ Flightdeck is simple by design:
 
 ## Chronicle Architecture
 
-Chronicle is the telemetry and usage tracking service for Posit Team. It collects metrics from Connect and Workbench through sidecar containers.
+Chronicle is the telemetry and usage tracking service for Posit Team. Unlike Flightdeck, which is entirely self-contained, Chronicle is tightly integrated with Connect and Workbench through a sidecar injection pattern. When Chronicle is enabled, the Connect and Workbench controllers each inject a lightweight Chronicle agent container into their respective pods. This sidecar collects metrics from the main product container and forwards them to the central Chronicle service.
+
+The diagram below shows the full Chronicle architecture, including the sidecar injection from the product controllers and the data flow from sidecars to the Chronicle service and its storage backends.
 
 ```mermaid
 flowchart TB
@@ -710,6 +872,8 @@ flowchart TB
     class s3,local storage
 ```
 
+The sidecar pattern keeps Chronicle's collection logic out of the product containers. Sidecars run as secondary containers in the same pod, sharing the pod's network namespace so they can reach the product's localhost metrics endpoint. Each sidecar authenticates to the Chronicle service using a shared API key Secret. The Chronicle service then aggregates and persists all telemetry to S3 or local storage.
+
 ### Component Descriptions
 
 #### Team Operator (Blue)
@@ -754,15 +918,7 @@ flowchart TB
 
 ### Sidecar Injection
 
-The Chronicle sidecar is automatically injected into product pods when:
-- Chronicle is enabled in the Site spec (`spec.chronicle.enabled: true`)
-- The product has Chronicle integration enabled
-
-The sidecar:
-- Runs as a secondary container in the same pod
-- Shares the pod's network namespace (can reach localhost)
-- Uses the API key secret for authentication
-- Has minimal resource requirements (~50Mi memory)
+The Chronicle sidecar is automatically injected into product pods when Chronicle is enabled in the Site spec (`spec.chronicle.enabled: true`) and the product has Chronicle integration enabled. The sidecar runs as a secondary container in the same pod, shares the pod's network namespace, authenticates using the API key Secret, and has minimal resource requirements (~50Mi memory).
 
 ### Configuration Options
 
