@@ -57,7 +57,7 @@ var (
 )
 
 //+kubebuilder:rbac:namespace=posit-team,groups="",resources=pods,verbs=get;list;watch;patch
-//+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=workbenches,verbs=get
+//+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=workbenches,verbs=get;list;watch
 
 // SessionGroupLabelReconciler watches Workbench session pods and writes one
 // numbered label per entry that matches the configured regex in the configured
@@ -135,7 +135,7 @@ func (r *SessionGroupLabelReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	}
 
 	// Extract one numbered label per matching entry from the configured field.
-	groupLabels, err := r.extractGroupLabels(&pod, cfg)
+	groupLabels, err := r.extractGroupLabels(l, &pod, cfg)
 	if err != nil {
 		l.Error(err, "failed to extract labels",
 			"sourceField", cfg.SourceField, "site", siteName)
@@ -200,7 +200,7 @@ func (r *SessionGroupLabelReconciler) markProcessed(ctx context.Context, pod *co
 // extractGroupLabels resolves the configured field path in the pod, reads the
 // raw comma-separated value string, and returns a map of numbered label keys
 // to sanitized values for each entry matching the configured regex.
-func (r *SessionGroupLabelReconciler) extractGroupLabels(pod *corev1.Pod, cfg *v1beta1.SessionLabelsConfig) (map[string]string, error) {
+func (r *SessionGroupLabelReconciler) extractGroupLabels(l logr.Logger, pod *corev1.Pod, cfg *v1beta1.SessionLabelsConfig) (map[string]string, error) {
 	labels := make(map[string]string)
 
 	raw, ok, err := r.extractSourceValue(pod, cfg)
@@ -232,7 +232,7 @@ func (r *SessionGroupLabelReconciler) extractGroupLabels(pod *corev1.Pod, cfg *v
 	n := 1
 	for _, entry := range strings.Split(raw, ",") {
 		if n > maxGroupLabels {
-			r.Log.V(1).Info("group label cap reached, remaining entries skipped",
+			l.V(1).Info("group label cap reached, remaining entries skipped",
 				"cap", maxGroupLabels)
 			break
 		}

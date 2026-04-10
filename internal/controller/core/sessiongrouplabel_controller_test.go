@@ -6,6 +6,7 @@ package core
 import (
 	"testing"
 
+	"github.com/go-logr/logr"
 	v1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -381,7 +382,7 @@ func TestSessionGroupLabelReconciler_ExtractGroupLabels(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			labels, err := r.extractGroupLabels(tt.pod, tt.cfg)
+			labels, err := r.extractGroupLabels(logr.Discard(), tt.pod, tt.cfg)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedLabels, labels)
 		})
