@@ -271,7 +271,7 @@ spec:
   # Workbench — enabled with Azure Files NFS for home directories
   workbench:
     enabled: true
-    image: "ghcr.io/posit-dev/workbench:jammy-2024.12.0"
+    image: "ghcr.io/rstudio/rstudio-workbench:ubuntu2204-2025.12.0"  # Check https://ghcr.io/rstudio/rstudio-workbench for the latest tag
     replicas: 1
     auth:
       type: password  # Change to "oidc" for SSO — see authentication-setup.md
@@ -393,9 +393,8 @@ Verify the cluster's kubelet managed identity has **Storage Account Contributor*
 # Verify the workload secret exists and has the correct key
 kubectl get secret workload-secrets -n posit-team -o jsonpath='{.data.main-database-url}' | base64 -d
 
-# Test connectivity from within the cluster
-kubectl run -it --rm psql-test --image=postgres:15 --restart=Never -- \
-  psql "postgresql://<user>:<password>@<fqdn>/<dbname>?sslmode=require"
+# Check operator logs for database errors
+kubectl logs -n posit-team-system deployment/team-operator-controller-manager --tail=100 | grep -i database
 ```
 
 Ensure the PostgreSQL server's firewall allows inbound connections from the AKS node CIDR.
