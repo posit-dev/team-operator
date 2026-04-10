@@ -1,3 +1,8 @@
+---
+title: Site Management
+description: Managing Site resources in Team Operator for platform engineers deploying Posit Team
+---
+
 # Site Management Guide
 
 This guide covers the management of Site resources in Team Operator for platform engineers deploying Posit Team.

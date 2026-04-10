@@ -1,3 +1,8 @@
+---
+title: Authentication Setup
+description: Authentication configuration for Posit Team Operator including OIDC, SAML, and Keycloak
+---
+
 # Authentication Setup Guide
 
 This guide documents authentication configuration in Posit Team Operator. Team Operator supports multiple authentication methods for both Posit Connect and Posit Workbench.

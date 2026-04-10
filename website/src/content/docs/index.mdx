@@ -1,0 +1,37 @@
+---
+title: Team Operator
+description: Kubernetes operator for managing Posit Team product deployments
+template: splash
+hero:
+  title: Team Operator
+  tagline: A Kubernetes operator that manages the deployment and lifecycle of Posit Team products
+  actions:
+    - text: Get Started
+      link: /team-operator/guides/product-team-site-management/
+      icon: right-arrow
+    - text: View on GitHub
+      link: https://github.com/posit-dev/team-operator
+      variant: minimal
+      icon: external
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<CardGrid>
+  <Card title="Architecture" icon="document">
+    Understand how the operator manages Sites, products, and Kubernetes resources.
+    [Learn more](/team-operator/architecture/)
+  </Card>
+  <Card title="API Reference" icon="list-format">
+    Complete CRD field reference for Sites, Workbench, Connect, Package Manager, and more.
+    [Learn more](/team-operator/api-reference/)
+  </Card>
+  <Card title="AKS Deployment" icon="rocket">
+    Step-by-step guide for deploying on Azure Kubernetes Service.
+    [Learn more](/team-operator/guides/aks-deployment/)
+  </Card>
+  <Card title="Authentication" icon="setting">
+    Configure OIDC, SAML, password auth, and Keycloak integration.
+    [Learn more](/team-operator/guides/authentication-setup/)
+  </Card>
+</CardGrid>

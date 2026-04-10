@@ -1,3 +1,8 @@
+---
+title: Troubleshooting
+description: Common issues and solutions when running Posit Team products via Team Operator
+---
+
 # Team Operator Troubleshooting Guide
 
 This guide covers common issues and solutions when running Posit Team products via the Team Operator.

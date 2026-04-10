@@ -1,0 +1,1 @@
+../../../../../docs/guides/packagemanager-configuration.md

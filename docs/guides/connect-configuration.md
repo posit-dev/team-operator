@@ -1,3 +1,8 @@
+---
+title: Connect Configuration
+description: Configuration options for Posit Connect when deployed via Team Operator
+---
+
 # Connect Configuration Guide
 
 This guide covers configuration options for Posit Connect when deployed via Team Operator.

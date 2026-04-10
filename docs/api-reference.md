@@ -1,3 +1,8 @@
+---
+title: API Reference
+description: Complete CRD field reference for Sites, Workbench, Connect, Package Manager, and more
+---
+
 # Team Operator API Reference
 
 This document covers the Custom Resource Definitions (CRDs) the Team Operator provides.

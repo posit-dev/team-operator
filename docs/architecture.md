@@ -1,3 +1,8 @@
+---
+title: Architecture
+description: Architecture diagrams and explanations for Team Operator and its managed products
+---
+
 # Team Operator Architecture
 
 This document covers architecture diagrams and explanations for the Team Operator and its managed products.

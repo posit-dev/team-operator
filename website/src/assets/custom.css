@@ -1,0 +1,14 @@
+/* Posit brand fonts */
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Source+Code+Pro:wght@400;500&display=swap');
+
+/* Posit brand colors */
+:root {
+  --sl-color-accent-low: #e5f0fc;
+  --sl-color-accent: #447099;
+  --sl-color-accent-high: #213d4f;
+}
+
+:root {
+  --sl-font: 'Open Sans', sans-serif;
+  --sl-font-mono: 'Source Code Pro', monospace;
+}

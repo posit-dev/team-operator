@@ -1,0 +1,1 @@
+../../../../../docs/guides/adding-config-options.md

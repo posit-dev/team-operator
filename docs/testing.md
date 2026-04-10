@@ -1,3 +1,8 @@
+---
+title: Testing Guide
+description: Testing infrastructure for the Team Operator
+---
+
 # Testing Guide
 
 This document covers the testing infrastructure for the Team Operator.

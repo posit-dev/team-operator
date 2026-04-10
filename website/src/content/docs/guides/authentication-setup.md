@@ -1,0 +1,1 @@
+../../../../../docs/guides/authentication-setup.md

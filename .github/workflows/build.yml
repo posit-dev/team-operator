@@ -14,12 +14,14 @@ on:
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
+      - 'website/**'
       - '.claude/**'
       - 'LICENSE'
   pull_request:
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
+      - 'website/**'
       - '.claude/**'
       - 'LICENSE'
 

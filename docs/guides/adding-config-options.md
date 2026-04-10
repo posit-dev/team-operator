@@ -1,3 +1,8 @@
+---
+title: Adding Configuration Options
+description: How to add configuration options to Posit Team products managed by Team Operator
+---
+
 # Adding Configuration Options to Team Operator
 
 This guide shows how to add configuration options to Posit Team products managed by the Team Operator. Configuration flows from the Site CRD through to product-specific settings.

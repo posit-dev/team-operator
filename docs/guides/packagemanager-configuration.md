@@ -1,3 +1,8 @@
+---
+title: Package Manager Configuration
+description: How to configure Posit Package Manager within Team Operator
+---
+
 # Package Manager Configuration Guide
 
 This guide documents how to configure Posit Package Manager within the Team Operator.

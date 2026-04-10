@@ -1,3 +1,8 @@
+---
+title: Workbench Configuration
+description: Configuration of Posit Workbench in Team Operator including authentication, off-host execution, and IDE settings
+---
+
 # Workbench Configuration Guide
 
 This guide covers configuration of Posit Workbench in Team Operator, including options for authentication, off-host execution, IDE settings, data integrations, and advanced features.

@@ -1,3 +1,8 @@
+---
+title: Upgrading
+description: Upgrading Team Operator including pre-upgrade preparation and version-specific migrations
+---
+
 # Upgrading Team Operator
 
 This guide covers upgrading the Team Operator: pre-upgrade preparation, upgrade procedures, version-specific migrations, and troubleshooting.
