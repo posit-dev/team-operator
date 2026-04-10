@@ -2,9 +2,11 @@
 
 ## Overview
 
-Team Operator manages the deployment and lifecycle of Posit Team products (Workbench, Connect, Package Manager, and Chronicle) on Kubernetes. It reconciles a single `Site` Custom Resource into the full set of deployments, services, ingress routes, and database schemas required to run the products.
+This guide walks you through deploying Posit Team on Azure Kubernetes Service using Team Operator — without the PTD CLI. If you're familiar with Kubernetes but new to Team Operator, here's the mental model: Team Operator is a Kubernetes controller that watches a single `Site` Custom Resource and reconciles it into everything Posit Team needs to run — deployments, services, ingress routes, database schemas, and storage. You declare what you want; the operator makes it so.
 
-This guide walks through deploying Team Operator on Azure Kubernetes Service (AKS) without the PTD CLI. It covers all infrastructure that the operator expects to exist before the `Site` CR is created: secrets, storage, database, and ingress.
+The journey has six steps before products start up: install the operator, create the secrets it reads, configure shared storage for Workbench home directories, verify the database connection, deploy Traefik for ingress, and finally apply the `Site` CR. Each step builds on the last — you cannot create the `Site` CR until the preceding infrastructure is in place, and the operator will tell you (through `Site` conditions) if something is missing.
+
+By the end, you'll have a running Workbench instance accessible through Traefik at your chosen domain. Connect and Package Manager can be enabled in the same `Site` CR once the initial deployment is stable.
 
 For product-specific configuration (OIDC, Databricks, custom session images, etc.), see the guides linked in each step.
 
@@ -18,7 +20,7 @@ For product-specific configuration (OIDC, Databricks, custom session images, etc
 
 ## Step 1: Install the Operator
 
-Install the operator from the OCI Helm chart into the `posit-team-system` namespace:
+The operator runs in its own namespace (`posit-team-system`) and watches the `posit-team` namespace where product workloads live. Installing it first ensures the CRDs are registered before you try to create a `Site` resource.
 
 ```bash
 helm install team-operator \
@@ -29,7 +31,7 @@ helm install team-operator \
 
 ### AKS System Node Pool Toleration
 
-AKS system node pools carry a `CriticalAddonsOnly=Exists:NoSchedule` taint by default. If you are running a system-only node pool (no user pool configured), the operator pod will stay `Pending` without a matching toleration. Create a values file:
+AKS system node pools carry a `CriticalAddonsOnly=Exists:NoSchedule` taint by default. If you are running a system-only node pool (no user pool configured), the operator pod will stay `Pending` without a matching toleration. If that's your setup, create a values file and pass it during installation:
 
 ```yaml
 # azure-values.yaml
@@ -65,7 +67,7 @@ controllerManager:
       azure.workload.identity/use: "true"
 ```
 
-Verify the operator pod is running:
+Once installed, verify the operator pod reaches `Running` before moving on — the CRDs it registers are required by every subsequent step:
 
 ```bash
 kubectl get pods -n posit-team-system
@@ -73,7 +75,7 @@ kubectl get pods -n posit-team-system
 
 ## Step 2: Create Kubernetes Secrets
 
-Team Operator requires three Kubernetes secrets to exist in the `posit-team` namespace **before** you create the Site CR. Create the namespace first:
+Team Operator reads credentials from three Kubernetes secrets in the `posit-team` namespace. These secrets must exist before you create the `Site` CR; the operator will error immediately during reconciliation if any of them are missing or have incorrect keys. Create the namespace first so the secrets have somewhere to live:
 
 ```bash
 kubectl create namespace posit-team
@@ -81,7 +83,7 @@ kubectl create namespace posit-team
 
 ### Secret 1: Site Secret
 
-Contains product credentials and license keys. The operator reads specific keys from this secret based on which products are enabled.
+This secret holds product credentials and license keys. The operator reads specific keys based on which products are enabled in the `Site` CR — so you only need to include the keys for the products you're deploying. Providing extra keys for disabled products is harmless, but missing a required key for an enabled product will cause that product's reconciliation to fail.
 
 ```bash
 kubectl create secret generic site-secrets \
@@ -102,7 +104,7 @@ Only include the keys for the products you are enabling. See the Pre-flight Secr
 
 ### Secret 2: Workload Secret
 
-Contains the main PostgreSQL connection URL. All products read the database host from this URL.
+All products use the same PostgreSQL host, read from this secret's `main-database-url` key. The operator parses the URL for the hostname and SSL settings; per-product databases and users are provisioned separately using the credentials in Secret 3.
 
 ```bash
 kubectl create secret generic workload-secrets \
@@ -114,7 +116,7 @@ Replace `<fqdn>` with your Azure PostgreSQL Flexible Server hostname (e.g., `mys
 
 ### Secret 3: Database Credential Secret
 
-Contains the PostgreSQL superuser credentials the operator uses to provision per-product databases and roles.
+The operator uses these credentials to connect to PostgreSQL as a superuser and provision per-product databases and roles during initial startup. The admin user must have `CREATE ROLE` and `CREATE DATABASE` privileges. Once provisioning is complete, each product connects using its own role — these superuser credentials are only used during setup and schema migrations.
 
 ```bash
 kubectl create secret generic db-credentials \
@@ -125,9 +127,11 @@ kubectl create secret generic db-credentials \
 
 ## Step 3: Configure Storage
 
-Workbench requires `ReadWriteMany` storage for user home directories. Azure Files NFS is the recommended option on AKS because it supports `ReadWriteMany` without additional infrastructure.
+Workbench requires `ReadWriteMany` storage for user home directories — multiple Workbench pods (and optionally Connect) need to mount the same volume simultaneously. Azure Files NFS is the recommended option on AKS because it supports `ReadWriteMany` natively without requiring a separate NFS server.
 
 ### Create a StorageClass for Azure Files NFS
+
+This StorageClass tells the Azure Files CSI driver to provision NFS-protocol file shares using Premium LRS. The `Retain` reclaim policy means deleting a PVC will not automatically delete the underlying file share — an important safeguard for user data.
 
 ```yaml
 # azure-files-nfs-sc.yaml
@@ -150,7 +154,7 @@ kubectl apply -f azure-files-nfs-sc.yaml
 
 ### IAM Requirements
 
-The AKS cluster's managed identity needs the following roles on the Storage Account used by Azure Files:
+The CSI driver provisions file shares on behalf of the cluster using the AKS kubelet managed identity. Without the right roles on your storage account, PVC creation will fail with a permissions error. Assign the required roles now, before the `Site` CR triggers PVC creation:
 
 - **Storage Account Contributor** — to create file shares
 - **Network Contributor** — if the storage account is in a VNet with service endpoints
@@ -176,7 +180,7 @@ If you need a shared directory mounted across Workbench and Connect (e.g., for s
 
 ## Step 4: Configure the Database Connection
 
-Azure Database for PostgreSQL Flexible Server requires `sslmode=require` in the connection string. The operator reads the database host from the workload secret (`main-database-url`) and the credentials from the DB credential secret (`username` / `password`).
+Azure Database for PostgreSQL Flexible Server requires `sslmode=require` in the connection string — connections without SSL will be rejected. The operator reads the database host from the workload secret (`main-database-url`) you created in Step 2 and the admin credentials from the DB credential secret. No additional configuration is needed here unless your PostgreSQL server uses VNet injection.
 
 Connection string format:
 
@@ -198,9 +202,9 @@ If your PostgreSQL server uses VNet injection, ensure the AKS subnet and the Pos
 
 ## Step 5: Deploy Traefik
 
-Team Operator generates Traefik `Middleware` and `IngressRoute` custom resources for each product. Traefik **must be deployed and its CRDs must be installed before you create the Site CR**; otherwise the operator cannot create the ingress routes and reconciliation will fail.
+Team Operator generates Traefik `Middleware` and `IngressRoute` custom resources for each product. Traefik must be deployed and its CRDs must be registered in the cluster before you create the `Site` CR — if the CRDs don't exist when the operator tries to create ingress routes, reconciliation will fail and stay failed until Traefik is present.
 
-Deploy Traefik using Helm with a LoadBalancer service type to receive a public IP:
+Deploy Traefik using Helm. The `allowCrossNamespace: true` setting is required because the operator creates `IngressRoute` resources in the `posit-team` namespace that reference middlewares in other namespaces:
 
 ```yaml
 # traefik-values.yaml
@@ -225,9 +229,7 @@ helm install traefik traefik/traefik \
   --values traefik-values.yaml
 ```
 
-`allowCrossNamespace: true` is required because the operator creates `IngressRoute` resources in the `posit-team` namespace that reference middlewares in other namespaces.
-
-After Traefik is running, note the external IP assigned to its LoadBalancer service:
+Once Traefik is running, retrieve the external IP assigned to its LoadBalancer service and create DNS records pointing to it before products become accessible:
 
 ```bash
 kubectl get svc traefik -n posit-team
@@ -237,7 +239,9 @@ Create a wildcard DNS record (or individual records for each product subdomain) 
 
 ## Step 6: Create the Site CR
 
-With secrets, storage, database, and Traefik in place, you can create the Site CR. The following example enables Workbench with Azure Files NFS storage and disables Connect and Package Manager for an initial deployment:
+With secrets, storage, database, and Traefik in place, you're ready to tell Team Operator what to deploy. The `Site` CR is the single resource the operator watches — everything else (deployments, services, ingress routes, databases) flows from it.
+
+The following example enables Workbench with Azure Files NFS storage and disables Connect and Package Manager for an initial deployment. Starting with one product lets you validate the full stack before enabling additional products:
 
 ```yaml
 # site.yaml
@@ -299,7 +303,11 @@ For full Site spec options including OIDC auth, session images, node selectors, 
 
 ## Step 7: Verify the Deployment
 
+After applying the `Site` CR, the operator begins reconciling — provisioning databases, creating PVCs, deploying pods, and setting up ingress. Reconciliation takes a minute or two on first run. Use the following commands to follow the progress.
+
 ### Operator
+
+Check the operator itself is healthy, then tail its logs to watch reconciliation events as they happen:
 
 ```bash
 # Check operator pod is running
@@ -311,12 +319,12 @@ kubectl logs -n posit-team-system deployment/team-operator-controller-manager --
 
 ### Site Status
 
+The `Site` resource's `Conditions` field is the authoritative signal for deployment health. A healthy site shows `Ready: true`; if something is wrong, the condition message will point you toward the cause:
+
 ```bash
 # View Site status and conditions
 kubectl describe site main -n posit-team
 ```
-
-Look for `Conditions` in the output — a healthy site shows `Ready: true`.
 
 ### Product Pods
 
@@ -330,6 +338,8 @@ kubectl logs -n posit-team deploy/main-workbench -c workbench --tail=50
 
 ### Database Provisioning
 
+The operator tracks per-product database provisioning through `PostgresDatabase` resources. If a product is stuck starting up, checking these resources will tell you whether the database creation step succeeded:
+
 ```bash
 # Check PostgresDatabase resources
 kubectl get postgresdatabases -n posit-team
@@ -340,7 +350,7 @@ kubectl describe postgresdatabase <name> -n posit-team
 
 ### CSI Driver Issues
 
-**Symptom:** PVCs stuck in `Pending`, pod events show `MountVolume.SetUp failed`.
+If PVCs are stuck in `Pending` and pod events show `MountVolume.SetUp failed`, the most common cause on AKS is a network connectivity problem between the cluster and the storage account. Azure Files NFS requires the cluster nodes to reach the storage account over NFS (port 2049) — if the storage account has a firewall or is in a restricted VNet, this traffic needs to be explicitly allowed.
 
 ```bash
 # Verify Azure Files CSI driver pods are running
@@ -350,13 +360,11 @@ kubectl get pods -n kube-system -l app=csi-azurefile-node
 kubectl logs -n kube-system -l app=csi-azurefile-node -c azurefile
 ```
 
-Azure Files NFS requires the cluster to have network access to the storage account. Verify the storage account's firewall allows traffic from the AKS subnet.
+Verify the storage account's firewall allows traffic from the AKS subnet.
 
 ### Node Scheduling (CriticalAddonsOnly Taint)
 
-**Symptom:** Operator pod stays `Pending`, `kubectl describe pod` shows `node(s) had taints that the pod didn't tolerate`.
-
-Add the `CriticalAddonsOnly` toleration to your Helm values (see Step 1) and upgrade:
+If the operator pod stays `Pending` and `kubectl describe pod` shows `node(s) had taints that the pod didn't tolerate`, your cluster is using a system-only node pool with the `CriticalAddonsOnly` taint. Add the toleration to your Helm values (see Step 1) and upgrade:
 
 ```bash
 helm upgrade team-operator \
@@ -369,7 +377,7 @@ See the [Troubleshooting Guide](troubleshooting.md#operator-pod-stuck-in-pending
 
 ### DNS Resolution
 
-**Symptom:** Products load but OIDC callbacks fail, or products cannot reach each other.
+If products load but OIDC callbacks fail, or products cannot reach each other by hostname, the issue is usually that DNS records haven't been created yet or are pointing at the wrong IP. You can verify resolution from inside the cluster — this rules out local DNS configuration as a factor:
 
 ```bash
 # Test DNS from within the cluster
@@ -381,13 +389,11 @@ Ensure your DNS records (wildcard or per-product) point to the Traefik LoadBalan
 
 ### Storage Account Permissions
 
-**Symptom:** Azure Files PVC stuck in `Pending`, CSI driver logs show `403 Forbidden` or `AuthorizationFailed`.
-
-Verify the cluster's kubelet managed identity has **Storage Account Contributor** on the storage account (see Step 3). Changes to role assignments can take a few minutes to propagate.
+If an Azure Files PVC is stuck in `Pending` and CSI driver logs show `403 Forbidden` or `AuthorizationFailed`, the kubelet managed identity is missing the **Storage Account Contributor** role on the storage account. Role assignment changes can take a few minutes to propagate in Azure — if you just assigned the role in Step 3, wait two to three minutes and then delete and recreate the PVC to retry.
 
 ### Database Connection Failures
 
-**Symptom:** Operator logs show `error determining database url` or `postgres database no main database url found`.
+If operator logs show `error determining database url` or `postgres database no main database url found`, the workload secret either doesn't exist or uses a different key name than the operator expects. The key must be exactly `main-database-url`:
 
 ```bash
 # Verify the workload secret exists and has the correct key
@@ -397,7 +403,7 @@ kubectl get secret workload-secrets -n posit-team -o jsonpath='{.data.main-datab
 kubectl logs -n posit-team-system deployment/team-operator-controller-manager --tail=100 | grep -i database
 ```
 
-Ensure the PostgreSQL server's firewall allows inbound connections from the AKS node CIDR.
+If the secret looks correct but connections still fail, verify the PostgreSQL server's firewall allows inbound connections from the AKS node CIDR.
 
 ## Related Documentation
 
