@@ -172,6 +172,44 @@ spec:
 | `kubernetes` | Standard Kubernetes Secrets |
 | `aws` | AWS Secrets Manager |
 
+### Pre-flight Secret Checklist
+
+Before creating a Site CR, ensure the required keys are present in each secret. The operator reads specific keys based on which products are enabled — missing keys cause reconciliation failures.
+
+| Secret | Key | Required When |
+|--------|-----|---------------|
+| Site secret (`spec.secret`) | `pub-db-password` | Connect enabled |
+| Site secret (`spec.secret`) | `pub-secret-key` | Connect enabled |
+| Site secret (`spec.secret`) | `pub-license` | Connect enabled with `secret.type: kubernetes` |
+| Site secret (`spec.secret`) | `pub-client-secret` | Connect + OIDC authentication |
+| Site secret (`spec.secret`) | `dev-db-password` | Workbench enabled |
+| Site secret (`spec.secret`) | `dev-license` | Workbench enabled with `secret.type: kubernetes` |
+| Site secret (`spec.secret`) | `dev-admin-token` | Workbench enabled |
+| Site secret (`spec.secret`) | `dev-user-token` | Workbench enabled |
+| Site secret (`spec.secret`) | `dev-client-secret` | Workbench + OIDC authentication |
+| Site secret (`spec.secret`) | `pkg-db-password` | Package Manager enabled |
+| Site secret (`spec.secret`) | `pkg-secret-key` | Package Manager enabled |
+| Site secret (`spec.secret`) | `pkg-license` | Package Manager enabled with `secret.type: kubernetes` |
+| Workload secret (`spec.workloadSecret`) | `main-database-url` | Always required |
+| DB credential secret (`spec.mainDatabaseCredentialSecret`) | `username` | Always required |
+| DB credential secret (`spec.mainDatabaseCredentialSecret`) | `password` | Always required |
+
+Example for a Kubernetes-backed site secret with Workbench and Connect enabled:
+
+```bash
+kubectl create secret generic site-secrets \
+  --namespace posit-team \
+  --from-literal=pub-db-password='<connect-db-password>' \
+  --from-literal=pub-secret-key='<connect-secret-key>' \
+  --from-literal=pub-license='<connect-license-key>' \
+  --from-literal=dev-db-password='<workbench-db-password>' \
+  --from-literal=dev-license='<workbench-license-key>' \
+  --from-literal=dev-admin-token='<workbench-admin-token>' \
+  --from-literal=dev-user-token='<workbench-user-token>'
+```
+
+See [Authentication Setup](authentication-setup.md) for OIDC client secret configuration.
+
 ### Storage Configuration
 
 #### Volume Source Types
