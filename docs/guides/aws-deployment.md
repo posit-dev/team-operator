@@ -48,10 +48,16 @@ When Team Operator reads secrets from AWS Secrets Manager, it uses the identity 
 watchNamespace: posit-team
 
 controllerManager:
+  container:
+    env:
+      WATCH_NAMESPACES: "posit-team"
+      AWS_REGION: "<YOUR_AWS_REGION>"  # e.g., us-east-1; defaults to us-east-2 if unset
   serviceAccount:
     annotations:
       eks.amazonaws.com/role-arn: "arn:aws:iam::<ACCOUNT_ID>:role/team-operator-role"
 ```
+
+Set `AWS_REGION` to the region where your EKS cluster runs. The operator uses this when constructing Secrets Manager ARNs and EFS mount targets. If omitted, it defaults to `us-east-2`.
 
 The IAM role needs at minimum the ability to read secrets from Secrets Manager:
 
