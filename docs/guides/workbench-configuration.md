@@ -29,9 +29,13 @@ When configured via a Site resource, Workbench does the following:
 5. [Data Integrations](#data-integrations)
 6. [Session Customization](#session-customization)
 7. [Non-Root Execution Mode](#non-root-execution-mode)
-8. [Experimental Features](#experimental-features)
-9. [Example Configurations](#example-configurations)
-10. [Troubleshooting](#troubleshooting)
+8. [SCIM User Provisioning](#scim-user-provisioning)
+9. [Audited Jobs](#audited-jobs)
+10. [Additional Configuration Files](#additional-configuration-files)
+11. [Pod Disruption Budgets](#pod-disruption-budgets)
+12. [Experimental Features](#experimental-features)
+13. [Example Configurations](#example-configurations)
+14. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -674,6 +678,167 @@ spec:
     experimentalFeatures:
       launcherEnvPath: "/opt/R/4.3/bin:/opt/python/3.11/bin:/usr/local/bin:/usr/bin:/bin"
 ```
+
+### Session Config (Advanced)
+
+For fine-grained control over session pod configuration — labels, annotations, volumes, security contexts, sidecar containers, and dynamic labeling — use the `sessionConfig` block. This is the same structure used by Connect's session configuration.
+
+```yaml
+spec:
+  workbench:
+    sessionConfig:
+      # Service configuration for session networking
+      service:
+        labels:
+          custom-label: value
+
+      # Pod configuration for session jobs
+      pod:
+        annotations:
+          prometheus.io/scrape: "true"
+
+        labels:
+          team: data-science
+
+        # Dynamic labels generated from runtime session fields (requires template v2.5.0+)
+        dynamicLabels:
+          - field: "user"
+            labelKey: "posit.team/session-user"
+          - field: "args"
+            match: "--r-version=([0-9.]+)"
+            trimPrefix: "--r-version="
+            labelPrefix: "posit.team/r-version-"
+            labelValue: "true"
+
+        # Additional volumes
+        volumes:
+          - name: shared-data
+            persistentVolumeClaim:
+              claimName: shared-data-pvc
+        volumeMounts:
+          - name: shared-data
+            mountPath: /mnt/shared
+
+        # Node selection and tolerations
+        nodeSelector:
+          workload: workbench-sessions
+        tolerations:
+          - key: "dedicated"
+            operator: "Equal"
+            value: "workbench-sessions"
+            effect: "NoSchedule"
+
+      # Job-level labels
+      job:
+        labels:
+          job-type: workbench-session
+```
+
+**Dynamic Labels** allow the launcher to stamp session pods with labels derived from runtime context (the username, R version, session arguments, etc.). Rules use either a direct field-to-label mapping (`labelKey`) or a regex pattern (`match` + `labelPrefix`). At most 20 rules and 200 total regex-matched labels are applied per session; excess matches are dropped and a `posit.team/dynamic-label-cap-reached` annotation is set on the pod.
+
+---
+
+## SCIM User Provisioning
+
+SCIM (System for Cross-domain Identity Management) allows your IdP to automatically provision, update, and deprovision user accounts in Workbench. This requires SSO (OIDC or SAML) to be configured first.
+
+```yaml
+spec:
+  workbench:
+    scim:
+      # Enable SCIM user provisioning
+      enabled: true
+
+      # Optional: name of an existing Kubernetes Secret containing the SCIM bearer token.
+      # The secret must have a key named "token".
+      # If omitted, the operator generates a random token stored as "<workbench-name>-scim-token".
+      tokenSecretName: "my-scim-token"
+```
+
+When `enabled: true` and no `tokenSecretName` is provided, the operator creates a Kubernetes Secret named `<workbench-name>-scim-token` containing the generated bearer token. Configure your IdP to send SCIM requests to `https://<workbench-url>/scim/v2/` with that token as the `Authorization: Bearer` header.
+
+**Requirements:**
+- OIDC or SAML authentication must be configured
+- `createUsersAutomatically` should be `false` when SCIM is managing user provisioning
+
+---
+
+## Audited Jobs
+
+Audited Jobs records digital signatures and execution details alongside job output, giving you a tamper-evident audit trail for Workbench sessions. This requires the Advanced product tier.
+
+```yaml
+spec:
+  workbench:
+    auditedJobs:
+      # Enable audited jobs (0=disabled, 1=enabled)
+      enabled: 1
+
+      # Directory for audit data (must be on a persistent volume)
+      storagePath: "/mnt/audit-data"
+
+      # RSA private key path for signing job records
+      privateKeyPath: "/etc/rstudio/audit-key.pem"
+
+      # RSA public key path(s) for verification (comma-separated for multiple keys)
+      publicKeyPaths: "/etc/rstudio/audit-key-pub.pem"
+
+      # Maximum number of audit log entries to retain
+      logLimit: 10000
+
+      # Days before completed audited jobs are deleted
+      deletionExpiry: 90
+```
+
+See the [Posit Workbench Audited Jobs documentation](https://docs.posit.co/ide/server-pro/admin/auditing_and_monitoring/audited_workbench_jobs.html) for full details on key generation and verification.
+
+---
+
+## Additional Configuration Files
+
+For settings not directly exposed as typed fields, you can append raw configuration content to the Workbench server config files (`rserver.conf`, `launcher.conf`, etc.) and session config files (`rsession.conf`, `repos.conf`, etc.).
+
+### Server Configuration
+
+```yaml
+spec:
+  workbench:
+    # Keys are config file names; values are raw config content appended to each file.
+    additionalConfigs:
+      rserver.conf: |
+        [rsession]
+        session-timeout-minutes=240
+      launcher.conf: |
+        [launcher]
+        address=localhost
+```
+
+### Session Configuration
+
+```yaml
+spec:
+  workbench:
+    # Appended to session-level config files (rsession.conf, repos.conf, etc.)
+    additionalSessionConfigs:
+      rsession.conf: |
+        r-cran-repos=https://cran.rstudio.com/
+      repos.conf: |
+        CRAN=https://packagemanager.example.com/cran/latest
+```
+
+Both `additionalConfigs` and `additionalSessionConfigs` append content after all operator-managed settings. If a key already exists in the generated file, appending a duplicate section will override earlier values (gcfg last-wins semantics).
+
+---
+
+## Pod Disruption Budgets
+
+The operator automatically creates two PodDisruptionBudgets for every Workbench deployment:
+
+**Server PDB** (`<site>-workbench`): Protects the Workbench server pod(s) during cluster maintenance. When `replicas > 1`, `minAvailable` is set to 1. When `replicas = 1`, `minAvailable` is 0 (allows voluntary disruption of a single-replica deployment).
+
+**Session PDB** (`<site>-workbench-sessions`): Protects all active Workbench session pods with `maxUnavailable: 0`, preventing sessions from being evicted during node drains or cluster upgrades. This ensures users do not lose active R or Python sessions unexpectedly.
+
+These PDBs are managed automatically and do not require any configuration.
 
 ---
 

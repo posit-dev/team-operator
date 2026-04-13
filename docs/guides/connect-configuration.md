@@ -141,7 +141,7 @@ spec:
 
 ### Resource Scaling
 
-Running multiple replicas distributes incoming requests and improves availability. The operator automatically creates a PodDisruptionBudget based on replica count to ensure at least one pod remains available during cluster maintenance or rolling updates.
+Running multiple replicas distributes incoming requests and improves availability. The operator automatically creates a PodDisruptionBudget for every Connect deployment. When `replicas > 1`, `minAvailable` is set to 1, ensuring at least one pod remains available during voluntary cluster disruptions such as node drains or rolling updates. When `replicas = 1`, `minAvailable` is 0, allowing the single pod to be disrupted.
 
 ```yaml
 spec:
@@ -376,6 +376,18 @@ spec:
         - "platform-admins"
 ```
 
+### User Registration on First Login
+
+By default, new OIDC users are not automatically registered in Connect when they first log in. Set `registerOnFirstLogin: true` to have Connect create an account for any user whose identity is successfully validated by the IdP.
+
+```yaml
+spec:
+  connect:
+    registerOnFirstLogin: true
+```
+
+This only applies when `auth.type` is `oidc`. It has no effect for SAML or password authentication.
+
 ---
 
 ## Database Configuration
@@ -580,7 +592,28 @@ images:
           version: "1.3.340"
 ```
 
-**Custom Runtime Images:** To add custom runtime images, modify the Connect CR directly (advanced use case) or use the Connect admin interface after deployment.
+### Additional Runtime Images
+
+Use `additionalRuntimeImages` to extend the default set of runtime images without replacing the built-in defaults. Each entry specifies the R, Python, Quarto, and OS versions — the operator constructs the image name from those components using `ghcr.io/rstudio/content-pro` (or a custom `repo`) as the base.
+
+```yaml
+spec:
+  connect:
+    additionalRuntimeImages:
+      - rVersion: "4.5.0"
+        pyVersion: "3.13.0"
+        osVersion: "ubuntu2204"
+        quartoVersion: "1.6.0"
+        # Optional: override the default repository
+        repo: "my-registry.example.com/content-pro"
+
+      - rVersion: "4.4.2"
+        pyVersion: "3.12.5"
+        osVersion: "ubuntu2204"
+        quartoVersion: "1.5.0"
+```
+
+These images are appended after the built-in defaults in `runtime.yaml`, so all existing runtime entries remain available.
 
 ### Additional Volumes for Sessions
 
@@ -934,6 +967,23 @@ spec:
 ```
 
 **Note:** The `secret://` prefix triggers the operator to create CSI secret mounts for AWS Secrets Manager values.
+
+### Additional Configuration
+
+For settings not directly exposed as typed fields, you can append raw gcfg content to the generated `rstudio-connect.gcfg`. This content is placed after all operator-managed settings, so it can override earlier values (gcfg last-wins semantics for duplicate keys).
+
+```yaml
+spec:
+  connect:
+    additionalConfig: |
+      [Applications]
+      BundleRetentionLimit=5
+
+      [Server]
+      SessionTimeout=1h
+```
+
+Use this sparingly — prefer typed fields when they exist, and be aware that operator upgrades may add or change generated config that interacts with these overrides.
 
 ---
 

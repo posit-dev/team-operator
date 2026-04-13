@@ -506,6 +506,23 @@ R versions available for building packages:
 RVersion = /opt/R/default
 ```
 
+### Additional Configuration
+
+For settings not exposed as typed fields, you can append raw gcfg content to the generated `rstudio-pm.gcfg`. This content is placed after all operator-managed settings (gcfg last-wins semantics for duplicate keys).
+
+```yaml
+spec:
+  packageManager:
+    additionalConfig: |
+      [Licensing]
+      MaxConnectionAttempts=10
+
+      [Git]
+      SshTimeout=60
+```
+
+Use this sparingly — prefer typed fields when they exist, and note that operator upgrades may add generated config that interacts with these overrides.
+
 ## Secret Management
 
 Package Manager requires three secrets at runtime: the license, an encryption key for sensitive data, and the database password. The operator retrieves these from the secret backend you configured at the Site level — either AWS Secrets Manager or a Kubernetes Secret.
@@ -559,7 +576,7 @@ resources:
 
 ### Pod Disruption Budget
 
-A PodDisruptionBudget is created to maintain availability during cluster maintenance. For single-replica deployments, `minAvailable: 0`. For multi-replica deployments, the operator calculates an appropriate `minAvailable` value.
+The operator automatically creates a PodDisruptionBudget for every Package Manager deployment. When `replicas > 1`, `minAvailable` is set to 1, ensuring at least one replica stays available during voluntary cluster disruptions (node drains, rolling upgrades). When `replicas = 1`, `minAvailable` is 0, allowing the single pod to be voluntarily disrupted. No configuration is required — the PDB is managed automatically.
 
 ### Affinity
 
