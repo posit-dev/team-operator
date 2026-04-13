@@ -220,7 +220,7 @@ helm-package:
 
 # Generate docs/api-reference.md from CRD schemas
 docs-api-ref:
-  pip install pyyaml -q
+  pip install --user pyyaml==6.0.2 -q
   python3 website/scripts/generate-api-reference.py \
     --crd-dir config/crd/bases \
     --output docs/api-reference.md

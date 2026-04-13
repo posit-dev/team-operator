@@ -28,13 +28,12 @@ export default defineConfig({
       head: [
         {
           tag: 'script',
-          attrs: { 'is:inline': true },
           content: `
             localStorage.setItem('starlight-theme', 'light');
             document.documentElement.dataset.theme = 'light';
-            window.StarlightThemeProvider = {
-              updatePickers(theme) { document.documentElement.dataset.theme = 'light'; }
-            };
+            window.StarlightThemeProvider = new Proxy({}, {
+              get: () => () => { document.documentElement.dataset.theme = 'light'; }
+            });
           `.trim(),
         },
       ],

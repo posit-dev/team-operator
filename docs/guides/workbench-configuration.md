@@ -28,11 +28,11 @@ When configured via a Site resource, Workbench does the following:
 4. [IDE Configuration](#ide-configuration)
 5. [Data Integrations](#data-integrations)
 6. [Session Customization](#session-customization)
-7. [Non-Root Execution Mode](#non-root-execution-mode)
-8. [SCIM User Provisioning](#scim-user-provisioning)
-9. [Audited Jobs](#audited-jobs)
-10. [Additional Configuration Files](#additional-configuration-files)
-11. [Pod Disruption Budgets](#pod-disruption-budgets)
+7. [SCIM User Provisioning](#scim-user-provisioning)
+8. [Audited Jobs](#audited-jobs)
+9. [Additional Configuration Files](#additional-configuration-files)
+10. [Pod Disruption Budgets](#pod-disruption-budgets)
+11. [Non-Root Execution Mode](#non-root-execution-mode)
 12. [Experimental Features](#experimental-features)
 13. [Example Configurations](#example-configurations)
 14. [Troubleshooting](#troubleshooting)
@@ -700,7 +700,7 @@ spec:
         labels:
           team: data-science
 
-        # Dynamic labels generated from runtime session fields (requires template v2.5.0+)
+        # Dynamic labels generated from runtime session fields (requires job template v2.5.0+)
         dynamicLabels:
           - field: "user"
             labelKey: "posit.team/session-user"
@@ -771,7 +771,9 @@ Audited Jobs records digital signatures and execution details alongside job outp
 spec:
   workbench:
     auditedJobs:
-      # Enable audited jobs (0=disabled, 1=enabled)
+      # Enable audited jobs. This field is an integer, not a boolean:
+      # 0 = disabled, 1 = enabled. This matches the underlying rserver.conf
+      # setting (audited-jobs=1), which Workbench treats as a numeric flag.
       enabled: 1
 
       # Directory for audit data (must be on a persistent volume)

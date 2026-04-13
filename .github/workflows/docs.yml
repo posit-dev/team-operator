@@ -13,6 +13,10 @@ on:
       - 'website/**'
       - 'config/crd/bases/**'
 
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -31,7 +35,7 @@ jobs:
 
       - name: Generate API reference
         run: |
-          pip install pyyaml
+          pip install pyyaml==6.0.2
           python website/scripts/generate-api-reference.py \
             --crd-dir config/crd/bases \
             --output docs/api-reference.md

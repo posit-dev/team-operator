@@ -9,7 +9,6 @@ the repo root or the website/ directory. Requires: pyyaml
 """
 
 import argparse, glob, os, sys
-from datetime import datetime, timezone
 
 try:
     import yaml
@@ -138,7 +137,6 @@ def main():
     crds.sort(key=lambda x: CRD_ORDER.index(x[0]) if x[0] in CRD_ORDER else len(CRD_ORDER))
 
     toc = [f"- [{crd['spec']['names']['kind']}](#{crd['spec']['names']['kind'].lower()})" for _, crd in crds]
-    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     header = [
         "---",
@@ -148,7 +146,7 @@ def main():
         "",
         "# Team Operator API Reference",
         "",
-        f"This document is auto-generated from the CRD schemas. Last updated: {generated_at}.",
+        "Auto-generated from CRD schemas.",
         "",
         "**API Group:** `core.posit.team`",
         "",

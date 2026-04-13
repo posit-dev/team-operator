@@ -51,7 +51,7 @@ On EKS, annotate the operator's ServiceAccount with an IAM role ARN. The role mu
 controllerManager:
   serviceAccount:
     annotations:
-      eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/team-operator-role"
+      eks.amazonaws.com/role-arn: "arn:aws:iam::<ACCOUNT_ID>:role/team-operator-role"
 ```
 
 ```bash
@@ -83,7 +83,7 @@ helm install team-operator oci://ghcr.io/posit-dev/charts/team-operator \
   --values values-azure.yaml
 ```
 
-For the full Azure infrastructure setup — including the managed identity, federated credential, and storage prerequisites — see the [AKS Deployment](./aks-deployment.md) guide.
+For the full Azure infrastructure setup — including the managed identity, federated credential, and storage prerequisites — see the AKS Deployment guide (coming soon).
 
 ## Verify the installation
 
@@ -112,4 +112,4 @@ You should see entries for `sites.core.posit.team`, `connects.core.posit.team`, 
 With the operator running, you are ready to create your first Posit Team deployment:
 
 - **[Site Management](./product-team-site-management.md)** — create a Site Custom Resource to deploy Workbench, Connect, Package Manager, and Chronicle
-- **[AKS Deployment](./aks-deployment.md)** — Azure-specific infrastructure prerequisites before creating a Site on AKS
+- **AKS Deployment** (coming soon) — Azure-specific infrastructure prerequisites before creating a Site on AKS
