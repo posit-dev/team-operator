@@ -85,21 +85,38 @@ kubectl create namespace posit-team
 
 ### Secret 1: Site Secret
 
-This secret holds product credentials and license keys. The operator reads specific keys based on which products are enabled in the `Site` CR; you only need to include the keys for the products you're deploying. Providing extra keys for disabled products is harmless, but missing a required key for an enabled product will cause that product's reconciliation to fail.
+This secret holds product credentials. The operator reads specific keys based on which products are enabled in the `Site` CR; you only need to include the keys for the products you're deploying. Providing extra keys for disabled products is harmless, but missing a required key for an enabled product will cause that product's reconciliation to fail.
 
 ```bash
 kubectl create secret generic site-secrets \
   --namespace posit-team \
   --from-literal=pub-db-password='<connect-db-password>' \
   --from-literal=pub-secret-key='<connect-secret-key>' \
-  --from-literal=pub-license='<connect-license-key>' \
   --from-literal=dev-db-password='<workbench-db-password>' \
-  --from-literal=dev-license='<workbench-license-key>' \
   --from-literal=dev-admin-token='<workbench-admin-token>' \
   --from-literal=dev-user-token='<workbench-user-token>' \
   --from-literal=pkg-db-password='<packagemanager-db-password>' \
-  --from-literal=pkg-secret-key='<packagemanager-secret-key>' \
-  --from-literal=pkg-license='<packagemanager-license-key>'
+  --from-literal=pkg-secret-key='<packagemanager-secret-key>'
+```
+
+> **Note:** `dev-admin-token` and `dev-user-token` are only required when Workbench uses OIDC authentication. For password auth they are not read, but including them is harmless.
+
+License keys use a separate mechanism. Instead of placing them in the site secret, each product references its license through `spec.<product>.license.existingSecretName` and `existingSecretKey` on the Site CR. You can store licenses in the same Kubernetes secret or in a dedicated one:
+
+```bash
+kubectl create secret generic site-secrets \
+  --namespace posit-team \
+  --from-literal=dev-license='<workbench-license-key>' \
+  # ... other keys from above
+```
+
+Then reference it in the Site CR (see Step 6):
+
+```yaml
+workbench:
+  license:
+    existingSecretName: site-secrets
+    existingSecretKey: dev-license
 ```
 
 Only include the keys for the products you are enabling. See the Pre-flight Secret Checklist in the [Site Management Guide](product-team-site-management.md#pre-flight-secret-checklist) for a full reference of required keys per product.
@@ -171,7 +188,8 @@ CLUSTER_IDENTITY=$(az aks show \
   --output tsv)
 
 az role assignment create \
-  --assignee "$CLUSTER_IDENTITY" \
+  --assignee-object-id "$CLUSTER_IDENTITY" \
+  --assignee-principal-type ServicePrincipal \
   --role "Storage Account Contributor" \
   --scope /subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.Storage/storageAccounts/<sa-name>
 ```
@@ -222,7 +240,7 @@ providers:
 ```
 
 ```bash
-helm repo add traefik https://helm.traefik.io/traefik
+helm repo add traefik https://traefik.github.io/charts
 helm repo update
 
 helm install traefik traefik/traefik \
@@ -255,13 +273,13 @@ metadata:
   name: main
   namespace: posit-team
 spec:
-  # Base domain — products are available at <prefix>.<domain>
+  # Base domain: products are available at <prefix>.<domain>
   domain: posit.example.com
 
-  # Ingress class — must match the Traefik deployment
+  # Ingress class: must match the Traefik deployment
   ingressClass: traefik
 
-  # Site-level secret (DB passwords, license keys, OIDC client secrets)
+  # Site-level secret (DB passwords, encryption keys, OIDC client secrets)
   secret:
     type: kubernetes
     vaultName: site-secrets
@@ -282,7 +300,10 @@ spec:
     image: "ghcr.io/rstudio/rstudio-workbench:ubuntu2204-2025.12.0"  # Check https://ghcr.io/rstudio/rstudio-workbench for the latest tag
     replicas: 1
     auth:
-      type: password  # Change to "oidc" for SSO — see authentication-setup.md
+      type: password  # Change to "oidc" for SSO; see authentication-setup.md
+    license:
+      existingSecretName: site-secrets
+      existingSecretKey: dev-license
     volume:
       create: true
       size: 100Gi
