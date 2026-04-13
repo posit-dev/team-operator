@@ -6,10 +6,12 @@ on:
     paths:
       - 'docs/**'
       - 'website/**'
+      - 'config/crd/bases/**'
   pull_request:
     paths:
       - 'docs/**'
       - 'website/**'
+      - 'config/crd/bases/**'
 
 jobs:
   build:
@@ -22,6 +24,17 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: website/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Generate API reference
+        run: |
+          pip install pyyaml
+          python website/scripts/generate-api-reference.py \
+            --crd-dir config/crd/bases \
+            --output docs/api-reference.md
 
       - name: Install dependencies
         working-directory: website
