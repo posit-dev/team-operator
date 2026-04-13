@@ -2,23 +2,23 @@
 
 ## Overview
 
-This guide walks you through deploying Posit Team on Azure Kubernetes Service using Team Operator — without the PTD CLI. If you're familiar with Kubernetes but new to Team Operator, here's the mental model: Team Operator is a Kubernetes controller that watches a single `Site` Custom Resource and reconciles it into everything Posit Team needs to run — deployments, services, ingress routes, database schemas, and storage. You declare what you want; the operator makes it so.
+Team Operator is a Kubernetes controller that watches a single `Site` Custom Resource Definition (CRD) and reconciles it into everything Posit Team needs to run: deployments, services, ingress routes, database schemas, and storage. You declare what you want; the operator makes it so. This guide covers deploying Posit Team on Azure Kubernetes Service (AKS) using Team Operator. No PTD CLI required.
 
-The journey has six steps before products start up: install the operator, create the secrets it reads, configure shared storage for Workbench home directories, verify the database connection, deploy Traefik for ingress, and finally apply the `Site` CR. Each step builds on the last — you cannot create the `Site` CR until the preceding infrastructure is in place, and the operator will tell you (through `Site` conditions) if something is missing.
+The journey has six steps before products start up: install the operator, create the secrets it reads, configure shared storage for Workbench home directories, verify the database connection, deploy Traefik for ingress, and finally apply the `Site` CR. Each step builds on the last. You cannot create the `Site` CR until the preceding infrastructure is in place, and the operator will tell you (through `Site` conditions) if something is missing.
 
-By the end, you'll have a running Workbench instance accessible through Traefik at your chosen domain. Connect and Package Manager can be enabled in the same `Site` CR once the initial deployment is stable.
+Posit Workbench is the first product enabled in the example below. Posit Connect and Posit Package Manager can be enabled in the same `Site` CR once the initial deployment is stable.
 
 For product-specific configuration (OIDC, Databricks, custom session images, etc.), see the guides linked in each step.
 
 ## Prerequisites
 
-- AKS cluster running Kubernetes 1.29+ with the **Azure Files CSI driver** enabled (enabled by default on AKS 1.21+)
-- **Azure Database for PostgreSQL Flexible Server** reachable from the cluster — either VNet-injected (subnet delegation to `Microsoft.DBforPostgreSQL/flexibleServers`) or via private endpoint
-- **Traefik** ingress controller — Team Operator generates Traefik-specific `Middleware` and `IngressRoute` CRDs; other ingress controllers are not supported
+- AKS cluster running Kubernetes 1.29+ with the Azure Files Container Storage Interface (CSI) driver enabled (enabled by default on AKS 1.21+)
+- Azure Database for PostgreSQL Flexible Server reachable from the cluster: either Virtual Network (VNet)-injected (subnet delegation to `Microsoft.DBforPostgreSQL/flexibleServers`) or via private endpoint
+- Traefik ingress controller. Team Operator generates Traefik-specific `Middleware` and `IngressRoute` CRDs; Team Operator does not support other ingress controllers
 - `kubectl` configured against the target cluster
 - Helm 3.x
 
-## Step 1: Install the Operator
+## Step 1: Install the operator {#install-the-operator}
 
 The operator runs in its own namespace (`posit-team-system`) and watches the `posit-team` namespace where product workloads live. Installing it first ensures the CRDs are registered before you try to create a `Site` resource.
 
@@ -31,7 +31,7 @@ helm install team-operator \
 
 ### AKS System Node Pool Toleration
 
-AKS system node pools carry a `CriticalAddonsOnly=Exists:NoSchedule` taint by default. If you are running a system-only node pool (no user pool configured), the operator pod will stay `Pending` without a matching toleration. If that's your setup, create a values file and pass it during installation:
+AKS system node pools carry a `CriticalAddonsOnly=Exists:NoSchedule` taint by default. If you are running a system-only node pool (no user pool configured), the operator pod will stay `Pending` without a matching toleration. Create a values file and pass it during installation:
 
 ```yaml
 # azure-values.yaml
@@ -67,15 +67,17 @@ controllerManager:
       azure.workload.identity/use: "true"
 ```
 
-Once installed, verify the operator pod reaches `Running` before moving on — the CRDs it registers are required by every subsequent step:
+Once installed, verify the operator pod reaches `Running` before moving on. The CRDs it registers are required by every subsequent step:
 
 ```bash
 kubectl get pods -n posit-team-system
 ```
 
-## Step 2: Create Kubernetes Secrets
+## Step 2: Create Kubernetes secrets {#create-kubernetes-secrets}
 
-Team Operator reads credentials from three Kubernetes secrets in the `posit-team` namespace. These secrets must exist before you create the `Site` CR; the operator will error immediately during reconciliation if any of them are missing or have incorrect keys. Create the namespace first so the secrets have somewhere to live:
+Team Operator reads credentials from three Kubernetes secrets in the `posit-team` namespace.
+
+> **Important:** All three secrets must exist in the `posit-team` namespace before you create the Site CR. The operator checks for them immediately during reconciliation.
 
 ```bash
 kubectl create namespace posit-team
@@ -83,7 +85,7 @@ kubectl create namespace posit-team
 
 ### Secret 1: Site Secret
 
-This secret holds product credentials and license keys. The operator reads specific keys based on which products are enabled in the `Site` CR — so you only need to include the keys for the products you're deploying. Providing extra keys for disabled products is harmless, but missing a required key for an enabled product will cause that product's reconciliation to fail.
+This secret holds product credentials and license keys. The operator reads specific keys based on which products are enabled in the `Site` CR; you only need to include the keys for the products you're deploying. Providing extra keys for disabled products is harmless, but missing a required key for an enabled product will cause that product's reconciliation to fail.
 
 ```bash
 kubectl create secret generic site-secrets \
@@ -116,7 +118,7 @@ Replace `<fqdn>` with your Azure PostgreSQL Flexible Server hostname (e.g., `mys
 
 ### Secret 3: Database Credential Secret
 
-The operator uses these credentials to connect to PostgreSQL as a superuser and provision per-product databases and roles during initial startup. The admin user must have `CREATE ROLE` and `CREATE DATABASE` privileges. Once provisioning is complete, each product connects using its own role — these superuser credentials are only used during setup and schema migrations.
+The operator uses these credentials to connect to PostgreSQL as a superuser and provision per-product databases and roles during initial startup. The admin user must have `CREATE ROLE` and `CREATE DATABASE` privileges. Once provisioning is complete, each product connects using its own role. These superuser credentials are only used during setup and schema migrations.
 
 ```bash
 kubectl create secret generic db-credentials \
@@ -125,13 +127,13 @@ kubectl create secret generic db-credentials \
   --from-literal=password='<db-admin-password>'
 ```
 
-## Step 3: Configure Storage
+## Step 3: Configure storage {#configure-storage}
 
-Workbench requires `ReadWriteMany` storage for user home directories — multiple Workbench pods (and optionally Connect) need to mount the same volume simultaneously. Azure Files NFS is the recommended option on AKS because it supports `ReadWriteMany` natively without requiring a separate NFS server.
+Workbench requires `ReadWriteMany` storage for user home directories. Multiple Workbench pods (and optionally Connect) need to mount the same volume simultaneously. Azure Files Network File System (NFS) is the recommended option on AKS because it supports `ReadWriteMany` natively without requiring a separate NFS server.
 
 ### Create a StorageClass for Azure Files NFS
 
-This StorageClass tells the Azure Files CSI driver to provision NFS-protocol file shares using Premium LRS. The `Retain` reclaim policy means deleting a PVC will not automatically delete the underlying file share — an important safeguard for user data.
+This StorageClass tells the Azure Files CSI driver to provision NFS-protocol file shares using Premium LRS. The `Retain` reclaim policy means deleting a PVC will not automatically delete the underlying file share, which is an important safeguard for user data.
 
 ```yaml
 # azure-files-nfs-sc.yaml
@@ -152,7 +154,7 @@ allowVolumeExpansion: true
 kubectl apply -f azure-files-nfs-sc.yaml
 ```
 
-### IAM Requirements
+### Identity and Access Management (IAM) Requirements
 
 The CSI driver provisions file shares on behalf of the cluster using the AKS kubelet managed identity. Without the right roles on your storage account, PVC creation will fail with a permissions error. Assign the required roles now, before the `Site` CR triggers PVC creation:
 
@@ -178,9 +180,9 @@ az role assignment create \
 
 If you need a shared directory mounted across Workbench and Connect (e.g., for shared project data), create a PersistentVolume backed by a pre-provisioned Azure Files share **before** creating the Site CR. The Site controller will look for the PV when `sharedDirectory` is configured.
 
-## Step 4: Configure the Database Connection
+## Step 4: Configure the database connection {#configure-the-database-connection}
 
-Azure Database for PostgreSQL Flexible Server requires `sslmode=require` in the connection string — connections without SSL will be rejected. The operator reads the database host from the workload secret (`main-database-url`) you created in Step 2 and the admin credentials from the DB credential secret. No additional configuration is needed here unless your PostgreSQL server uses VNet injection.
+Azure Database for PostgreSQL Flexible Server requires `sslmode=require` in the connection string. Connections without SSL will be rejected. The operator reads the database host from the workload secret (`main-database-url`) you created in Step 2 and the admin credentials from the DB credential secret. No additional configuration is needed here unless your PostgreSQL server uses VNet injection.
 
 Connection string format:
 
@@ -200,9 +202,9 @@ The operator creates per-product databases (e.g., `connect`, `workbench`, `packa
 
 If your PostgreSQL server uses VNet injection, ensure the AKS subnet and the PostgreSQL subnet are in the same VNet (or peered), and that the PostgreSQL subnet has a delegation to `Microsoft.DBforPostgreSQL/flexibleServers`.
 
-## Step 5: Deploy Traefik
+## Step 5: Deploy Traefik {#deploy-traefik}
 
-Team Operator generates Traefik `Middleware` and `IngressRoute` custom resources for each product. Traefik must be deployed and its CRDs must be registered in the cluster before you create the `Site` CR — if the CRDs don't exist when the operator tries to create ingress routes, reconciliation will fail and stay failed until Traefik is present.
+Team Operator generates Traefik `Middleware` and `IngressRoute` custom resources for each product. Traefik must be deployed and its CRDs must be registered in the cluster before you create the `Site` CR. If the CRDs don't exist when the operator tries to create ingress routes, reconciliation will fail and will not recover until Traefik is present.
 
 Deploy Traefik using Helm. The `allowCrossNamespace: true` setting is required because the operator creates `IngressRoute` resources in the `posit-team` namespace that reference middlewares in other namespaces:
 
@@ -229,7 +231,7 @@ helm install traefik traefik/traefik \
   --values traefik-values.yaml
 ```
 
-Once Traefik is running, retrieve the external IP assigned to its LoadBalancer service and create DNS records pointing to it before products become accessible:
+Once Traefik is running, retrieve the external IP assigned to its LoadBalancer service and create Domain Name System (DNS) records pointing to it before products become accessible:
 
 ```bash
 kubectl get svc traefik -n posit-team
@@ -237,9 +239,11 @@ kubectl get svc traefik -n posit-team
 
 Create a wildcard DNS record (or individual records for each product subdomain) pointing to that IP.
 
-## Step 6: Create the Site CR
+## Step 6: Create the Site CR {#create-the-site-cr}
 
-With secrets, storage, database, and Traefik in place, you're ready to tell Team Operator what to deploy. The `Site` CR is the single resource the operator watches — everything else (deployments, services, ingress routes, databases) flows from it.
+> **Important:** Deploy Traefik and verify its CRDs are registered before creating the Site CR. The operator creates Traefik-specific resources during reconciliation and will fail if the CRDs are missing.
+
+With secrets, storage, database, and Traefik in place, you're ready to tell Team Operator what to deploy. The `Site` CR is the single resource the operator watches. Everything else (deployments, services, ingress routes, databases) flows from it.
 
 The following example enables Workbench with Azure Files NFS storage and disables Connect and Package Manager for an initial deployment. Starting with one product lets you validate the full stack before enabling additional products:
 
@@ -301,9 +305,9 @@ kubectl apply -f site.yaml -n posit-team
 
 For full Site spec options including OIDC auth, session images, node selectors, and shared storage, see the [Site Management Guide](product-team-site-management.md).
 
-## Step 7: Verify the Deployment
+## Step 7: Verify the deployment {#verify-the-deployment}
 
-After applying the `Site` CR, the operator begins reconciling — provisioning databases, creating PVCs, deploying pods, and setting up ingress. Reconciliation takes a minute or two on first run. Use the following commands to follow the progress.
+After applying the `Site` CR, the operator begins reconciling: provisioning databases, creating PVCs, deploying pods, and setting up ingress. Reconciliation takes a minute or two on first run. Use the following commands to follow the progress.
 
 ### Operator
 
@@ -350,7 +354,7 @@ kubectl describe postgresdatabase <name> -n posit-team
 
 ### CSI Driver Issues
 
-If PVCs are stuck in `Pending` and pod events show `MountVolume.SetUp failed`, the most common cause on AKS is a network connectivity problem between the cluster and the storage account. Azure Files NFS requires the cluster nodes to reach the storage account over NFS (port 2049) — if the storage account has a firewall or is in a restricted VNet, this traffic needs to be explicitly allowed.
+If PVCs are stuck in `Pending` and pod events show `MountVolume.SetUp failed`, the most common cause on AKS is a network connectivity problem between the cluster and the storage account. Azure Files NFS requires the cluster nodes to reach the storage account over NFS (port 2049). If the storage account has a firewall or is in a restricted VNet, this traffic needs to be explicitly allowed.
 
 ```bash
 # Verify Azure Files CSI driver pods are running
@@ -377,7 +381,7 @@ See the [Troubleshooting Guide](troubleshooting.md#operator-pod-stuck-in-pending
 
 ### DNS Resolution
 
-If products load but OIDC callbacks fail, or products cannot reach each other by hostname, the issue is usually that DNS records haven't been created yet or are pointing at the wrong IP. You can verify resolution from inside the cluster — this rules out local DNS configuration as a factor:
+If products load but OIDC callbacks fail, or products cannot reach each other by hostname, the issue is usually that DNS records haven't been created yet or are pointing at the wrong IP. You can verify resolution from inside the cluster to rule out local DNS configuration as a factor:
 
 ```bash
 # Test DNS from within the cluster
@@ -389,7 +393,7 @@ Ensure your DNS records (wildcard or per-product) point to the Traefik LoadBalan
 
 ### Storage Account Permissions
 
-If an Azure Files PVC is stuck in `Pending` and CSI driver logs show `403 Forbidden` or `AuthorizationFailed`, the kubelet managed identity is missing the **Storage Account Contributor** role on the storage account. Role assignment changes can take a few minutes to propagate in Azure — if you just assigned the role in Step 3, wait two to three minutes and then delete and recreate the PVC to retry.
+If an Azure Files PVC is stuck in `Pending` and CSI driver logs show `403 Forbidden` or `AuthorizationFailed`, the kubelet managed identity is missing the **Storage Account Contributor** role on the storage account. Role assignment changes can take a few minutes to propagate in Azure. If you just assigned the role in Step 3, wait two to three minutes and then delete and recreate the PVC to retry.
 
 ### Database Connection Failures
 
