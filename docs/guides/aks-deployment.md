@@ -6,7 +6,7 @@ Team Operator is a Kubernetes controller that watches a single `Site` Custom Res
 
 The journey has six steps before products start up: install the operator, create the secrets it reads, configure shared storage for Workbench home directories, verify the database connection, deploy Traefik for ingress, and finally apply the `Site` CR. Each step builds on the last. You cannot create the `Site` CR until the preceding infrastructure is in place, and the operator will tell you (through `Site` conditions) if something is missing.
 
-Posit Workbench is the first product enabled in the example below. Posit Connect and Posit Package Manager can be enabled in the same `Site` CR once the initial deployment is stable.
+Posit Workbench is the first product enabled in the example below. Posit Connect and Posit Package Manager can be enabled in the same `Site` CR once the initial deployment is stable. Note that Package Manager's OIDC configuration differs from Connect and Workbench; see the [Package Manager Configuration](packagemanager-configuration.md) guide for details.
 
 For product-specific configuration (OIDC, Databricks, custom session images, etc.), see the guides linked in each step.
 
@@ -131,7 +131,7 @@ kubectl create secret generic workload-secrets \
   --from-literal=main-database-url='postgresql://<fqdn>/<dbname>?sslmode=require'
 ```
 
-Replace `<fqdn>` with your Azure PostgreSQL Flexible Server hostname (e.g., `myserver.postgres.database.azure.com`) and `<dbname>` with your target database name.
+Replace `<fqdn>` with your Azure PostgreSQL Flexible Server hostname (e.g., `myserver.postgres.database.azure.com`) and `<dbname>` with your target database name. Do not include credentials in the URL; the operator injects them from the DB credential secret at runtime.
 
 ### Secret 3: Database Credential Secret
 
@@ -224,7 +224,7 @@ If your PostgreSQL server uses VNet injection, ensure the AKS subnet and the Pos
 
 Team Operator generates Traefik `Middleware` and `IngressRoute` custom resources for each product. Traefik must be deployed and its CRDs must be registered in the cluster before you create the `Site` CR. If the CRDs don't exist when the operator tries to create ingress routes, reconciliation will fail and will not recover until Traefik is present.
 
-Deploy Traefik using Helm. The `allowCrossNamespace: true` setting is required because the operator creates `IngressRoute` resources in the `posit-team` namespace that reference middlewares in other namespaces:
+Deploy Traefik using Helm. The `allowCrossNamespace: true` setting is required because the operator creates `IngressRoute` resources in the `posit-team` namespace that reference middlewares in other namespaces. In hardened environments, Traefik supports scoping cross-namespace access to specific namespaces rather than a blanket `true`; see the Traefik documentation for `allowCrossNamespace` with namespace filtering.
 
 ```yaml
 # traefik-values.yaml
@@ -308,6 +308,8 @@ spec:
       create: true
       size: 100Gi
       storageClassName: azure-files-nfs  # StorageClass from Step 3
+      accessModes:
+        - ReadWriteMany
 
   # Connect — disabled for initial deployment
   connect:

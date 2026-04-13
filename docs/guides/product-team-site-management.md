@@ -174,7 +174,7 @@ spec:
 
 ### Pre-flight Secret Checklist
 
-Before creating a Site CR, ensure the required keys are present in each secret. The operator reads specific keys based on which products are enabled — missing keys cause reconciliation failures.
+Before creating a Site CR, ensure the required keys are present in each secret. The operator reads specific keys based on which products are enabled; missing keys cause reconciliation failures. For product-specific optional keys (SMTP, Chronicle, Snowflake), see each product's configuration guide.
 
 | Secret | Key | Required When |
 |--------|-----|---------------|
