@@ -113,6 +113,8 @@ Choose based on what you're trying to do:
 
 **Installing or operating Team Operator**
 - [Installation Guide](guides/installation.md) — Installing Team Operator on Kubernetes using Helm
+- [AWS Deployment (EKS)](guides/aws-deployment.md) — Deploying Posit Team on Amazon EKS with IRSA, EFS, and RDS
+- [AKS Deployment](guides/aks-deployment.md) — Deploying Posit Team on Azure Kubernetes Service
 - [Site Management Guide](guides/product-team-site-management.md) — Creating, updating, and managing Site resources
 - [Upgrading Guide](guides/upgrading.md) — Upgrade procedures and version migrations
 - [Troubleshooting Guide](guides/troubleshooting.md) — Common issues and debugging techniques
