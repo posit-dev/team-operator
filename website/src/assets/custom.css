@@ -1,8 +1,382 @@
-/* Posit brand colors and fonts */
+/* ============================================================
+   Posit Brand Tokens
+   ============================================================ */
 :root {
-  --sl-color-accent-low: #e5f0fc;
-  --sl-color-accent: #447099;
-  --sl-color-accent-high: #213d4f;
-  --sl-font: 'Open Sans', sans-serif;
-  --sl-font-mono: 'Source Code Pro', monospace;
+  /* Brand colors — aligned with Posit logomark */
+  --posit-blue: #447099;
+  --posit-orange: #ee6331;
+  --posit-navy: #213d4f;
+  --posit-teal: #297075;
+  --posit-light-blue: #e5f0fc;
+
+  /* UI tokens */
+  --posit-gray-bg: #f4f4f4;
+  --posit-border: #dedede;
+  --posit-text-muted: #7c7c7c;
+  --posit-link-hover: #3276b5;
+  --posit-gray-100: #f5f5f5;
+  --posit-gray-900: #111827;
+}
+
+/* ============================================================
+   Starlight CSS variable overrides — light mode
+   ============================================================ */
+:root,
+[data-theme='light'] {
+  /* Accent palette */
+  --sl-color-accent-low: var(--posit-light-blue);
+  --sl-color-accent: var(--posit-blue);
+  --sl-color-accent-high: var(--posit-navy);
+
+  /* Text */
+  --sl-color-text: var(--posit-gray-900);
+  --sl-color-text-accent: var(--posit-blue);
+
+  /* Backgrounds */
+  --sl-color-bg: #ffffff;
+  --sl-color-bg-nav: #ffffff;
+  --sl-color-bg-sidebar: var(--posit-gray-bg);
+  --sl-color-bg-inline-code: var(--posit-gray-100);
+
+  /* Borders */
+  --sl-color-hairline: var(--posit-border);
+  --sl-color-hairline-light: #ececec;
+  --sl-color-hairline-shade: var(--posit-border);
+
+  /* Typography */
+  --sl-font: 'Open Sans', system-ui, -apple-system, sans-serif;
+  --sl-font-mono: 'Source Code Pro', ui-monospace, monospace;
+
+  /* Header */
+  --sl-nav-height: 64px;
+
+  /* Sidebar */
+  --sl-sidebar-width: 17rem;
+
+  /* Content width */
+  --sl-content-width: 50rem;
+}
+
+/* ============================================================
+   Force light mode — matches VIP (no dark mode)
+   ============================================================ */
+:root,
+:root[data-theme='dark'],
+[data-theme='dark'] {
+  color-scheme: light !important;
+  --sl-color-accent-low: var(--posit-light-blue) !important;
+  --sl-color-accent: var(--posit-blue) !important;
+  --sl-color-accent-high: var(--posit-navy) !important;
+  --sl-color-text: var(--posit-gray-900) !important;
+  --sl-color-text-accent: var(--posit-blue) !important;
+  --sl-color-bg: #ffffff !important;
+  --sl-color-bg-nav: #ffffff !important;
+  --sl-color-bg-sidebar: var(--posit-gray-bg) !important;
+  --sl-color-bg-inline-code: var(--posit-gray-100) !important;
+  --sl-color-hairline: var(--posit-border) !important;
+  --sl-color-hairline-light: #ececec !important;
+  --sl-color-hairline-shade: var(--posit-border) !important;
+  --sl-color-black: var(--posit-gray-900) !important;
+  --sl-color-white: #ffffff !important;
+  --sl-color-gray-1: #f5f5f5 !important;
+  --sl-color-gray-2: #ececec !important;
+  --sl-color-gray-3: #dedede !important;
+  --sl-color-gray-4: #7c7c7c !important;
+  --sl-color-gray-5: #444444 !important;
+  --sl-color-gray-6: #111827 !important;
+}
+
+/* Hide the theme toggle — multiple selectors for specificity */
+starlight-theme-select,
+starlight-theme-select *,
+.right-group starlight-theme-select {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  pointer-events: none !important;
+}
+
+/* ============================================================
+   Search — force light
+   ============================================================ */
+starlight-search-dialog,
+dialog,
+[role="dialog"],
+.pagefind-ui,
+.pagefind-ui__search-input,
+[data-pagefind-ui] {
+  color-scheme: light !important;
+  --sl-color-bg: #ffffff !important;
+  --sl-color-text: var(--posit-gray-900) !important;
+  --pagefind-ui-text: var(--posit-gray-900) !important;
+  --pagefind-ui-background: #ffffff !important;
+  --pagefind-ui-border: var(--posit-border) !important;
+}
+
+/* Search button in header — exact Starlight selector */
+site-search button[data-open-modal] {
+  background: #ffffff !important;
+  color: var(--posit-gray-900) !important;
+  border: 1px solid var(--posit-border) !important;
+}
+
+site-search button[data-open-modal] span,
+site-search button[data-open-modal] kbd,
+site-search button[data-open-modal] kbd kbd {
+  color: var(--posit-gray-900) !important;
+}
+
+site-search button[data-open-modal] svg {
+  color: var(--posit-gray-900) !important;
+}
+
+/* Keyboard shortcut badge (⌘K) next to search */
+site-search button[data-open-modal] kbd {
+  background: var(--posit-gray-100) !important;
+  color: var(--posit-gray-900) !important;
+  border: 1px solid var(--posit-border) !important;
+}
+
+/* Search dialog */
+site-search dialog {
+  background: #ffffff !important;
+  color: var(--posit-gray-900) !important;
+}
+
+site-search .dialog-frame {
+  background: #ffffff !important;
+}
+
+site-search .search-container {
+  background: #ffffff !important;
+}
+
+/* ============================================================
+   Site header — white bar with Posit styling
+   ============================================================ */
+header.header {
+  background: #ffffff;
+  border-bottom: 1px solid var(--posit-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+/* Logo area: "Posit logo | Team Operator" */
+.site-title {
+  font-family: var(--sl-font-mono);
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--posit-gray-900);
+  letter-spacing: 0.02em;
+}
+
+/* ============================================================
+   Sidebar
+   ============================================================ */
+.sidebar-content {
+  background: var(--posit-gray-bg);
+  border-right: 1px solid var(--posit-border);
+}
+
+/* Active sidebar item */
+a[aria-current='page'],
+a[aria-current='page']:hover {
+  background-color: var(--posit-light-blue) !important;
+  color: var(--posit-navy) !important;
+  font-weight: 700;
+  border-radius: 4px;
+}
+
+/* Sidebar group labels */
+.group-label span {
+  color: var(--posit-navy);
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   Links
+   ============================================================ */
+a {
+  color: var(--posit-blue);
+}
+
+a:hover {
+  color: var(--posit-link-hover);
+}
+
+.sl-markdown-content a {
+  color: var(--posit-blue);
+  text-decoration-color: color-mix(in srgb, var(--posit-blue) 40%, transparent);
+}
+
+.sl-markdown-content a:hover {
+  color: var(--posit-link-hover);
+  text-decoration-color: var(--posit-link-hover);
+}
+
+/* ============================================================
+   Code blocks
+   ============================================================ */
+.sl-markdown-content code:not(pre code) {
+  background: var(--posit-gray-100);
+  border: 1px solid var(--posit-border);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  font-size: 0.875em;
+  font-family: var(--sl-font-mono);
+}
+
+.expressive-code .frame {
+  border-radius: 6px;
+  border: 1px solid var(--posit-border);
+}
+
+/* ============================================================
+   Hero section (splash page)
+   ============================================================ */
+.hero {
+  background: linear-gradient(135deg, var(--posit-navy) 0%, var(--posit-teal) 100%);
+  color: #ffffff;
+  padding: 4rem 2rem;
+  border-radius: 6px;
+  margin-bottom: 2rem;
+}
+
+.hero h1 {
+  color: #ffffff;
+}
+
+.hero .tagline {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Primary CTA button — white on blue, matching VIP */
+a.sl-link-button.primary {
+  background: #ffffff !important;
+  color: var(--posit-blue) !important;
+  border: 2px solid #ffffff !important;
+  border-radius: 6px !important;
+  font-weight: 700 !important;
+  transition: background 0.15s, transform 0.1s;
+}
+
+a.sl-link-button.primary:hover {
+  background: rgba(255, 255, 255, 0.9) !important;
+  color: var(--posit-navy) !important;
+  transform: translateY(-1px);
+}
+
+/* Secondary/minimal CTA */
+a.sl-link-button.minimal {
+  color: #ffffff !important;
+  border: 2px solid rgba(255, 255, 255, 0.5) !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  margin-left: 0.75rem !important;
+}
+
+a.sl-link-button.minimal:hover {
+  border-color: #ffffff !important;
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* ============================================================
+   Card grid
+   ============================================================ */
+.card {
+  border: 1px solid var(--posit-border);
+  border-radius: 6px;
+  background: #ffffff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.card:hover {
+  border-color: var(--posit-link-hover);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+}
+
+.card .title {
+  color: var(--posit-navy);
+  font-weight: 700;
+}
+
+/* ============================================================
+   Page titles and headings
+   ============================================================ */
+.sl-markdown-content h1,
+.sl-markdown-content h2,
+.sl-markdown-content h3 {
+  color: var(--posit-navy);
+}
+
+.sl-markdown-content h2 {
+  border-bottom: 2px solid var(--posit-light-blue);
+  padding-bottom: 0.35rem;
+}
+
+/* ============================================================
+   Callouts / asides
+   ============================================================ */
+.starlight-aside--note {
+  border-left-color: var(--posit-blue);
+  background: var(--posit-light-blue);
+}
+
+.starlight-aside--tip {
+  border-left-color: var(--posit-teal);
+  background: #e8f5f5;
+}
+
+.starlight-aside--caution {
+  border-left-color: var(--posit-orange);
+  background: #fef3ee;
+}
+
+/* ============================================================
+   Footer
+   ============================================================ */
+footer {
+  border-top: 1px solid var(--posit-border);
+  background: var(--posit-gray-bg);
+  color: var(--posit-text-muted);
+}
+
+/* ============================================================
+   Table of contents (right sidebar)
+   ============================================================ */
+starlight-toc a {
+  color: var(--posit-text-muted);
+  font-size: 0.8rem;
+}
+
+starlight-toc a:hover,
+starlight-toc a[aria-current='true'] {
+  color: var(--posit-blue);
+}
+
+/* ============================================================
+   Pagination
+   ============================================================ */
+.pagination-links a {
+  border-color: var(--posit-border);
+  border-radius: 6px;
+}
+
+.pagination-links a:hover {
+  border-color: var(--posit-blue);
+  background: var(--posit-light-blue);
+}
+
+/* ============================================================
+   Product logo images in cards
+   ============================================================ */
+.card img.product-logo {
+  display: block;
+  margin-bottom: 0.5rem;
 }

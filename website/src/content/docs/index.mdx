@@ -2,13 +2,16 @@
 title: Team Operator
 description: Kubernetes operator for managing Posit Team product deployments
 template: splash
+prev: false
+next: false
 hero:
   title: Team Operator
   tagline: A Kubernetes operator that manages the deployment and lifecycle of Posit Team products
   actions:
     - text: Get Started
-      link: /team-operator/guides/product-team-site-management/
+      link: /team-operator/guides/installation/
       icon: right-arrow
+      variant: primary
     - text: View on GitHub
       link: https://github.com/posit-dev/team-operator
       variant: minimal
@@ -18,20 +21,44 @@ hero:
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
 <CardGrid>
+  <Card title="Installation" icon="rocket">
+    Deploy Team Operator on your Kubernetes cluster with step-by-step installation instructions.
+    [Get started](/team-operator/guides/installation/)
+  </Card>
+  <Card title="Site Management" icon="setting">
+    Manage products and lifecycle for your Posit Team Site deployment.
+    [Learn more](/team-operator/guides/product-team-site-management/)
+  </Card>
   <Card title="Architecture" icon="document">
     Understand how the operator manages Sites, products, and Kubernetes resources.
     [Learn more](/team-operator/architecture/)
   </Card>
   <Card title="API Reference" icon="list-format">
     Complete CRD field reference for Sites, Workbench, Connect, Package Manager, and more.
-    [Learn more](/team-operator/api-reference/)
+    [Browse reference](/team-operator/api-reference/)
   </Card>
-  <Card title="AKS Deployment" icon="rocket">
-    Step-by-step guide for deploying on Azure Kubernetes Service.
-    [Learn more](/team-operator/guides/aks-deployment/)
+</CardGrid>
+
+## Products
+
+<CardGrid>
+  <Card title="Workbench">
+    <img src="/team-operator/logo-workbench.svg" alt="Posit Workbench" width="120" height="30" class="product-logo" />
+    Configure RStudio/Posit Workbench sessions, runtime settings, and user management.
+    [Configure Workbench](/team-operator/guides/workbench-configuration/)
+  </Card>
+  <Card title="Connect">
+    <img src="/team-operator/logo-connect.svg" alt="Posit Connect" width="120" height="30" class="product-logo" />
+    Set up Posit Connect for publishing, scheduling, and sharing data products.
+    [Configure Connect](/team-operator/guides/connect-configuration/)
+  </Card>
+  <Card title="Package Manager">
+    <img src="/team-operator/logo-packagemanager.svg" alt="Posit Package Manager" width="120" height="30" class="product-logo" />
+    Manage R and Python package repositories with Posit Package Manager.
+    [Configure Package Manager](/team-operator/guides/packagemanager-configuration/)
   </Card>
   <Card title="Authentication" icon="setting">
     Configure OIDC, SAML, password auth, and Keycloak integration.
-    [Learn more](/team-operator/guides/authentication-setup/)
+    [Configure auth](/team-operator/guides/authentication-setup/)
   </Card>
 </CardGrid>
