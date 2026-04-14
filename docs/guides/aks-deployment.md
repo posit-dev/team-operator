@@ -12,7 +12,7 @@ For product-specific configuration (OIDC, Databricks, custom session images, etc
 
 ## Prerequisites
 
-- AKS cluster running Kubernetes 1.29+ with the Azure Files Container Storage Interface (CSI) driver enabled (enabled by default on AKS 1.21+)
+- AKS cluster running Kubernetes 1.29+ with a dedicated subnet delegated to `Microsoft.NetApp/volumes` for Azure NetApp Files storage
 - Azure Database for PostgreSQL Flexible Server reachable from the cluster: either Virtual Network (VNet)-injected (subnet delegation to `Microsoft.DBforPostgreSQL/flexibleServers`) or via private endpoint
 - Traefik ingress controller. Team Operator generates Traefik-specific `Middleware` and `IngressRoute` CRDs; Team Operator does not support other ingress controllers
 - `kubectl` configured against the target cluster
@@ -146,57 +146,61 @@ kubectl create secret generic db-credentials \
 
 ## Step 3: Configure storage {#configure-storage}
 
-Workbench requires `ReadWriteMany` storage for user home directories. Multiple Workbench pods (and optionally Connect) need to mount the same volume simultaneously. Azure Files Network File System (NFS) is the recommended option on AKS because it supports `ReadWriteMany` natively without requiring a separate NFS server.
+Workbench requires `ReadWriteMany` storage for user home directories and shared configuration. Multiple Workbench pods (and optionally Connect) need to mount the same volume simultaneously. Azure NetApp Files is the recommended option on AKS because it provides high-performance NFS storage with `ReadWriteMany` support.
 
-### Create a StorageClass for Azure Files NFS
+### Provision Azure NetApp Files
 
-This StorageClass tells the Azure Files CSI driver to provision NFS-protocol file shares using Premium LRS. The `Retain` reclaim policy means deleting a PVC will not automatically delete the underlying file share, which is an important safeguard for user data.
+Pre-provision the following Azure resources before creating the Site CR:
+
+1. **Azure NetApp Files account** in the same region as the AKS cluster
+2. **Capacity pool** (Premium tier, minimum 1 TiB)
+3. **NFSv3 volumes** for Workbench home directories and shared storage, on the delegated subnet
+4. **Dedicated subnet** with delegation to `Microsoft.NetApp/volumes` and an NSG allowing all protocols from VirtualNetwork
+
+### Create a StorageClass and static PVs
+
+The Team Operator creates PVCs with `storageClassName: azure-netapp-files` when `volumeSource.type: azure-netapp` is set in the Site CR. Pre-create the StorageClass and static NFS PVs so the PVCs can bind.
 
 ```yaml
-# azure-files-nfs-sc.yaml
+# azure-netapp-files-sc.yaml
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: azure-files-nfs
-provisioner: file.csi.azure.com
-parameters:
-  protocol: nfs
-  skuName: Premium_LRS
+  name: azure-netapp-files
+provisioner: kubernetes.io/no-provisioner
 reclaimPolicy: Retain
 volumeBindingMode: Immediate
-allowVolumeExpansion: true
 ```
 
 ```bash
-kubectl apply -f azure-files-nfs-sc.yaml
+kubectl apply -f azure-netapp-files-sc.yaml
 ```
 
-### Identity and Access Management (IAM) Requirements
+Create a static PV for each ANF volume. Replace `<ANF_MOUNT_IP>` with the volume's mount target IP address and `<EXPORT_PATH>` with the volume's creation token (NFS export path):
 
-The CSI driver provisions file shares on behalf of the cluster using the AKS kubelet managed identity. Without the right roles on your storage account, PVC creation will fail with a permissions error. Assign the required roles now, before the `Site` CR triggers PVC creation:
-
-- **Storage Account Contributor** — to create file shares
-- **Network Contributor** — if the storage account is in a VNet with service endpoints
-
-You can assign these via the Azure CLI:
+```yaml
+# workbench-home-pv.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: <site-name>-workbench
+spec:
+  capacity:
+    storage: 200Gi
+  accessModes:
+    - ReadWriteMany
+  storageClassName: azure-netapp-files
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    server: <ANF_MOUNT_IP>
+    path: /<EXPORT_PATH>
+```
 
 ```bash
-CLUSTER_IDENTITY=$(az aks show \
-  --resource-group <rg> \
-  --name <cluster-name> \
-  --query identityProfile.kubeletidentity.objectId \
-  --output tsv)
-
-az role assignment create \
-  --assignee-object-id "$CLUSTER_IDENTITY" \
-  --assignee-principal-type ServicePrincipal \
-  --role "Storage Account Contributor" \
-  --scope /subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.Storage/storageAccounts/<sa-name>
+kubectl apply -f workbench-home-pv.yaml
 ```
 
-### Pre-provisioned Shared Storage (Optional)
-
-If you need a shared directory mounted across Workbench and Connect (e.g., for shared project data), create a PersistentVolume backed by a pre-provisioned Azure Files share **before** creating the Site CR. The Site controller will look for the PV when `sharedDirectory` is configured.
+Repeat for shared storage using the name `<site-name>-workbench-shared-storage` and a StorageClass named `<site-name>-workbench-shared-storage-nfs`.
 
 ## Step 4: Configure the database connection {#configure-the-database-connection}
 
@@ -263,7 +267,7 @@ Create a wildcard DNS record (or individual records for each product subdomain) 
 
 With secrets, storage, database, and Traefik in place, you're ready to tell Team Operator what to deploy. The `Site` CR is the single resource the operator watches. Everything else (deployments, services, ingress routes, databases) flows from it.
 
-The following example enables Workbench with Azure Files NFS storage and disables Connect and Package Manager for an initial deployment. Starting with one product lets you validate the full stack before enabling additional products:
+The following example enables Workbench with Azure NetApp Files storage and disables Connect and Package Manager for an initial deployment. Starting with one product lets you validate the full stack before enabling additional products:
 
 ```yaml
 # site.yaml
@@ -294,7 +298,11 @@ spec:
     type: kubernetes
     vaultName: db-credentials
 
-  # Workbench — enabled with Azure Files NFS for home directories
+  # Azure NetApp Files for home directories (see Step 3)
+  volumeSource:
+    type: azure-netapp
+
+  # Workbench — enabled with Azure NetApp Files for home directories
   workbench:
     enabled: true
     image: "ghcr.io/rstudio/rstudio-workbench:ubuntu2204-2025.12.0"  # Check https://ghcr.io/rstudio/rstudio-workbench for the latest tag
@@ -304,12 +312,6 @@ spec:
     license:
       existingSecretName: site-secrets
       existingSecretKey: dev-license
-    volume:
-      create: true
-      size: 100Gi
-      storageClassName: azure-files-nfs  # StorageClass from Step 3
-      accessModes:
-        - ReadWriteMany
 
   # Connect — disabled for initial deployment
   connect:
@@ -375,19 +377,21 @@ kubectl describe postgresdatabase <name> -n posit-team
 
 ## Troubleshooting
 
-### CSI Driver Issues
+### NFS Mount Issues
 
-If PVCs are stuck in `Pending` and pod events show `MountVolume.SetUp failed`, the most common cause on AKS is a network connectivity problem between the cluster and the storage account. Azure Files NFS requires the cluster nodes to reach the storage account over NFS (port 2049). If the storage account has a firewall or is in a restricted VNet, this traffic needs to be explicitly allowed.
+If pods are stuck in `Init` and events show `MountVolume.SetUp failed` with `mount.nfs: access denied by server`, check the following:
+
+1. **NSG rules**: The NetApp subnet NSG must allow all protocols (TCP and UDP) from VirtualNetwork. NFSv3 uses UDP port 111 for portmapper; blocking UDP causes mount failures.
+2. **Export policy**: Verify the ANF volume export policy allows clients from the AKS subnet CIDR (or `0.0.0.0/0` if using NSG-only access control).
+3. **Subnet delegation**: Verify the NetApp subnet has delegation to `Microsoft.NetApp/volumes` with actions `Microsoft.Network/networkinterfaces/*` and `Microsoft.Network/virtualNetworks/subnets/join/action`.
 
 ```bash
-# Verify Azure Files CSI driver pods are running
-kubectl get pods -n kube-system -l app=csi-azurefile-node
+# Check pod mount errors
+kubectl describe pod <pod-name> -n posit-team | grep -A5 FailedMount
 
-# Check CSI driver logs
-kubectl logs -n kube-system -l app=csi-azurefile-node -c azurefile
+# Verify PV and PVC bindings
+kubectl get pv,pvc -n posit-team
 ```
-
-Verify the storage account's firewall allows traffic from the AKS subnet.
 
 ### Node Scheduling (CriticalAddonsOnly Taint)
 
@@ -414,9 +418,20 @@ kubectl run -it --rm dns-test --image=busybox --restart=Never -- \
 
 Ensure your DNS records (wildcard or per-product) point to the Traefik LoadBalancer IP, and that the cluster's DNS policy resolves external names correctly.
 
-### Storage Account Permissions
+### NetApp Volume Access
 
-If an Azure Files PVC is stuck in `Pending` and CSI driver logs show `403 Forbidden` or `AuthorizationFailed`, the kubelet managed identity is missing the **Storage Account Contributor** role on the storage account. Role assignment changes can take a few minutes to propagate in Azure. If you just assigned the role in Step 3, wait two to three minutes and then delete and recreate the PVC to retry.
+If NFS mounts fail with `access denied`, verify the volume export policy in the Azure portal or CLI:
+
+```bash
+az netappfiles volume show \
+  --resource-group <rg> \
+  --account-name <account> \
+  --pool-name <pool> \
+  --name <volume> \
+  --query "exportPolicy.rules[0].allowedClients" -o tsv
+```
+
+Ensure `allowedClients` includes the AKS node CIDR. Also verify the NetApp subnet NSG is not blocking NFS traffic (ports 111, 635, 2049 on both TCP and UDP).
 
 ### Database Connection Failures
 
