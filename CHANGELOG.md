@@ -1,3 +1,15 @@
+# [1.23.0](https://github.com/posit-dev/team-operator/compare/v1.22.0...v1.23.0) (2026-04-14)
+
+
+### Bug Fixes
+
+* only tag docker release after corresponding image is pushed ([#122](https://github.com/posit-dev/team-operator/issues/122)) ([c1532c0](https://github.com/posit-dev/team-operator/commit/c1532c038b5a95bd16ad34b53c7331744e6071c3))
+
+
+### Features
+
+* add session label controller for Workbench session pods ([#123](https://github.com/posit-dev/team-operator/issues/123)) ([f0f8146](https://github.com/posit-dev/team-operator/commit/f0f8146a98e69b954fe58a96c06251cffa28bf2e))
+
 # [1.22.0](https://github.com/posit-dev/team-operator/compare/v1.21.1...v1.22.0) (2026-04-01)
 
 
