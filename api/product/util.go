@@ -63,29 +63,14 @@ func DetermineMinAvailableReplicas(replicas int) int {
 	return 0
 }
 
-// LabelMerge returns a new map containing all entries from m1 and m2, with m2
-// values winning on key collisions. It does not mutate either input map.
-// It returns nil when both inputs are nil (to avoid spurious Kubernetes diffs
-// from omitempty serializing empty maps as {}). Callers must not write into the
-// returned map without a nil check.
 func LabelMerge(m1 map[string]string, m2 map[string]string) map[string]string {
-	if m1 == nil && m2 == nil {
-		return nil
-	}
-	if m2 == nil {
-		return maps.Clone(m1)
-	}
 	if m1 == nil {
-		return maps.Clone(m2)
-	}
-	out := make(map[string]string, len(m1)+len(m2))
-	for k, v := range m1 {
-		out[k] = v
+		m1 = map[string]string{}
 	}
 	for k, v := range m2 {
-		out[k] = v
+		m1[k] = v
 	}
-	return out
+	return m1
 }
 
 func ComputeSha256(in map[string]string) (string, error) {

@@ -16,7 +16,6 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func (r *SiteReconciler) reconcileWorkbench(
@@ -462,68 +461,6 @@ func (r *SiteReconciler) reconcileWorkbench(
 	// Propagate session label controller config (nil = feature disabled for this site)
 	targetWorkbench.Spec.SessionLabels = site.Spec.Workbench.SessionLabels
 
-	// Merge user-provided sessionConfig from Site spec into the operator-constructed SessionConfig.
-	// DynamicLabels, Labels, and Annotations are merged for Pod/Service/Job configs.
-	// Service.Type is overwritten when non-empty. Other Pod fields (Tolerations,
-	// ServiceAccountName, Env, etc.) are managed by the operator defaults and
-	// ExperimentalFeatures above, so user-provided values for those fields are
-	// intentionally not merged here.
-	if site.Spec.Workbench.SessionConfig != nil {
-		userSC := site.Spec.Workbench.SessionConfig
-		if targetWorkbench.Spec.SessionConfig == nil {
-			targetWorkbench.Spec.SessionConfig = &product.SessionConfig{}
-		}
-		opSC := targetWorkbench.Spec.SessionConfig
-
-		// Merge Service config
-		if userSC.Service != nil {
-			if opSC.Service == nil {
-				opSC.Service = &product.ServiceConfig{}
-			}
-			if userSC.Service.Type != "" {
-				opSC.Service.Type = userSC.Service.Type
-			}
-			opSC.Service.Annotations = product.LabelMerge(opSC.Service.Annotations, userSC.Service.Annotations)
-			opSC.Service.Labels = product.LabelMerge(opSC.Service.Labels, userSC.Service.Labels)
-		}
-
-		// Merge Pod config: only DynamicLabels, Labels, and Annotations.
-		// Other Pod fields (Env, ImagePullPolicy, ServiceAccountName, etc.) are set by
-		// ExperimentalFeatures or operator defaults and should not be overridden here.
-		if userSC.Pod != nil {
-			if opSC.Pod == nil {
-				opSC.Pod = &product.PodConfig{}
-			}
-			// Warn if the user set Pod fields that the Site merge does not propagate.
-			if ignored := unsupportedSitePodFields(userSC.Pod); len(ignored) > 0 {
-				log.FromContext(ctx).Info(
-					"Site sessionConfig.pod contains fields that are not propagated to Workbench; "+
-						"set these fields directly on the Workbench CR or use ExperimentalFeatures",
-					"ignoredFields", ignored,
-				)
-			}
-			// DynamicLabels: operator never sets these; take user-provided directly.
-			// DynamicLabelRule is a flat struct (all string fields), so copy is a full deep copy.
-			if len(userSC.Pod.DynamicLabels) > 0 {
-				copied := make([]product.DynamicLabelRule, len(userSC.Pod.DynamicLabels))
-				copy(copied, userSC.Pod.DynamicLabels)
-				opSC.Pod.DynamicLabels = copied
-			}
-			// Labels and annotations: merge (user-provided wins on conflicts)
-			opSC.Pod.Labels = product.LabelMerge(opSC.Pod.Labels, userSC.Pod.Labels)
-			opSC.Pod.Annotations = product.LabelMerge(opSC.Pod.Annotations, userSC.Pod.Annotations)
-		}
-
-		// Merge Job config
-		if userSC.Job != nil {
-			if opSC.Job == nil {
-				opSC.Job = &product.JobConfig{}
-			}
-			opSC.Job.Labels = product.LabelMerge(opSC.Job.Labels, userSC.Job.Labels)
-			opSC.Job.Annotations = product.LabelMerge(opSC.Job.Annotations, userSC.Job.Annotations)
-		}
-	}
-
 	// if volumeSource.type is set, then force volume creation for Workbench
 	if site.Spec.VolumeSource.Type != v1beta1.VolumeSourceTypeNone {
 		if targetWorkbench.Spec.Volume == nil {
@@ -662,64 +599,4 @@ func (r *SiteReconciler) cleanupWorkbench(ctx context.Context, req controllerrun
 	}
 
 	return nil
-}
-
-// unsupportedSitePodFields returns the names of PodConfig fields that are set
-// but not propagated during the Site → Workbench sessionConfig merge.
-// The merge only handles DynamicLabels, Labels, and Annotations; everything
-// else must be set directly on the Workbench CR or via ExperimentalFeatures.
-func unsupportedSitePodFields(pod *product.PodConfig) []string {
-	if pod == nil {
-		return nil
-	}
-	var fields []string
-	if pod.ServiceAccountName != "" {
-		fields = append(fields, "serviceAccountName")
-	}
-	if len(pod.Volumes) > 0 {
-		fields = append(fields, "volumes")
-	}
-	if len(pod.VolumeMounts) > 0 {
-		fields = append(fields, "volumeMounts")
-	}
-	if len(pod.Env) > 0 {
-		fields = append(fields, "env")
-	}
-	if pod.ImagePullPolicy != "" {
-		fields = append(fields, "imagePullPolicy")
-	}
-	if len(pod.ImagePullSecrets) > 0 {
-		fields = append(fields, "imagePullSecrets")
-	}
-	if len(pod.InitContainers) > 0 {
-		fields = append(fields, "initContainers")
-	}
-	if len(pod.ExtraContainers) > 0 {
-		fields = append(fields, "extraContainers")
-	}
-	if len(pod.Tolerations) > 0 {
-		fields = append(fields, "tolerations")
-	}
-	if pod.Affinity != nil {
-		fields = append(fields, "affinity")
-	}
-	if len(pod.NodeSelector) > 0 {
-		fields = append(fields, "nodeSelector")
-	}
-	if pod.PriorityClassName != "" {
-		fields = append(fields, "priorityClassName")
-	}
-	if len(pod.Command) > 0 {
-		fields = append(fields, "command")
-	}
-	if pod.ContainerSecurityContext != (v12.SecurityContext{}) {
-		fields = append(fields, "containerSecurityContext")
-	}
-	if pod.DefaultSecurityContext != (v12.SecurityContext{}) {
-		fields = append(fields, "defaultSecurityContext")
-	}
-	if pod.SecurityContext != (v12.SecurityContext{}) {
-		fields = append(fields, "securityContext")
-	}
-	return fields
 }

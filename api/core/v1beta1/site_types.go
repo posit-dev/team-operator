@@ -477,11 +477,6 @@ type InternalWorkbenchSpec struct {
 	// +optional
 	AdditionalSessionConfigs map[string]string `json:"additionalSessionConfigs,omitempty"`
 
-	// SessionConfig allows configuring Workbench session pods, including dynamic labels,
-	// annotations, tolerations, and other pod-level settings.
-	// +optional
-	SessionConfig *product.SessionConfig `json:"sessionConfig,omitempty"`
-
 	// SessionLabels configures automatic label injection onto session pods.
 	// When present, the session label controller is active for this site. Omit to disable.
 	// +optional
