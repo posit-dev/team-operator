@@ -482,11 +482,6 @@ type InternalWorkbenchSpec struct {
 	// +optional
 	SessionConfig *product.SessionConfig `json:"sessionConfig,omitempty"`
 
-	// SessionLabels configures automatic label injection onto session pods.
-	// When present, the session label controller is active for this site. Omit to disable.
-	// +optional
-	SessionLabels *SessionLabelsConfig `json:"sessionLabels,omitempty"`
-
 	// SCIM configures SCIM user provisioning for Workbench.
 	// Requires SSO (OIDC or SAML) to be configured.
 	// +optional

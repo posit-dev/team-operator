@@ -15,14 +15,12 @@ on:
       - '**/*.md'
       - 'docs/**'
       - '.claude/**'
-      - '.github/**'
       - 'LICENSE'
   pull_request:
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
       - '.claude/**'
-      - '.github/**'
       - 'LICENSE'
 
 permissions:
@@ -115,8 +113,8 @@ jobs:
         run: |
           # Regenerate Helm chart from base kustomize CRDs
           make helm-generate
-          # Fail if regeneration produced any changes to the Helm chart
-          if ! git diff --quiet -- dist/chart/; then
+          # Fail if regeneration produced any changes
+          if ! git diff --quiet; then
             echo "::error::Helm chart is out of sync with kustomize CRDs"
             echo ""
             echo "The Helm chart in dist/chart/ was generated from config/crd/ but has drifted."
@@ -126,7 +124,7 @@ jobs:
             echo ""
             echo "Then commit the changes."
             echo ""
-            git diff --stat -- dist/chart/
+            git diff --stat
             exit 1
           fi
 
@@ -134,11 +132,6 @@ jobs:
         run: |
           git diff --exit-code
           git diff --cached --exit-code
-
-      - name: Hint on failure
-        if: failure()
-        run: |
-          echo "::warning::If this failed due to formatting or codegen drift, run 'just deps' to install pre-commit hooks and catch these issues locally before pushing."
 
       - name: Get build metadata
         id: metadata
@@ -216,31 +209,14 @@ jobs:
           docker tag "${{ steps.image-tag.outputs.full-image }}" "${{ env.GHCR_REGISTRY }}/team-operator:${ADHOC_TAG}"
           docker push "${{ env.GHCR_REGISTRY }}/team-operator:${ADHOC_TAG}"
 
-      - name: Setup Helm (for PRs - adhoc chart)
-        if: github.event_name == 'pull_request'
-        uses: azure/setup-helm@v4
-
-      - name: Push Helm chart to GHCR (for PRs - adhoc testing)
-        if: github.event_name == 'pull_request'
-        run: |
-          CHART_VERSION="0.0.0-adhoc.${GITHUB_SHA:0:7}"
-          helm registry login ghcr.io --username "${{ github.actor }}" --password "${{ secrets.GITHUB_TOKEN }}"
-          helm package dist/chart --version "${CHART_VERSION}"
-          helm push "team-operator-${CHART_VERSION}.tgz" oci://ghcr.io/posit-dev/charts
-          echo "chart-version=${CHART_VERSION}" >> $GITHUB_OUTPUT
-        id: adhoc-chart
-
       - name: Display adhoc image tag
         if: github.event_name == 'pull_request'
         run: |
           ADHOC_TAG="${{ steps.adhoc-tag.outputs.tag }}"
           IMAGE="${{ env.GHCR_REGISTRY }}/team-operator:${ADHOC_TAG}"
-          CHART_VERSION="${{ steps.adhoc-chart.outputs.chart-version }}"
           echo "### Adhoc Team Operator Image" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Image pushed to GHCR: \`${IMAGE}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Chart version pushed to GHCR: \`${CHART_VERSION}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "This image will be automatically deleted when the PR is closed." >> $GITHUB_STEP_SUMMARY
 

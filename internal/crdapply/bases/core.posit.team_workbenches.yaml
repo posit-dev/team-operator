@@ -7668,58 +7668,6 @@ spec:
                         type: string
                     type: object
                 type: object
-              sessionLabels:
-                description: |-
-                  SessionLabels configures automatic label injection onto Workbench session pods.
-                  When present, the session label controller reads the specified pod field,
-                  applies searchRegex to find matching group names, and writes one numbered
-                  label per match (e.g. user-group-1, user-group-2).
-                  Omit this field to disable the feature for this site.
-                properties:
-                  labelKeyPrefix:
-                    description: |-
-                      LabelKeyPrefix is prepended to the sequential index to form each label key.
-                      Default "user-group-" produces labels user-group-1, user-group-2, etc.
-                    type: string
-                  reprocess:
-                    description: |-
-                      Reprocess, when true, causes the controller to re-inject labels onto session
-                      pods that have already been processed. Toggle on to force re-labelling of
-                      existing pods (e.g. after changing searchRegex or trimPrefix), then set back
-                      to false when done.
-                    type: boolean
-                  searchRegex:
-                    description: |-
-                      SearchRegex is applied to each comma-separated entry in the source value to
-                      decide whether to include it as a label. Only matching entries are labelled.
-                      Default: "_entra_[^ ,]+"
-                    maxLength: 256
-                    type: string
-                  sourceField:
-                    description: |-
-                      SourceField is a dot-path into the pod spec that identifies the field
-                      holding the comma-separated group list. Supports array index notation.
-                      Default: "spec.containers[0].args"
-                      Examples:
-                        "spec.containers[0].args"  — container args slice (lookup by sourceKey flag)
-                        "metadata.annotations"     — all annotations (lookup by sourceKey map key)
-                        "metadata.labels"          — all labels (lookup by sourceKey map key)
-                    type: string
-                  sourceKey:
-                    description: |-
-                      SourceKey is the sub-key used to extract the final string from the resolved field:
-                        []string field (e.g. args): the flag name whose next element is the value.
-                        map field (e.g. annotations, labels): the map key to look up.
-                        string field: ignored; the field value is used directly.
-                      Default: "--container-user-groups"
-                    type: string
-                  trimPrefix:
-                    description: |-
-                      TrimPrefix is stripped from the start of each matched group name before it
-                      becomes the label value. E.g. with TrimPrefix "_": "_entra_team" → "entra_team".
-                      Default: "_"
-                    type: string
-                type: object
               sleep:
                 description: |-
                   Sleep puts the service to sleep... so you can debug a crash looping container / etc. It is an ugly escape hatch,

@@ -4,8 +4,6 @@ Kubernetes operator for managing Posit Team deployments.
 
 ## Project Structure
 
-@../ptd-main/ptd-legacy/CLAUDE.md
-
 - **`api/`**: Kubernetes API/CRD definitions (core, product, keycloak, templates)
 - **`cmd/`**: Main operator entry point
 - **`internal/`**: Core operator logic and controllers

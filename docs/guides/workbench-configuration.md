@@ -21,7 +21,6 @@ When configured via a Site resource, Workbench does the following:
 4. [IDE Configuration](#ide-configuration)
 5. [Data Integrations](#data-integrations)
 6. [Session Customization](#session-customization)
-   - [Session Group Labels (OpenCost / Infracost)](#session-group-labels-opencost--infracost)
 7. [Non-Root Execution Mode](#non-root-execution-mode)
 8. [Experimental Features](#experimental-features)
 9. [Example Configurations](#example-configurations)
@@ -650,64 +649,6 @@ spec:
     experimentalFeatures:
       launcherEnvPath: "/opt/R/4.3/bin:/opt/python/3.11/bin:/usr/local/bin:/usr/bin:/bin"
 ```
-
-### Session Group Labels (OpenCost / Infracost)
-
-The operator can watch Workbench session pods and automatically write one label per Entra group onto each pod, enabling per-group cost attribution in OpenCost or Infracost.
-
-This is a **per-site setting** configured in `site.yaml` under `workbench.sessionLabels`. The controller is automatically enabled by PTD when any site has the block configured — no separate Helm flag or PTD infrastructure setting is needed.
-
-#### How it works
-
-When a session pod is created, the controller reads a configurable field from the pod (default: `spec.containers[0].args`), finds entries matching the configured regex, sanitizes them to valid Kubernetes label values, and patches numbered labels onto the pod:
-
-```
-user-group-1: entra_research_team
-user-group-2: entra_data_science
-```
-
-A `posit.co/session-group-labels-injected: "true"` marker is added to prevent reprocessing. Labels are added within seconds of pod creation — no restart or webhook required.
-
-Non-Entra group entries (e.g. `group_uuid` entries added by the container runtime) are silently skipped. If `--container-user-groups` is absent or contains no matching entries, the pod is marked as processed and left unchanged with no error.
-
-#### Enabling
-
-Add a `sessionLabels` block under `workbench` in `site.yaml`:
-
-```yaml
-# site.yaml
-spec:
-  workbench:
-    sessionLabels:
-      sourceField: "spec.containers[0].args"  # dot-path into pod spec; supports array index notation
-      sourceKey: "--container-user-groups"     # flag name (args) or map key (annotations/labels)
-      searchRegex: "_entra_[^ ,]+"            # only matching comma-separated entries become labels
-      trimPrefix: "_"                          # stripped from the start of each matched value
-```
-
-All fields are optional — the defaults above cover the standard Workbench + Entra ID setup. PTD detects the block and enables the Helm flag automatically when you run `ptd ensure`.
-
-#### Reprocessing existing pods
-
-By default, already-processed pods (those with the marker label) are skipped. To force re-labeling of existing session pods — for example, after changing `searchRegex` or `trimPrefix` — set `reprocess: true`:
-
-```yaml
-sessionLabels:
-  reprocess: true   # re-labels all existing session pods for this site immediately
-```
-
-Setting this flag causes the controller to re-enqueue all session pods for the site as soon as the Workbench CR is updated. When reprocessing, any previously written group labels are cleared before the new set is applied — so if the new config produces fewer matches, stale labels from the old run are removed. Set `reprocess` back to `false` (or omit it) once done.
-
-#### Configuration reference
-
-| Field | Default | Description |
-|---|---|---|
-| `sourceField` | `spec.containers[0].args` | Dot-path into the pod spec identifying the field with the comma-separated group list. Supports array index notation. |
-| `sourceKey` | `--container-user-groups` | Flag name (for args slices) or map key (for annotations/labels) used to locate the group string within the resolved field. |
-| `searchRegex` | `_entra_[^ ,]+` | Regex applied to each comma-separated entry; only matching entries produce labels. Max 256 characters. |
-| `labelKeyPrefix` | `user-group-` | Prefix for numbered label keys (`user-group-1`, `user-group-2`, …). At most 30 labels are written per pod. |
-| `trimPrefix` | `_` | Stripped from the start of each matched value before it becomes the label value. |
-| `reprocess` | `false` | When `true`, re-labels already-processed pods (clearing stale group labels first) and re-enqueues existing session pods on Workbench CR changes. |
 
 ---
 

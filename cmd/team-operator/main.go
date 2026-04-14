@@ -86,12 +86,11 @@ func applyCRDs(ctx context.Context, timeout time.Duration, cfg *rest.Config) err
 
 func main() {
 	var (
-		metricsAddr              string
-		enableLeaderElection     bool
-		probeAddr                string
-		manageCRDs               bool
-		crdApplyTimeout          time.Duration
-		enableSessionGroupLabels bool
+		metricsAddr          string
+		enableLeaderElection bool
+		probeAddr            string
+		manageCRDs           bool
+		crdApplyTimeout      time.Duration
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
@@ -105,11 +104,6 @@ func main() {
 		"Apply CRDs on startup to ensure schema is in sync with operator version")
 	flag.DurationVar(&crdApplyTimeout, "crd-apply-timeout", 60*time.Second,
 		"Timeout for applying CRDs at startup")
-
-	flag.BoolVar(&enableSessionGroupLabels, "enable-session-group-labels", false,
-		"Enable the session group label controller, which reads group names from a "+
-			"configurable Workbench session pod field and writes one numbered label per "+
-			"match onto the pod. Per-site config lives in the Workbench CR's sessionLabels field.")
 
 	opts := zap.Options{Development: true}
 
@@ -230,20 +224,6 @@ func main() {
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Flightdeck")
 		os.Exit(1)
-	}
-
-	// Session group label controller is optional — disabled by default.
-	// When enabled, watches Workbench session pods and reads per-site config from
-	// the Workbench CR's sessionLabels field to inject numbered group labels.
-	if enableSessionGroupLabels {
-		if err = (&corecontroller.SessionGroupLabelReconciler{
-			Client: mgr.GetClient(),
-			Log:    setupLog,
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "SessionGroupLabel")
-			os.Exit(1)
-		}
-		setupLog.Info("session group label controller enabled")
 	}
 
 	//+kubebuilder:scaffold:builder
