@@ -31,6 +31,9 @@ spec:
             {{- range .Values.controllerManager.container.args }}
             - {{ . }}
             {{- end }}
+            {{- if .Values.sessionGroupLabels.enable }}
+            - "--enable-session-group-labels"
+            {{- end }}
           command:
             - /team-operator
           {{- $tag := .Values.controllerManager.container.image.tag | default .Chart.AppVersion }}
@@ -43,7 +46,7 @@ spec:
           env:
             {{- range $key, $value := .Values.controllerManager.container.env }}
             - name: {{ $key }}
-              value: {{ $value }}
+              value: {{ $value | quote }}
             {{- end }}
           {{- end }}
           livenessProbe:
