@@ -1549,11 +1549,6 @@ func (in *InternalWorkbenchSpec) DeepCopyInto(out *InternalWorkbenchSpec) {
 			(*out)[key] = val
 		}
 	}
-	if in.SessionConfig != nil {
-		in, out := &in.SessionConfig, &out.SessionConfig
-		*out = new(product.SessionConfig)
-		(*in).DeepCopyInto(*out)
-	}
 	if in.SessionLabels != nil {
 		in, out := &in.SessionLabels, &out.SessionLabels
 		*out = new(SessionLabelsConfig)

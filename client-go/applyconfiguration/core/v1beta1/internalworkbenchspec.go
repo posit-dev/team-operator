@@ -49,7 +49,6 @@ type InternalWorkbenchSpecApplyConfiguration struct {
 	JupyterConfig                 *WorkbenchJupyterConfigApplyConfiguration                `json:"jupyterConfig,omitempty"`
 	AdditionalConfigs             map[string]string                                        `json:"additionalConfigs,omitempty"`
 	AdditionalSessionConfigs      map[string]string                                        `json:"additionalSessionConfigs,omitempty"`
-	SessionConfig                 *product.SessionConfig                                   `json:"sessionConfig,omitempty"`
 	SessionLabels                 *SessionLabelsConfigApplyConfiguration                   `json:"sessionLabels,omitempty"`
 	SCIM                          *WorkbenchSCIMConfigApplyConfiguration                   `json:"scim,omitempty"`
 }
@@ -387,14 +386,6 @@ func (b *InternalWorkbenchSpecApplyConfiguration) WithAdditionalSessionConfigs(e
 	for k, v := range entries {
 		b.AdditionalSessionConfigs[k] = v
 	}
-	return b
-}
-
-// WithSessionConfig sets the SessionConfig field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SessionConfig field is set to the value of the last call.
-func (b *InternalWorkbenchSpecApplyConfiguration) WithSessionConfig(value product.SessionConfig) *InternalWorkbenchSpecApplyConfiguration {
-	b.SessionConfig = &value
 	return b
 }
 
