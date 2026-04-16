@@ -12,8 +12,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 )
@@ -93,7 +95,7 @@ func (r *ConnectReconciler) GetLogger(ctx context.Context) logr.Logger {
 // SetupWithManager sets up the controller with the Manager.
 func (r *ConnectReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&positcov1beta1.Connect{}).
+		For(&positcov1beta1.Connect{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Owns(&appsv1.Deployment{}).
 		Complete(r)
 }
