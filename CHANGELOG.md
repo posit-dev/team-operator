@@ -1,3 +1,15 @@
+## [1.23.1](https://github.com/posit-dev/team-operator/compare/v1.23.0...v1.23.1) (2026-04-16)
+
+
+### Bug Fixes
+
+* prevent status-patch reconcile storm in Site and child controllers ([#128](https://github.com/posit-dev/team-operator/issues/128)) ([72fdeeb](https://github.com/posit-dev/team-operator/commit/72fdeeb9f4f354a10037aac403b68c22adc2715a))
+
+
+### Reverts
+
+* remove dynamicLabels from session pod config ([#113](https://github.com/posit-dev/team-operator/issues/113)) ([#126](https://github.com/posit-dev/team-operator/issues/126)) ([74058d3](https://github.com/posit-dev/team-operator/commit/74058d3805f15331f986db6fe6653678643ab0a5))
+
 # [1.23.0](https://github.com/posit-dev/team-operator/compare/v1.22.0...v1.23.0) (2026-04-14)
 
 
