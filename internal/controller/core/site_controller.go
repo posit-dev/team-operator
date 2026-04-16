@@ -21,8 +21,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 // checkBool dereferences a bool pointer, returning defaultVal if nil.
@@ -705,7 +707,7 @@ func (r *SiteReconciler) cleanupResources(ctx context.Context, req ctrl.Request)
 // SetupWithManager sets up the controller with the Manager.
 func (r *SiteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&positcov1beta1.Site{}).
+		For(&positcov1beta1.Site{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Owns(&positcov1beta1.Connect{}).
 		Owns(&positcov1beta1.Workbench{}).
 		Owns(&positcov1beta1.PackageManager{}).

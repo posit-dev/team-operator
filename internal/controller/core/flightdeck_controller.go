@@ -21,7 +21,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 // FlightdeckReconciler reconciles a Flightdeck object
@@ -465,7 +467,7 @@ func (r *FlightdeckReconciler) GetLogger(ctx context.Context) logr.Logger {
 // SetupWithManager sets up the controller with the Manager.
 func (r *FlightdeckReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&positcov1beta1.Flightdeck{}).
+		For(&positcov1beta1.Flightdeck{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Named("flightdeck").
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
