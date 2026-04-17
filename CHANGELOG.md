@@ -1,3 +1,10 @@
+## [1.23.2](https://github.com/posit-dev/team-operator/compare/v1.23.1...v1.23.2) (2026-04-17)
+
+
+### Bug Fixes
+
+* add /mnt/load-balancer to XDG_CONFIG_DIRS so Workbench reads load-balancer config ([#129](https://github.com/posit-dev/team-operator/issues/129)) ([44140f0](https://github.com/posit-dev/team-operator/commit/44140f09ffffa2f5678c24b742381e01b0c950a1))
+
 ## [1.23.1](https://github.com/posit-dev/team-operator/compare/v1.23.0...v1.23.1) (2026-04-16)
 
 
