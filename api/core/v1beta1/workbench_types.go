@@ -494,7 +494,7 @@ func (w *Workbench) InitializeNonRootSupervisorConfig(ctx context.Context, confi
 			StdOutLogFileMaxBytes: 0,
 			StdErrLogFile:         "/dev/stderr",
 			StdErrLogFileMaxBytes: 0,
-			Environment:           `XDG_CONFIG_DIRS="/mnt/config/rstudio:/mnt/config:/mnt/secure:/mnt/secure-config:/mnt/session:/mnt/load-balancer"`,
+			Environment:           `XDG_CONFIG_DIRS="/mnt/config/rstudio:/mnt/config:/mnt/secure:/mnt/secure-config:/mnt/session:/mnt/load-balancer/rstudio"`,
 		},
 	}
 	return nil
@@ -693,7 +693,7 @@ func (w *Workbench) CreateVolumeFactory(cfg *WorkbenchConfig) *product.VolumeFac
 			Env: []corev1.EnvVar{
 				{
 					Name:  "XDG_CONFIG_DIRS",
-					Value: "/mnt/config/rstudio:/mnt/config:/mnt/secure:/mnt/secure-config:/mnt/session:/mnt/load-balancer",
+					Value: "/mnt/config/rstudio:/mnt/config:/mnt/secure:/mnt/secure-config:/mnt/session:/mnt/load-balancer/rstudio",
 				},
 				{
 					Name: "RSW_TESTUSER_PASSWD",
