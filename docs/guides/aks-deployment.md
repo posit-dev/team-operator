@@ -12,7 +12,7 @@ For product-specific configuration (OIDC, Databricks, custom session images, etc
 
 ## Prerequisites
 
-- AKS cluster running Kubernetes 1.29+ with a dedicated subnet delegated to `Microsoft.NetApp/volumes` for Azure NetApp Files storage
+- AKS cluster running Kubernetes 1.30+ with a dedicated subnet delegated to `Microsoft.NetApp/volumes` for Azure NetApp Files storage
 - Azure Database for PostgreSQL Flexible Server reachable from the cluster: either Virtual Network (VNet)-injected (subnet delegation to `Microsoft.DBforPostgreSQL/flexibleServers`) or via private endpoint
 - Traefik ingress controller. Team Operator generates Traefik-specific `Middleware` and `IngressRoute` CRDs; Team Operator does not support other ingress controllers
 - `kubectl` configured against the target cluster
@@ -31,7 +31,7 @@ helm install team-operator \
 
 ### AKS System Node Pool Toleration
 
-AKS system node pools carry a `CriticalAddonsOnly=Exists:NoSchedule` taint by default. If you are running a system-only node pool (no user pool configured), the operator pod will stay `Pending` without a matching toleration. Create a values file and pass it during installation:
+AKS system node pools carry a `CriticalAddonsOnly=true:NoSchedule` taint by default. If you are running a system-only node pool (no user pool configured), the operator pod will stay `Pending` without a matching toleration. Create a values file and pass it during installation:
 
 ```yaml
 # azure-values.yaml
