@@ -3,9 +3,10 @@ repos:
     hooks:
       - id: format
         name: Format code
-        entry: just format
+        entry: bash -c 'gofmt -l -w . && test -z "$(gofmt -l .)"'
         language: system
         pass_filenames: false
+        files: \.go$
 
       - id: vet
         name: Go vet
@@ -26,7 +27,7 @@ repos:
         entry: just helm-generate
         language: system
         pass_filenames: false
-        files: ^config/
+        files: ^(config/|api/.*\.go$)
 
       - id: helm-lint
         name: Lint Helm chart

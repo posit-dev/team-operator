@@ -49,6 +49,7 @@ type WorkbenchSpecApplyConfiguration struct {
 	ChronicleSidecarProductApiKeyEnabled *bool                                     `json:"chronicleSidecarProductApiKeyEnabled,omitempty"`
 	AuthLoginPageHtml                    *string                                   `json:"authLoginPageHtml,omitempty"`
 	SCIM                                 *WorkbenchSCIMConfigApplyConfiguration    `json:"scim,omitempty"`
+	SessionLabels                        *SessionLabelsConfigApplyConfiguration    `json:"sessionLabels,omitempty"`
 }
 
 // WorkbenchSpecApplyConfiguration constructs a declarative configuration of the WorkbenchSpec type for use with
@@ -366,5 +367,13 @@ func (b *WorkbenchSpecApplyConfiguration) WithAuthLoginPageHtml(value string) *W
 // If called multiple times, the SCIM field is set to the value of the last call.
 func (b *WorkbenchSpecApplyConfiguration) WithSCIM(value *WorkbenchSCIMConfigApplyConfiguration) *WorkbenchSpecApplyConfiguration {
 	b.SCIM = value
+	return b
+}
+
+// WithSessionLabels sets the SessionLabels field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the SessionLabels field is set to the value of the last call.
+func (b *WorkbenchSpecApplyConfiguration) WithSessionLabels(value *SessionLabelsConfigApplyConfiguration) *WorkbenchSpecApplyConfiguration {
+	b.SessionLabels = value
 	return b
 }

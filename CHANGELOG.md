@@ -1,3 +1,34 @@
+## [1.23.2](https://github.com/posit-dev/team-operator/compare/v1.23.1...v1.23.2) (2026-04-17)
+
+
+### Bug Fixes
+
+* add /mnt/load-balancer to XDG_CONFIG_DIRS so Workbench reads load-balancer config ([#129](https://github.com/posit-dev/team-operator/issues/129)) ([44140f0](https://github.com/posit-dev/team-operator/commit/44140f09ffffa2f5678c24b742381e01b0c950a1))
+
+## [1.23.1](https://github.com/posit-dev/team-operator/compare/v1.23.0...v1.23.1) (2026-04-16)
+
+
+### Bug Fixes
+
+* prevent status-patch reconcile storm in Site and child controllers ([#128](https://github.com/posit-dev/team-operator/issues/128)) ([72fdeeb](https://github.com/posit-dev/team-operator/commit/72fdeeb9f4f354a10037aac403b68c22adc2715a))
+
+
+### Reverts
+
+* remove dynamicLabels from session pod config ([#113](https://github.com/posit-dev/team-operator/issues/113)) ([#126](https://github.com/posit-dev/team-operator/issues/126)) ([74058d3](https://github.com/posit-dev/team-operator/commit/74058d3805f15331f986db6fe6653678643ab0a5))
+
+# [1.23.0](https://github.com/posit-dev/team-operator/compare/v1.22.0...v1.23.0) (2026-04-14)
+
+
+### Bug Fixes
+
+* only tag docker release after corresponding image is pushed ([#122](https://github.com/posit-dev/team-operator/issues/122)) ([c1532c0](https://github.com/posit-dev/team-operator/commit/c1532c038b5a95bd16ad34b53c7331744e6071c3))
+
+
+### Features
+
+* add session label controller for Workbench session pods ([#123](https://github.com/posit-dev/team-operator/issues/123)) ([f0f8146](https://github.com/posit-dev/team-operator/commit/f0f8146a98e69b954fe58a96c06251cffa28bf2e))
+
 # [1.22.0](https://github.com/posit-dev/team-operator/compare/v1.21.1...v1.22.0) (2026-04-01)
 
 

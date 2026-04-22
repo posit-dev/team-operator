@@ -2138,83 +2138,6 @@ spec:
                                 type: string
                             type: object
                         type: object
-                      dynamicLabels:
-                        description: |-
-                          DynamicLabels defines rules for generating pod labels from runtime session data.
-                          Requires template version 2.5.0 or later; ignored by older templates.
-                          Any product using a 2.5.0+ template will render these labels, but the Site CRD merge
-                          path only wires dynamicLabels for Workbench (via workbench.sessionConfig). To use
-                          dynamicLabels with Connect, set them directly on the Connect CR's sessionConfig.
-                        items:
-                          description: |-
-                            DynamicLabelRule defines a rule for generating pod labels from runtime session data.
-                            Each rule references a field from the .Job template object and either maps it directly
-                            to a label (using labelKey) or extracts multiple labels via regex (using match).
-                          properties:
-                            field:
-                              description: |-
-                                Field is the name of a top-level .Job template field to read.
-                                Common fields include "user", "args", "name", "image", "host", "exe", "command".
-                                Any .Job field is addressable — this relies on CRD write access being a privileged
-                                operation. If the field does not exist at runtime, the rule is silently skipped.
-                                Field values may appear as pod labels visible to anyone with pod read access.
-                              minLength: 1
-                              type: string
-                            labelKey:
-                              description: |-
-                                LabelKey is the label key for direct single-value mapping.
-                                Mutually exclusive with match/labelPrefix.
-                                Field values are sanitized for use as label values: non-alphanumeric characters
-                                (except . - _) are replaced with underscores, then truncated to 63 characters with
-                                leading/trailing non-alphanumeric characters stripped. Case is preserved in label
-                                values (unlike regex mode suffixes, which are lowercased since they form label keys).
-                                MaxLength = 253 (optional DNS prefix) + 1 (/) + 63 (name) = 317
-                              maxLength: 317
-                              type: string
-                            labelPrefix:
-                              description: |-
-                                LabelPrefix is prepended to the cleaned match to form the label key.
-                                Required when match is set.
-                                MaxLength = 253 (DNS subdomain) + 1 (/) + 52 (name prefix, must be < 53 to leave ≥11 chars for suffix)
-                              maxLength: 306
-                              type: string
-                            labelValue:
-                              description: LabelValue is the static value for all
-                                matched labels. Defaults to "true".
-                              maxLength: 63
-                              type: string
-                            match:
-                              description: |-
-                                Match is a regex pattern applied to the field value. Each match produces a label.
-                                For array fields (like "args"), elements are joined with spaces before matching.
-                                At runtime, at most 500 raw regex matches are collected per rule (to bound memory),
-                                then deduplicated and capped at 50 unique matches per rule and 200 regex-matched
-                                labels across all rules; direct-mapping labels (using labelKey) are not counted
-                                toward the 200 global cap. Excess matches are dropped and a
-                                posit.team/dynamic-label-cap-reached annotation is set on the pod. Rules are
-                                evaluated in array order, so earlier rules in the dynamicLabels list consume cap
-                                budget first; later rules may receive fewer or no matches if the global cap is
-                                reached. Matched suffixes are lowercased for use in label keys.
-                                Mutually exclusive with labelKey.
-                              maxLength: 256
-                              type: string
-                            trimPrefix:
-                              description: TrimPrefix is stripped from each regex
-                                match before forming the label key suffix.
-                              maxLength: 256
-                              type: string
-                          required:
-                          - field
-                          type: object
-                          x-kubernetes-validations:
-                          - message: labelKey and match are mutually exclusive
-                            rule: '!(has(self.labelKey) && has(self.match))'
-                          - message: one of labelKey or match is required
-                            rule: has(self.labelKey) || has(self.match)
-                          - message: labelPrefix is required when match is set
-                            rule: '!has(self.match) || has(self.labelPrefix)'
-                        maxItems: 20
-                        type: array
                       env:
                         items:
                           description: EnvVar represents an environment variable present
@@ -7688,6 +7611,58 @@ spec:
                       type:
                         type: string
                     type: object
+                type: object
+              sessionLabels:
+                description: |-
+                  SessionLabels configures automatic label injection onto Workbench session pods.
+                  When present, the session label controller reads the specified pod field,
+                  applies searchRegex to find matching group names, and writes one numbered
+                  label per match (e.g. user-group-1, user-group-2).
+                  Omit this field to disable the feature for this site.
+                properties:
+                  labelKeyPrefix:
+                    description: |-
+                      LabelKeyPrefix is prepended to the sequential index to form each label key.
+                      Default "user-group-" produces labels user-group-1, user-group-2, etc.
+                    type: string
+                  reprocess:
+                    description: |-
+                      Reprocess, when true, causes the controller to re-inject labels onto session
+                      pods that have already been processed. Toggle on to force re-labelling of
+                      existing pods (e.g. after changing searchRegex or trimPrefix), then set back
+                      to false when done.
+                    type: boolean
+                  searchRegex:
+                    description: |-
+                      SearchRegex is applied to each comma-separated entry in the source value to
+                      decide whether to include it as a label. Only matching entries are labelled.
+                      Default: "_entra_[^ ,]+"
+                    maxLength: 256
+                    type: string
+                  sourceField:
+                    description: |-
+                      SourceField is a dot-path into the pod spec that identifies the field
+                      holding the comma-separated group list. Supports array index notation.
+                      Default: "spec.containers[0].args"
+                      Examples:
+                        "spec.containers[0].args"  — container args slice (lookup by sourceKey flag)
+                        "metadata.annotations"     — all annotations (lookup by sourceKey map key)
+                        "metadata.labels"          — all labels (lookup by sourceKey map key)
+                    type: string
+                  sourceKey:
+                    description: |-
+                      SourceKey is the sub-key used to extract the final string from the resolved field:
+                        []string field (e.g. args): the flag name whose next element is the value.
+                        map field (e.g. annotations, labels): the map key to look up.
+                        string field: ignored; the field value is used directly.
+                      Default: "--container-user-groups"
+                    type: string
+                  trimPrefix:
+                    description: |-
+                      TrimPrefix is stripped from the start of each matched group name before it
+                      becomes the label value. E.g. with TrimPrefix "_": "_entra_team" → "entra_team".
+                      Default: "_"
+                    type: string
                 type: object
               sleep:
                 description: |-

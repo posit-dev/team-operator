@@ -477,10 +477,10 @@ type InternalWorkbenchSpec struct {
 	// +optional
 	AdditionalSessionConfigs map[string]string `json:"additionalSessionConfigs,omitempty"`
 
-	// SessionConfig allows configuring Workbench session pods, including dynamic labels,
-	// annotations, tolerations, and other pod-level settings.
+	// SessionLabels configures automatic label injection onto session pods.
+	// When present, the session label controller is active for this site. Omit to disable.
 	// +optional
-	SessionConfig *product.SessionConfig `json:"sessionConfig,omitempty"`
+	SessionLabels *SessionLabelsConfig `json:"sessionLabels,omitempty"`
 
 	// SCIM configures SCIM user provisioning for Workbench.
 	// Requires SSO (OIDC or SAML) to be configured.

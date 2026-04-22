@@ -179,6 +179,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &corev1beta1.SecretReferenceApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("ServiceAccountConfig"):
 		return &corev1beta1.ServiceAccountConfigApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("SessionLabelsConfig"):
+		return &corev1beta1.SessionLabelsConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("Site"):
 		return &corev1beta1.SiteApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("SiteSpec"):
