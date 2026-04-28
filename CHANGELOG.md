@@ -1,3 +1,10 @@
+## [1.23.3](https://github.com/posit-dev/team-operator/compare/v1.23.2...v1.23.3) (2026-04-28)
+
+
+### Bug Fixes
+
+* bump controller manager memory limit from 128Mi to 192Mi ([#127](https://github.com/posit-dev/team-operator/issues/127)) ([cd40dc0](https://github.com/posit-dev/team-operator/commit/cd40dc0e1b884bc3db56610989dc9a489975d69a))
+
 ## [1.23.2](https://github.com/posit-dev/team-operator/compare/v1.23.1...v1.23.2) (2026-04-17)
 
 
