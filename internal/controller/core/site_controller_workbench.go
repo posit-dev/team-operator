@@ -62,7 +62,7 @@ func (r *SiteReconciler) reconcileWorkbench(
 		adminSuperuserGroup = strings.Join(site.Spec.Workbench.AdminSuperuserGroups, ",")
 	}
 
-	threadPoolSize := 16
+	threadPoolSize := 28
 	proxyMaxWaitSecs := 30
 	vsCodeArgs := "--host=0.0.0.0"
 	resourceProfiles := defaultWorkbenchResourceProfiles()

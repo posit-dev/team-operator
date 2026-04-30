@@ -917,7 +917,7 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 								ReadinessProbe: &corev1.Probe{
 									ProbeHandler: corev1.ProbeHandler{
 										HTTPGet: &corev1.HTTPGetAction{
-											Path: "/health-check",
+											Path: "/api/version",
 											Port: intstr.IntOrString{Type: intstr.String, StrVal: "http"},
 										},
 									},

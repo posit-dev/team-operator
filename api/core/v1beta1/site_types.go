@@ -531,7 +531,7 @@ type InternalWorkbenchExperimentalFeatures struct {
 	// DsnSecret is a key for the default SiteSecretType to embed in sessions as a DSN (/etc/odbc.ini)
 	DsnSecret string `json:"dsnSecret,omitempty"`
 
-	// WwwThreadPoolSize is an advanced configuration for the scalability of the Workbench web server. Defaults to 16
+	// WwwThreadPoolSize is an advanced configuration for the scalability of the Workbench web server. Defaults to 28
 	WwwThreadPoolSize *int `json:"wwwThreadPoolSize,omitempty"`
 
 	FirstProjectTemplatePath string `json:"firstProjectTemplatePath,omitempty"`
