@@ -1444,7 +1444,7 @@ spec:
                       wwwThreadPoolSize:
                         description: WwwThreadPoolSize is an advanced configuration
                           for the scalability of the Workbench web server. Defaults
-                          to 16
+                          to 28
                         type: integer
                     type: object
                   extraSessionImages:
