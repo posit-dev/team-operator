@@ -1262,6 +1262,13 @@ spec:
                           if trying to run "docker in docker" for example. Eventually we will work to make "docker in docker" an
                           unprivileged operation as well!
                         type: boolean
+                      readinessProbePath:
+                        description: |-
+                          ReadinessProbePath overrides the HTTP path used by the Workbench readiness probe.
+                          Defaults to "/health-check". The probe is unauthenticated; any override must point to
+                          an endpoint that does not require auth and returns a 2xx-3xx status, otherwise the pod
+                          will never become ready.
+                        type: string
                       resourceProfiles:
                         additionalProperties:
                           properties:

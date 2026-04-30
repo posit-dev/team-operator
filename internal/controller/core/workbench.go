@@ -49,6 +49,15 @@ var invalidCharacters = regexp.MustCompile("[^a-z0-9]") // do not glob, lest we 
 
 var azureDatabricksRegexp = regexp.MustCompile("azuredatabricks\\.net")
 
+const defaultWorkbenchReadinessProbePath = "/health-check"
+
+func workbenchReadinessProbePath(w *positcov1beta1.Workbench) string {
+	if w.Spec.ReadinessProbePath != "" {
+		return w.Spec.ReadinessProbePath
+	}
+	return defaultWorkbenchReadinessProbePath
+}
+
 // FetchAndSetClientSecretForAzureDatabricks will check to see whether AzureDatabricks is in use... if it is,
 // it will fetch the secret from the secret manager and modify the Spec in-place...
 func (r *WorkbenchReconciler) FetchAndSetClientSecretForAzureDatabricks(ctx context.Context, req ctrl.Request, w *positcov1beta1.Workbench) error {
@@ -917,7 +926,7 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 								ReadinessProbe: &corev1.Probe{
 									ProbeHandler: corev1.ProbeHandler{
 										HTTPGet: &corev1.HTTPGetAction{
-											Path: "/health-check",
+											Path: workbenchReadinessProbePath(w),
 											Port: intstr.IntOrString{Type: intstr.String, StrVal: "http"},
 										},
 									},

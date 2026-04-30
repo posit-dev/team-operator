@@ -1385,6 +1385,11 @@ func (in *InternalWorkbenchExperimentalFeatures) DeepCopyInto(out *InternalWorkb
 		*out = new(int)
 		**out = **in
 	}
+	if in.ReadinessProbePath != nil {
+		in, out := &in.ReadinessProbePath, &out.ReadinessProbePath
+		*out = new(string)
+		**out = **in
+	}
 	if in.LauncherSessionsProxyTimeoutSeconds != nil {
 		in, out := &in.LauncherSessionsProxyTimeoutSeconds, &out.LauncherSessionsProxyTimeoutSeconds
 		*out = new(int)

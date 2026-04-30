@@ -701,6 +701,11 @@ spec:
                 type: boolean
               parentUrl:
                 type: string
+              readinessProbePath:
+                description: |-
+                  ReadinessProbePath overrides the HTTP path used by the Workbench readiness probe.
+                  Empty value applies the default ("/health-check").
+                type: string
               replicas:
                 type: integer
               scim:

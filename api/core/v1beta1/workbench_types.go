@@ -126,6 +126,11 @@ type WorkbenchSpec struct {
 	// Omit this field to disable the feature for this site.
 	// +optional
 	SessionLabels *SessionLabelsConfig `json:"sessionLabels,omitempty"`
+
+	// ReadinessProbePath overrides the HTTP path used by the Workbench readiness probe.
+	// Empty value applies the default ("/health-check").
+	// +optional
+	ReadinessProbePath string `json:"readinessProbePath,omitempty"`
 }
 
 // SessionLabelsConfig configures the session group label controller for a

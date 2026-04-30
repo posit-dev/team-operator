@@ -161,6 +161,44 @@ func TestWorkbenchReconciler_Basic(t *testing.T) {
 	require.Equal(t, headersMiddleware.Name, r.HeadersMiddleware(wb))
 }
 
+func TestWorkbenchReadinessProbePath(t *testing.T) {
+	cases := []struct {
+		name      string
+		override  string
+		wantPath  string
+	}{
+		{name: "default", override: "", wantPath: defaultWorkbenchReadinessProbePath},
+		{name: "override", override: "/custom-health", wantPath: "/custom-health"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			ns := "posit-team"
+			wbName := "workbench-probe-" + tc.name
+
+			ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, wbName)
+
+			wb := defineDefaultWorkbench(t, ns, wbName)
+			wb.Spec.ReadinessProbePath = tc.override
+
+			err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+			require.NoError(t, err)
+
+			wb = getWorkbench(t, cli, ns, wbName)
+			res, err := r.ReconcileWorkbench(ctx, req, wb)
+			require.NoError(t, err)
+			require.True(t, res.IsZero())
+
+			deployment := getDeployment(t, cli, ns, wbName+"-workbench")
+			mainContainer := deployment.Spec.Template.Spec.Containers[0]
+			require.NotNil(t, mainContainer.ReadinessProbe, "readiness probe must be set")
+			require.NotNil(t, mainContainer.ReadinessProbe.HTTPGet, "readiness probe must use HTTPGet")
+			assert.Equal(t, tc.wantPath, mainContainer.ReadinessProbe.HTTPGet.Path)
+		})
+	}
+}
+
 func TestWorkbenchConfigReload(t *testing.T) {
 	ctx := context.Background()
 	var err error
