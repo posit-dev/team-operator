@@ -64,10 +64,22 @@ func TestLabelValueEnumsHaveNoDuplicates(t *testing.T) {
 	}
 }
 
+// Force a build error if status.ReasonReconcileError is renamed/removed.
+// PhaseError is documented as covering this Reason but the value transform is
+// not 1:1, so it can't be asserted via camelToSnake below.
+var _ = status.ReasonReconcileError
+
 // TestPhaseMatchesStatusReason locks down phase strings that are expected to
 // be the lowercase_underscore form of a status.Reason* constant. This catches
 // the case where a Reason is renamed in the status package and dashboards
 // silently break.
+//
+// Note: this test asserts two things at once — that phase strings track the
+// matching Reason value, and that Reason values stay CamelCase. If a future
+// change in internal/status switches Reason values to a different format
+// (e.g., already-snake-cased or human-formatted strings) this test will fail
+// even though the semantic mapping is unchanged; update camelToSnake or the
+// expected phase strings accordingly.
 func TestPhaseMatchesStatusReason(t *testing.T) {
 	cases := []struct {
 		phase  string
@@ -85,16 +97,26 @@ func TestPhaseMatchesStatusReason(t *testing.T) {
 	}
 }
 
+// camelToSnake converts CamelCase to lowercase_underscore. It only handles
+// one capital per word boundary (e.g., "DatabaseReady" -> "database_ready");
+// consecutive capitals from acronyms like "HTTPReady" or "OIDCReady" are not
+// supported and would produce incorrect output. None of the current
+// status.Reason* values use acronyms; if one is added, this helper must be
+// updated alongside the new test case.
 func camelToSnake(s string) string {
 	var b strings.Builder
+	var prev rune
 	for i, r := range s {
-		if i > 0 && r >= 'A' && r <= 'Z' {
+		isUpper := r >= 'A' && r <= 'Z'
+		prevUpper := prev >= 'A' && prev <= 'Z'
+		if i > 0 && isUpper && !prevUpper {
 			b.WriteByte('_')
 		}
-		if r >= 'A' && r <= 'Z' {
+		if isUpper {
 			r += 'a' - 'A'
 		}
 		b.WriteRune(r)
+		prev = rune(s[i])
 	}
 	return b.String()
 }
