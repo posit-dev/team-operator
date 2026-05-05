@@ -89,6 +89,9 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	l.Info("Site found; updating resources")
 
+	// Capture prior phase before any mutation so the metric reflects the real transition.
+	priorPhase := observability.PhaseFromConditions(s.Status.Conditions)
+
 	// Save a copy for status patching
 	patchBase := client.MergeFrom(s.DeepCopy())
 
@@ -106,7 +109,7 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		msg := status.TruncateMessage(reconcileErr.Error())
 		status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconcileError, msg)
 		observability.RecordStatusTransition(ctx, r.Meter, "site", req.Namespace,
-			observability.PhaseReconciling, observability.PhaseError)
+			priorPhase, observability.PhaseError)
 		status.SetProgressing(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconcileError, msg)
 	} else {
 		// Overall Ready is true only if all children are ready
@@ -114,11 +117,11 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		if allReady {
 			status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionTrue, status.ReasonAllComponentsReady, "All child components are ready")
 			observability.RecordStatusTransition(ctx, r.Meter, "site", req.Namespace,
-				observability.PhaseReconciling, observability.PhaseComponentsReady)
+				priorPhase, observability.PhaseComponentsReady)
 		} else {
 			status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonComponentsNotReady, "One or more child components are not ready")
 			observability.RecordStatusTransition(ctx, r.Meter, "site", req.Namespace,
-				observability.PhaseReconciling, observability.PhaseUnknown)
+				priorPhase, observability.PhaseUnknown)
 		}
 		status.SetProgressing(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconcileComplete, "Reconciliation complete")
 	}

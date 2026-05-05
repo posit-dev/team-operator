@@ -82,6 +82,9 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 		"product", "workbench",
 	)
 
+	// Capture prior phase before any mutation so the success metric reflects the real transition.
+	priorPhase := observability.PhaseFromConditions(w.Status.Conditions)
+
 	// If suspended, clean up serving resources but preserve data
 	if w.Spec.Suspended != nil && *w.Spec.Suspended {
 		// Capture patch base before suspend so any future in-memory mutations are included in the diff
@@ -201,7 +204,7 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 	}
 
 	observability.RecordStatusTransition(ctx, r.Meter, "workbench", req.Namespace,
-		observability.PhaseReconciling, observability.PhaseReady)
+		priorPhase, observability.PhaseReady)
 	return ctrl.Result{}, nil
 }
 

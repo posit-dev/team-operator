@@ -39,6 +39,9 @@ func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Reque
 		"product", "connect",
 	)
 
+	// Capture prior phase before any mutation so the success metric reflects the real transition.
+	priorPhase := observability.PhaseFromConditions(c.Status.Conditions)
+
 	// If suspended, clean up serving resources (Deployment/Service/Ingress) but preserve data
 	if c.Spec.Suspended != nil && *c.Spec.Suspended {
 		// Capture patch base before suspend so any future in-memory mutations are included in the diff
@@ -163,7 +166,7 @@ func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Reque
 	}
 
 	observability.RecordStatusTransition(ctx, r.Meter, "connect", req.Namespace,
-		observability.PhaseReconciling, observability.PhaseReady)
+		priorPhase, observability.PhaseReady)
 	return ctrl.Result{}, nil
 }
 

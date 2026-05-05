@@ -103,6 +103,9 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 		"product", "package-manager",
 	)
 
+	// Capture prior phase before any mutation so the success metric reflects the real transition.
+	priorPhase := observability.PhaseFromConditions(pm.Status.Conditions)
+
 	// If suspended, clean up serving resources but preserve data
 	if pm.Spec.Suspended != nil && *pm.Spec.Suspended {
 		// Capture patch base before suspend so any future in-memory mutations are included in the diff
@@ -224,7 +227,7 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 	}
 
 	observability.RecordStatusTransition(ctx, r.Meter, "package-manager", req.Namespace,
-		observability.PhaseReconciling, observability.PhaseReady)
+		priorPhase, observability.PhaseReady)
 	return ctrl.Result{}, nil
 }
 

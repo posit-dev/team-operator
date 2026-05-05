@@ -80,10 +80,13 @@ func (r *ConnectReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	l.Info("Connect found; updating resources")
 
+	// Capture prior phase before any mutation so the metric reflects the real transition.
+	priorPhase := observability.PhaseFromConditions(c.Status.Conditions)
+
 	if res, err := r.ReconcileConnect(ctx, req, &c); err != nil {
 		l.Error(err, "error reconciling product state")
 		observability.RecordStatusTransition(ctx, r.Meter, "connect", req.Namespace,
-			observability.PhaseReconciling, observability.PhaseError)
+			priorPhase, observability.PhaseError)
 		return res, err
 	}
 	// reconcile successful — success metric recorded inside ReconcileConnect

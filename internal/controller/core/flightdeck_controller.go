@@ -73,6 +73,9 @@ func (r *FlightdeckReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		"domain", fd.Spec.Domain,
 	)
 
+	// Capture prior phase before any mutation so the metric reflects the real transition.
+	priorPhase := observability.PhaseFromConditions(fd.Status.Conditions)
+
 	// Save a copy for status patching
 	patchBase := client.MergeFrom(fd.DeepCopy())
 
@@ -83,7 +86,7 @@ func (r *FlightdeckReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if res, err := r.reconcileFlightdeckResources(ctx, req, fd, l); err != nil {
 		l.Error(err, "failed to reconcile flightdeck resources")
 		observability.RecordStatusTransition(ctx, r.Meter, "flightdeck", req.Namespace,
-			observability.PhaseReconciling, observability.PhaseError)
+			priorPhase, observability.PhaseError)
 		if patchErr := status.PatchErrorStatus(ctx, r.Status(), fd, patchBase, &fd.Status.Conditions, fd.Generation, err); patchErr != nil {
 			l.Error(patchErr, "Error patching error status")
 		}
@@ -111,7 +114,7 @@ func (r *FlightdeckReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	observability.RecordStatusTransition(ctx, r.Meter, "flightdeck", req.Namespace,
-		observability.PhaseReconciling, observability.PhaseReady)
+		priorPhase, observability.PhaseReady)
 
 	l.Info("reconciliation completed successfully",
 		"component", fd.ComponentName(),

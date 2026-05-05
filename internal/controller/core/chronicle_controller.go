@@ -106,6 +106,9 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 		"product", "chronicle",
 	)
 
+	// Capture prior phase before any mutation so the metric reflects the real transition.
+	priorPhase := observability.PhaseFromConditions(c.Status.Conditions)
+
 	// If suspended, clean up serving resources but preserve configuration
 	if c.Spec.Suspended != nil && *c.Spec.Suspended {
 		// Capture patch base before suspend so any future in-memory mutations are included in the diff
@@ -122,7 +125,7 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 			return res, patchErr
 		}
 		observability.RecordStatusTransition(ctx, r.Meter, "chronicle", c.Namespace,
-			observability.PhaseReconciling, observability.PhaseSuspended)
+			priorPhase, observability.PhaseSuspended)
 		return res, nil
 	}
 
@@ -144,7 +147,7 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 			l.Error(patchErr, "Error patching error status")
 		}
 		observability.RecordStatusTransition(ctx, r.Meter, "chronicle", c.Namespace,
-			observability.PhaseReconciling, observability.PhaseError)
+			priorPhase, observability.PhaseError)
 		return res, err
 	}
 
@@ -169,7 +172,7 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 	}
 
 	observability.RecordStatusTransition(ctx, r.Meter, "chronicle", c.Namespace,
-		observability.PhaseReconciling, observability.PhaseReady)
+		priorPhase, observability.PhaseReady)
 	return ctrl.Result{}, nil
 }
 

@@ -85,6 +85,9 @@ func (r *PostgresDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	l.Info("PostgresDatabase found; reconciling database")
 
+	// Capture prior phase before any mutation so the metric reflects the real transition.
+	priorPhase := observability.PhaseFromConditions(pgd.Status.Conditions)
+
 	// Save a copy for status patching
 	patchBase := client.MergeFrom(pgd.DeepCopy())
 
@@ -100,12 +103,12 @@ func (r *PostgresDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		status.SetReady(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionFalse, status.ReasonReconcileError, msg)
 		status.SetProgressing(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionFalse, status.ReasonReconcileError, msg)
 		observability.RecordStatusTransition(ctx, r.Meter, "postgres-database", req.Namespace,
-			observability.PhaseReconciling, observability.PhaseError)
+			priorPhase, observability.PhaseError)
 	} else {
 		status.SetReady(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionTrue, status.ReasonDatabaseReady, "Database provisioned successfully")
 		status.SetProgressing(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionFalse, status.ReasonReconcileComplete, "Reconciliation complete")
 		observability.RecordStatusTransition(ctx, r.Meter, "postgres-database", req.Namespace,
-			observability.PhaseReconciling, observability.PhaseDatabaseReady)
+			priorPhase, observability.PhaseDatabaseReady)
 	}
 
 	// Patch status regardless of createDatabase result

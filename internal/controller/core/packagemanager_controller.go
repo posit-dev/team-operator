@@ -74,10 +74,13 @@ func (r *PackageManagerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	l.Info("PackageManager found; updating resources")
 
+	// Capture prior phase before any mutation so the metric reflects the real transition.
+	priorPhase := observability.PhaseFromConditions(pm.Status.Conditions)
+
 	if res, err := r.ReconcilePackageManager(ctx, req, &pm); err != nil {
 		l.Error(err, "error reconciling product state")
 		observability.RecordStatusTransition(ctx, r.Meter, "package-manager", req.Namespace,
-			observability.PhaseReconciling, observability.PhaseError)
+			priorPhase, observability.PhaseError)
 		return res, err
 	}
 	// reconcile successful — success metric recorded inside ReconcilePackageManager

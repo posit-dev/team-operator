@@ -82,10 +82,13 @@ func (r *WorkbenchReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	l.Info("Workbench found; updating resources")
 
+	// Capture prior phase before any mutation so the metric reflects the real transition.
+	priorPhase := observability.PhaseFromConditions(w.Status.Conditions)
+
 	if res, err := r.ReconcileWorkbench(ctx, req, &w); err != nil {
 		l.Error(err, "error reconciling product state")
 		observability.RecordStatusTransition(ctx, r.Meter, "workbench", req.Namespace,
-			observability.PhaseReconciling, observability.PhaseError)
+			priorPhase, observability.PhaseError)
 		return res, err
 	}
 	// reconcile successful — success metric recorded inside ReconcileWorkbench

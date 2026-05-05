@@ -42,6 +42,11 @@ Labels: `controller`, `namespace`, `from_phase`, `to_phase`
 Incremented each time a reconcile moves a CR between phases. Useful for detecting
 flapping (repeated error→ready→error cycles) or stuck controllers.
 
+The `from_phase` label reflects the CR's prior stable phase, derived from the existing
+`Ready` condition's reason at the start of the reconcile. On a CR's first reconcile
+(no prior conditions) `from_phase=unknown`. This lets dashboards distinguish
+"fresh→ready" from "error→ready (recovery)".
+
 **Example PromQL:**
 ```promql
 # Rate of error transitions across all controllers:
