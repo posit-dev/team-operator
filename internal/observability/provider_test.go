@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
 
 	"github.com/posit-dev/team-operator/internal/observability"
@@ -39,9 +39,13 @@ func TestNewProvider_MetricsDisabled(t *testing.T) {
 }
 
 func TestNewProvider_PrometheusOnly(t *testing.T) {
+	// Use a fresh registry so the test is idempotent across `go test -count=N`
+	// runs and does not pollute prometheus.DefaultRegisterer.
+	reg := prometheus.NewRegistry()
 	p := observability.NewProvider(context.Background(), observability.Config{
-		MetricsEnabled:    true,
-		PrometheusEnabled: true,
+		MetricsEnabled:       true,
+		PrometheusEnabled:    true,
+		PrometheusRegisterer: reg,
 	})
 	require.NotNil(t, p)
 
@@ -53,16 +57,49 @@ func TestNewProvider_PrometheusOnly(t *testing.T) {
 	require.NoError(t, p.Shutdown(context.Background()))
 }
 
+func TestNewProvider_PrometheusGather(t *testing.T) {
+	// Verify the contract that the OTel Prometheus exporter feeds the configured
+	// Registerer / Gatherer — i.e. recorded counters appear in /metrics output.
+	reg := prometheus.NewRegistry()
+	p := observability.NewProvider(context.Background(), observability.Config{
+		MetricsEnabled:       true,
+		PrometheusEnabled:    true,
+		PrometheusRegisterer: reg,
+	})
+	require.NotNil(t, p)
+	t.Cleanup(func() { _ = p.Shutdown(context.Background()) })
+
+	m := p.Meter("team-operator/test")
+	counter, err := m.Int64Counter("provider_gather_test_total")
+	require.NoError(t, err)
+	counter.Add(context.Background(), 3)
+
+	families, err := reg.Gather()
+	require.NoError(t, err)
+
+	var found bool
+	for _, mf := range families {
+		if mf.GetName() == "provider_gather_test_total" {
+			found = true
+			break
+		}
+	}
+	require.True(t, found, "OTel counter must appear in Prometheus gather output")
+}
+
 func TestNewProvider_OTLPEndpointSet(t *testing.T) {
-	// Unreachable endpoint — exporter should fail gracefully at export time,
-	// not at init time. Provider init must succeed.
+	// Smoke test: provider init with an OTLP endpoint set must succeed; gRPC
+	// connect is lazy so an unreachable collector does not fail at init time.
+	// Shutdown may return an error when the collector is unreachable (the SDK
+	// flushes pending exports), which is fine — callers tolerate the error.
 	p := observability.NewProvider(context.Background(), observability.Config{
 		MetricsEnabled:    true,
 		PrometheusEnabled: false,
 		OTLPEndpoint:      "localhost:4317",
+		OTLPInsecure:      true,
 	})
 	require.NotNil(t, p)
-	require.NoError(t, p.Shutdown(context.Background()))
+	_ = p.Shutdown(context.Background())
 }
 
 func TestNewProvider_EnvVarFallback(t *testing.T) {
@@ -71,9 +108,8 @@ func TestNewProvider_EnvVarFallback(t *testing.T) {
 		MetricsEnabled:    true,
 		PrometheusEnabled: false,
 		OTLPEndpoint:      "", // empty — should fall back to env var
+		OTLPInsecure:      true,
 	})
 	require.NotNil(t, p)
-	require.NoError(t, p.Shutdown(context.Background()))
+	_ = p.Shutdown(context.Background())
 }
-
-var _ = assert.New // suppress unused import warning

@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	promexporter "go.opentelemetry.io/otel/exporters/prometheus"
@@ -17,21 +18,35 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.27.0"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/posit-dev/team-operator/internal"
 )
 
 // Config holds all flags/env that control OTel SDK initialization.
 // Flags take precedence over environment variables; defaults are applied last.
+//
+// Note on service.name precedence: Config sets service.name to "team-operator"
+// after resource.WithFromEnv(), so the explicit attribute wins over the
+// OTEL_SERVICE_NAME and OTEL_RESOURCE_ATTRIBUTES env vars by design.
 type Config struct {
 	// MetricsEnabled is the master toggle. When false, a noop provider is returned.
 	MetricsEnabled bool
-	// PrometheusEnabled registers the OTel Prometheus exporter onto prometheus.DefaultRegisterer.
+	// PrometheusEnabled registers the OTel Prometheus exporter onto a Prometheus
+	// Registerer. When PrometheusRegisterer is nil, prometheus.DefaultRegisterer is used.
 	PrometheusEnabled bool
+	// PrometheusRegisterer is the Prometheus registerer the exporter binds to.
+	// When nil and PrometheusEnabled is true, prometheus.DefaultRegisterer is used.
+	// Tests should pass a fresh prometheus.NewRegistry() to avoid polluting the
+	// process-global default registerer.
+	PrometheusRegisterer prometheus.Registerer
 	// OTLPEndpoint is the gRPC endpoint for OTLP metric push (e.g. "otel-collector:4317").
 	// Empty string means OTLP push is disabled unless OTEL_EXPORTER_OTLP_ENDPOINT is set.
 	// The OTel SDK reads OTEL_EXPORTER_OTLP_ENDPOINT automatically when this is empty.
 	OTLPEndpoint string
+	// OTLPInsecure forces the gRPC exporter to plaintext. Default false (TLS is used).
+	// Set true for in-cluster collectors reachable over the pod network without TLS.
+	OTLPInsecure bool
 	// MetricsExportInterval is the cadence for OTLP metric export and async gauge collection.
 	MetricsExportInterval time.Duration
 	// ClusterName is written to the k8s.cluster.name resource attribute when non-empty.
@@ -45,6 +60,8 @@ type Config struct {
 type Provider struct {
 	mp metric.MeterProvider
 }
+
+var providerLog = ctrl.Log.WithName("observability")
 
 // NewProvider initialises the OTel metrics SDK based on cfg.
 // If MetricsEnabled is false, OTEL_SDK_DISABLED=true, or SDK init fails,
@@ -62,7 +79,7 @@ func NewProvider(ctx context.Context, cfg Config) *Provider {
 	mp, err := buildMeterProvider(ctx, cfg)
 	if err != nil {
 		// Degraded mode: log warning and return noop so the operator still starts.
-		fmt.Fprintf(os.Stderr, "observability: SDK init failed (%v); falling back to noop metrics\n", err)
+		providerLog.Error(err, "SDK init failed; falling back to noop metrics")
 		return &Provider{mp: noop.NewMeterProvider()}
 	}
 
@@ -77,13 +94,11 @@ func (p *Provider) Meter(name string) metric.Meter {
 
 // Shutdown flushes pending exports and releases SDK resources.
 // Call this from the signal handler, after mgr.Start() returns.
-// Export errors during shutdown (e.g. unreachable OTLP endpoint) are logged
-// but not returned — the operator must be able to exit cleanly regardless.
+// Returns the SDK shutdown error so callers can choose to log or ignore it;
+// the operator should still exit cleanly even when shutdown errors occur.
 func (p *Provider) Shutdown(ctx context.Context) error {
 	if sdk, ok := p.mp.(*sdkmetric.MeterProvider); ok {
-		if err := sdk.Shutdown(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "observability: SDK shutdown error (non-fatal): %v\n", err)
-		}
+		return sdk.Shutdown(ctx)
 	}
 	// noop provider has no resources to release
 	return nil
@@ -98,10 +113,15 @@ func buildMeterProvider(ctx context.Context, cfg Config) (*sdkmetric.MeterProvid
 	var opts []sdkmetric.Option
 	opts = append(opts, sdkmetric.WithResource(res))
 
-	// Prometheus exporter — registers onto prometheus.DefaultRegisterer so /metrics
+	// Prometheus exporter — registers onto a Prometheus Registerer so /metrics
 	// serves both controller-runtime built-ins and OTel metrics from one endpoint.
+	// Defaults to prometheus.DefaultRegisterer when cfg.PrometheusRegisterer is nil.
 	if cfg.PrometheusEnabled {
-		promExp, err := promexporter.New()
+		var promOpts []promexporter.Option
+		if cfg.PrometheusRegisterer != nil {
+			promOpts = append(promOpts, promexporter.WithRegisterer(cfg.PrometheusRegisterer))
+		}
+		promExp, err := promexporter.New(promOpts...)
 		if err != nil {
 			return nil, fmt.Errorf("creating Prometheus exporter: %w", err)
 		}
@@ -120,11 +140,14 @@ func buildMeterProvider(ctx context.Context, cfg Config) (*sdkmetric.MeterProvid
 		otlpEndpoint = os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 	}
 	if otlpEndpoint != "" {
-		fmt.Fprintf(os.Stderr, "observability: OTLP push to %q uses insecure (plaintext) transport; ensure the collector is in-cluster or behind a service mesh\n", otlpEndpoint)
-		otlpExp, err := otlpmetricgrpc.New(ctx,
+		grpcOpts := []otlpmetricgrpc.Option{
 			otlpmetricgrpc.WithEndpoint(otlpEndpoint),
-			otlpmetricgrpc.WithInsecure(), // TLS is a follow-up; default off for simplicity
-		)
+		}
+		if cfg.OTLPInsecure {
+			providerLog.Info("OTLP push using insecure (plaintext) transport; ensure the collector is in-cluster or behind a service mesh", "endpoint", otlpEndpoint)
+			grpcOpts = append(grpcOpts, otlpmetricgrpc.WithInsecure())
+		}
+		otlpExp, err := otlpmetricgrpc.New(ctx, grpcOpts...)
 		if err != nil {
 			return nil, fmt.Errorf("creating OTLP metric exporter: %w", err)
 		}
@@ -155,6 +178,8 @@ func buildResource(ctx context.Context, cfg Config) (*resource.Resource, error) 
 	// Merge with OTEL_RESOURCE_ATTRIBUTES env var (OTel SDK handles this automatically
 	// when we use resource.New with WithProcess or Detect, but we build manually here
 	// so we apply env vars via resource.WithFromEnv()).
+	// Order matters: WithFromEnv runs first, then WithAttributes — so explicit
+	// attrs (including service.name) take precedence over OTEL_SERVICE_NAME.
 	return resource.New(ctx,
 		resource.WithFromEnv(),
 		resource.WithAttributes(attrs...),
