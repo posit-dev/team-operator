@@ -13,6 +13,7 @@ import (
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
+	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	corev1 "k8s.io/api/core/v1"
@@ -20,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"go.opentelemetry.io/otel/metric"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,6 +42,7 @@ type SiteReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
+	Meter  metric.Meter
 }
 
 //+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=sites,verbs=get;list;watch;create;update;patch;delete
@@ -102,14 +105,20 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	if reconcileErr != nil {
 		msg := status.TruncateMessage(reconcileErr.Error())
 		status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconcileError, msg)
+		observability.RecordStatusTransition(ctx, r.Meter, "site", req.Namespace,
+			observability.PhaseReconciling, observability.PhaseError)
 		status.SetProgressing(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconcileError, msg)
 	} else {
 		// Overall Ready is true only if all children are ready
 		allReady := s.Status.ConnectReady && s.Status.WorkbenchReady && s.Status.PackageManagerReady && s.Status.ChronicleReady && s.Status.FlightdeckReady
 		if allReady {
 			status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionTrue, status.ReasonAllComponentsReady, "All child components are ready")
+			observability.RecordStatusTransition(ctx, r.Meter, "site", req.Namespace,
+				observability.PhaseReconciling, observability.PhaseComponentsReady)
 		} else {
 			status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonComponentsNotReady, "One or more child components are not ready")
+			observability.RecordStatusTransition(ctx, r.Meter, "site", req.Namespace,
+				observability.PhaseReconciling, observability.PhaseUnknown)
 		}
 		status.SetProgressing(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconcileComplete, "Reconciliation complete")
 	}

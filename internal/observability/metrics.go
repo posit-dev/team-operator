@@ -31,7 +31,11 @@ var (
 // RecordStatusTransition increments team_operator_status_transition_total.
 // controller is the controller name (e.g. "site", "connect").
 // fromPhase and toPhase should be Phase* constants from names.go.
+// A nil meter is a safe no-op.
 func RecordStatusTransition(ctx context.Context, m metric.Meter, controller, namespace, fromPhase, toPhase string) {
+	if m == nil {
+		return
+	}
 	counter := getOrCreateCounter(&statusTransitionMu, statusTransitionInst, m,
 		MetricStatusTransitionTotal,
 		"Number of status phase transitions, partitioned by controller, namespace, from_phase, and to_phase.")
@@ -47,7 +51,11 @@ func RecordStatusTransition(ctx context.Context, m metric.Meter, controller, nam
 
 // RecordDependencyCheck increments team_operator_dependency_check_total.
 // dependency should be a Dependency* constant. result should be a Result* constant.
+// A nil meter is a safe no-op.
 func RecordDependencyCheck(ctx context.Context, m metric.Meter, controller, namespace, dependency, result string) {
+	if m == nil {
+		return
+	}
 	counter := getOrCreateCounter(&dependencyCheckMu, dependencyCheckInst, m,
 		MetricDependencyCheckTotal,
 		"Number of dependency checks, partitioned by controller, namespace, dependency type, and result.")
@@ -63,7 +71,11 @@ func RecordDependencyCheck(ctx context.Context, m metric.Meter, controller, name
 
 // RecordReconcileRequeue increments team_operator_reconcile_requeue_total.
 // reason should be a RequeueReason* constant from names.go.
+// A nil meter is a safe no-op.
 func RecordReconcileRequeue(ctx context.Context, m metric.Meter, controller, namespace, reason string) {
+	if m == nil {
+		return
+	}
 	counter := getOrCreateCounter(&reconcileRequeueMu, reconcileRequeueInst, m,
 		MetricReconcileRequeueTotal,
 		"Number of reconcile requeues, partitioned by controller, namespace, and reason.")

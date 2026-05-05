@@ -9,6 +9,7 @@ import (
 	"github.com/posit-dev/team-operator/api/keycloak/v2alpha1"
 	"github.com/posit-dev/team-operator/api/localtest"
 	"github.com/posit-dev/team-operator/api/product"
+	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	"github.com/stretchr/testify/assert"
@@ -23,6 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
@@ -1607,7 +1610,13 @@ func TestSiteReadyWithDisabledProducts(t *testing.T) {
 	// Use shared fake client to run multiple reconcile passes
 	fakeClient := localtest.FakeTestEnv{}
 	cli, scheme, log := fakeClient.Start(loadSchemes)
-	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
+
+	// Set up in-memory meter for metric assertion
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	defer mp.Shutdown(context.Background())
+
+	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log, Meter: mp.Meter("test")}
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
 
 	// Create the Site
@@ -1617,6 +1626,19 @@ func TestSiteReadyWithDisabledProducts(t *testing.T) {
 	// Run initial reconcile
 	_, err = rec.Reconcile(context.TODO(), req)
 	assert.NoError(t, err)
+
+	// Assert that the status transition metric was emitted
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(context.Background(), &rm))
+	found := false
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name == observability.MetricStatusTransitionTotal {
+				found = true
+			}
+		}
+	}
+	assert.True(t, found, "expected status transition metric to be emitted")
 
 	// Fetch the Site to check its status
 	fetchedSite := &v1beta1.Site{}
