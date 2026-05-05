@@ -26,6 +26,8 @@ var (
 
 	reconcileRequeueMu   sync.Mutex
 	reconcileRequeueInst = map[metric.Meter]metric.Int64Counter{}
+
+	noopMeter = noop.NewMeterProvider().Meter("team-operator-noop")
 )
 
 // RecordStatusTransition increments team_operator_status_transition_total.
@@ -100,8 +102,8 @@ func getOrCreateCounter(mu *sync.Mutex, cache map[metric.Meter]metric.Int64Count
 	}
 	c, err := m.Int64Counter(name, metric.WithDescription(desc))
 	if err != nil {
-		// Fallback to a noop counter from the noop meter provider.
-		c, _ = noop.NewMeterProvider().Meter("noop").Int64Counter(name)
+		// Fallback to a noop counter so the recording call is a safe no-op.
+		c, _ = noopMeter.Int64Counter(name)
 	}
 	cache[m] = c
 	return c

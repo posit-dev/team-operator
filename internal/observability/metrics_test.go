@@ -16,6 +16,14 @@ import (
 	"github.com/posit-dev/team-operator/internal/observability"
 )
 
+func attrsToMap(s attribute.Set) map[string]string {
+	out := make(map[string]string, s.Len())
+	for _, kv := range s.ToSlice() {
+		out[string(kv.Key)] = kv.Value.AsString()
+	}
+	return out
+}
+
 func TestRecordStatusTransition(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
@@ -35,23 +43,34 @@ func TestRecordStatusTransition(t *testing.T) {
 	var found bool
 	for _, sm := range rm.ScopeMetrics {
 		for _, mm := range sm.Metrics {
-			if mm.Name == observability.MetricStatusTransitionTotal {
-				found = true
-				sum, ok := mm.Data.(metricdata.Sum[int64])
-				require.True(t, ok, "expected Sum[int64] data type")
-				assert.Len(t, sum.DataPoints, 2, "expected 2 distinct label sets")
-				for _, dp := range sum.DataPoints {
-					controller, _ := dp.Attributes.Value(attribute.Key(observability.LabelController))
-					fromPhase, _ := dp.Attributes.Value(attribute.Key(observability.LabelFromPhase))
-					toPhase, _ := dp.Attributes.Value(attribute.Key(observability.LabelToPhase))
-					if controller.AsString() == "site" {
-						assert.Equal(t, int64(2), dp.Value, "site->ready transition count")
-						assert.Equal(t, observability.PhaseReconciling, fromPhase.AsString())
-						assert.Equal(t, observability.PhaseReady, toPhase.AsString())
-					}
-					if controller.AsString() == "connect" {
-						assert.Equal(t, int64(1), dp.Value, "connect->error transition count")
-					}
+			if mm.Name != observability.MetricStatusTransitionTotal {
+				continue
+			}
+			found = true
+			sum, ok := mm.Data.(metricdata.Sum[int64])
+			require.True(t, ok, "expected Sum[int64] data type")
+			require.Len(t, sum.DataPoints, 2, "expected 2 distinct label sets")
+			for _, dp := range sum.DataPoints {
+				attrs := attrsToMap(dp.Attributes)
+				switch attrs[observability.LabelController] {
+				case "site":
+					assert.Equal(t, int64(2), dp.Value, "site->ready transition count")
+					assert.Equal(t, map[string]string{
+						observability.LabelController: "site",
+						observability.LabelNamespace:  "posit-team",
+						observability.LabelFromPhase:  observability.PhaseReconciling,
+						observability.LabelToPhase:    observability.PhaseReady,
+					}, attrs)
+				case "connect":
+					assert.Equal(t, int64(1), dp.Value, "connect->error transition count")
+					assert.Equal(t, map[string]string{
+						observability.LabelController: "connect",
+						observability.LabelNamespace:  "posit-team",
+						observability.LabelFromPhase:  observability.PhaseReconciling,
+						observability.LabelToPhase:    observability.PhaseError,
+					}, attrs)
+				default:
+					t.Fatalf("unexpected controller label %q with attrs %v", attrs[observability.LabelController], attrs)
 				}
 			}
 		}
@@ -76,11 +95,33 @@ func TestRecordDependencyCheck(t *testing.T) {
 	var found bool
 	for _, sm := range rm.ScopeMetrics {
 		for _, mm := range sm.Metrics {
-			if mm.Name == observability.MetricDependencyCheckTotal {
-				found = true
-				sum, ok := mm.Data.(metricdata.Sum[int64])
-				require.True(t, ok)
-				assert.Len(t, sum.DataPoints, 2)
+			if mm.Name != observability.MetricDependencyCheckTotal {
+				continue
+			}
+			found = true
+			sum, ok := mm.Data.(metricdata.Sum[int64])
+			require.True(t, ok)
+			require.Len(t, sum.DataPoints, 2)
+			for _, dp := range sum.DataPoints {
+				attrs := attrsToMap(dp.Attributes)
+				switch attrs[observability.LabelDependency] {
+				case observability.DependencyPostgres:
+					assert.Equal(t, map[string]string{
+						observability.LabelController: "connect",
+						observability.LabelNamespace:  "posit-team",
+						observability.LabelDependency: observability.DependencyPostgres,
+						observability.LabelResult:     observability.ResultSuccess,
+					}, attrs)
+				case observability.DependencySecret:
+					assert.Equal(t, map[string]string{
+						observability.LabelController: "connect",
+						observability.LabelNamespace:  "posit-team",
+						observability.LabelDependency: observability.DependencySecret,
+						observability.LabelResult:     observability.ResultError,
+					}, attrs)
+				default:
+					t.Fatalf("unexpected dependency label %q with attrs %v", attrs[observability.LabelDependency], attrs)
+				}
 			}
 		}
 	}
@@ -102,13 +143,20 @@ func TestRecordReconcileRequeue(t *testing.T) {
 	var found bool
 	for _, sm := range rm.ScopeMetrics {
 		for _, mm := range sm.Metrics {
-			if mm.Name == observability.MetricReconcileRequeueTotal {
-				found = true
-				sum, ok := mm.Data.(metricdata.Sum[int64])
-				require.True(t, ok)
-				require.Len(t, sum.DataPoints, 1)
-				assert.Equal(t, int64(1), sum.DataPoints[0].Value)
+			if mm.Name != observability.MetricReconcileRequeueTotal {
+				continue
 			}
+			found = true
+			sum, ok := mm.Data.(metricdata.Sum[int64])
+			require.True(t, ok)
+			require.Len(t, sum.DataPoints, 1)
+			dp := sum.DataPoints[0]
+			assert.Equal(t, int64(1), dp.Value)
+			assert.Equal(t, map[string]string{
+				observability.LabelController: "workbench",
+				observability.LabelNamespace:  "posit-team",
+				observability.LabelReason:     observability.RequeueReasonDepsNotReady,
+			}, attrsToMap(dp.Attributes))
 		}
 	}
 	assert.True(t, found)
