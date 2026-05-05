@@ -15,6 +15,7 @@ import (
 	"github.com/posit-dev/team-operator/api/templates"
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/posit-dev/team-operator/internal/db"
+	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	"github.com/traefik/traefik/v3/pkg/config/dynamic"
@@ -199,6 +200,8 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, err
 	}
 
+	observability.RecordStatusTransition(ctx, r.Meter, "workbench", req.Namespace,
+		observability.PhaseReconciling, observability.PhaseReady)
 	return ctrl.Result{}, nil
 }
 

@@ -235,6 +235,7 @@ func main() {
 	if err = (&corecontroller.WorkbenchReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Meter:  obsProvider.Meter("team-operator/workbench"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Workbench")
 		os.Exit(1)

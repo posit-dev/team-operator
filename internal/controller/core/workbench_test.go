@@ -10,9 +10,12 @@ import (
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/posit-dev/team-operator/internal/db"
+	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -138,6 +141,12 @@ func TestWorkbenchReconciler_Basic(t *testing.T) {
 
 	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
 
+	// Wire up an in-memory meter so we can assert metric recording.
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	defer mp.Shutdown(context.Background())
+	r.Meter = mp.Meter("test")
+
 	wb := defineDefaultWorkbench(t, ns, name)
 
 	// have to make sure the CRD _actually exists_
@@ -159,6 +168,19 @@ func TestWorkbenchReconciler_Basic(t *testing.T) {
 
 	headersMiddleware := getMiddleware(t, cli, ns, r.HeadersMiddleware(wb))
 	require.Equal(t, headersMiddleware.Name, r.HeadersMiddleware(wb))
+
+	// Assert that status transition metric was recorded.
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(ctx, &rm))
+	found := false
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name == observability.MetricStatusTransitionTotal {
+				found = true
+			}
+		}
+	}
+	assert.True(t, found, "expected status transition to be recorded")
 }
 
 func TestWorkbenchConfigReload(t *testing.T) {

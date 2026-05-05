@@ -11,6 +11,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"go.opentelemetry.io/otel/metric"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -18,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
+	"github.com/posit-dev/team-operator/internal/observability"
 )
 
 // WorkbenchReconciler reconciles a Workbench object
@@ -25,6 +27,7 @@ type WorkbenchReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Log    logr.Logger
+	Meter  metric.Meter
 }
 
 //+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=workbenches,verbs=get;list;watch;create;update;patch;delete
@@ -81,9 +84,11 @@ func (r *WorkbenchReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	if res, err := r.ReconcileWorkbench(ctx, req, &w); err != nil {
 		l.Error(err, "error reconciling product state")
+		observability.RecordStatusTransition(ctx, r.Meter, "workbench", req.Namespace,
+			observability.PhaseReconciling, observability.PhaseError)
 		return res, err
 	}
-	// reconcile successful
+	// reconcile successful — success metric recorded inside ReconcileWorkbench
 	return ctrl.Result{}, nil
 }
 
