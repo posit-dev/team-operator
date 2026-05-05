@@ -64,11 +64,6 @@ func TestLabelValueEnumsHaveNoDuplicates(t *testing.T) {
 	}
 }
 
-// Force a build error if status.ReasonReconcileError is renamed/removed.
-// PhaseError is documented as covering this Reason but the value transform is
-// not 1:1, so it can't be asserted via camelToSnake below.
-var _ = status.ReasonReconcileError
-
 // TestPhaseMatchesStatusReason locks down phase strings that are expected to
 // be the lowercase_underscore form of a status.Reason* constant. This catches
 // the case where a Reason is renamed in the status package and dashboards
@@ -81,6 +76,11 @@ var _ = status.ReasonReconcileError
 // even though the semantic mapping is unchanged; update camelToSnake or the
 // expected phase strings accordingly.
 func TestPhaseMatchesStatusReason(t *testing.T) {
+	// Force a build error if status.ReasonReconcileError is renamed/removed.
+	// PhaseError covers this Reason but the value transform is not 1:1, so it
+	// can't be asserted via camelToSnake below.
+	_ = status.ReasonReconcileError
+
 	cases := []struct {
 		phase  string
 		reason string
@@ -100,15 +100,15 @@ func TestPhaseMatchesStatusReason(t *testing.T) {
 // camelToSnake converts CamelCase to lowercase_underscore. It only handles
 // one capital per word boundary (e.g., "DatabaseReady" -> "database_ready");
 // consecutive capitals from acronyms like "HTTPReady" or "OIDCReady" are not
-// supported and would produce incorrect output. None of the current
-// status.Reason* values use acronyms; if one is added, this helper must be
-// updated alongside the new test case.
+// supported and produce no boundary between the acronym and the following
+// word (e.g., "HTTPReady" -> "httpready", not "http_ready"). None of the
+// current status.Reason* values use acronyms; if one is added, this helper
+// must be updated alongside the new test case.
 func camelToSnake(s string) string {
 	var b strings.Builder
-	var prev rune
+	prevUpper := false
 	for i, r := range s {
 		isUpper := r >= 'A' && r <= 'Z'
-		prevUpper := prev >= 'A' && prev <= 'Z'
 		if i > 0 && isUpper && !prevUpper {
 			b.WriteByte('_')
 		}
@@ -116,7 +116,7 @@ func camelToSnake(s string) string {
 			r += 'a' - 'A'
 		}
 		b.WriteRune(r)
-		prev = rune(s[i])
+		prevUpper = isUpper
 	}
 	return b.String()
 }
