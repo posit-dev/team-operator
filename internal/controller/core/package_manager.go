@@ -8,6 +8,7 @@ import (
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/posit-dev/team-operator/internal/db"
+	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	v1 "k8s.io/api/apps/v1"
@@ -222,6 +223,8 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 		return ctrl.Result{}, err
 	}
 
+	observability.RecordStatusTransition(ctx, r.Meter, "package-manager", req.Namespace,
+		observability.PhaseReconciling, observability.PhaseReady)
 	return ctrl.Result{}, nil
 }
 

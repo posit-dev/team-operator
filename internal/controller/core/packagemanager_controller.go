@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	"go.opentelemetry.io/otel/metric"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
+	"github.com/posit-dev/team-operator/internal/observability"
 )
 
 // PackageManagerReconciler reconciles a PackageManager object
@@ -25,6 +27,7 @@ type PackageManagerReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Log    logr.Logger
+	Meter  metric.Meter
 }
 
 //+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=packagemanagers,verbs=get;list;watch;create;update;patch;delete
@@ -73,10 +76,11 @@ func (r *PackageManagerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if res, err := r.ReconcilePackageManager(ctx, req, &pm); err != nil {
 		l.Error(err, "error reconciling product state")
+		observability.RecordStatusTransition(ctx, r.Meter, "package-manager", req.Namespace,
+			observability.PhaseReconciling, observability.PhaseError)
 		return res, err
 	}
-
-	// reconcile successful
+	// reconcile successful — success metric recorded inside ReconcilePackageManager
 	return ctrl.Result{}, nil
 }
 

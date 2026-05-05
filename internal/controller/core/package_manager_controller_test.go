@@ -10,9 +10,12 @@ import (
 	"github.com/go-logr/logr"
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/localtest"
+	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -21,6 +24,61 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// TestPackageManagerReconciler_Metrics verifies that a status transition metric is recorded
+// when Reconcile processes a PackageManager (error path through the real reconcile loop).
+func TestPackageManagerReconciler_Metrics(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "pm-metrics"
+
+	fakeEnv := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeEnv.Start(loadSchemes)
+
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	defer mp.Shutdown(context.Background())
+
+	r := &PackageManagerReconciler{
+		Client: cli,
+		Scheme: scheme,
+		Log:    log,
+		Meter:  mp.Meter("test"),
+	}
+
+	ctx = logr.NewContext(ctx, log)
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: ns, Name: name},
+	}
+
+	pm := &positcov1beta1.PackageManager{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageManager",
+			APIVersion: "core.posit.team/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name},
+	}
+
+	err := cli.Create(ctx, pm)
+	require.NoError(t, err)
+
+	// Reconcile will find the PM, call ReconcilePackageManager, which will fail
+	// at the DB step (fake client has no DB). The error path in Reconcile records
+	// the PhaseError status transition metric.
+	_, _ = r.Reconcile(ctx, req)
+
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(ctx, &rm))
+	found := false
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name == observability.MetricStatusTransitionTotal {
+				found = true
+			}
+		}
+	}
+	assert.True(t, found, "expected status transition to be recorded")
+}
 
 // TestPackageManagerReconciler_Suspended verifies that when PackageManager has Suspended=true,
 // ReconcilePackageManager does not create a Deployment and does not apply SetProgressing.
