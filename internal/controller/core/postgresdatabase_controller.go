@@ -16,6 +16,7 @@ import (
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/posit-dev/team-operator/internal/db"
+	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"go.opentelemetry.io/otel/metric"
 )
 
 //+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=postgresdatabases,verbs=get;list;watch;create;update;patch;delete
@@ -50,6 +52,7 @@ type PostgresDatabaseReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
+	Meter  metric.Meter
 }
 
 func (r *PostgresDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -96,9 +99,13 @@ func (r *PostgresDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		msg := status.TruncateMessage(createErr.Error())
 		status.SetReady(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionFalse, status.ReasonReconcileError, msg)
 		status.SetProgressing(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionFalse, status.ReasonReconcileError, msg)
+		observability.RecordStatusTransition(ctx, r.Meter, "postgres-database", req.Namespace,
+			observability.PhaseReconciling, observability.PhaseError)
 	} else {
 		status.SetReady(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionTrue, status.ReasonDatabaseReady, "Database provisioned successfully")
 		status.SetProgressing(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionFalse, status.ReasonReconcileComplete, "Reconciliation complete")
+		observability.RecordStatusTransition(ctx, r.Meter, "postgres-database", req.Namespace,
+			observability.PhaseReconciling, observability.PhaseDatabaseReady)
 	}
 
 	// Patch status regardless of createDatabase result
@@ -237,8 +244,12 @@ func (r *PostgresDatabaseReconciler) createDatabase(ctx context.Context, req ctr
 	mainDbUrl, specDbUrl, err := r.loadValidatedDatabaseURLs(ctx, pgd, req, pgd.Spec.Secret, pgd.Spec.SecretPasswordKey)
 	if err != nil {
 		l.Error(err, "failed to load validated database urls")
+		observability.RecordDependencyCheck(ctx, r.Meter, "postgres-database", req.Namespace,
+			observability.DependencyPostgres, observability.ResultError)
 		return ctrl.Result{}, err
 	}
+	observability.RecordDependencyCheck(ctx, r.Meter, "postgres-database", req.Namespace,
+		observability.DependencyPostgres, observability.ResultSuccess)
 
 	superuserDbUrl, _ := url.Parse(specDbUrl.String())
 	mainDbPassword, hasPassword := mainDbUrl.User.Password()
