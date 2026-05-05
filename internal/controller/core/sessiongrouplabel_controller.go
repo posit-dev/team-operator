@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"go.opentelemetry.io/otel/metric"
 )
 
 const (
@@ -71,7 +72,8 @@ var (
 //	user-group-2: entra_data_science
 type SessionGroupLabelReconciler struct {
 	client.Client
-	Log logr.Logger
+	Log   logr.Logger
+	Meter metric.Meter
 }
 
 // Reconcile handles pod events. For each unprocessed Workbench session pod it
