@@ -288,6 +288,14 @@ func main() {
 
 	//+kubebuilder:scaffold:builder
 
+	lister := &multiKindLister{client: mgr.GetClient()}
+	if err := observability.RegisterResourceCountGauge(
+		obsProvider.Meter("team-operator/resource-count"),
+		lister,
+	); err != nil {
+		setupLog.Error(err, "failed to register resource count gauge; continuing without it")
+	}
+
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
