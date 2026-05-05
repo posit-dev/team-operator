@@ -10,8 +10,10 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
+	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
+	"go.opentelemetry.io/otel/metric"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -32,6 +34,7 @@ type ChronicleReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Log    logr.Logger
+	Meter  metric.Meter
 }
 
 //+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=chronicles,verbs=get;list;watch;create;update;patch;delete
@@ -118,6 +121,8 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 			l.Error(patchErr, "Error patching suspended status")
 			return res, patchErr
 		}
+		observability.RecordStatusTransition(ctx, r.Meter, "chronicle", c.Namespace,
+			observability.PhaseReconciling, observability.PhaseSuspended)
 		return res, nil
 	}
 
@@ -138,6 +143,8 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 		if patchErr := status.PatchErrorStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, err); patchErr != nil {
 			l.Error(patchErr, "Error patching error status")
 		}
+		observability.RecordStatusTransition(ctx, r.Meter, "chronicle", c.Namespace,
+			observability.PhaseReconciling, observability.PhaseError)
 		return res, err
 	}
 
@@ -161,6 +168,8 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, err
 	}
 
+	observability.RecordStatusTransition(ctx, r.Meter, "chronicle", c.Namespace,
+		observability.PhaseReconciling, observability.PhaseReady)
 	return ctrl.Result{}, nil
 }
 

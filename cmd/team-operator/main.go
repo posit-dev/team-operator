@@ -255,6 +255,7 @@ func main() {
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		Log:    setupLog,
+		Meter:  obsProvider.Meter("team-operator/chronicle"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Chronicle")
 		os.Exit(1)
