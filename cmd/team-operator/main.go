@@ -145,16 +145,27 @@ func main() {
 
 	zl.Info("team-operator version", "version", internal.VersionString)
 
-	ctx := ctrl.SetupSignalHandler()
+	instanceID := os.Getenv("POD_NAME")
+	if instanceID == "" {
+		setupLog.Info("POD_NAME env var not set; service.instance.id resource attribute will be empty. " +
+			"Wire POD_NAME from the downward API (metadata.name) for per-pod metric aggregation.")
+	}
 
-	obsProvider := observability.NewProvider(ctx, observability.Config{
+	obsProvider := observability.NewProvider(context.Background(), observability.Config{
 		MetricsEnabled:        obsMetricsEnabled,
 		PrometheusEnabled:     obsMetricsPrometheus,
 		OTLPEndpoint:          obsMetricsOTLPEndpoint,
 		MetricsExportInterval: obsMetricsExportInterval,
 		ClusterName:           obsClusterName,
-		InstanceID:            os.Getenv("POD_NAME"),
+		InstanceID:            instanceID,
 	})
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := obsProvider.Shutdown(shutdownCtx); err != nil {
+			setupLog.Error(err, "error shutting down observability provider")
+		}
+	}()
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
@@ -187,6 +198,8 @@ func main() {
 		setupLog.Error(err, "unable to start team-operator")
 		os.Exit(1)
 	}
+
+	ctx := ctrl.SetupSignalHandler()
 
 	if manageCRDs {
 		if crdApplyTimeout <= 0 {
@@ -302,14 +315,6 @@ func main() {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
-
-	defer func() {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		if err := obsProvider.Shutdown(shutdownCtx); err != nil {
-			setupLog.Error(err, "error shutting down observability provider")
-		}
-	}()
 
 	setupLog.Info("starting team-operator")
 	if err := mgr.Start(ctx); err != nil {

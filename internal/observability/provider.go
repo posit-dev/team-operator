@@ -79,7 +79,8 @@ func NewProvider(ctx context.Context, cfg Config) *Provider {
 	mp, err := buildMeterProvider(ctx, cfg)
 	if err != nil {
 		// Degraded mode: log warning and return noop so the operator still starts.
-		providerLog.Error(err, "SDK init failed; falling back to noop metrics")
+		// Use Info (not Error) since the operator continues running normally.
+		providerLog.Info("SDK init failed; falling back to noop metrics", "err", err.Error())
 		return &Provider{mp: noop.NewMeterProvider()}
 	}
 
