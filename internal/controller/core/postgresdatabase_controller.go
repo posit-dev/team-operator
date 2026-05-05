@@ -18,6 +18,7 @@ import (
 	"github.com/posit-dev/team-operator/internal/db"
 	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
+	"go.opentelemetry.io/otel/metric"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,7 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"go.opentelemetry.io/otel/metric"
 )
 
 //+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=postgresdatabases,verbs=get;list;watch;create;update;patch;delete

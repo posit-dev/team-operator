@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-logr/logr"
 	v1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
+	"go.opentelemetry.io/otel/metric"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -21,7 +22,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"go.opentelemetry.io/otel/metric"
 )
 
 const (
