@@ -19,7 +19,7 @@ import (
 func attrsToMap(s attribute.Set) map[string]string {
 	out := make(map[string]string, s.Len())
 	for _, kv := range s.ToSlice() {
-		out[string(kv.Key)] = kv.Value.AsString()
+		out[string(kv.Key)] = kv.Value.Emit()
 	}
 	return out
 }
@@ -70,7 +70,7 @@ func TestRecordStatusTransition(t *testing.T) {
 						observability.LabelToPhase:    observability.PhaseError,
 					}, attrs)
 				default:
-					t.Fatalf("unexpected controller label %q with attrs %v", attrs[observability.LabelController], attrs)
+					t.Fatalf("unexpected controller label %q in metric %q with attrs %v", attrs[observability.LabelController], mm.Name, attrs)
 				}
 			}
 		}
@@ -120,7 +120,7 @@ func TestRecordDependencyCheck(t *testing.T) {
 						observability.LabelResult:     observability.ResultError,
 					}, attrs)
 				default:
-					t.Fatalf("unexpected dependency label %q with attrs %v", attrs[observability.LabelDependency], attrs)
+					t.Fatalf("unexpected dependency label %q in metric %q with attrs %v", attrs[observability.LabelDependency], mm.Name, attrs)
 				}
 			}
 		}
