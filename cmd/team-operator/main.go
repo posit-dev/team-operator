@@ -13,6 +13,7 @@ import (
 
 	"github.com/posit-dev/team-operator/api/keycloak/v2alpha1"
 	"github.com/posit-dev/team-operator/api/product"
+	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/traefik/traefik/v3/pkg/provider/kubernetes/crd/traefikio/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -111,6 +112,26 @@ func main() {
 			"configurable Workbench session pod field and writes one numbered label per "+
 			"match onto the pod. Per-site config lives in the Workbench CR's sessionLabels field.")
 
+	var (
+		obsMetricsEnabled               bool
+		obsMetricsPrometheus            bool
+		obsMetricsOTLPEndpoint          string
+		obsMetricsResourceCountInterval time.Duration
+		obsClusterName                  string
+	)
+
+	flag.BoolVar(&obsMetricsEnabled, "observability-metrics-enabled", true,
+		"Enable OTel metrics instrumentation")
+	flag.BoolVar(&obsMetricsPrometheus, "observability-metrics-prometheus", true,
+		"Serve OTel metrics on the /metrics endpoint (Prometheus exporter)")
+	flag.StringVar(&obsMetricsOTLPEndpoint, "observability-metrics-otlp-endpoint", "",
+		"gRPC OTLP endpoint for metric push (e.g. otel-collector:4317). "+
+			"Falls back to OTEL_EXPORTER_OTLP_METRICS_ENDPOINT then OTEL_EXPORTER_OTLP_ENDPOINT.")
+	flag.DurationVar(&obsMetricsResourceCountInterval, "observability-metrics-resource-count-interval", 30*time.Second,
+		"Interval for refreshing the team_operator_resource_count async gauge")
+	flag.StringVar(&obsClusterName, "observability-cluster-name", "",
+		"Value for the k8s.cluster.name resource attribute")
+
 	opts := zap.Options{Development: true}
 
 	opts.BindFlags(flag.CommandLine)
@@ -123,6 +144,20 @@ func main() {
 	klog.SetLogger(zl)
 
 	zl.Info("team-operator version", "version", internal.VersionString)
+
+	ctx := ctrl.SetupSignalHandler()
+
+	obsProvider, err := observability.NewProvider(ctx, observability.Config{
+		MetricsEnabled:        obsMetricsEnabled,
+		PrometheusEnabled:     obsMetricsPrometheus,
+		OTLPEndpoint:          obsMetricsOTLPEndpoint,
+		ResourceCountInterval: obsMetricsResourceCountInterval,
+		ClusterName:           obsClusterName,
+		InstanceID:            os.Getenv("POD_NAME"),
+	})
+	if err != nil {
+		setupLog.Error(err, "failed to initialize observability provider; continuing with noop metrics")
+	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
@@ -155,8 +190,6 @@ func main() {
 		setupLog.Error(err, "unable to start team-operator")
 		os.Exit(1)
 	}
-
-	ctx := ctrl.SetupSignalHandler()
 
 	if manageCRDs {
 		if crdApplyTimeout <= 0 {
@@ -257,6 +290,14 @@ func main() {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
+
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := obsProvider.Shutdown(shutdownCtx); err != nil {
+			setupLog.Error(err, "error shutting down observability provider")
+		}
+	}()
 
 	setupLog.Info("starting team-operator")
 	if err := mgr.Start(ctx); err != nil {
