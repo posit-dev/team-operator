@@ -48,14 +48,16 @@ const (
 )
 
 // Phase values for LabelPhase / LabelFromPhase / LabelToPhase.
-// These map to the status.Reason* constants used in internal/status/status.go.
-// "unknown" is used when the previous phase is not tracked.
+// Where applicable these are the lowercase_underscore form of the matching
+// status.Reason* constants in internal/status/status.go. The mapping is
+// asserted by TestPhaseMatchesStatusReason in names_test.go — adding or
+// renaming a Reason in the status package will break that test.
 const (
-	PhaseReconciling     = "reconciling"
-	PhaseReady           = "ready"
-	PhaseError           = "error"
-	PhaseSuspended       = "suspended"
-	PhaseDatabaseReady   = "database_ready"
-	PhaseComponentsReady = "all_components_ready"
-	PhaseUnknown         = "unknown"
+	PhaseReconciling     = "reconciling"          // status.ReasonReconciling
+	PhaseReady           = "ready"                // generic ready phase (not tied to a single Reason)
+	PhaseError           = "error"                // generic error phase (covers status.ReasonReconcileError)
+	PhaseSuspended       = "suspended"            // status.ReasonSuspended
+	PhaseDatabaseReady   = "database_ready"       // status.ReasonDatabaseReady
+	PhaseComponentsReady = "all_components_ready" // status.ReasonAllComponentsReady
+	PhaseUnknown         = "unknown"              // sentinel for an untracked previous phase
 )
