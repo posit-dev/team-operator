@@ -265,6 +265,7 @@ func main() {
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		Log:    setupLog,
+		Meter:  obsProvider.Meter("team-operator/flightdeck"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Flightdeck")
 		os.Exit(1)

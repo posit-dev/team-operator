@@ -9,7 +9,9 @@ import (
 	"github.com/go-logr/logr"
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/internal"
+	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
+	"go.opentelemetry.io/otel/metric"
 	"github.com/rstudio/goex/ptr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -31,6 +33,7 @@ type FlightdeckReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
+	Meter  metric.Meter
 }
 
 //+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=flightdecks,verbs=get;list;watch;create;update;patch;delete
@@ -79,6 +82,8 @@ func (r *FlightdeckReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	if res, err := r.reconcileFlightdeckResources(ctx, req, fd, l); err != nil {
 		l.Error(err, "failed to reconcile flightdeck resources")
+		observability.RecordStatusTransition(ctx, r.Meter, "flightdeck", req.Namespace,
+			observability.PhaseReconciling, observability.PhaseError)
 		if patchErr := status.PatchErrorStatus(ctx, r.Status(), fd, patchBase, &fd.Status.Conditions, fd.Generation, err); patchErr != nil {
 			l.Error(patchErr, "Error patching error status")
 		}
@@ -104,6 +109,9 @@ func (r *FlightdeckReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		l.Error(err, "Error patching status")
 		return ctrl.Result{}, err
 	}
+
+	observability.RecordStatusTransition(ctx, r.Meter, "flightdeck", req.Namespace,
+		observability.PhaseReconciling, observability.PhaseReady)
 
 	l.Info("reconciliation completed successfully",
 		"component", fd.ComponentName(),
