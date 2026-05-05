@@ -1,0 +1,23 @@
+# manager_patch.yaml — patches the manager Deployment to add OTLP endpoint flag and env var.
+# Replace OTEL_COLLECTOR_ENDPOINT with your collector's gRPC address.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          args:
+            - --leader-elect
+            - --observability-metrics-enabled=true
+            - --observability-metrics-prometheus=true
+            - --observability-metrics-otlp-endpoint=$(OTEL_COLLECTOR_ENDPOINT)
+            - --observability-metrics-resource-count-interval=30s
+          env:
+            - name: OTEL_COLLECTOR_ENDPOINT
+              value: "otel-collector.monitoring.svc.cluster.local:4317"
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: ""

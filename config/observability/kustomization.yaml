@@ -1,0 +1,13 @@
+# config/observability/kustomization.yaml
+# Optional overlay: enable OTLP metric push alongside the default Prometheus endpoint.
+# Apply on top of config/default:
+#   kubectl kustomize config/observability | kubectl apply -f -
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../default
+patches:
+  - path: manager_patch.yaml
+    target:
+      kind: Deployment
+      name: controller-manager

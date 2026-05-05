@@ -70,6 +70,9 @@ spec:
         - /team-operator
         args:
         - --leader-elect
+        - --observability-metrics-enabled=true
+        - --observability-metrics-prometheus=true
+        - --observability-metrics-resource-count-interval=30s
         image: controller:latest
         imagePullPolicy: Always
         name: manager
@@ -101,5 +104,9 @@ spec:
         env:
           - name: WATCH_NAMESPACES
             value: posit-team
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
