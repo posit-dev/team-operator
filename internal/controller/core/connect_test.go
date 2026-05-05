@@ -9,6 +9,7 @@ import (
 	localtest "github.com/posit-dev/team-operator/api/localtest"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
+	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	"github.com/stretchr/testify/assert"
@@ -18,6 +19,8 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -90,6 +93,12 @@ func TestConnectReconciler_SAML(t *testing.T) {
 
 	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
 
+	// Wire up an in-memory meter so we can assert metric recording.
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	defer mp.Shutdown(context.Background())
+	r.Meter = mp.Meter("test")
+
 	c := defineDefaultConnect(t, ns, name)
 	c.Spec.Auth = positcov1beta1.AuthSpec{
 		Type:            positcov1beta1.AuthTypeSaml,
@@ -117,6 +126,19 @@ func TestConnectReconciler_SAML(t *testing.T) {
 	require.True(t, exists, "rstudio-connect.gcfg should exist in the ConfigMap")
 	assert.Contains(t, config, "[Authentication]\nProvider = saml", "SAML auth should be enabled")
 	assert.Contains(t, config, "[SAML]\nIdPMetaDataURL = https://idp.example.com/saml/metadata\nIdPAttributeProfile = default\n", "SAML section should be configured")
+
+	// Assert that status transition metric was recorded.
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(ctx, &rm))
+	found := false
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name == observability.MetricStatusTransitionTotal {
+				found = true
+			}
+		}
+	}
+	assert.True(t, found, "expected status transition to be recorded")
 }
 
 func TestConnectReconciler_SAML_WithIdPAttributeProfile(t *testing.T) {
