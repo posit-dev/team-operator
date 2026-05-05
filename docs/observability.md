@@ -23,7 +23,7 @@ The team-operator emits OpenTelemetry metrics served via the standard `/metrics`
 Labels: `controller`, `namespace`, `phase`
 
 How many CRs of a given type are in a given namespace and phase. Refreshed every
-`--observability-metrics-resource-count-interval` (default: 30s) by an async gauge callback.
+`--observability-metrics-export-interval` (default: 30s) by an async gauge callback.
 Not on the reconcile hot path.
 
 **Example PromQL:**
@@ -86,7 +86,7 @@ rate(team_operator_reconcile_requeue_total{reason="deps_not_ready"}[5m])
 | `--observability-metrics-enabled` | `true` | Master toggle |
 | `--observability-metrics-prometheus` | `true` | Prometheus exporter on `/metrics` |
 | `--observability-metrics-otlp-endpoint` | `""` | OTLP gRPC push endpoint |
-| `--observability-metrics-resource-count-interval` | `30s` | Gauge refresh cadence |
+| `--observability-metrics-export-interval` | `30s` | OTLP export and gauge refresh cadence |
 | `--observability-cluster-name` | `""` | `k8s.cluster.name` resource attribute |
 
 ### Environment Variables

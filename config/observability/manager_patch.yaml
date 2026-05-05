@@ -15,7 +15,7 @@ spec:
             - --observability-metrics-enabled=true
             - --observability-metrics-prometheus=true
             - --observability-metrics-otlp-endpoint=$(OTEL_COLLECTOR_ENDPOINT)
-            - --observability-metrics-resource-count-interval=30s
+            - --observability-metrics-export-interval=30s
           env:
             - name: OTEL_COLLECTOR_ENDPOINT
               value: "otel-collector.monitoring.svc.cluster.local:4317"

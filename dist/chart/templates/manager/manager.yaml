@@ -39,7 +39,7 @@ spec:
             {{- if .Values.observability.metrics.otlpEndpoint }}
             - --observability-metrics-otlp-endpoint={{ .Values.observability.metrics.otlpEndpoint }}
             {{- end }}
-            - --observability-metrics-resource-count-interval={{ .Values.observability.metrics.resourceCountInterval }}
+            - --observability-metrics-export-interval={{ .Values.observability.metrics.metricsExportInterval }}
             {{- if .Values.observability.clusterName }}
             - --observability-cluster-name={{ .Values.observability.clusterName }}
             {{- end }}

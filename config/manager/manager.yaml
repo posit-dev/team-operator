@@ -72,7 +72,7 @@ spec:
         - --leader-elect
         - --observability-metrics-enabled=true
         - --observability-metrics-prometheus=true
-        - --observability-metrics-resource-count-interval=30s
+        - --observability-metrics-export-interval=30s
         image: controller:latest
         imagePullPolicy: Always
         name: manager

@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 
+	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
@@ -18,6 +19,7 @@ import (
 // It is wired into the async OTel gauge in main.go.
 type multiKindLister struct {
 	client client.Client
+	log    logr.Logger
 }
 
 func (l *multiKindLister) List(ctx context.Context) ([]observability.ResourceCount, error) {
@@ -64,6 +66,7 @@ func tally(controller string, observations []struct{ ns, phase string }) []obser
 func (l *multiKindLister) listSites(ctx context.Context) []observability.ResourceCount {
 	var list positcov1beta1.SiteList
 	if err := l.client.List(ctx, &list); err != nil {
+		l.log.V(1).Info("resource_count: list failed", "kind", "site", "err", err.Error())
 		return nil
 	}
 	obs := make([]struct{ ns, phase string }, 0, len(list.Items))
@@ -80,6 +83,7 @@ func (l *multiKindLister) listSites(ctx context.Context) []observability.Resourc
 func (l *multiKindLister) listConnects(ctx context.Context) []observability.ResourceCount {
 	var list positcov1beta1.ConnectList
 	if err := l.client.List(ctx, &list); err != nil {
+		l.log.V(1).Info("resource_count: list failed", "kind", "connect", "err", err.Error())
 		return nil
 	}
 	obs := make([]struct{ ns, phase string }, 0, len(list.Items))
@@ -95,6 +99,7 @@ func (l *multiKindLister) listConnects(ctx context.Context) []observability.Reso
 func (l *multiKindLister) listWorkbenches(ctx context.Context) []observability.ResourceCount {
 	var list positcov1beta1.WorkbenchList
 	if err := l.client.List(ctx, &list); err != nil {
+		l.log.V(1).Info("resource_count: list failed", "kind", "workbench", "err", err.Error())
 		return nil
 	}
 	obs := make([]struct{ ns, phase string }, 0, len(list.Items))
@@ -110,6 +115,7 @@ func (l *multiKindLister) listWorkbenches(ctx context.Context) []observability.R
 func (l *multiKindLister) listPackageManagers(ctx context.Context) []observability.ResourceCount {
 	var list positcov1beta1.PackageManagerList
 	if err := l.client.List(ctx, &list); err != nil {
+		l.log.V(1).Info("resource_count: list failed", "kind", "package-manager", "err", err.Error())
 		return nil
 	}
 	obs := make([]struct{ ns, phase string }, 0, len(list.Items))
@@ -125,6 +131,7 @@ func (l *multiKindLister) listPackageManagers(ctx context.Context) []observabili
 func (l *multiKindLister) listChronicles(ctx context.Context) []observability.ResourceCount {
 	var list positcov1beta1.ChronicleList
 	if err := l.client.List(ctx, &list); err != nil {
+		l.log.V(1).Info("resource_count: list failed", "kind", "chronicle", "err", err.Error())
 		return nil
 	}
 	obs := make([]struct{ ns, phase string }, 0, len(list.Items))
@@ -140,6 +147,7 @@ func (l *multiKindLister) listChronicles(ctx context.Context) []observability.Re
 func (l *multiKindLister) listFlightdecks(ctx context.Context) []observability.ResourceCount {
 	var list positcov1beta1.FlightdeckList
 	if err := l.client.List(ctx, &list); err != nil {
+		l.log.V(1).Info("resource_count: list failed", "kind", "flightdeck", "err", err.Error())
 		return nil
 	}
 	obs := make([]struct{ ns, phase string }, 0, len(list.Items))
@@ -155,6 +163,7 @@ func (l *multiKindLister) listFlightdecks(ctx context.Context) []observability.R
 func (l *multiKindLister) listPostgresDatabases(ctx context.Context) []observability.ResourceCount {
 	var list positcov1beta1.PostgresDatabaseList
 	if err := l.client.List(ctx, &list); err != nil {
+		l.log.V(1).Info("resource_count: list failed", "kind", "postgres-database", "err", err.Error())
 		return nil
 	}
 	obs := make([]struct{ ns, phase string }, 0, len(list.Items))

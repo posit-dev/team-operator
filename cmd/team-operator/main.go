@@ -113,11 +113,11 @@ func main() {
 			"match onto the pod. Per-site config lives in the Workbench CR's sessionLabels field.")
 
 	var (
-		obsMetricsEnabled               bool
-		obsMetricsPrometheus            bool
-		obsMetricsOTLPEndpoint          string
-		obsMetricsResourceCountInterval time.Duration
-		obsClusterName                  string
+		obsMetricsEnabled        bool
+		obsMetricsPrometheus     bool
+		obsMetricsOTLPEndpoint   string
+		obsMetricsExportInterval time.Duration
+		obsClusterName           string
 	)
 
 	flag.BoolVar(&obsMetricsEnabled, "observability-metrics-enabled", true,
@@ -127,8 +127,8 @@ func main() {
 	flag.StringVar(&obsMetricsOTLPEndpoint, "observability-metrics-otlp-endpoint", "",
 		"gRPC OTLP endpoint for metric push (e.g. otel-collector:4317). "+
 			"Falls back to OTEL_EXPORTER_OTLP_METRICS_ENDPOINT then OTEL_EXPORTER_OTLP_ENDPOINT.")
-	flag.DurationVar(&obsMetricsResourceCountInterval, "observability-metrics-resource-count-interval", 30*time.Second,
-		"Interval for refreshing the team_operator_resource_count async gauge")
+	flag.DurationVar(&obsMetricsExportInterval, "observability-metrics-export-interval", 30*time.Second,
+		"Cadence for OTLP metric export and async gauge collection")
 	flag.StringVar(&obsClusterName, "observability-cluster-name", "",
 		"Value for the k8s.cluster.name resource attribute")
 
@@ -147,17 +147,14 @@ func main() {
 
 	ctx := ctrl.SetupSignalHandler()
 
-	obsProvider, err := observability.NewProvider(ctx, observability.Config{
+	obsProvider := observability.NewProvider(ctx, observability.Config{
 		MetricsEnabled:        obsMetricsEnabled,
 		PrometheusEnabled:     obsMetricsPrometheus,
 		OTLPEndpoint:          obsMetricsOTLPEndpoint,
-		ResourceCountInterval: obsMetricsResourceCountInterval,
+		MetricsExportInterval: obsMetricsExportInterval,
 		ClusterName:           obsClusterName,
 		InstanceID:            os.Getenv("POD_NAME"),
 	})
-	if err != nil {
-		setupLog.Error(err, "failed to initialize observability provider; continuing with noop metrics")
-	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
@@ -288,7 +285,7 @@ func main() {
 
 	//+kubebuilder:scaffold:builder
 
-	lister := &multiKindLister{client: mgr.GetClient()}
+	lister := &multiKindLister{client: mgr.GetClient(), log: setupLog}
 	if err := observability.RegisterResourceCountGauge(
 		obsProvider.Meter("team-operator/resource-count"),
 		lister,

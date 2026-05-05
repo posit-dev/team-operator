@@ -9,7 +9,6 @@ import (
 	"os"
 	"time"
 
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	promexporter "go.opentelemetry.io/otel/exporters/prometheus"
@@ -33,8 +32,8 @@ type Config struct {
 	// Empty string means OTLP push is disabled unless OTEL_EXPORTER_OTLP_ENDPOINT is set.
 	// The OTel SDK reads OTEL_EXPORTER_OTLP_ENDPOINT automatically when this is empty.
 	OTLPEndpoint string
-	// ResourceCountInterval is the cadence for the async resource-count gauge collection.
-	ResourceCountInterval time.Duration
+	// MetricsExportInterval is the cadence for OTLP metric export and async gauge collection.
+	MetricsExportInterval time.Duration
 	// ClusterName is written to the k8s.cluster.name resource attribute when non-empty.
 	ClusterName string
 	// InstanceID is service.instance.id, typically $POD_NAME. Filled from env in main.go.
@@ -49,30 +48,25 @@ type Provider struct {
 
 // NewProvider initialises the OTel metrics SDK based on cfg.
 // If MetricsEnabled is false, OTEL_SDK_DISABLED=true, or SDK init fails,
-// a noop provider is returned with nil error so the operator always boots.
-func NewProvider(ctx context.Context, cfg Config) (*Provider, error) {
+// a noop provider is returned so the operator always boots.
+func NewProvider(ctx context.Context, cfg Config) *Provider {
 	// Kill switch: OTEL_SDK_DISABLED env var (standard OTel convention).
 	if os.Getenv("OTEL_SDK_DISABLED") == "true" {
-		return &Provider{mp: noop.NewMeterProvider()}, nil
+		return &Provider{mp: noop.NewMeterProvider()}
 	}
 
 	if !cfg.MetricsEnabled {
-		return &Provider{mp: noop.NewMeterProvider()}, nil
+		return &Provider{mp: noop.NewMeterProvider()}
 	}
 
 	mp, err := buildMeterProvider(ctx, cfg)
 	if err != nil {
 		// Degraded mode: log warning and return noop so the operator still starts.
-		// Caller (main.go) should log this.
 		fmt.Fprintf(os.Stderr, "observability: SDK init failed (%v); falling back to noop metrics\n", err)
-		return &Provider{mp: noop.NewMeterProvider()}, nil
+		return &Provider{mp: noop.NewMeterProvider()}
 	}
 
-	// Set as global so controller-runtime's default metrics still share the same provider
-	// if needed in the future.
-	otel.SetMeterProvider(mp)
-
-	return &Provider{mp: mp}, nil
+	return &Provider{mp: mp}
 }
 
 // Meter returns a named metric.Meter. name should be the controller/component name,
@@ -126,6 +120,7 @@ func buildMeterProvider(ctx context.Context, cfg Config) (*sdkmetric.MeterProvid
 		otlpEndpoint = os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 	}
 	if otlpEndpoint != "" {
+		fmt.Fprintf(os.Stderr, "observability: OTLP push to %q uses insecure (plaintext) transport; ensure the collector is in-cluster or behind a service mesh\n", otlpEndpoint)
 		otlpExp, err := otlpmetricgrpc.New(ctx,
 			otlpmetricgrpc.WithEndpoint(otlpEndpoint),
 			otlpmetricgrpc.WithInsecure(), // TLS is a follow-up; default off for simplicity
@@ -133,7 +128,7 @@ func buildMeterProvider(ctx context.Context, cfg Config) (*sdkmetric.MeterProvid
 		if err != nil {
 			return nil, fmt.Errorf("creating OTLP metric exporter: %w", err)
 		}
-		interval := cfg.ResourceCountInterval
+		interval := cfg.MetricsExportInterval
 		if interval <= 0 {
 			interval = 30 * time.Second
 		}
