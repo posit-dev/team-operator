@@ -33,9 +33,13 @@ var (
 // RecordStatusTransition increments team_operator_status_transition_total.
 // controller is the controller name (e.g. "site", "connect").
 // fromPhase and toPhase should be Phase* constants from names.go.
-// A nil meter is a safe no-op.
+// A nil meter is a safe no-op. Calls where fromPhase == toPhase are also
+// no-ops: the metric tracks transitions, not steady-state reconciles, and
+// counting "same phase as before" pollutes flapping detection. Use
+// controller_runtime_reconcile_total for "how often did this controller
+// reconcile in state X."
 func RecordStatusTransition(ctx context.Context, m metric.Meter, controller, namespace, fromPhase, toPhase string) {
-	if m == nil {
+	if m == nil || fromPhase == toPhase {
 		return
 	}
 	counter := getOrCreateCounter(&statusTransitionMu, statusTransitionInst, m,

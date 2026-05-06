@@ -161,3 +161,47 @@ func TestRecordReconcileRequeue(t *testing.T) {
 	}
 	assert.True(t, found)
 }
+
+// TestRecordStatusTransition_SamePhaseIsNoOp pins the contract that the
+// transition counter only fires on actual phase changes, not on steady-state
+// reconciles. Regression test for an issue caught during AKS validation where
+// every Reconcile of a stable CR was emitting from=X to=X, drowning out
+// genuine flapping signal. Use controller_runtime_reconcile_total for
+// "how often did this controller reconcile in state X."
+func TestRecordStatusTransition_SamePhaseIsNoOp(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
+	m := mp.Meter("test")
+
+	// Same-phase calls — must not emit.
+	observability.RecordStatusTransition(context.Background(), m,
+		"site", "posit-team", observability.PhaseReady, observability.PhaseReady)
+	observability.RecordStatusTransition(context.Background(), m,
+		"chronicle", "posit-team", observability.PhaseError, observability.PhaseError)
+	observability.RecordStatusTransition(context.Background(), m,
+		"workbench", "posit-team", observability.PhaseUnknown, observability.PhaseUnknown)
+
+	// One real transition — must emit, proving the meter still works.
+	observability.RecordStatusTransition(context.Background(), m,
+		"site", "posit-team", observability.PhaseError, observability.PhaseReady)
+
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(context.Background(), &rm))
+
+	for _, sm := range rm.ScopeMetrics {
+		for _, mm := range sm.Metrics {
+			if mm.Name == observability.MetricStatusTransitionTotal {
+				sum, ok := mm.Data.(metricdata.Sum[int64])
+				require.True(t, ok)
+				require.Len(t, sum.DataPoints, 1, "only the genuine error->ready transition should be recorded")
+				assert.Equal(t, int64(1), sum.DataPoints[0].Value)
+				attrs := attrsToMap(sum.DataPoints[0].Attributes)
+				assert.Equal(t, observability.PhaseError, attrs[observability.LabelFromPhase])
+				assert.Equal(t, observability.PhaseReady, attrs[observability.LabelToPhase])
+				return
+			}
+		}
+	}
+	t.Fatal("no metric emitted at all — the genuine transition was suppressed too")
+}
