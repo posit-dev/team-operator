@@ -116,13 +116,17 @@ func buildMeterProvider(ctx context.Context, cfg Config) (*sdkmetric.MeterProvid
 
 	// Prometheus exporter — registers onto a Prometheus Registerer so /metrics
 	// serves both controller-runtime built-ins and OTel metrics from one endpoint.
-	// Defaults to prometheus.DefaultRegisterer when cfg.PrometheusRegisterer is nil.
+	// promexporter.New() without a Registerer option creates an internal
+	// prometheus.NewRegistry() that no HTTP handler serves; we MUST pass
+	// WithRegisterer explicitly. When cfg.PrometheusRegisterer is nil we default
+	// to prometheus.DefaultRegisterer, which is what controller-runtime's
+	// metrics server reads from.
 	if cfg.PrometheusEnabled {
-		var promOpts []promexporter.Option
-		if cfg.PrometheusRegisterer != nil {
-			promOpts = append(promOpts, promexporter.WithRegisterer(cfg.PrometheusRegisterer))
+		registerer := cfg.PrometheusRegisterer
+		if registerer == nil {
+			registerer = prometheus.DefaultRegisterer
 		}
-		promExp, err := promexporter.New(promOpts...)
+		promExp, err := promexporter.New(promexporter.WithRegisterer(registerer))
 		if err != nil {
 			return nil, fmt.Errorf("creating Prometheus exporter: %w", err)
 		}

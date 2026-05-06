@@ -87,6 +87,39 @@ func TestNewProvider_PrometheusGather(t *testing.T) {
 	require.True(t, found, "OTel counter must appear in Prometheus gather output")
 }
 
+// TestNewProvider_NilRegistererDefaultsToGlobal pins the production wiring:
+// when PrometheusRegisterer is nil (as main.go calls it), the exporter must
+// register onto prometheus.DefaultRegisterer so controller-runtime's metrics
+// server serves both controller_runtime_* built-ins and team_operator_* metrics
+// from the same /metrics endpoint. Regression test for a bug found during
+// real-cluster validation where promexporter.New() without WithRegisterer
+// silently created its own internal registry that no HTTP handler served.
+//
+// Note: this test mutates global prometheus.DefaultRegisterer state.
+// `go test -count > 1` will fail with a duplicate-collector registration error.
+func TestNewProvider_NilRegistererDefaultsToGlobal(t *testing.T) {
+	p := observability.NewProvider(context.Background(), observability.Config{
+		MetricsEnabled:    true,
+		PrometheusEnabled: true,
+		// PrometheusRegisterer intentionally nil — this is how main.go calls it.
+	})
+	require.NotNil(t, p)
+	t.Cleanup(func() { _ = p.Shutdown(context.Background()) })
+
+	counter, err := p.Meter("team-operator/regression").Int64Counter("default_registerer_regression_total")
+	require.NoError(t, err)
+	counter.Add(context.Background(), 1)
+
+	families, err := prometheus.DefaultGatherer.Gather()
+	require.NoError(t, err)
+	for _, mf := range families {
+		if mf.GetName() == "default_registerer_regression_total" {
+			return
+		}
+	}
+	t.Fatalf("metric default_registerer_regression_total not found in prometheus.DefaultGatherer; nil registerer did not default to DefaultRegisterer")
+}
+
 func TestNewProvider_OTLPEndpointSet(t *testing.T) {
 	// Smoke test: provider init with an OTLP endpoint set must succeed; gRPC
 	// connect is lazy so an unreachable collector does not fail at init time.
