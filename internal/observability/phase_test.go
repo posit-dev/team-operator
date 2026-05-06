@@ -30,7 +30,7 @@ func TestPhaseFromConditions(t *testing.T) {
 		{"database ready reason", []metav1.Condition{{Type: status.TypeReady, Reason: status.ReasonDatabaseReady}}, observability.PhaseDatabaseReady},
 		{"deployment not ready reason", []metav1.Condition{{Type: status.TypeReady, Reason: status.ReasonDeploymentNotReady}}, observability.PhaseUnknown},
 		{"statefulset not ready reason", []metav1.Condition{{Type: status.TypeReady, Reason: status.ReasonStatefulSetNotReady}}, observability.PhaseUnknown},
-		{"components not ready reason", []metav1.Condition{{Type: status.TypeReady, Reason: status.ReasonComponentsNotReady}}, observability.PhaseUnknown},
+		{"components not ready reason", []metav1.Condition{{Type: status.TypeReady, Reason: status.ReasonComponentsNotReady}}, observability.PhaseProgressing},
 		{"unrecognized reason returns Unknown", []metav1.Condition{{Type: status.TypeReady, Reason: "SomethingElse"}}, observability.PhaseUnknown},
 		{"non-Ready condition is ignored", []metav1.Condition{{Type: status.TypeProgressing, Reason: status.ReasonReconcileComplete}}, observability.PhaseUnknown},
 	}

@@ -59,5 +59,6 @@ const (
 	PhaseSuspended       = "suspended"            // status.ReasonSuspended
 	PhaseDatabaseReady   = "database_ready"       // status.ReasonDatabaseReady
 	PhaseComponentsReady = "all_components_ready" // status.ReasonAllComponentsReady
+	PhaseProgressing     = "progressing"          // status.ReasonComponentsNotReady (waiting on children)
 	PhaseUnknown         = "unknown"              // sentinel for an untracked previous phase
 )

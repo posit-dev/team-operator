@@ -50,6 +50,7 @@ func TestLabelValueEnumsHaveNoDuplicates(t *testing.T) {
 			observability.PhaseSuspended,
 			observability.PhaseDatabaseReady,
 			observability.PhaseComponentsReady,
+			observability.PhaseProgressing,
 			observability.PhaseUnknown,
 		},
 	}

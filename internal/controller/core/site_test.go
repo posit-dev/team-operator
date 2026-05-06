@@ -1614,7 +1614,7 @@ func TestSiteReadyWithDisabledProducts(t *testing.T) {
 	// Set up in-memory meter for metric assertion
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
-	defer mp.Shutdown(context.Background())
+	t.Cleanup(func() { require.NoError(t, mp.Shutdown(context.Background())) })
 
 	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log, Meter: mp.Meter("test")}
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
@@ -1627,18 +1627,37 @@ func TestSiteReadyWithDisabledProducts(t *testing.T) {
 	_, err = rec.Reconcile(context.TODO(), req)
 	assert.NoError(t, err)
 
-	// Assert that the status transition metric was emitted
+	// Assert that the status transition metric was emitted with the expected label
+	// contract. Reconcile transitions from no prior Ready condition (PhaseUnknown)
+	// to PhaseComponentsReady because all required products are disabled.
 	var rm metricdata.ResourceMetrics
 	require.NoError(t, reader.Collect(context.Background(), &rm))
+	var dp metricdata.DataPoint[int64]
 	found := false
 	for _, sm := range rm.ScopeMetrics {
 		for _, m := range sm.Metrics {
-			if m.Name == observability.MetricStatusTransitionTotal {
-				found = true
+			if m.Name != observability.MetricStatusTransitionTotal {
+				continue
 			}
+			sum, ok := m.Data.(metricdata.Sum[int64])
+			require.True(t, ok, "expected Sum[int64] data type")
+			require.Len(t, sum.DataPoints, 1, "expected one transition per reconcile")
+			dp = sum.DataPoints[0]
+			found = true
 		}
 	}
-	assert.True(t, found, "expected status transition metric to be emitted")
+	require.True(t, found, "expected status transition metric to be emitted")
+	attrs := make(map[string]string, dp.Attributes.Len())
+	for _, kv := range dp.Attributes.ToSlice() {
+		attrs[string(kv.Key)] = kv.Value.Emit()
+	}
+	assert.Equal(t, map[string]string{
+		observability.LabelController: "site",
+		observability.LabelNamespace:  siteNamespace,
+		observability.LabelFromPhase:  observability.PhaseUnknown,
+		observability.LabelToPhase:    observability.PhaseComponentsReady,
+	}, attrs)
+	assert.Equal(t, int64(1), dp.Value, "expected exactly one transition recorded")
 
 	// Fetch the Site to check its status
 	fetchedSite := &v1beta1.Site{}

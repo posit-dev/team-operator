@@ -42,7 +42,10 @@ type SiteReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
-	Meter  metric.Meter
+	// Meter is the OTel Meter used for status-transition metrics.
+	// Nil is treated as a no-op by observability.RecordStatusTransition,
+	// so tests that don't care about metrics may leave it unset.
+	Meter metric.Meter
 }
 
 //+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=sites,verbs=get;list;watch;create;update;patch;delete
@@ -104,24 +107,24 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	// Aggregate child component status
 	aggregateErr := r.aggregateChildStatus(ctx, req, s)
 
-	// Update status based on reconciliation result
+	// Update status based on reconciliation result. Capture the destination phase
+	// so the metric is emitted only after a successful status persist, and only
+	// when the phase actually changed.
+	var toPhase string
 	if reconcileErr != nil {
 		msg := status.TruncateMessage(reconcileErr.Error())
 		status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconcileError, msg)
-		observability.RecordStatusTransition(ctx, r.Meter, "site", req.Namespace,
-			priorPhase, observability.PhaseError)
+		toPhase = observability.PhaseError
 		status.SetProgressing(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconcileError, msg)
 	} else {
 		// Overall Ready is true only if all children are ready
 		allReady := s.Status.ConnectReady && s.Status.WorkbenchReady && s.Status.PackageManagerReady && s.Status.ChronicleReady && s.Status.FlightdeckReady
 		if allReady {
 			status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionTrue, status.ReasonAllComponentsReady, "All child components are ready")
-			observability.RecordStatusTransition(ctx, r.Meter, "site", req.Namespace,
-				priorPhase, observability.PhaseComponentsReady)
+			toPhase = observability.PhaseComponentsReady
 		} else {
 			status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonComponentsNotReady, "One or more child components are not ready")
-			observability.RecordStatusTransition(ctx, r.Meter, "site", req.Namespace,
-				priorPhase, observability.PhaseUnknown)
+			toPhase = observability.PhaseProgressing
 		}
 		status.SetProgressing(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconcileComplete, "Reconciliation complete")
 	}
@@ -133,6 +136,12 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			return result, reconcileErr
 		}
 		return ctrl.Result{}, patchErr
+	}
+
+	// Only record on actual phase transitions and after the status was persisted,
+	// so the counter reflects real state changes, not steady-state reconciles.
+	if toPhase != priorPhase {
+		observability.RecordStatusTransition(ctx, r.Meter, "site", req.Namespace, priorPhase, toPhase)
 	}
 
 	if reconcileErr != nil {

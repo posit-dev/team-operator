@@ -36,7 +36,7 @@ func phaseFromReason(reason string) string {
 	case status.ReasonAllComponentsReady:
 		return PhaseComponentsReady
 	case status.ReasonComponentsNotReady:
-		return PhaseUnknown
+		return PhaseProgressing
 	case status.ReasonSuspended:
 		return PhaseSuspended
 	case status.ReasonDatabaseReady:
