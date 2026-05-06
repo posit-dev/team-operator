@@ -9,6 +9,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
+	crmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/posit-dev/team-operator/internal/observability"
 )
@@ -87,17 +88,18 @@ func TestNewProvider_PrometheusGather(t *testing.T) {
 	require.True(t, found, "OTel counter must appear in Prometheus gather output")
 }
 
-// TestNewProvider_NilRegistererDefaultsToGlobal pins the production wiring:
+// TestNewProvider_NilRegistererDefaultsToCRMetrics pins the production wiring:
 // when PrometheusRegisterer is nil (as main.go calls it), the exporter must
-// register onto prometheus.DefaultRegisterer so controller-runtime's metrics
-// server serves both controller_runtime_* built-ins and team_operator_* metrics
-// from the same /metrics endpoint. Regression test for a bug found during
-// real-cluster validation where promexporter.New() without WithRegisterer
-// silently created its own internal registry that no HTTP handler served.
+// register onto sigs.k8s.io/controller-runtime/pkg/metrics.Registry — the
+// registry that controller-runtime's metrics server actually serves /metrics
+// from. NOT prometheus.DefaultRegisterer (the global default), which is a
+// SEPARATE registry that controller-runtime ignores. Regression test for a
+// production bug found during AKS reference cluster validation where
+// team_operator_* metrics emitted into a registry no HTTP handler served.
 //
-// Note: this test mutates global prometheus.DefaultRegisterer state.
+// Note: this test mutates global crmetrics.Registry state.
 // `go test -count > 1` will fail with a duplicate-collector registration error.
-func TestNewProvider_NilRegistererDefaultsToGlobal(t *testing.T) {
+func TestNewProvider_NilRegistererDefaultsToCRMetrics(t *testing.T) {
 	p := observability.NewProvider(context.Background(), observability.Config{
 		MetricsEnabled:    true,
 		PrometheusEnabled: true,
@@ -106,18 +108,20 @@ func TestNewProvider_NilRegistererDefaultsToGlobal(t *testing.T) {
 	require.NotNil(t, p)
 	t.Cleanup(func() { _ = p.Shutdown(context.Background()) })
 
-	counter, err := p.Meter("team-operator/regression").Int64Counter("default_registerer_regression_total")
+	counter, err := p.Meter("team-operator/regression").Int64Counter("crmetrics_registry_regression_total")
 	require.NoError(t, err)
 	counter.Add(context.Background(), 1)
 
-	families, err := prometheus.DefaultGatherer.Gather()
+	gatherer, ok := crmetrics.Registry.(prometheus.Gatherer)
+	require.True(t, ok, "controller-runtime metrics.Registry must implement prometheus.Gatherer")
+	families, err := gatherer.Gather()
 	require.NoError(t, err)
 	for _, mf := range families {
-		if mf.GetName() == "default_registerer_regression_total" {
+		if mf.GetName() == "crmetrics_registry_regression_total" {
 			return
 		}
 	}
-	t.Fatalf("metric default_registerer_regression_total not found in prometheus.DefaultGatherer; nil registerer did not default to DefaultRegisterer")
+	t.Fatalf("metric crmetrics_registry_regression_total not found in crmetrics.Registry; nil registerer did not default to controller-runtime's Registry")
 }
 
 func TestNewProvider_OTLPEndpointSet(t *testing.T) {

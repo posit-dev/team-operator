@@ -19,6 +19,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.27.0"
 	ctrl "sigs.k8s.io/controller-runtime"
+	crmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/posit-dev/team-operator/internal"
 )
@@ -119,12 +120,14 @@ func buildMeterProvider(ctx context.Context, cfg Config) (*sdkmetric.MeterProvid
 	// promexporter.New() without a Registerer option creates an internal
 	// prometheus.NewRegistry() that no HTTP handler serves; we MUST pass
 	// WithRegisterer explicitly. When cfg.PrometheusRegisterer is nil we default
-	// to prometheus.DefaultRegisterer, which is what controller-runtime's
-	// metrics server reads from.
+	// to controller-runtime's metrics.Registry — which is what
+	// controller-runtime's metrics server reads from. (NOT
+	// prometheus.DefaultRegisterer; controller-runtime maintains its own
+	// internal *prometheus.Registry, separate from the global default.)
 	if cfg.PrometheusEnabled {
 		registerer := cfg.PrometheusRegisterer
 		if registerer == nil {
-			registerer = prometheus.DefaultRegisterer
+			registerer = crmetrics.Registry
 		}
 		promExp, err := promexporter.New(promexporter.WithRegisterer(registerer))
 		if err != nil {
