@@ -771,7 +771,7 @@ spec:
       # The probe is unauthenticated, so the override must point to an
       # endpoint that does not require auth and returns 2xx-3xx; otherwise
       # the pod will never become ready.
-      readinessProbePath: /health-check
+      readinessProbePath: /ping
 ```
 
 ### Workbench API Settings

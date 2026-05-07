@@ -52,8 +52,8 @@ var azureDatabricksRegexp = regexp.MustCompile("azuredatabricks\\.net")
 const defaultWorkbenchReadinessProbePath = "/health-check"
 
 func workbenchReadinessProbePath(w *positcov1beta1.Workbench) string {
-	if w.Spec.ReadinessProbePath != "" {
-		return w.Spec.ReadinessProbePath
+	if w.Spec.ReadinessProbePath != nil && *w.Spec.ReadinessProbePath != "" {
+		return *w.Spec.ReadinessProbePath
 	}
 	return defaultWorkbenchReadinessProbePath
 }

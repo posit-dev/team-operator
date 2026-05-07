@@ -378,7 +378,7 @@ func (r *SiteReconciler) reconcileWorkbench(
 		}
 
 		if site.Spec.Workbench.ExperimentalFeatures.ReadinessProbePath != nil {
-			targetWorkbench.Spec.ReadinessProbePath = *site.Spec.Workbench.ExperimentalFeatures.ReadinessProbePath
+			targetWorkbench.Spec.ReadinessProbePath = site.Spec.Workbench.ExperimentalFeatures.ReadinessProbePath
 		}
 	}
 

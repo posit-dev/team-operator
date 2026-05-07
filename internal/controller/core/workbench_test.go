@@ -180,7 +180,10 @@ func TestWorkbenchReadinessProbePath(t *testing.T) {
 			ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, wbName)
 
 			wb := defineDefaultWorkbench(t, ns, wbName)
-			wb.Spec.ReadinessProbePath = tc.override
+			if tc.override != "" {
+				override := tc.override
+				wb.Spec.ReadinessProbePath = &override
+			}
 
 			err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
 			require.NoError(t, err)

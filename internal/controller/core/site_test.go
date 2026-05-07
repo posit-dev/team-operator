@@ -183,14 +183,14 @@ func TestSiteReconciler_ReadinessProbePath(t *testing.T) {
 		assert.Nil(t, err)
 
 		testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
-		assert.Equal(t, "", testWorkbench.Spec.ReadinessProbePath)
+		assert.Nil(t, testWorkbench.Spec.ReadinessProbePath)
 	})
 
 	t.Run("override_propagates", func(t *testing.T) {
 		siteName := "probe-override"
 		siteNamespace := "posit-team"
 		site := defaultSite(siteName)
-		path := "/api/version"
+		path := "/custom-probe"
 		site.Spec.Workbench.ExperimentalFeatures = &v1beta1.InternalWorkbenchExperimentalFeatures{
 			ReadinessProbePath: &path,
 		}
@@ -199,7 +199,8 @@ func TestSiteReconciler_ReadinessProbePath(t *testing.T) {
 		assert.Nil(t, err)
 
 		testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
-		assert.Equal(t, "/api/version", testWorkbench.Spec.ReadinessProbePath)
+		require.NotNil(t, testWorkbench.Spec.ReadinessProbePath)
+		assert.Equal(t, "/custom-probe", *testWorkbench.Spec.ReadinessProbePath)
 	})
 }
 

@@ -128,9 +128,12 @@ type WorkbenchSpec struct {
 	SessionLabels *SessionLabelsConfig `json:"sessionLabels,omitempty"`
 
 	// ReadinessProbePath overrides the HTTP path used by the Workbench readiness probe.
-	// Empty value applies the default ("/health-check").
+	// Defaults to "/health-check" when unset. The probe is unauthenticated; any override
+	// must point to an endpoint that does not require auth and returns a 2xx-3xx status,
+	// otherwise the pod will never become ready. Must start with "/".
 	// +optional
-	ReadinessProbePath string `json:"readinessProbePath,omitempty"`
+	// +kubebuilder:validation:Pattern=`^/`
+	ReadinessProbePath *string `json:"readinessProbePath,omitempty"`
 }
 
 // SessionLabelsConfig configures the session group label controller for a

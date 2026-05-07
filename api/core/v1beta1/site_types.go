@@ -537,8 +537,9 @@ type InternalWorkbenchExperimentalFeatures struct {
 	// ReadinessProbePath overrides the HTTP path used by the Workbench readiness probe.
 	// Defaults to "/health-check". The probe is unauthenticated; any override must point to
 	// an endpoint that does not require auth and returns a 2xx-3xx status, otherwise the pod
-	// will never become ready.
+	// will never become ready. Must start with "/".
 	// +optional
+	// +kubebuilder:validation:Pattern=`^/`
 	ReadinessProbePath *string `json:"readinessProbePath,omitempty"`
 
 	FirstProjectTemplatePath string `json:"firstProjectTemplatePath,omitempty"`
