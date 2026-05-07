@@ -2,8 +2,8 @@ apiVersion: v2
 name: team-operator
 description: Kubernetes operator for managing Posit Team deployments
 type: application
-version: v1.23.3
-appVersion: "v1.23.3"
+version: v1.24.0
+appVersion: "v1.24.0"
 home: "https://github.com/posit-dev/team-operator"
 sources:
   - "https://github.com/posit-dev/team-operator"

@@ -1,3 +1,10 @@
+# [1.24.0](https://github.com/posit-dev/team-operator/compare/v1.23.3...v1.24.0) (2026-05-07)
+
+
+### Features
+
+* make Workbench readiness probe path configurable ([#131](https://github.com/posit-dev/team-operator/issues/131)) ([34ab112](https://github.com/posit-dev/team-operator/commit/34ab11277ff3f6f8dc2069dcbcfa2a40523d7392))
+
 ## [1.23.3](https://github.com/posit-dev/team-operator/compare/v1.23.2...v1.23.3) (2026-04-28)
 
 
