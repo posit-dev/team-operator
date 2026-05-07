@@ -1,3 +1,10 @@
+## [1.24.1](https://github.com/posit-dev/team-operator/compare/v1.24.0...v1.24.1) (2026-05-07)
+
+
+### Bug Fixes
+
+* increase readiness probe timeout and period for all products ([#136](https://github.com/posit-dev/team-operator/issues/136)) ([fe3803e](https://github.com/posit-dev/team-operator/commit/fe3803ec9617103817b16a8628437f8d54057b6a))
+
 # [1.24.0](https://github.com/posit-dev/team-operator/compare/v1.23.3...v1.24.0) (2026-05-07)
 
 
