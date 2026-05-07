@@ -22,6 +22,7 @@ type InternalWorkbenchExperimentalFeaturesApplyConfiguration struct {
 	DatabricksForceEnabled               *bool                                                                     `json:"databricksForceEnabled,omitempty"`
 	DsnSecret                            *string                                                                   `json:"dsnSecret,omitempty"`
 	WwwThreadPoolSize                    *int                                                                      `json:"wwwThreadPoolSize,omitempty"`
+	ReadinessProbePath                   *string                                                                   `json:"readinessProbePath,omitempty"`
 	FirstProjectTemplatePath             *string                                                                   `json:"firstProjectTemplatePath,omitempty"`
 	LauncherSessionsProxyTimeoutSeconds  *int                                                                      `json:"launcherSessionsProxyTimeoutSecs,omitempty"`
 	VsCodeExtensionsDir                  *string                                                                   `json:"vsCodeExtensionsDir,omitempty"`
@@ -112,6 +113,14 @@ func (b *InternalWorkbenchExperimentalFeaturesApplyConfiguration) WithDsnSecret(
 // If called multiple times, the WwwThreadPoolSize field is set to the value of the last call.
 func (b *InternalWorkbenchExperimentalFeaturesApplyConfiguration) WithWwwThreadPoolSize(value int) *InternalWorkbenchExperimentalFeaturesApplyConfiguration {
 	b.WwwThreadPoolSize = &value
+	return b
+}
+
+// WithReadinessProbePath sets the ReadinessProbePath field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ReadinessProbePath field is set to the value of the last call.
+func (b *InternalWorkbenchExperimentalFeaturesApplyConfiguration) WithReadinessProbePath(value string) *InternalWorkbenchExperimentalFeaturesApplyConfiguration {
+	b.ReadinessProbePath = &value
 	return b
 }
 
