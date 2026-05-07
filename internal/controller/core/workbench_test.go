@@ -163,9 +163,9 @@ func TestWorkbenchReconciler_Basic(t *testing.T) {
 
 func TestWorkbenchReadinessProbePath(t *testing.T) {
 	cases := []struct {
-		name      string
-		override  string
-		wantPath  string
+		name     string
+		override string
+		wantPath string
 	}{
 		{name: "default", override: "", wantPath: defaultWorkbenchReadinessProbePath},
 		{name: "override", override: "/custom-health", wantPath: "/custom-health"},
