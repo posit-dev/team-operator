@@ -51,6 +51,11 @@ var azureDatabricksRegexp = regexp.MustCompile("azuredatabricks\\.net")
 
 const defaultWorkbenchReadinessProbePath = "/health-check"
 
+const (
+	defaultReadinessProbeTimeoutSeconds int32 = 3
+	defaultReadinessProbePeriodSeconds  int32 = 5
+)
+
 func workbenchReadinessProbePath(w *positcov1beta1.Workbench) string {
 	if w.Spec.ReadinessProbePath != nil && *w.Spec.ReadinessProbePath != "" {
 		return *w.Spec.ReadinessProbePath
@@ -931,8 +936,8 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 										},
 									},
 									InitialDelaySeconds:           3,
-									TimeoutSeconds:                3,
-									PeriodSeconds:                 5,
+									TimeoutSeconds:                defaultReadinessProbeTimeoutSeconds,
+									PeriodSeconds:                 defaultReadinessProbePeriodSeconds,
 									SuccessThreshold:              1,
 									FailureThreshold:              3,
 									TerminationGracePeriodSeconds: nil,
