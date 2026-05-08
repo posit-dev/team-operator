@@ -27,7 +27,10 @@ type WorkbenchReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Log    logr.Logger
-	Meter  metric.Meter
+	// Meter is the OTel Meter used for status-transition metrics.
+	// Nil is treated as a no-op by observability.RecordStatusTransition,
+	// so tests that don't care about metrics may leave it unset.
+	Meter metric.Meter
 }
 
 //+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=workbenches,verbs=get;list;watch;create;update;patch;delete
