@@ -48,14 +48,14 @@ helm install team-operator ./dist/chart \
 
 ### Creating a Worktree
 
-This repo is expected to live at `ptd-workspace/team-operator/`. The `../../.worktrees/` relative path resolves to `ptd-workspace/.worktrees/` in that layout.
+This repo is expected to live at `ptd-workspace/team-operator/`. The `../.worktrees/` relative path resolves to `ptd-workspace/.worktrees/` in that layout.
 
 ```bash
 # New branch
-git worktree add ../../.worktrees/team-operator-<branch-name> -b <branch-name>
+git worktree add ../.worktrees/team-operator-<branch-name> -b <branch-name>
 
 # Existing remote branch
-git worktree add ../../.worktrees/team-operator-<branch-name> <branch-name>
+git worktree add ../.worktrees/team-operator-<branch-name> <branch-name>
 ```
 
 Always prefix worktree directories with `team-operator-` to avoid collisions with other repos.
@@ -65,7 +65,7 @@ Always prefix worktree directories with `team-operator-` to avoid collisions wit
 No special setup needed. The `Justfile` and `Makefile` use relative paths, so they work in worktrees out of the box:
 
 ```bash
-cd ../../.worktrees/team-operator-<branch-name>
+cd ../.worktrees/team-operator-<branch-name>
 just build    # builds to ./bin/team-operator
 just test     # runs tests
 ```
@@ -74,7 +74,7 @@ just test     # runs tests
 
 ```bash
 # From the main checkout
-git worktree remove ../../.worktrees/team-operator-<branch-name>
+git worktree remove ../.worktrees/team-operator-<branch-name>
 # Prune stale worktree references
 git worktree prune
 ```
@@ -82,7 +82,7 @@ git worktree prune
 ### Rules
 
 - **NEVER** use `git checkout -b` for new work — always `git worktree add`
-- **NEVER** put worktrees inside the repo directory — always use `../../.worktrees/team-operator-<name>`
+- **NEVER** put worktrees inside the repo directory — always use `../.worktrees/team-operator-<name>`
 - Branch names: kebab-case, no slashes, no usernames (slashes break worktree directory paths)
 
 ## roborev Code Review

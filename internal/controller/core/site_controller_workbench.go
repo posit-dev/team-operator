@@ -376,6 +376,10 @@ func (r *SiteReconciler) reconcileWorkbench(
 		if site.Spec.Workbench.ExperimentalFeatures.ForceAdminUiEnabled {
 			targetWorkbench.Spec.Config.RServer.ForceAdminUiEnabled = 1
 		}
+
+		if site.Spec.Workbench.ExperimentalFeatures.ReadinessProbePath != nil {
+			targetWorkbench.Spec.ReadinessProbePath = site.Spec.Workbench.ExperimentalFeatures.ReadinessProbePath
+		}
 	}
 
 	// set user provisioning
