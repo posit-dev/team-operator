@@ -80,6 +80,7 @@ func initWorkbenchReconciler(t *testing.T, ctx context.Context, namespace, name 
 	localEnv := localtest.LocalTestEnv{}
 	cli, cliScheme, log, err := localEnv.Start(loadSchemes)
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = localEnv.Stop() })
 	r := &WorkbenchReconciler{
 		Client: cli,
 		Scheme: cliScheme,

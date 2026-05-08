@@ -606,11 +606,11 @@ func TestSiteReconcileWithSA(t *testing.T) {
 	localTestEnv := localtest.LocalTestEnv{}
 	cli, cliScheme, log, err := localTestEnv.Start(loadSchemes)
 
-	r.NoError(err)
-
 	t.Cleanup(func() {
 		r.NoError(localTestEnv.Stop())
 	})
+
+	r.NoError(err)
 
 	site := defaultSite("test-site")
 	site.Spec.Workbench.ExperimentalFeatures = &v1beta1.InternalWorkbenchExperimentalFeatures{
@@ -664,6 +664,8 @@ func TestSiteReconcileWithSA(t *testing.T) {
 func TestSiteReconcileWithExperimental(t *testing.T) {
 	localTestEnv := localtest.LocalTestEnv{}
 	cli, cliScheme, log, err := localTestEnv.Start(loadSchemes)
+
+	t.Cleanup(func() { _ = localTestEnv.Stop() })
 
 	assert.Nil(t, err)
 
@@ -720,10 +722,6 @@ func TestSiteReconcileWithExperimental(t *testing.T) {
 	assert.NotNil(t, tmpWorkbench)
 	assert.NotNil(t, tmpWorkbench.Spec.Config.RServer)
 	assert.Equal(t, 1, tmpWorkbench.Spec.Config.RServer.DatabricksEnabled)
-
-	// stop testEnv
-	err = localTestEnv.Stop()
-	assert.Nil(t, err)
 }
 
 func TestSiteKeycloak(t *testing.T) {

@@ -29,6 +29,7 @@ func initConnectReconciler(t *testing.T, ctx context.Context, namespace, name st
 	localEnv := localtest.LocalTestEnv{}
 	cli, cliScheme, log, err := localEnv.Start(loadSchemes)
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = localEnv.Stop() })
 	r := &ConnectReconciler{
 		Client: cli,
 		Scheme: cliScheme,
