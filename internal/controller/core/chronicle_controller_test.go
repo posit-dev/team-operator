@@ -94,7 +94,7 @@ func TestChronicleReconciler_Metrics(t *testing.T) {
 
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
-	defer mp.Shutdown(context.Background())
+	t.Cleanup(func() { require.NoError(t, mp.Shutdown(context.Background())) })
 
 	r := &ChronicleReconciler{
 		Client: cli,
@@ -122,17 +122,39 @@ func TestChronicleReconciler_Metrics(t *testing.T) {
 	require.NoError(t, err)
 
 	// ReconcileChronicle with Suspended=true exercises the PhaseSuspended recording path.
-	_, _ = r.ReconcileChronicle(ctx, req, c)
+	_, err = r.ReconcileChronicle(ctx, req, c)
+	require.NoError(t, err)
 
 	var rm metricdata.ResourceMetrics
 	require.NoError(t, reader.Collect(ctx, &rm))
+	var dp metricdata.DataPoint[int64]
 	found := false
 	for _, sm := range rm.ScopeMetrics {
 		for _, m := range sm.Metrics {
-			if m.Name == observability.MetricStatusTransitionTotal {
-				found = true
+			if m.Name != observability.MetricStatusTransitionTotal {
+				continue
 			}
+			sum, ok := m.Data.(metricdata.Sum[int64])
+			require.True(t, ok, "expected Sum[int64] data type")
+			require.Len(t, sum.DataPoints, 1, "expected exactly one data point for the single transition")
+			dp = sum.DataPoints[0]
+			found = true
+			break
+		}
+		if found {
+			break
 		}
 	}
-	assert.True(t, found, "expected status transition to be recorded")
+	require.True(t, found, "expected status transition metric to be emitted on suspended path")
+	attrs := make(map[string]string, dp.Attributes.Len())
+	for _, kv := range dp.Attributes.ToSlice() {
+		attrs[string(kv.Key)] = kv.Value.Emit()
+	}
+	assert.Equal(t, map[string]string{
+		observability.LabelController: "chronicle",
+		observability.LabelNamespace:  ns,
+		observability.LabelFromPhase:  observability.PhaseUnknown,
+		observability.LabelToPhase:    observability.PhaseSuspended,
+	}, attrs)
+	assert.Equal(t, int64(1), dp.Value, "expected exactly one transition recorded")
 }

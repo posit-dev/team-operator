@@ -34,7 +34,10 @@ type ChronicleReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Log    logr.Logger
-	Meter  metric.Meter
+	// Meter is the OTel Meter used for status-transition metrics.
+	// Nil is treated as a no-op by observability.RecordStatusTransition,
+	// so tests that don't care about metrics may leave it unset.
+	Meter metric.Meter
 }
 
 //+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=chronicles,verbs=get;list;watch;create;update;patch;delete
@@ -83,12 +86,16 @@ func (r *ChronicleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	l.Info("Chronicle found; updating resources")
 
+	// Capture prior phase before any mutation so the metric reflects the real transition.
+	priorPhase := observability.PhaseFromConditions(c.Status.Conditions)
+
 	if res, err := r.ReconcileChronicle(ctx, req, &c); err != nil {
 		l.Error(err, "error reconciling product state")
+		observability.RecordStatusTransition(ctx, r.Meter, "chronicle", req.Namespace,
+			priorPhase, observability.PhaseError)
 		return res, err
 	}
-
-	// reconcile successful
+	// reconcile successful — success metric recorded inside ReconcileChronicle
 	return ctrl.Result{}, nil
 }
 
@@ -146,8 +153,6 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 		if patchErr := status.PatchErrorStatus(ctx, r.Status(), c, patchBase, &c.Status.Conditions, c.Generation, err); patchErr != nil {
 			l.Error(patchErr, "Error patching error status")
 		}
-		observability.RecordStatusTransition(ctx, r.Meter, "chronicle", c.Namespace,
-			priorPhase, observability.PhaseError)
 		return res, err
 	}
 
