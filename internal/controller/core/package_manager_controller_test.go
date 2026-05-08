@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/localtest"
+	"github.com/posit-dev/team-operator/internal/db"
 	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/stretchr/testify/assert"
@@ -66,7 +67,7 @@ func TestPackageManagerReconciler_Metrics(t *testing.T) {
 	// at the DB step (fake client has no DB). The error path in Reconcile records
 	// the PhaseError status transition metric.
 	_, err = r.Reconcile(ctx, req)
-	require.ErrorContains(t, err, "database connection hostname not provided",
+	require.ErrorIs(t, err, db.ErrDBHostnameMissing,
 		"expected DB-step failure to propagate")
 
 	var rm metricdata.ResourceMetrics
