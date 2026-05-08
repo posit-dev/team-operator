@@ -97,7 +97,7 @@ func TestConnectReconciler_SAML(t *testing.T) {
 	// Wire up an in-memory meter so we can assert metric recording.
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
-	defer mp.Shutdown(context.Background())
+	t.Cleanup(func() { require.NoError(t, mp.Shutdown(context.Background())) })
 	r.Meter = mp.Meter("test")
 
 	c := defineDefaultConnect(t, ns, name)
@@ -128,18 +128,92 @@ func TestConnectReconciler_SAML(t *testing.T) {
 	assert.Contains(t, config, "[Authentication]\nProvider = saml", "SAML auth should be enabled")
 	assert.Contains(t, config, "[SAML]\nIdPMetaDataURL = https://idp.example.com/saml/metadata\nIdPAttributeProfile = default\n", "SAML section should be configured")
 
-	// Assert that status transition metric was recorded.
+	// Assert that the status transition metric was emitted with the expected
+	// label contract. A regression that swapped from/to phases, omitted the
+	// namespace label, or recorded the wrong controller would change this map.
 	var rm metricdata.ResourceMetrics
 	require.NoError(t, reader.Collect(ctx, &rm))
+	var dp metricdata.DataPoint[int64]
 	found := false
 	for _, sm := range rm.ScopeMetrics {
 		for _, m := range sm.Metrics {
-			if m.Name == observability.MetricStatusTransitionTotal {
-				found = true
+			if m.Name != observability.MetricStatusTransitionTotal {
+				continue
 			}
+			sum, ok := m.Data.(metricdata.Sum[int64])
+			require.True(t, ok, "expected Sum[int64] data type")
+			require.Len(t, sum.DataPoints, 1, "expected one transition per reconcile")
+			dp = sum.DataPoints[0]
+			found = true
 		}
 	}
-	assert.True(t, found, "expected status transition to be recorded")
+	require.True(t, found, "expected status transition metric to be emitted")
+	attrs := make(map[string]string, dp.Attributes.Len())
+	for _, kv := range dp.Attributes.ToSlice() {
+		attrs[string(kv.Key)] = kv.Value.Emit()
+	}
+	assert.Equal(t, map[string]string{
+		observability.LabelController: "connect",
+		observability.LabelNamespace:  ns,
+		observability.LabelFromPhase:  observability.PhaseUnknown,
+		observability.LabelToPhase:    observability.PhaseReady,
+	}, attrs)
+	assert.Equal(t, int64(1), dp.Value, "expected exactly one transition recorded")
+}
+
+// TestConnectReconciler_ErrorRecordsTransition exercises the error emission
+// site in Reconcile (not ReconcileConnect), so a regression that drops the
+// error metric while keeping the success metric — or vice versa — is caught.
+func TestConnectReconciler_ErrorRecordsTransition(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "connect-err"
+
+	ctx, r, req, _ := initConnectReconciler(t, ctx, ns, name)
+
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	t.Cleanup(func() { require.NoError(t, mp.Shutdown(context.Background())) })
+	r.Meter = mp.Meter("test")
+
+	// Force ReconcileConnect to error early via the SAML mutual-exclusivity check.
+	c := defineDefaultConnect(t, ns, name)
+	c.Spec.Auth = positcov1beta1.AuthSpec{
+		Type:                    positcov1beta1.AuthTypeSaml,
+		SamlMetadataUrl:         "https://idp.example.com/saml/metadata",
+		SamlIdPAttributeProfile: "custom-profile",
+		SamlUsernameAttribute:   "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn",
+	}
+
+	require.NoError(t, internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c))
+
+	_, err := r.Reconcile(ctx, req)
+	require.Error(t, err)
+
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(ctx, &rm))
+	var dp metricdata.DataPoint[int64]
+	found := false
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != observability.MetricStatusTransitionTotal {
+				continue
+			}
+			sum, ok := m.Data.(metricdata.Sum[int64])
+			require.True(t, ok, "expected Sum[int64] data type")
+			require.Len(t, sum.DataPoints, 1, "expected one transition per reconcile")
+			dp = sum.DataPoints[0]
+			found = true
+		}
+	}
+	require.True(t, found, "expected status transition metric to be emitted on error")
+	attrs := make(map[string]string, dp.Attributes.Len())
+	for _, kv := range dp.Attributes.ToSlice() {
+		attrs[string(kv.Key)] = kv.Value.Emit()
+	}
+	assert.Equal(t, observability.PhaseError, attrs[observability.LabelToPhase], "to_phase should be error")
+	assert.Equal(t, "connect", attrs[observability.LabelController], "controller should be connect")
+	assert.Equal(t, ns, attrs[observability.LabelNamespace], "namespace label should match")
 }
 
 func TestConnectReconciler_SAML_WithIdPAttributeProfile(t *testing.T) {
