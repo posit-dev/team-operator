@@ -176,6 +176,37 @@ func TestSiteReconciler_CustomSessionServiceAccount(t *testing.T) {
 	assert.Equal(t, "test-sa", testConnect.Spec.SessionConfig.Pod.ServiceAccountName)
 }
 
+func TestSiteReconciler_ReadinessProbePath(t *testing.T) {
+	t.Run("not_set_omits_override", func(t *testing.T) {
+		siteName := "probe-default"
+		siteNamespace := "posit-team"
+		site := defaultSite(siteName)
+
+		cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+		assert.Nil(t, err)
+
+		testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+		assert.Nil(t, testWorkbench.Spec.ReadinessProbePath)
+	})
+
+	t.Run("override_propagates", func(t *testing.T) {
+		siteName := "probe-override"
+		siteNamespace := "posit-team"
+		site := defaultSite(siteName)
+		path := "/custom-probe"
+		site.Spec.Workbench.ExperimentalFeatures = &v1beta1.InternalWorkbenchExperimentalFeatures{
+			ReadinessProbePath: &path,
+		}
+
+		cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+		assert.Nil(t, err)
+
+		testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+		require.NotNil(t, testWorkbench.Spec.ReadinessProbePath)
+		assert.Equal(t, "/custom-probe", *testWorkbench.Spec.ReadinessProbePath)
+	})
+}
+
 func TestSiteReconciler_SessionEnvVars(t *testing.T) {
 	siteName := "session-env-vars"
 	siteNamespace := "posit-team"
