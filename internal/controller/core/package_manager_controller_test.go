@@ -37,7 +37,7 @@ func TestPackageManagerReconciler_Metrics(t *testing.T) {
 
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
-	defer mp.Shutdown(context.Background())
+	t.Cleanup(func() { require.NoError(t, mp.Shutdown(context.Background())) })
 
 	r := &PackageManagerReconciler{
 		Client: cli,
@@ -65,19 +65,41 @@ func TestPackageManagerReconciler_Metrics(t *testing.T) {
 	// Reconcile will find the PM, call ReconcilePackageManager, which will fail
 	// at the DB step (fake client has no DB). The error path in Reconcile records
 	// the PhaseError status transition metric.
-	_, _ = r.Reconcile(ctx, req)
+	_, err = r.Reconcile(ctx, req)
+	require.Error(t, err, "expected DB-step failure to propagate")
 
 	var rm metricdata.ResourceMetrics
 	require.NoError(t, reader.Collect(ctx, &rm))
+	var dp metricdata.DataPoint[int64]
 	found := false
 	for _, sm := range rm.ScopeMetrics {
 		for _, m := range sm.Metrics {
-			if m.Name == observability.MetricStatusTransitionTotal {
-				found = true
+			if m.Name != observability.MetricStatusTransitionTotal {
+				continue
 			}
+			sum, ok := m.Data.(metricdata.Sum[int64])
+			require.True(t, ok, "expected Sum[int64] data type")
+			require.Len(t, sum.DataPoints, 1, "expected exactly one data point for the single transition")
+			dp = sum.DataPoints[0]
+			found = true
+			break
+		}
+		if found {
+			break
 		}
 	}
-	assert.True(t, found, "expected status transition to be recorded")
+	require.True(t, found, "expected status transition metric to be emitted on error")
+	attrs := make(map[string]string, dp.Attributes.Len())
+	for _, kv := range dp.Attributes.ToSlice() {
+		attrs[string(kv.Key)] = kv.Value.Emit()
+	}
+	assert.Equal(t, map[string]string{
+		observability.LabelController: "packagemanager",
+		observability.LabelNamespace:  ns,
+		observability.LabelFromPhase:  observability.PhaseUnknown,
+		observability.LabelToPhase:    observability.PhaseError,
+	}, attrs)
+	assert.Equal(t, int64(1), dp.Value, "expected exactly one transition recorded")
 }
 
 // TestPackageManagerReconciler_Suspended verifies that when PackageManager has Suspended=true,

@@ -226,7 +226,7 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 		return ctrl.Result{}, err
 	}
 
-	observability.RecordStatusTransition(ctx, r.Meter, "package-manager", req.Namespace,
+	observability.RecordStatusTransition(ctx, r.Meter, "packagemanager", req.Namespace,
 		priorPhase, observability.PhaseReady)
 	return ctrl.Result{}, nil
 }

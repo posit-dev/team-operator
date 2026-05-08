@@ -27,7 +27,10 @@ type PackageManagerReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Log    logr.Logger
-	Meter  metric.Meter
+	// Meter is the OTel Meter used for status-transition metrics.
+	// Nil is treated as a no-op by observability.RecordStatusTransition,
+	// so tests that don't care about metrics may leave it unset.
+	Meter metric.Meter
 }
 
 //+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=packagemanagers,verbs=get;list;watch;create;update;patch;delete
@@ -79,7 +82,7 @@ func (r *PackageManagerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if res, err := r.ReconcilePackageManager(ctx, req, &pm); err != nil {
 		l.Error(err, "error reconciling product state")
-		observability.RecordStatusTransition(ctx, r.Meter, "package-manager", req.Namespace,
+		observability.RecordStatusTransition(ctx, r.Meter, "packagemanager", req.Namespace,
 			priorPhase, observability.PhaseError)
 		return res, err
 	}
