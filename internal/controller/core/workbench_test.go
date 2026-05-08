@@ -184,9 +184,13 @@ func TestWorkbenchReconciler_Basic(t *testing.T) {
 			}
 			sum, ok := m.Data.(metricdata.Sum[int64])
 			require.True(t, ok, "expected Sum[int64] data type")
-			require.Len(t, sum.DataPoints, 1, "expected one transition per reconcile")
+			require.Len(t, sum.DataPoints, 1, "expected exactly one data point for the single transition")
 			dp = sum.DataPoints[0]
 			found = true
+			break
+		}
+		if found {
+			break
 		}
 	}
 	require.True(t, found, "expected status transition metric to be emitted")
@@ -229,7 +233,7 @@ func TestWorkbenchReconciler_ErrorRecordsTransition(t *testing.T) {
 	require.NoError(t, internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb))
 
 	_, err := r.Reconcile(ctx, req)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "SAML authentication requires a metadata URL")
 
 	var rm metricdata.ResourceMetrics
 	require.NoError(t, reader.Collect(ctx, &rm))
@@ -242,9 +246,13 @@ func TestWorkbenchReconciler_ErrorRecordsTransition(t *testing.T) {
 			}
 			sum, ok := m.Data.(metricdata.Sum[int64])
 			require.True(t, ok, "expected Sum[int64] data type")
-			require.Len(t, sum.DataPoints, 1, "expected one transition per reconcile")
+			require.Len(t, sum.DataPoints, 1, "expected exactly one data point for the single transition")
 			dp = sum.DataPoints[0]
 			found = true
+			break
+		}
+		if found {
+			break
 		}
 	}
 	require.True(t, found, "expected status transition metric to be emitted on error")
@@ -252,9 +260,12 @@ func TestWorkbenchReconciler_ErrorRecordsTransition(t *testing.T) {
 	for _, kv := range dp.Attributes.ToSlice() {
 		attrs[string(kv.Key)] = kv.Value.Emit()
 	}
-	assert.Equal(t, observability.PhaseError, attrs[observability.LabelToPhase], "to_phase should be error")
-	assert.Equal(t, "workbench", attrs[observability.LabelController], "controller should be workbench")
-	assert.Equal(t, ns, attrs[observability.LabelNamespace], "namespace label should match")
+	assert.Equal(t, map[string]string{
+		observability.LabelController: "workbench",
+		observability.LabelNamespace:  ns,
+		observability.LabelFromPhase:  observability.PhaseUnknown,
+		observability.LabelToPhase:    observability.PhaseError,
+	}, attrs)
 }
 
 func TestWorkbenchConfigReload(t *testing.T) {
