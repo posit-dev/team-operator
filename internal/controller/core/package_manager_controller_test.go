@@ -66,7 +66,8 @@ func TestPackageManagerReconciler_Metrics(t *testing.T) {
 	// at the DB step (fake client has no DB). The error path in Reconcile records
 	// the PhaseError status transition metric.
 	_, err = r.Reconcile(ctx, req)
-	require.Error(t, err, "expected DB-step failure to propagate")
+	require.ErrorContains(t, err, "database connection hostname not provided",
+		"expected DB-step failure to propagate")
 
 	var rm metricdata.ResourceMetrics
 	require.NoError(t, reader.Collect(ctx, &rm))
