@@ -585,6 +585,20 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 								FailureThreshold:              2,
 								TerminationGracePeriodSeconds: nil,
 							},
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/__ping__",
+										Port: intstr.IntOrString{Type: intstr.String, StrVal: "http"},
+									},
+								},
+								InitialDelaySeconds:           10,
+								TimeoutSeconds:                2,
+								PeriodSeconds:                 5,
+								SuccessThreshold:              1,
+								FailureThreshold:              10,
+								TerminationGracePeriodSeconds: nil,
+							},
 						},
 					},
 					),
