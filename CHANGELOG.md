@@ -1,3 +1,24 @@
+## [1.24.1](https://github.com/posit-dev/team-operator/compare/v1.24.0...v1.24.1) (2026-05-07)
+
+
+### Bug Fixes
+
+* increase readiness probe timeout and period for all products ([#136](https://github.com/posit-dev/team-operator/issues/136)) ([fe3803e](https://github.com/posit-dev/team-operator/commit/fe3803ec9617103817b16a8628437f8d54057b6a))
+
+# [1.24.0](https://github.com/posit-dev/team-operator/compare/v1.23.3...v1.24.0) (2026-05-07)
+
+
+### Features
+
+* make Workbench readiness probe path configurable ([#131](https://github.com/posit-dev/team-operator/issues/131)) ([34ab112](https://github.com/posit-dev/team-operator/commit/34ab11277ff3f6f8dc2069dcbcfa2a40523d7392))
+
+## [1.23.3](https://github.com/posit-dev/team-operator/compare/v1.23.2...v1.23.3) (2026-04-28)
+
+
+### Bug Fixes
+
+* bump controller manager memory limit from 128Mi to 192Mi ([#127](https://github.com/posit-dev/team-operator/issues/127)) ([cd40dc0](https://github.com/posit-dev/team-operator/commit/cd40dc0e1b884bc3db56610989dc9a489975d69a))
+
 ## [1.23.2](https://github.com/posit-dev/team-operator/compare/v1.23.1...v1.23.2) (2026-04-17)
 
 
