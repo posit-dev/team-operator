@@ -1,3 +1,10 @@
+# [1.25.0](https://github.com/posit-dev/team-operator/compare/v1.24.1...v1.25.0) (2026-05-12)
+
+
+### Features
+
+* add livenessProbe to Package Manager ([#137](https://github.com/posit-dev/team-operator/issues/137)) ([ac44f4c](https://github.com/posit-dev/team-operator/commit/ac44f4c9f2e54296ab5da844c3ecfa9a4ed7c920))
+
 ## [1.24.1](https://github.com/posit-dev/team-operator/compare/v1.24.0...v1.24.1) (2026-05-07)
 
 
