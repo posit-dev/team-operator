@@ -46,6 +46,8 @@ func TestWorkbenchSecretConfig_GenerateSecretData(t *testing.T) {
 }
 
 func TestWorkbenchConfig_GenerateConfigmap(t *testing.T) {
+	intPtr := func(i int) *int { return &i }
+	strPtr := func(s string) *string { return &s }
 	wb := WorkbenchConfig{
 		WorkbenchIniConfig: WorkbenchIniConfig{
 			Launcher: &WorkbenchLauncherConfig{
@@ -108,6 +110,9 @@ func TestWorkbenchConfig_GenerateConfigmap(t *testing.T) {
 				LauncherSessionsAutoUpdate:             1,
 				LauncherSessionsInitContainerImageName: "my-init-container",
 				LauncherSessionsInitContainerImageTag:  "v1.0.0",
+				LauncherPositronInitContainerEnabled:   intPtr(1),
+				LauncherPositronInitContainerImageName: strPtr("posit/workbench-positron-init"),
+				LauncherPositronInitContainerImageTag:  strPtr("2026.04.0-269"),
 				AuthOpenidScopes:                       []string{"openid", "profile", "email", "offline_access"},
 			},
 			Resources: map[string]*WorkbenchLauncherKubernetesResourcesConfigSection{
@@ -153,6 +158,9 @@ func TestWorkbenchConfig_GenerateConfigmap(t *testing.T) {
 	require.Contains(t, res["rserver.conf"], "launcher-sessions-auto-update=1\n")
 	require.Contains(t, res["rserver.conf"], "launcher-sessions-init-container-image-name=my-init-container\n")
 	require.Contains(t, res["rserver.conf"], "launcher-sessions-init-container-image-tag=v1.0.0\n")
+	require.Contains(t, res["rserver.conf"], "launcher-positron-init-container-enabled=1\n")
+	require.Contains(t, res["rserver.conf"], "launcher-positron-init-container-image-name=posit/workbench-positron-init\n")
+	require.Contains(t, res["rserver.conf"], "launcher-positron-init-container-image-tag=2026.04.0-269\n")
 	require.Contains(t, res["rserver.conf"], "auth-openid-scopes=openid profile email offline_access\n")
 	require.Contains(t, res["vscode.conf"], "enabled=1\n")
 	require.Contains(t, res["jupyter.conf"], "labs-enabled=1\n")
@@ -175,6 +183,28 @@ func TestWorkbenchConfig_GenerateConfigmap(t *testing.T) {
 	require.Contains(t, res["launcher-env"], "JobType: any")
 	require.Contains(t, res["launcher-env"], "Environment: PATH=/usr/bin")
 	require.Contains(t, res["logging.conf"], "[*]\nlog-level")
+}
+
+func TestWorkbenchConfig_PositronInitContainerKeysWhenEmpty(t *testing.T) {
+	// When the positron init-container fields are nil (i.e., no Positron Pro
+	// version is pinned), none of the three keys must render into
+	// rserver.conf. Workbench's strict program-options parser rejects
+	// unknown keys, so older Workbench versions crashloop if we emit them
+	// unconditionally. Using *int / *string with omitempty ensures the keys
+	// are omitted entirely when no version is set.
+	wb := WorkbenchConfig{
+		WorkbenchIniConfig: WorkbenchIniConfig{
+			RServer: &WorkbenchRServerConfig{
+				AdminEnabled: 1,
+			},
+		},
+	}
+
+	res, err := wb.GenerateConfigmap()
+	require.Nil(t, err)
+	require.NotContains(t, res["rserver.conf"], "launcher-positron-init-container-enabled")
+	require.NotContains(t, res["rserver.conf"], "launcher-positron-init-container-image-name")
+	require.NotContains(t, res["rserver.conf"], "launcher-positron-init-container-image-tag")
 }
 
 func TestWorkbenchConfig_AuditedJobs(t *testing.T) {
