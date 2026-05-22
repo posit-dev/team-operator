@@ -46,6 +46,8 @@ func TestWorkbenchSecretConfig_GenerateSecretData(t *testing.T) {
 }
 
 func TestWorkbenchConfig_GenerateConfigmap(t *testing.T) {
+	intPtr := func(i int) *int { return &i }
+	strPtr := func(s string) *string { return &s }
 	wb := WorkbenchConfig{
 		WorkbenchIniConfig: WorkbenchIniConfig{
 			Launcher: &WorkbenchLauncherConfig{
@@ -108,9 +110,9 @@ func TestWorkbenchConfig_GenerateConfigmap(t *testing.T) {
 				LauncherSessionsAutoUpdate:             1,
 				LauncherSessionsInitContainerImageName: "my-init-container",
 				LauncherSessionsInitContainerImageTag:  "v1.0.0",
-				LauncherPositronInitContainerEnabled:   1,
-				LauncherPositronInitContainerImageName: "posit/workbench-positron-init",
-				LauncherPositronInitContainerImageTag:  "2026.04.0-269",
+				LauncherPositronInitContainerEnabled:   intPtr(1),
+				LauncherPositronInitContainerImageName: strPtr("posit/workbench-positron-init"),
+				LauncherPositronInitContainerImageTag:  strPtr("2026.04.0-269"),
 				AuthOpenidScopes:                       []string{"openid", "profile", "email", "offline_access"},
 			},
 			Resources: map[string]*WorkbenchLauncherKubernetesResourcesConfigSection{
@@ -184,13 +186,12 @@ func TestWorkbenchConfig_GenerateConfigmap(t *testing.T) {
 }
 
 func TestWorkbenchConfig_PositronInitContainerKeysWhenEmpty(t *testing.T) {
-	// When the positron init-container fields are zero-valued, the two
-	// string keys must not render into rserver.conf (rendering skips empty
-	// strings). The int "enabled" key follows the same rendering rule as
-	// the other int fields on this struct: it renders as "=0" (Workbench
-	// treats 0 as disabled). The important behavior for the operator is
-	// that the image-name/image-tag are absent so the Launcher doesn't try
-	// to attach an init container.
+	// When the positron init-container fields are nil (i.e., no Positron Pro
+	// version is pinned), none of the three keys must render into
+	// rserver.conf. Workbench's strict program-options parser rejects
+	// unknown keys, so older Workbench versions crashloop if we emit them
+	// unconditionally. Using *int / *string with omitempty ensures the keys
+	// are omitted entirely when no version is set.
 	wb := WorkbenchConfig{
 		WorkbenchIniConfig: WorkbenchIniConfig{
 			RServer: &WorkbenchRServerConfig{
@@ -201,7 +202,7 @@ func TestWorkbenchConfig_PositronInitContainerKeysWhenEmpty(t *testing.T) {
 
 	res, err := wb.GenerateConfigmap()
 	require.Nil(t, err)
-	require.Contains(t, res["rserver.conf"], "launcher-positron-init-container-enabled=0\n")
+	require.NotContains(t, res["rserver.conf"], "launcher-positron-init-container-enabled")
 	require.NotContains(t, res["rserver.conf"], "launcher-positron-init-container-image-name")
 	require.NotContains(t, res["rserver.conf"], "launcher-positron-init-container-image-tag")
 }

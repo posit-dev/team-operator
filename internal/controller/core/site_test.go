@@ -510,9 +510,15 @@ func TestSitePositronVersionAutoDerivesExe(t *testing.T) {
 
 	// rserver.conf positron init-container keys are populated.
 	assert.NotNil(t, testWorkbench.Spec.Config.RServer)
-	assert.Equal(t, 1, testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerEnabled)
-	assert.Equal(t, "posit/workbench-positron-init", testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerImageName)
-	assert.Equal(t, "2026.04.0-269", testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerImageTag)
+	if assert.NotNil(t, testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerEnabled) {
+		assert.Equal(t, 1, *testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerEnabled)
+	}
+	if assert.NotNil(t, testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerImageName) {
+		assert.Equal(t, "posit/workbench-positron-init", *testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerImageName)
+	}
+	if assert.NotNil(t, testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerImageTag) {
+		assert.Equal(t, "2026.04.0-269", *testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerImageTag)
+	}
 }
 
 func TestSitePositronVersionUserExeOverrideWins(t *testing.T) {
@@ -539,15 +545,23 @@ func TestSitePositronVersionUserExeOverrideWins(t *testing.T) {
 
 	// Init-container keys still populated based on Version.
 	assert.NotNil(t, testWorkbench.Spec.Config.RServer)
-	assert.Equal(t, 1, testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerEnabled)
-	assert.Equal(t, "posit/workbench-positron-init", testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerImageName)
-	assert.Equal(t, "2026.04.0-269", testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerImageTag)
+	if assert.NotNil(t, testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerEnabled) {
+		assert.Equal(t, 1, *testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerEnabled)
+	}
+	if assert.NotNil(t, testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerImageName) {
+		assert.Equal(t, "posit/workbench-positron-init", *testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerImageName)
+	}
+	if assert.NotNil(t, testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerImageTag) {
+		assert.Equal(t, "2026.04.0-269", *testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerImageTag)
+	}
 }
 
 func TestSitePositronVersionUnsetLeavesExeEmpty(t *testing.T) {
 	// When PositronSettings.Version is unset and Exe is unset, Exe stays
-	// empty and the three positron init-container keys are zero-valued
-	// (omitempty will drop them from rserver.conf).
+	// empty and the three positron init-container pointer fields are nil
+	// so omitempty drops them from rserver.conf entirely. Workbench's
+	// strict program-options parser rejects unknown keys, so we must not
+	// emit them when no Positron Pro version is pinned.
 	siteName := "positron-version-unset"
 	siteNamespace := "posit-team"
 
@@ -563,9 +577,9 @@ func TestSitePositronVersionUnsetLeavesExeEmpty(t *testing.T) {
 	assert.Equal(t, "", testWorkbench.Spec.Config.WorkbenchSessionIniConfig.Positron.Exe)
 
 	assert.NotNil(t, testWorkbench.Spec.Config.RServer)
-	assert.Equal(t, 0, testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerEnabled)
-	assert.Equal(t, "", testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerImageName)
-	assert.Equal(t, "", testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerImageTag)
+	assert.Nil(t, testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerEnabled)
+	assert.Nil(t, testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerImageName)
+	assert.Nil(t, testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerImageTag)
 }
 
 func TestSiteJupyterConfiguration(t *testing.T) {

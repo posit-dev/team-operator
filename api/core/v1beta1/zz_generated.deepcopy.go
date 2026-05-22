@@ -3030,6 +3030,21 @@ func (in *WorkbenchRServerConfig) DeepCopyInto(out *WorkbenchRServerConfig) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.LauncherPositronInitContainerEnabled != nil {
+		in, out := &in.LauncherPositronInitContainerEnabled, &out.LauncherPositronInitContainerEnabled
+		*out = new(int)
+		**out = **in
+	}
+	if in.LauncherPositronInitContainerImageName != nil {
+		in, out := &in.LauncherPositronInitContainerImageName, &out.LauncherPositronInitContainerImageName
+		*out = new(string)
+		**out = **in
+	}
+	if in.LauncherPositronInitContainerImageTag != nil {
+		in, out := &in.LauncherPositronInitContainerImageTag, &out.LauncherPositronInitContainerImageTag
+		*out = new(string)
+		**out = **in
+	}
 	if in.AuditedJobs != nil {
 		in, out := &in.AuditedJobs, &out.AuditedJobs
 		*out = new(int)

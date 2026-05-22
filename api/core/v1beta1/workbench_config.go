@@ -1083,9 +1083,9 @@ type WorkbenchRServerConfig struct {
 	LauncherSessionsAutoUpdate             int      `json:"launcher-sessions-auto-update,omitempty"`
 	LauncherSessionsInitContainerImageName string   `json:"launcher-sessions-init-container-image-name,omitempty"`
 	LauncherSessionsInitContainerImageTag  string   `json:"launcher-sessions-init-container-image-tag,omitempty"`
-	LauncherPositronInitContainerEnabled   int      `json:"launcher-positron-init-container-enabled,omitempty"`
-	LauncherPositronInitContainerImageName string   `json:"launcher-positron-init-container-image-name,omitempty"`
-	LauncherPositronInitContainerImageTag  string   `json:"launcher-positron-init-container-image-tag,omitempty"`
+	LauncherPositronInitContainerEnabled   *int     `json:"launcher-positron-init-container-enabled,omitempty"`
+	LauncherPositronInitContainerImageName *string  `json:"launcher-positron-init-container-image-name,omitempty"`
+	LauncherPositronInitContainerImageTag  *string  `json:"launcher-positron-init-container-image-tag,omitempty"`
 	DatabricksEnabled                      int      `json:"databricks-enabled,omitempty"`
 	WorkbenchApiEnabled                    int      `json:"workbench-api-enabled,omitempty"`
 	WorkbenchApiAdminEnabled               int      `json:"workbench-api-admin-enabled,omitempty"`

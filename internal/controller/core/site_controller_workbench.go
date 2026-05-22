@@ -157,7 +157,7 @@ func (r *SiteReconciler) reconcileWorkbench(
 						LauncherSessionsInitContainerImageTag:  site.Spec.Workbench.SessionInitContainerImageTag,
 						LauncherPositronInitContainerEnabled:   positronInitContainerEnabled(site.Spec.Workbench.PositronSettings.Version),
 						LauncherPositronInitContainerImageName: positronInitContainerImage(site.Spec.Workbench.PositronSettings.Version),
-						LauncherPositronInitContainerImageTag:  site.Spec.Workbench.PositronSettings.Version,
+						LauncherPositronInitContainerImageTag:  positronInitContainerImageTag(site.Spec.Workbench.PositronSettings.Version),
 					},
 
 					// NOTE: this gets overwritten later when we configure off-host execution (adhoc in the workbench controller)
@@ -549,26 +549,41 @@ func getMemoryRequestRatio(experimentalFeatures *v1beta1.InternalWorkbenchExperi
 	return "0.8" // Default when experimentalFeatures is nil or field is empty (kubebuilder sets this for new resources)
 }
 
-// positronInitContainerEnabled returns 1 when a Positron Pro version is
-// pinned, otherwise 0. The result is written to rserver.conf as
-// launcher-positron-init-container-enabled; Workbench's Launcher reads it
-// to decide whether to attach the init container to session pods.
-func positronInitContainerEnabled(version string) int {
-	if version != "" {
-		return 1
+// positronInitContainerEnabled returns a pointer to 1 when a Positron Pro
+// version is pinned, otherwise nil. The result is written to rserver.conf
+// as launcher-positron-init-container-enabled; Workbench's Launcher reads
+// it to decide whether to attach the init container to session pods.
+// Returning nil (rather than 0) when unset ensures the key is omitted
+// from rserver.conf entirely, so older Workbench versions whose strict
+// program-options parser rejects unknown keys do not crashloop.
+func positronInitContainerEnabled(version string) *int {
+	if version == "" {
+		return nil
 	}
-	return 0
+	one := 1
+	return &one
 }
 
-// positronInitContainerImage returns the image name (without tag) of the
-// init container that delivers the pinned Positron Pro binary to session
-// pods. When no version is pinned, returns "" so the rserver.conf key is
-// omitted.
-func positronInitContainerImage(version string) string {
+// positronInitContainerImage returns a pointer to the image name (without
+// tag) of the init container that delivers the pinned Positron Pro binary
+// to session pods. When no version is pinned, returns nil so the
+// rserver.conf key is omitted.
+func positronInitContainerImage(version string) *string {
 	if version == "" {
-		return ""
+		return nil
 	}
-	return "posit/workbench-positron-init"
+	image := "posit/workbench-positron-init"
+	return &image
+}
+
+// positronInitContainerImageTag returns a pointer to the image tag (the
+// Positron version) when a version is pinned, otherwise nil so the
+// rserver.conf key is omitted.
+func positronInitContainerImageTag(version string) *string {
+	if version == "" {
+		return nil
+	}
+	return &version
 }
 
 // derivePositronExe returns the path that positron.conf `exe` should point
