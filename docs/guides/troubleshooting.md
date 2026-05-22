@@ -272,6 +272,7 @@ helm upgrade team-operator ./dist/chart \
 | GPU nodes | `key: "nvidia.com/gpu", operator: "Exists", effect: "NoSchedule"` |
 | Cloud provider taints (EKS) | `key: "eks.amazonaws.com/compute-type", operator: "Exists"` |
 | Cloud provider taints (GKE) | `key: "cloud.google.com/gke-nodepool", operator: "Exists"` |
+| AKS system pool | `key: "CriticalAddonsOnly", operator: "Exists", effect: "NoSchedule"` |
 | Control plane nodes | `key: "node-role.kubernetes.io/control-plane", operator: "Exists"` |
 
 **Alternative: Using nodeSelector**

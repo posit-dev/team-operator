@@ -1385,6 +1385,11 @@ func (in *InternalWorkbenchExperimentalFeatures) DeepCopyInto(out *InternalWorkb
 		*out = new(int)
 		**out = **in
 	}
+	if in.ReadinessProbePath != nil {
+		in, out := &in.ReadinessProbePath, &out.ReadinessProbePath
+		*out = new(string)
+		**out = **in
+	}
 	if in.LauncherSessionsProxyTimeoutSeconds != nil {
 		in, out := &in.LauncherSessionsProxyTimeoutSeconds, &out.LauncherSessionsProxyTimeoutSeconds
 		*out = new(int)
@@ -3378,6 +3383,11 @@ func (in *WorkbenchSpec) DeepCopyInto(out *WorkbenchSpec) {
 	if in.SessionLabels != nil {
 		in, out := &in.SessionLabels, &out.SessionLabels
 		*out = new(SessionLabelsConfig)
+		**out = **in
+	}
+	if in.ReadinessProbePath != nil {
+		in, out := &in.ReadinessProbePath, &out.ReadinessProbePath
+		*out = new(string)
 		**out = **in
 	}
 }

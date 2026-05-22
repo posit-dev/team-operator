@@ -330,6 +330,7 @@ Team Operator uses two namespaces:
 ### Deployment and Operations
 
 - [Site Management Guide](guides/product-team-site-management.md) - Creating, updating, and managing Site resources
+- [AKS Deployment Guide](guides/aks-deployment.md) - End-to-end guide for deploying on Azure Kubernetes Service
 - [Upgrading Guide](guides/upgrading.md) - Upgrade procedures and version migrations
 - [Troubleshooting Guide](guides/troubleshooting.md) - Common issues and debugging techniques
 

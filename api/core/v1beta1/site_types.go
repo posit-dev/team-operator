@@ -534,6 +534,14 @@ type InternalWorkbenchExperimentalFeatures struct {
 	// WwwThreadPoolSize is an advanced configuration for the scalability of the Workbench web server. Defaults to 16
 	WwwThreadPoolSize *int `json:"wwwThreadPoolSize,omitempty"`
 
+	// ReadinessProbePath overrides the HTTP path used by the Workbench readiness probe.
+	// Defaults to "/health-check". The probe is unauthenticated; any override must point to
+	// an endpoint that does not require auth and returns a 2xx-3xx status, otherwise the pod
+	// will never become ready. Must start with "/".
+	// +optional
+	// +kubebuilder:validation:Pattern=`^/`
+	ReadinessProbePath *string `json:"readinessProbePath,omitempty"`
+
 	FirstProjectTemplatePath string `json:"firstProjectTemplatePath,omitempty"`
 
 	LauncherSessionsProxyTimeoutSeconds *int `json:"launcherSessionsProxyTimeoutSecs,omitempty"`

@@ -50,6 +50,7 @@ type WorkbenchSpecApplyConfiguration struct {
 	AuthLoginPageHtml                    *string                                   `json:"authLoginPageHtml,omitempty"`
 	SCIM                                 *WorkbenchSCIMConfigApplyConfiguration    `json:"scim,omitempty"`
 	SessionLabels                        *SessionLabelsConfigApplyConfiguration    `json:"sessionLabels,omitempty"`
+	ReadinessProbePath                   *string                                   `json:"readinessProbePath,omitempty"`
 }
 
 // WorkbenchSpecApplyConfiguration constructs a declarative configuration of the WorkbenchSpec type for use with
@@ -375,5 +376,13 @@ func (b *WorkbenchSpecApplyConfiguration) WithSCIM(value *WorkbenchSCIMConfigApp
 // If called multiple times, the SessionLabels field is set to the value of the last call.
 func (b *WorkbenchSpecApplyConfiguration) WithSessionLabels(value *SessionLabelsConfigApplyConfiguration) *WorkbenchSpecApplyConfiguration {
 	b.SessionLabels = value
+	return b
+}
+
+// WithReadinessProbePath sets the ReadinessProbePath field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ReadinessProbePath field is set to the value of the last call.
+func (b *WorkbenchSpecApplyConfiguration) WithReadinessProbePath(value string) *WorkbenchSpecApplyConfiguration {
+	b.ReadinessProbePath = &value
 	return b
 }
