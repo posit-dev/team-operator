@@ -1,3 +1,10 @@
+# [1.26.0](https://github.com/posit-dev/team-operator/compare/v1.25.0...v1.26.0) (2026-05-22)
+
+
+### Features
+
+* pin Positron Pro version via positronConfig.version ([#138](https://github.com/posit-dev/team-operator/issues/138)) ([06d9433](https://github.com/posit-dev/team-operator/commit/06d94334798c971484625f30230e7de818693193))
+
 # [1.25.0](https://github.com/posit-dev/team-operator/compare/v1.24.1...v1.25.0) (2026-05-12)
 
 
