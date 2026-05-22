@@ -40,6 +40,9 @@ type WorkbenchRServerConfigApplyConfiguration struct {
 	LauncherSessionsAutoUpdate             *int     `json:"launcher-sessions-auto-update,omitempty"`
 	LauncherSessionsInitContainerImageName *string  `json:"launcher-sessions-init-container-image-name,omitempty"`
 	LauncherSessionsInitContainerImageTag  *string  `json:"launcher-sessions-init-container-image-tag,omitempty"`
+	LauncherPositronInitContainerEnabled   *int     `json:"launcher-positron-init-container-enabled,omitempty"`
+	LauncherPositronInitContainerImageName *string  `json:"launcher-positron-init-container-image-name,omitempty"`
+	LauncherPositronInitContainerImageTag  *string  `json:"launcher-positron-init-container-image-tag,omitempty"`
 	DatabricksEnabled                      *int     `json:"databricks-enabled,omitempty"`
 	WorkbenchApiEnabled                    *int     `json:"workbench-api-enabled,omitempty"`
 	WorkbenchApiAdminEnabled               *int     `json:"workbench-api-admin-enabled,omitempty"`
@@ -317,6 +320,30 @@ func (b *WorkbenchRServerConfigApplyConfiguration) WithLauncherSessionsInitConta
 // If called multiple times, the LauncherSessionsInitContainerImageTag field is set to the value of the last call.
 func (b *WorkbenchRServerConfigApplyConfiguration) WithLauncherSessionsInitContainerImageTag(value string) *WorkbenchRServerConfigApplyConfiguration {
 	b.LauncherSessionsInitContainerImageTag = &value
+	return b
+}
+
+// WithLauncherPositronInitContainerEnabled sets the LauncherPositronInitContainerEnabled field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the LauncherPositronInitContainerEnabled field is set to the value of the last call.
+func (b *WorkbenchRServerConfigApplyConfiguration) WithLauncherPositronInitContainerEnabled(value int) *WorkbenchRServerConfigApplyConfiguration {
+	b.LauncherPositronInitContainerEnabled = &value
+	return b
+}
+
+// WithLauncherPositronInitContainerImageName sets the LauncherPositronInitContainerImageName field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the LauncherPositronInitContainerImageName field is set to the value of the last call.
+func (b *WorkbenchRServerConfigApplyConfiguration) WithLauncherPositronInitContainerImageName(value string) *WorkbenchRServerConfigApplyConfiguration {
+	b.LauncherPositronInitContainerImageName = &value
+	return b
+}
+
+// WithLauncherPositronInitContainerImageTag sets the LauncherPositronInitContainerImageTag field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the LauncherPositronInitContainerImageTag field is set to the value of the last call.
+func (b *WorkbenchRServerConfigApplyConfiguration) WithLauncherPositronInitContainerImageTag(value string) *WorkbenchRServerConfigApplyConfiguration {
+	b.LauncherPositronInitContainerImageTag = &value
 	return b
 }
 

@@ -155,6 +155,9 @@ func (r *SiteReconciler) reconcileWorkbench(
 						LauncherSessionsAutoUpdate:             1,
 						LauncherSessionsInitContainerImageName: site.Spec.Workbench.SessionInitContainerImageName,
 						LauncherSessionsInitContainerImageTag:  site.Spec.Workbench.SessionInitContainerImageTag,
+						LauncherPositronInitContainerEnabled:   positronInitContainerEnabled(site.Spec.Workbench.PositronSettings.Version),
+						LauncherPositronInitContainerImageName: positronInitContainerImage(site.Spec.Workbench.PositronSettings.Version),
+						LauncherPositronInitContainerImageTag:  site.Spec.Workbench.PositronSettings.Version,
 					},
 
 					// NOTE: this gets overwritten later when we configure off-host execution (adhoc in the workbench controller)
@@ -186,8 +189,11 @@ func (r *SiteReconciler) reconcileWorkbench(
 						CRAN: packageManagerRepoUrl,
 					},
 					Positron: &v1beta1.WorkbenchPositronConfig{
-						Enabled:                      site.Spec.Workbench.PositronSettings.Enabled,
-						Exe:                          site.Spec.Workbench.PositronSettings.Exe,
+						Enabled: site.Spec.Workbench.PositronSettings.Enabled,
+						Exe: derivePositronExe(
+							site.Spec.Workbench.PositronSettings.Exe,
+							site.Spec.Workbench.PositronSettings.Version,
+						),
 						Args:                         site.Spec.Workbench.PositronSettings.Args,
 						DefaultSessionContainerImage: site.Spec.Workbench.PositronSettings.DefaultSessionContainerImage,
 						SessionContainerImages:       site.Spec.Workbench.PositronSettings.SessionContainerImages,
@@ -541,6 +547,43 @@ func getMemoryRequestRatio(experimentalFeatures *v1beta1.InternalWorkbenchExperi
 		return experimentalFeatures.MemoryRequestRatio
 	}
 	return "0.8" // Default when experimentalFeatures is nil or field is empty (kubebuilder sets this for new resources)
+}
+
+// positronInitContainerEnabled returns 1 when a Positron Pro version is
+// pinned, otherwise 0. The result is written to rserver.conf as
+// launcher-positron-init-container-enabled; Workbench's Launcher reads it
+// to decide whether to attach the init container to session pods.
+func positronInitContainerEnabled(version string) int {
+	if version != "" {
+		return 1
+	}
+	return 0
+}
+
+// positronInitContainerImage returns the image name (without tag) of the
+// init container that delivers the pinned Positron Pro binary to session
+// pods. When no version is pinned, returns "" so the rserver.conf key is
+// omitted.
+func positronInitContainerImage(version string) string {
+	if version == "" {
+		return ""
+	}
+	return "posit/workbench-positron-init"
+}
+
+// derivePositronExe returns the path that positron.conf `exe` should point
+// at. User-supplied Exe always wins; otherwise, when Version is pinned, we
+// derive the path the init container delivers to (mirroring the upstream
+// Helm chart's default). When neither is set, returns "" so Workbench uses
+// its bundled default.
+func derivePositronExe(userExe, version string) string {
+	if userExe != "" {
+		return userExe
+	}
+	if version != "" {
+		return fmt.Sprintf("/usr/lib/rstudio-server/bin/positron-server/%s/bin/positron-server", version)
+	}
+	return ""
 }
 
 // disableWorkbench suspends Workbench by marking the existing Workbench CR with Suspended=true.

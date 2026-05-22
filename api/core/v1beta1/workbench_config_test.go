@@ -108,6 +108,9 @@ func TestWorkbenchConfig_GenerateConfigmap(t *testing.T) {
 				LauncherSessionsAutoUpdate:             1,
 				LauncherSessionsInitContainerImageName: "my-init-container",
 				LauncherSessionsInitContainerImageTag:  "v1.0.0",
+				LauncherPositronInitContainerEnabled:   1,
+				LauncherPositronInitContainerImageName: "posit/workbench-positron-init",
+				LauncherPositronInitContainerImageTag:  "2026.04.0-269",
 				AuthOpenidScopes:                       []string{"openid", "profile", "email", "offline_access"},
 			},
 			Resources: map[string]*WorkbenchLauncherKubernetesResourcesConfigSection{
@@ -153,6 +156,9 @@ func TestWorkbenchConfig_GenerateConfigmap(t *testing.T) {
 	require.Contains(t, res["rserver.conf"], "launcher-sessions-auto-update=1\n")
 	require.Contains(t, res["rserver.conf"], "launcher-sessions-init-container-image-name=my-init-container\n")
 	require.Contains(t, res["rserver.conf"], "launcher-sessions-init-container-image-tag=v1.0.0\n")
+	require.Contains(t, res["rserver.conf"], "launcher-positron-init-container-enabled=1\n")
+	require.Contains(t, res["rserver.conf"], "launcher-positron-init-container-image-name=posit/workbench-positron-init\n")
+	require.Contains(t, res["rserver.conf"], "launcher-positron-init-container-image-tag=2026.04.0-269\n")
 	require.Contains(t, res["rserver.conf"], "auth-openid-scopes=openid profile email offline_access\n")
 	require.Contains(t, res["vscode.conf"], "enabled=1\n")
 	require.Contains(t, res["jupyter.conf"], "labs-enabled=1\n")
@@ -175,6 +181,29 @@ func TestWorkbenchConfig_GenerateConfigmap(t *testing.T) {
 	require.Contains(t, res["launcher-env"], "JobType: any")
 	require.Contains(t, res["launcher-env"], "Environment: PATH=/usr/bin")
 	require.Contains(t, res["logging.conf"], "[*]\nlog-level")
+}
+
+func TestWorkbenchConfig_PositronInitContainerKeysWhenEmpty(t *testing.T) {
+	// When the positron init-container fields are zero-valued, the two
+	// string keys must not render into rserver.conf (rendering skips empty
+	// strings). The int "enabled" key follows the same rendering rule as
+	// the other int fields on this struct: it renders as "=0" (Workbench
+	// treats 0 as disabled). The important behavior for the operator is
+	// that the image-name/image-tag are absent so the Launcher doesn't try
+	// to attach an init container.
+	wb := WorkbenchConfig{
+		WorkbenchIniConfig: WorkbenchIniConfig{
+			RServer: &WorkbenchRServerConfig{
+				AdminEnabled: 1,
+			},
+		},
+	}
+
+	res, err := wb.GenerateConfigmap()
+	require.Nil(t, err)
+	require.Contains(t, res["rserver.conf"], "launcher-positron-init-container-enabled=0\n")
+	require.NotContains(t, res["rserver.conf"], "launcher-positron-init-container-image-name")
+	require.NotContains(t, res["rserver.conf"], "launcher-positron-init-container-image-tag")
 }
 
 func TestWorkbenchConfig_AuditedJobs(t *testing.T) {

@@ -486,6 +486,88 @@ func TestSiteAuditedJobsPartialConfiguration(t *testing.T) {
 	assert.Nil(t, testWorkbench.Spec.Config.RServer.AuditedJobsDetailsUserDefined)
 }
 
+func TestSitePositronVersionAutoDerivesExe(t *testing.T) {
+	// When PositronSettings.Version is set and Exe is unset, the controller
+	// should auto-derive the exe path and populate the three
+	// launcher-positron-init-container-* keys on rserver.conf.
+	siteName := "positron-version-derive"
+	siteNamespace := "posit-team"
+
+	site := defaultSite(siteName)
+	site.Spec.Workbench.PositronSettings.Version = "2026.04.0-269"
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+
+	// Exe is auto-derived from the version.
+	assert.NotNil(t, testWorkbench.Spec.Config.WorkbenchSessionIniConfig.Positron)
+	assert.Equal(t,
+		"/usr/lib/rstudio-server/bin/positron-server/2026.04.0-269/bin/positron-server",
+		testWorkbench.Spec.Config.WorkbenchSessionIniConfig.Positron.Exe,
+	)
+
+	// rserver.conf positron init-container keys are populated.
+	assert.NotNil(t, testWorkbench.Spec.Config.RServer)
+	assert.Equal(t, 1, testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerEnabled)
+	assert.Equal(t, "posit/workbench-positron-init", testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerImageName)
+	assert.Equal(t, "2026.04.0-269", testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerImageTag)
+}
+
+func TestSitePositronVersionUserExeOverrideWins(t *testing.T) {
+	// When PositronSettings.Version AND PositronSettings.Exe are both set,
+	// the user-supplied Exe must win — derivePositronExe should not clobber
+	// it. The three rserver.conf keys are still populated based on Version.
+	siteName := "positron-version-override"
+	siteNamespace := "posit-team"
+
+	site := defaultSite(siteName)
+	site.Spec.Workbench.PositronSettings.Version = "2026.04.0-269"
+	site.Spec.Workbench.PositronSettings.Exe = "/opt/custom/positron-server"
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+
+	assert.NotNil(t, testWorkbench.Spec.Config.WorkbenchSessionIniConfig.Positron)
+	assert.Equal(t,
+		"/opt/custom/positron-server",
+		testWorkbench.Spec.Config.WorkbenchSessionIniConfig.Positron.Exe,
+	)
+
+	// Init-container keys still populated based on Version.
+	assert.NotNil(t, testWorkbench.Spec.Config.RServer)
+	assert.Equal(t, 1, testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerEnabled)
+	assert.Equal(t, "posit/workbench-positron-init", testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerImageName)
+	assert.Equal(t, "2026.04.0-269", testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerImageTag)
+}
+
+func TestSitePositronVersionUnsetLeavesExeEmpty(t *testing.T) {
+	// When PositronSettings.Version is unset and Exe is unset, Exe stays
+	// empty and the three positron init-container keys are zero-valued
+	// (omitempty will drop them from rserver.conf).
+	siteName := "positron-version-unset"
+	siteNamespace := "posit-team"
+
+	site := defaultSite(siteName)
+	// PositronSettings left untouched — Version="" and Exe="".
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+
+	assert.NotNil(t, testWorkbench.Spec.Config.WorkbenchSessionIniConfig.Positron)
+	assert.Equal(t, "", testWorkbench.Spec.Config.WorkbenchSessionIniConfig.Positron.Exe)
+
+	assert.NotNil(t, testWorkbench.Spec.Config.RServer)
+	assert.Equal(t, 0, testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerEnabled)
+	assert.Equal(t, "", testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerImageName)
+	assert.Equal(t, "", testWorkbench.Spec.Config.RServer.LauncherPositronInitContainerImageTag)
+}
+
 func TestSiteJupyterConfiguration(t *testing.T) {
 	siteName := "jupyter-config-site"
 	siteNamespace := "posit-team"

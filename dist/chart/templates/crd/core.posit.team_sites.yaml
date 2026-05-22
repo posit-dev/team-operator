@@ -1582,6 +1582,14 @@ spec:
                         additionalProperties:
                           x-kubernetes-preserve-unknown-fields: true
                         type: object
+                      version:
+                        description: |-
+                          Version pins a specific Positron Pro version for sessions. When set,
+                          team-operator attaches the posit/workbench-positron-init:<version>
+                          init container to session pods and points positron.conf `exe` at the
+                          delivered binary. When empty, Workbench uses its bundled Positron.
+                          Setting Exe explicitly suppresses the auto-derived path.
+                        type: string
                     type: object
                   replicas:
                     type: integer

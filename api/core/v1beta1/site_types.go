@@ -636,6 +636,14 @@ type PositronConfig struct {
 	SessionTimeoutKillHours      int                              `json:"sessionTimeoutKillHours,omitempty"`
 	Extensions                   []string                         `json:"extensions,omitempty"`
 	UserSettings                 map[string]*apiextensionsv1.JSON `json:"userSettings,omitempty"`
+
+	// Version pins a specific Positron Pro version for sessions. When set,
+	// team-operator attaches the posit/workbench-positron-init:<version>
+	// init container to session pods and points positron.conf `exe` at the
+	// delivered binary. When empty, Workbench uses its bundled Positron.
+	// Setting Exe explicitly suppresses the auto-derived path.
+	// +optional
+	Version string `json:"version,omitempty"`
 }
 
 type VSCodeConfig struct {

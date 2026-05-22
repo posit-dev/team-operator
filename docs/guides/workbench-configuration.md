@@ -466,6 +466,28 @@ spec:
           raw: "14"
 ```
 
+#### Pinning a Positron Pro version
+
+Set `positronConfig.version` to pin a specific Positron Pro release for
+sessions. When set, team-operator:
+
+- Writes the three `launcher-positron-init-container-*` keys to
+  `rserver.conf` so Workbench's Launcher attaches the
+  `posit/workbench-positron-init:<version>` init container to every
+  session pod (delivering the pinned binary onto a shared volume).
+- Auto-derives `positronConfig.exe` to
+  `/usr/lib/rstudio-server/bin/positron-server/<version>/bin/positron-server`
+  (the path the init container delivers to). Setting `exe` explicitly
+  always wins — your override is preserved.
+- Leaves Workbench using its bundled Positron when `version` is empty.
+
+```yaml
+spec:
+  workbench:
+    positronConfig:
+      version: "2026.04.0-269"
+```
+
 ### Jupyter Notebooks and JupyterLab
 
 ```yaml

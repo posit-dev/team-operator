@@ -432,6 +432,12 @@ spec:
                             type: string
                           launcher-port:
                             type: integer
+                          launcher-positron-init-container-enabled:
+                            type: integer
+                          launcher-positron-init-container-image-name:
+                            type: string
+                          launcher-positron-init-container-image-tag:
+                            type: string
                           launcher-sessions-auto-update:
                             type: integer
                           launcher-sessions-callback-address:
