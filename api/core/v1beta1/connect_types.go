@@ -275,10 +275,13 @@ func (c *Connect) GetAwsAccountId() string {
 }
 
 func (c *Connect) OwnerReferencesForChildren() []metav1.OwnerReference {
+	// APIVersion/Kind are hardcoded because controller-runtime's client.Get
+	// strips TypeMeta from typed-object responses, leaving c.APIVersion and
+	// c.Kind empty in the reconcile path.
 	return []metav1.OwnerReference{
 		{
-			APIVersion: c.APIVersion,
-			Kind:       c.Kind,
+			APIVersion: GroupVersion.String(),
+			Kind:       "Connect",
 			Name:       c.Name,
 			UID:        c.UID,
 		},
