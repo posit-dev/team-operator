@@ -119,13 +119,10 @@ func (c *Chronicle) KubernetesLabels() map[string]string {
 }
 
 func (c *Chronicle) OwnerReferencesForChildren() []metav1.OwnerReference {
-	// APIVersion/Kind are hardcoded because controller-runtime's client.Get
-	// strips TypeMeta from typed-object responses, leaving c.APIVersion and
-	// c.Kind empty in the reconcile path.
 	return []metav1.OwnerReference{
 		{
-			APIVersion: GroupVersion.String(),
-			Kind:       "Chronicle",
+			APIVersion: c.APIVersion,
+			Kind:       c.Kind,
 			Name:       c.Name,
 			UID:        c.UID,
 		},

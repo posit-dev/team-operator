@@ -414,13 +414,10 @@ func (pm *PackageManager) CreateSecretVolumeFactory() *product.SecretVolumeFacto
 }
 
 func (pm *PackageManager) OwnerReferencesForChildren() []metav1.OwnerReference {
-	// APIVersion/Kind are hardcoded because controller-runtime's client.Get
-	// strips TypeMeta from typed-object responses, leaving pm.APIVersion and
-	// pm.Kind empty in the reconcile path.
 	return []metav1.OwnerReference{
 		{
-			APIVersion: GroupVersion.String(),
-			Kind:       "PackageManager",
+			APIVersion: pm.APIVersion,
+			Kind:       pm.Kind,
 			Name:       pm.Name,
 			UID:        pm.UID,
 		},
