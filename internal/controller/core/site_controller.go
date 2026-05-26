@@ -16,7 +16,6 @@ import (
 	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
-	"go.opentelemetry.io/otel/metric"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -40,12 +39,9 @@ func checkBool(b *bool, defaultVal bool) bool {
 // SiteReconciler reconciles a Site object
 type SiteReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
-	// Meter is the OTel Meter used for status-transition metrics.
-	// Nil is treated as a no-op by observability.RecordStatusTransition,
-	// so tests that don't care about metrics may leave it unset.
-	Meter metric.Meter
+	Log         logr.Logger
+	Scheme      *runtime.Scheme
+	Instruments observability.Instruments
 }
 
 //+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=sites,verbs=get;list;watch;create;update;patch;delete
@@ -140,9 +136,7 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	// Only record on actual phase transitions and after the status was persisted,
 	// so the counter reflects real state changes, not steady-state reconciles.
-	if toPhase != priorPhase {
-		observability.RecordStatusTransition(ctx, r.Meter, "site", req.Namespace, priorPhase, toPhase)
-	}
+	r.Instruments.RecordStatusTransition(ctx, "site", req.Namespace, priorPhase, toPhase)
 
 	if reconcileErr != nil {
 		if aggregateErr != nil {

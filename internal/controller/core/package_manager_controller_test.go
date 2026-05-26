@@ -43,10 +43,10 @@ func TestPackageManagerReconciler_Metrics(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, mp.Shutdown(context.Background())) })
 
 	r := &PackageManagerReconciler{
-		Client: cli,
-		Scheme: scheme,
-		Log:    log,
-		Meter:  mp.Meter("test"),
+		Client:      cli,
+		Scheme:      scheme,
+		Log:         log,
+		Instruments: observability.NewInstruments(mp.Meter("test")),
 	}
 
 	ctx = logr.NewContext(ctx, log)
@@ -140,7 +140,7 @@ func TestPackageManagerReconciler_Suspended(t *testing.T) {
 	err := cli.Create(ctx, pm)
 	require.NoError(t, err)
 
-	res, err := r.ReconcilePackageManager(ctx, req, pm)
+	res, err := r.ReconcilePackageManager(ctx, req, pm, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 

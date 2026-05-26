@@ -454,10 +454,10 @@ func TestFlightdeckReconciler_Metrics(t *testing.T) {
 	defer mp.Shutdown(context.Background())
 
 	rec := FlightdeckReconciler{
-		Client: cli,
-		Scheme: scheme,
-		Log:    log,
-		Meter:  mp.Meter("test"),
+		Client:      cli,
+		Scheme:      scheme,
+		Log:         log,
+		Instruments: observability.NewInstruments(mp.Meter("test")),
 	}
 
 	err := cli.Create(context.TODO(), fd)

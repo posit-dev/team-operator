@@ -88,11 +88,11 @@ rate(team_operator_reconcile_requeue_total{reason="deps_not_ready"}[5m])
 
 | Flag | Default | Purpose |
 |------|---------|---------|
-| `--observability-metrics-enabled` | `true` | Master toggle |
-| `--observability-metrics-prometheus` | `true` | Prometheus exporter on `/metrics` |
 | `--observability-metrics-otlp-endpoint` | `""` | OTLP gRPC push endpoint |
 | `--observability-metrics-export-interval` | `30s` | OTLP export and gauge refresh cadence |
 | `--observability-cluster-name` | `""` | `k8s.cluster.name` resource attribute |
+
+To disable all OTel instrumentation, set the environment variable `OTEL_SDK_DISABLED=true`.
 
 ### Environment Variables
 

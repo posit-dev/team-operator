@@ -146,7 +146,7 @@ func TestWorkbenchReconciler_Basic(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	t.Cleanup(func() { require.NoError(t, mp.Shutdown(context.Background())) })
-	r.Meter = mp.Meter("test")
+	r.Instruments = observability.NewInstruments(mp.Meter("test"))
 
 	wb := defineDefaultWorkbench(t, ns, name)
 
@@ -156,7 +156,7 @@ func TestWorkbenchReconciler_Basic(t *testing.T) {
 
 	wb = getWorkbench(t, cli, ns, name)
 
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -220,7 +220,7 @@ func TestWorkbenchReconciler_ErrorRecordsTransition(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	t.Cleanup(func() { require.NoError(t, mp.Shutdown(context.Background())) })
-	r.Meter = mp.Meter("test")
+	r.Instruments = observability.NewInstruments(mp.Meter("test"))
 
 	// Force ReconcileWorkbench to error via the SAML missing-metadata-URL check.
 	wb := defineDefaultWorkbench(t, ns, name)
@@ -296,7 +296,7 @@ func TestWorkbenchReadinessProbePath(t *testing.T) {
 			require.NoError(t, err)
 
 			wb = getWorkbench(t, cli, ns, wbName)
-			res, err := r.ReconcileWorkbench(ctx, req, wb)
+			res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 			require.NoError(t, err)
 			require.True(t, res.IsZero())
 
@@ -325,7 +325,7 @@ func TestWorkbenchConfigReload(t *testing.T) {
 
 	wb = getWorkbench(t, cli, ns, name)
 
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -344,7 +344,7 @@ func TestWorkbenchConfigReload(t *testing.T) {
 	// reconcile again... (have to create/update too...?)
 	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, preWb)
 	require.NoError(t, err)
-	res, err = r.ReconcileWorkbench(ctx, req, preWb)
+	res, err = r.ReconcileWorkbench(ctx, req, preWb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -375,7 +375,7 @@ func TestWorkbenchAuthSaml(t *testing.T) {
 
 	wb = getWorkbench(t, cli, ns, name)
 
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -412,7 +412,7 @@ func TestWorkbenchAuthSamlMissingMetadata(t *testing.T) {
 	wb = getWorkbench(t, cli, ns, name)
 
 	// Should return an error when SamlMetadataUrl is not provided
-	_, err = r.ReconcileWorkbench(ctx, req, wb)
+	_, err = r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "SAML authentication requires a metadata URL")
 }
@@ -435,7 +435,7 @@ func TestWorkbenchLoadBalancingInitContainer(t *testing.T) {
 
 	wb = getWorkbench(t, cli, ns, name)
 
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -494,7 +494,7 @@ func TestWorkbenchLoadBalancingDisabled(t *testing.T) {
 
 	wb = getWorkbench(t, cli, ns, name)
 
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -524,7 +524,7 @@ func TestWorkbenchPodDisruptionBudgets(t *testing.T) {
 
 	wb = getWorkbench(t, cli, ns, name)
 
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -562,7 +562,7 @@ func TestWorkbenchReconciler_Suspended(t *testing.T) {
 
 	wb = getWorkbench(t, cli, ns, name)
 
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -610,7 +610,7 @@ func TestWorkbenchReconciler_SuspendRemovesDeployment(t *testing.T) {
 	wb = getWorkbench(t, cli, ns, name)
 
 	// Pass 1: normal reconcile — Deployment should be created
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -636,7 +636,7 @@ func TestWorkbenchReconciler_SuspendRemovesDeployment(t *testing.T) {
 	require.NoError(t, err)
 
 	wb = getWorkbench(t, cli, ns, name)
-	res, err = r.ReconcileWorkbench(ctx, req, wb)
+	res, err = r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -721,7 +721,7 @@ func TestWorkbenchSCIM_Disabled(t *testing.T) {
 
 	wb = getWorkbench(t, cli, ns, name)
 
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -763,7 +763,7 @@ func TestWorkbenchSCIM_EnabledManagedToken(t *testing.T) {
 
 	wb = getWorkbench(t, cli, ns, name)
 
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -841,7 +841,7 @@ func TestWorkbenchSCIM_BYOToken(t *testing.T) {
 
 	wb = getWorkbench(t, cli, ns, name)
 
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -885,7 +885,7 @@ func TestWorkbenchSCIM_NoTokenRotation(t *testing.T) {
 	wb = getWorkbench(t, cli, ns, name)
 
 	// First reconcile — creates the managed secret.
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -898,7 +898,7 @@ func TestWorkbenchSCIM_NoTokenRotation(t *testing.T) {
 
 	// Second reconcile — token must not change.
 	wb = getWorkbench(t, cli, ns, name)
-	res, err = r.ReconcileWorkbench(ctx, req, wb)
+	res, err = r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -930,7 +930,7 @@ func TestWorkbenchSCIM_DisableAfterEnable(t *testing.T) {
 	wb = getWorkbench(t, cli, ns, name)
 
 	// First reconcile — SCIM enabled.
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -954,7 +954,7 @@ func TestWorkbenchSCIM_DisableAfterEnable(t *testing.T) {
 	require.NoError(t, err)
 
 	wb = getWorkbench(t, cli, ns, name)
-	res, err = r.ReconcileWorkbench(ctx, req, wb)
+	res, err = r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -1003,6 +1003,6 @@ func TestWorkbenchSCIM_BYOTokenMissingKey(t *testing.T) {
 	wb = getWorkbench(t, cli, ns, name)
 
 	// Reconciliation should fail — missing "token" key is a blocking error.
-	_, err = r.ReconcileWorkbench(ctx, req, wb)
+	_, err = r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.ErrorContains(t, err, `BYO SCIM token secret "my-incomplete-scim-secret" is missing required key "token"`)
 }

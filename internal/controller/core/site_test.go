@@ -1741,7 +1741,7 @@ func TestSiteReadyWithDisabledProducts(t *testing.T) {
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	t.Cleanup(func() { require.NoError(t, mp.Shutdown(context.Background())) })
 
-	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log, Meter: mp.Meter("test")}
+	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log, Instruments: observability.NewInstruments(mp.Meter("test"))}
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
 
 	// Create the Site

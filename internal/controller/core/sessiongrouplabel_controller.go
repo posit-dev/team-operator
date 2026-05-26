@@ -13,7 +13,6 @@ import (
 
 	"github.com/go-logr/logr"
 	v1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
-	"go.opentelemetry.io/otel/metric"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -72,8 +71,7 @@ var (
 //	user-group-2: entra_data_science
 type SessionGroupLabelReconciler struct {
 	client.Client
-	Log   logr.Logger
-	Meter metric.Meter
+	Log logr.Logger
 }
 
 // Reconcile handles pod events. For each unprocessed Workbench session pod it

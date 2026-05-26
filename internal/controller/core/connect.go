@@ -33,14 +33,11 @@ import (
 //+kubebuilder:rbac:namespace=posit-team,groups=rbac.authorization.k8s.io,resources=roles,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:namespace=posit-team,groups=secrets-store.csi.x-k8s.io,resources=secretproviderclasses,verbs=get;list;watch;create;update;patch;delete
 
-func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Request, c *positcov1beta1.Connect) (ctrl.Result, error) {
+func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Request, c *positcov1beta1.Connect, priorPhase string) (ctrl.Result, error) {
 	l := r.GetLogger(ctx).WithValues(
 		"event", "reconcile-connect",
 		"product", "connect",
 	)
-
-	// Capture prior phase before any mutation so the success metric reflects the real transition.
-	priorPhase := observability.PhaseFromConditions(c.Status.Conditions)
 
 	// If suspended, clean up serving resources (Deployment/Service/Ingress) but preserve data
 	if c.Spec.Suspended != nil && *c.Spec.Suspended {
@@ -165,7 +162,7 @@ func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	observability.RecordStatusTransition(ctx, r.Meter, "connect", req.Namespace,
+	r.Instruments.RecordStatusTransition(ctx, "connect", req.Namespace,
 		priorPhase, observability.PhaseReady)
 	return ctrl.Result{}, nil
 }

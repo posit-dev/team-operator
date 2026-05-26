@@ -98,7 +98,7 @@ func TestConnectReconciler_SAML(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	t.Cleanup(func() { require.NoError(t, mp.Shutdown(context.Background())) })
-	r.Meter = mp.Meter("test")
+	r.Instruments = observability.NewInstruments(mp.Meter("test"))
 
 	c := defineDefaultConnect(t, ns, name)
 	c.Spec.Auth = positcov1beta1.AuthSpec{
@@ -111,7 +111,7 @@ func TestConnectReconciler_SAML(t *testing.T) {
 
 	c = getConnect(t, cli, ns, name)
 
-	res, err := r.ReconcileConnect(ctx, req, c)
+	res, err := r.ReconcileConnect(ctx, req, c, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -174,7 +174,7 @@ func TestConnectReconciler_ErrorRecordsTransition(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	t.Cleanup(func() { require.NoError(t, mp.Shutdown(context.Background())) })
-	r.Meter = mp.Meter("test")
+	r.Instruments = observability.NewInstruments(mp.Meter("test"))
 
 	// Force ReconcileConnect to error early via the SAML mutual-exclusivity check.
 	c := defineDefaultConnect(t, ns, name)
@@ -235,7 +235,7 @@ func TestConnectReconciler_SAML_WithIdPAttributeProfile(t *testing.T) {
 
 	c = getConnect(t, cli, ns, name)
 
-	res, err := r.ReconcileConnect(ctx, req, c)
+	res, err := r.ReconcileConnect(ctx, req, c, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -275,7 +275,7 @@ func TestConnectReconciler_SAML_WithIndividualAttributes(t *testing.T) {
 
 	c = getConnect(t, cli, ns, name)
 
-	res, err := r.ReconcileConnect(ctx, req, c)
+	res, err := r.ReconcileConnect(ctx, req, c, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -319,7 +319,7 @@ func TestConnectReconciler_SAML_PartialIndividualAttributes(t *testing.T) {
 
 	c = getConnect(t, cli, ns, name)
 
-	res, err := r.ReconcileConnect(ctx, req, c)
+	res, err := r.ReconcileConnect(ctx, req, c, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -360,7 +360,7 @@ func TestConnectReconciler_SAML_ValidationError_MutualExclusivity(t *testing.T) 
 
 	c = getConnect(t, cli, ns, name)
 
-	_, err = r.ReconcileConnect(ctx, req, c)
+	_, err = r.ReconcileConnect(ctx, req, c, observability.PhaseUnknown)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "SAML IdPAttributeProfile cannot be specified together with individual SAML attribute mappings")
 }
@@ -379,7 +379,7 @@ func TestConnectReconciler_DefaultDatabaseSchemas(t *testing.T) {
 
 	c = getConnect(t, cli, ns, name)
 
-	res, err := r.ReconcileConnect(ctx, req, c)
+	res, err := r.ReconcileConnect(ctx, req, c, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -416,7 +416,7 @@ func TestConnectReconciler_CustomDatabaseSchemas(t *testing.T) {
 
 	c = getConnect(t, cli, ns, name)
 
-	res, err := r.ReconcileConnect(ctx, req, c)
+	res, err := r.ReconcileConnect(ctx, req, c, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -456,7 +456,7 @@ func TestConnectReconciler_OIDC_EnableRegisterOnFirstLogin(t *testing.T) {
 
 	c = getConnect(t, cli, ns, name)
 
-	res, err := r.ReconcileConnect(ctx, req, c)
+	res, err := r.ReconcileConnect(ctx, req, c, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -493,7 +493,7 @@ func TestConnectReconciler_OIDC_DefaultRegisterOnFirstLogin(t *testing.T) {
 
 	c = getConnect(t, cli, ns, name)
 
-	res, err := r.ReconcileConnect(ctx, req, c)
+	res, err := r.ReconcileConnect(ctx, req, c, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -527,7 +527,7 @@ func TestConnectReconciler_RegisterOnFirstLogin_IgnoredWithNoAuth(t *testing.T) 
 
 	c = getConnect(t, cli, ns, name)
 
-	res, err := r.ReconcileConnect(ctx, req, c)
+	res, err := r.ReconcileConnect(ctx, req, c, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -563,7 +563,7 @@ func TestConnectReconciler_RegisterOnFirstLogin_IgnoredWithSAML(t *testing.T) {
 
 	c = getConnect(t, cli, ns, name)
 
-	res, err := r.ReconcileConnect(ctx, req, c)
+	res, err := r.ReconcileConnect(ctx, req, c, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -602,7 +602,7 @@ func TestConnectReconciler_OIDC_DisableGroupsClaim(t *testing.T) {
 
 	c = getConnect(t, cli, ns, name)
 
-	res, err := r.ReconcileConnect(ctx, req, c)
+	res, err := r.ReconcileConnect(ctx, req, c, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -643,7 +643,7 @@ func TestConnectReconciler_Suspended(t *testing.T) {
 
 	c = getConnect(t, cli, ns, name)
 
-	res, err := r.ReconcileConnect(ctx, req, c)
+	res, err := r.ReconcileConnect(ctx, req, c, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 

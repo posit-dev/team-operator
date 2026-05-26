@@ -42,7 +42,7 @@ func phaseFromReason(reason string) string {
 	case status.ReasonDatabaseReady:
 		return PhaseDatabaseReady
 	case status.ReasonDeploymentNotReady, status.ReasonStatefulSetNotReady:
-		return PhaseUnknown
+		return PhaseProgressing
 	default:
 		return PhaseUnknown
 	}

@@ -44,40 +44,18 @@ func readyPhase(ready bool) string {
 	return observability.PhaseError
 }
 
-// tally aggregates a slice of (namespace, phase) pairs into ResourceCount observations.
-func tally(controller string, observations []struct{ ns, phase string }) []observability.ResourceCount {
-	type key struct{ ns, phase string }
-	m := map[key]int64{}
-	for _, o := range observations {
-		m[key{o.ns, o.phase}]++
-	}
-	out := make([]observability.ResourceCount, 0, len(m))
-	for k, n := range m {
-		out = append(out, observability.ResourceCount{
-			Controller: controller,
-			Namespace:  k.ns,
-			Phase:      k.phase,
-			Count:      n,
-		})
-	}
-	return out
-}
-
 func (l *multiKindLister) listSites(ctx context.Context) []observability.ResourceCount {
 	var list positcov1beta1.SiteList
 	if err := l.client.List(ctx, &list); err != nil {
 		l.log.V(1).Info("resource_count: list failed", "kind", "site", "err", err.Error())
 		return nil
 	}
-	obs := make([]struct{ ns, phase string }, 0, len(list.Items))
-	for _, cr := range list.Items {
-		// Site has no direct Ready bool; derive readiness from Conditions.
-		obs = append(obs, struct{ ns, phase string }{
-			ns:    cr.Namespace,
-			phase: readyPhase(status.IsReady(cr.Status.Conditions)),
-		})
+	counts := make(map[[2]string]int64, len(list.Items))
+	for i := range list.Items {
+		phase := readyPhase(status.IsReady(list.Items[i].Status.Conditions))
+		counts[[2]string{list.Items[i].Namespace, phase}]++
 	}
-	return tally("site", obs)
+	return mapToResourceCounts("site", counts)
 }
 
 func (l *multiKindLister) listConnects(ctx context.Context) []observability.ResourceCount {
@@ -86,14 +64,11 @@ func (l *multiKindLister) listConnects(ctx context.Context) []observability.Reso
 		l.log.V(1).Info("resource_count: list failed", "kind", "connect", "err", err.Error())
 		return nil
 	}
-	obs := make([]struct{ ns, phase string }, 0, len(list.Items))
-	for _, cr := range list.Items {
-		obs = append(obs, struct{ ns, phase string }{
-			ns:    cr.Namespace,
-			phase: readyPhase(cr.Status.Ready),
-		})
+	counts := make(map[[2]string]int64, len(list.Items))
+	for i := range list.Items {
+		counts[[2]string{list.Items[i].Namespace, readyPhase(list.Items[i].Status.Ready)}]++
 	}
-	return tally("connect", obs)
+	return mapToResourceCounts("connect", counts)
 }
 
 func (l *multiKindLister) listWorkbenches(ctx context.Context) []observability.ResourceCount {
@@ -102,14 +77,11 @@ func (l *multiKindLister) listWorkbenches(ctx context.Context) []observability.R
 		l.log.V(1).Info("resource_count: list failed", "kind", "workbench", "err", err.Error())
 		return nil
 	}
-	obs := make([]struct{ ns, phase string }, 0, len(list.Items))
-	for _, cr := range list.Items {
-		obs = append(obs, struct{ ns, phase string }{
-			ns:    cr.Namespace,
-			phase: readyPhase(cr.Status.Ready),
-		})
+	counts := make(map[[2]string]int64, len(list.Items))
+	for i := range list.Items {
+		counts[[2]string{list.Items[i].Namespace, readyPhase(list.Items[i].Status.Ready)}]++
 	}
-	return tally("workbench", obs)
+	return mapToResourceCounts("workbench", counts)
 }
 
 func (l *multiKindLister) listPackageManagers(ctx context.Context) []observability.ResourceCount {
@@ -118,14 +90,11 @@ func (l *multiKindLister) listPackageManagers(ctx context.Context) []observabili
 		l.log.V(1).Info("resource_count: list failed", "kind", "package-manager", "err", err.Error())
 		return nil
 	}
-	obs := make([]struct{ ns, phase string }, 0, len(list.Items))
-	for _, cr := range list.Items {
-		obs = append(obs, struct{ ns, phase string }{
-			ns:    cr.Namespace,
-			phase: readyPhase(cr.Status.Ready),
-		})
+	counts := make(map[[2]string]int64, len(list.Items))
+	for i := range list.Items {
+		counts[[2]string{list.Items[i].Namespace, readyPhase(list.Items[i].Status.Ready)}]++
 	}
-	return tally("package-manager", obs)
+	return mapToResourceCounts("package-manager", counts)
 }
 
 func (l *multiKindLister) listChronicles(ctx context.Context) []observability.ResourceCount {
@@ -134,14 +103,11 @@ func (l *multiKindLister) listChronicles(ctx context.Context) []observability.Re
 		l.log.V(1).Info("resource_count: list failed", "kind", "chronicle", "err", err.Error())
 		return nil
 	}
-	obs := make([]struct{ ns, phase string }, 0, len(list.Items))
-	for _, cr := range list.Items {
-		obs = append(obs, struct{ ns, phase string }{
-			ns:    cr.Namespace,
-			phase: readyPhase(cr.Status.Ready),
-		})
+	counts := make(map[[2]string]int64, len(list.Items))
+	for i := range list.Items {
+		counts[[2]string{list.Items[i].Namespace, readyPhase(list.Items[i].Status.Ready)}]++
 	}
-	return tally("chronicle", obs)
+	return mapToResourceCounts("chronicle", counts)
 }
 
 func (l *multiKindLister) listFlightdecks(ctx context.Context) []observability.ResourceCount {
@@ -150,14 +116,11 @@ func (l *multiKindLister) listFlightdecks(ctx context.Context) []observability.R
 		l.log.V(1).Info("resource_count: list failed", "kind", "flightdeck", "err", err.Error())
 		return nil
 	}
-	obs := make([]struct{ ns, phase string }, 0, len(list.Items))
-	for _, cr := range list.Items {
-		obs = append(obs, struct{ ns, phase string }{
-			ns:    cr.Namespace,
-			phase: readyPhase(cr.Status.Ready),
-		})
+	counts := make(map[[2]string]int64, len(list.Items))
+	for i := range list.Items {
+		counts[[2]string{list.Items[i].Namespace, readyPhase(list.Items[i].Status.Ready)}]++
 	}
-	return tally("flightdeck", obs)
+	return mapToResourceCounts("flightdeck", counts)
 }
 
 func (l *multiKindLister) listPostgresDatabases(ctx context.Context) []observability.ResourceCount {
@@ -166,14 +129,26 @@ func (l *multiKindLister) listPostgresDatabases(ctx context.Context) []observabi
 		l.log.V(1).Info("resource_count: list failed", "kind", "postgres-database", "err", err.Error())
 		return nil
 	}
-	obs := make([]struct{ ns, phase string }, 0, len(list.Items))
-	for _, cr := range list.Items {
+	counts := make(map[[2]string]int64, len(list.Items))
+	for i := range list.Items {
 		// PostgresDatabaseStatus embeds CommonProductStatus (Conditions) but has no
 		// direct Ready bool field; use status.IsReady on the Conditions slice.
-		obs = append(obs, struct{ ns, phase string }{
-			ns:    cr.Namespace,
-			phase: readyPhase(status.IsReady(cr.Status.Conditions)),
+		phase := readyPhase(status.IsReady(list.Items[i].Status.Conditions))
+		counts[[2]string{list.Items[i].Namespace, phase}]++
+	}
+	return mapToResourceCounts("postgres-database", counts)
+}
+
+// mapToResourceCounts converts a namespace/phase count map into ResourceCount observations.
+func mapToResourceCounts(controller string, m map[[2]string]int64) []observability.ResourceCount {
+	out := make([]observability.ResourceCount, 0, len(m))
+	for k, n := range m {
+		out = append(out, observability.ResourceCount{
+			Controller: controller,
+			Namespace:  k[0],
+			Phase:      k[1],
+			Count:      n,
 		})
 	}
-	return tally("postgres-database", obs)
+	return out
 }

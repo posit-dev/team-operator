@@ -120,10 +120,6 @@ sessionGroupLabels:
 # [OBSERVABILITY]: OTel metrics configuration
 observability:
   metrics:
-    # Master toggle for OTel metrics instrumentation
-    enabled: true
-    # Serve metrics on /metrics endpoint (Prometheus exporter)
-    prometheus: true
     # gRPC OTLP endpoint for metric push.
     # Leave empty to disable OTLP push (falls back to OTEL_EXPORTER_OTLP_ENDPOINT env var if set).
     # Example: "otel-collector.monitoring.svc.cluster.local:4317"

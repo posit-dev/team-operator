@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	"go.opentelemetry.io/otel/metric"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,12 +24,9 @@ import (
 // PackageManagerReconciler reconciles a PackageManager object
 type PackageManagerReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Log    logr.Logger
-	// Meter is the OTel Meter used for status-transition metrics.
-	// Nil is treated as a no-op by observability.RecordStatusTransition,
-	// so tests that don't care about metrics may leave it unset.
-	Meter metric.Meter
+	Scheme      *runtime.Scheme
+	Log         logr.Logger
+	Instruments observability.Instruments
 }
 
 //+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=packagemanagers,verbs=get;list;watch;create;update;patch;delete
@@ -80,9 +76,9 @@ func (r *PackageManagerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Capture prior phase before any mutation so the metric reflects the real transition.
 	priorPhase := observability.PhaseFromConditions(pm.Status.Conditions)
 
-	if res, err := r.ReconcilePackageManager(ctx, req, &pm); err != nil {
+	if res, err := r.ReconcilePackageManager(ctx, req, &pm, priorPhase); err != nil {
 		l.Error(err, "error reconciling product state")
-		observability.RecordStatusTransition(ctx, r.Meter, "packagemanager", req.Namespace,
+		r.Instruments.RecordStatusTransition(ctx, "packagemanager", req.Namespace,
 			priorPhase, observability.PhaseError)
 		return res, err
 	}

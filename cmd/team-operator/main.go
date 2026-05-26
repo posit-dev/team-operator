@@ -113,17 +113,11 @@ func main() {
 			"match onto the pod. Per-site config lives in the Workbench CR's sessionLabels field.")
 
 	var (
-		obsMetricsEnabled        bool
-		obsMetricsPrometheus     bool
 		obsMetricsOTLPEndpoint   string
 		obsMetricsExportInterval time.Duration
 		obsClusterName           string
 	)
 
-	flag.BoolVar(&obsMetricsEnabled, "observability-metrics-enabled", true,
-		"Enable OTel metrics instrumentation")
-	flag.BoolVar(&obsMetricsPrometheus, "observability-metrics-prometheus", true,
-		"Serve OTel metrics on the /metrics endpoint (Prometheus exporter)")
 	flag.StringVar(&obsMetricsOTLPEndpoint, "observability-metrics-otlp-endpoint", "",
 		"gRPC OTLP endpoint for metric push (e.g. otel-collector:4317). "+
 			"Falls back to OTEL_EXPORTER_OTLP_METRICS_ENDPOINT then OTEL_EXPORTER_OTLP_ENDPOINT.")
@@ -152,8 +146,6 @@ func main() {
 	}
 
 	obsProvider := observability.NewProvider(context.Background(), observability.Config{
-		MetricsEnabled:        obsMetricsEnabled,
-		PrometheusEnabled:     obsMetricsPrometheus,
 		OTLPEndpoint:          obsMetricsOTLPEndpoint,
 		MetricsExportInterval: obsMetricsExportInterval,
 		ClusterName:           obsClusterName,
@@ -214,69 +206,69 @@ func main() {
 	}
 
 	if err = (&corecontroller.SiteReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Log:    setupLog,
-		Meter:  obsProvider.Meter("team-operator/site"),
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Log:         setupLog,
+		Instruments: observability.NewInstruments(obsProvider.Meter("team-operator/site")),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Site")
 		os.Exit(1)
 	}
 
 	if err = (&corecontroller.PostgresDatabaseReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Log:    setupLog,
-		Meter:  obsProvider.Meter("team-operator/postgres-database"),
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Log:         setupLog,
+		Instruments: observability.NewInstruments(obsProvider.Meter("team-operator/postgres-database")),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PostgresDatabase")
 		os.Exit(1)
 	}
 
 	if err = (&corecontroller.ConnectReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Log:    setupLog,
-		Meter:  obsProvider.Meter("team-operator/connect"),
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Log:         setupLog,
+		Instruments: observability.NewInstruments(obsProvider.Meter("team-operator/connect")),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ImplConnect")
 		os.Exit(1)
 	}
 
 	if err = (&corecontroller.WorkbenchReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Meter:  obsProvider.Meter("team-operator/workbench"),
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Instruments: observability.NewInstruments(obsProvider.Meter("team-operator/workbench")),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Workbench")
 		os.Exit(1)
 	}
 
 	if err = (&corecontroller.PackageManagerReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Log:    setupLog,
-		Meter:  obsProvider.Meter("team-operator/package-manager"),
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Log:         setupLog,
+		Instruments: observability.NewInstruments(obsProvider.Meter("team-operator/package-manager")),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PackageManager")
 		os.Exit(1)
 	}
 
 	if err = (&corecontroller.ChronicleReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Log:    setupLog,
-		Meter:  obsProvider.Meter("team-operator/chronicle"),
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Log:         setupLog,
+		Instruments: observability.NewInstruments(obsProvider.Meter("team-operator/chronicle")),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Chronicle")
 		os.Exit(1)
 	}
 
 	if err = (&corecontroller.FlightdeckReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Log:    setupLog,
-		Meter:  obsProvider.Meter("team-operator/flightdeck"),
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Log:         setupLog,
+		Instruments: observability.NewInstruments(obsProvider.Meter("team-operator/flightdeck")),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Flightdeck")
 		os.Exit(1)

@@ -16,10 +16,7 @@ import (
 
 func TestNewProvider_NoopWhenDisabled(t *testing.T) {
 	t.Setenv("OTEL_SDK_DISABLED", "true")
-	p := observability.NewProvider(context.Background(), observability.Config{
-		MetricsEnabled:    true,
-		PrometheusEnabled: true,
-	})
+	p := observability.NewProvider(context.Background(), observability.Config{})
 	require.NotNil(t, p)
 
 	// Meter should work without panicking (noop meter)
@@ -31,21 +28,11 @@ func TestNewProvider_NoopWhenDisabled(t *testing.T) {
 	require.NoError(t, p.Shutdown(context.Background()))
 }
 
-func TestNewProvider_MetricsDisabled(t *testing.T) {
-	p := observability.NewProvider(context.Background(), observability.Config{
-		MetricsEnabled: false,
-	})
-	require.NotNil(t, p)
-	require.NoError(t, p.Shutdown(context.Background()))
-}
-
 func TestNewProvider_PrometheusOnly(t *testing.T) {
 	// Use a fresh registry so the test is idempotent across `go test -count=N`
 	// runs and does not pollute prometheus.DefaultRegisterer.
 	reg := prometheus.NewRegistry()
 	p := observability.NewProvider(context.Background(), observability.Config{
-		MetricsEnabled:       true,
-		PrometheusEnabled:    true,
 		PrometheusRegisterer: reg,
 	})
 	require.NotNil(t, p)
@@ -63,8 +50,6 @@ func TestNewProvider_PrometheusGather(t *testing.T) {
 	// Registerer / Gatherer — i.e. recorded counters appear in /metrics output.
 	reg := prometheus.NewRegistry()
 	p := observability.NewProvider(context.Background(), observability.Config{
-		MetricsEnabled:       true,
-		PrometheusEnabled:    true,
 		PrometheusRegisterer: reg,
 	})
 	require.NotNil(t, p)
@@ -101,8 +86,6 @@ func TestNewProvider_PrometheusGather(t *testing.T) {
 // `go test -count > 1` will fail with a duplicate-collector registration error.
 func TestNewProvider_NilRegistererDefaultsToCRMetrics(t *testing.T) {
 	p := observability.NewProvider(context.Background(), observability.Config{
-		MetricsEnabled:    true,
-		PrometheusEnabled: true,
 		// PrometheusRegisterer intentionally nil — this is how main.go calls it.
 	})
 	require.NotNil(t, p)
@@ -129,11 +112,11 @@ func TestNewProvider_OTLPEndpointSet(t *testing.T) {
 	// connect is lazy so an unreachable collector does not fail at init time.
 	// Shutdown may return an error when the collector is unreachable (the SDK
 	// flushes pending exports), which is fine — callers tolerate the error.
+	reg := prometheus.NewRegistry()
 	p := observability.NewProvider(context.Background(), observability.Config{
-		MetricsEnabled:    true,
-		PrometheusEnabled: false,
-		OTLPEndpoint:      "localhost:4317",
-		OTLPInsecure:      true,
+		PrometheusRegisterer: reg,
+		OTLPEndpoint:         "localhost:4317",
+		OTLPInsecure:         true,
 	})
 	require.NotNil(t, p)
 	_ = p.Shutdown(context.Background())
@@ -141,11 +124,11 @@ func TestNewProvider_OTLPEndpointSet(t *testing.T) {
 
 func TestNewProvider_EnvVarFallback(t *testing.T) {
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317")
+	reg := prometheus.NewRegistry()
 	p := observability.NewProvider(context.Background(), observability.Config{
-		MetricsEnabled:    true,
-		PrometheusEnabled: false,
-		OTLPEndpoint:      "", // empty — should fall back to env var
-		OTLPInsecure:      true,
+		PrometheusRegisterer: reg,
+		OTLPEndpoint:         "", // empty — should fall back to env var
+		OTLPInsecure:         true,
 	})
 	require.NotNil(t, p)
 	_ = p.Shutdown(context.Background())

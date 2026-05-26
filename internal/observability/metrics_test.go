@@ -28,13 +28,13 @@ func TestRecordStatusTransition(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
-	m := mp.Meter("test")
+	inst := observability.NewInstruments(mp.Meter("test"))
 
-	observability.RecordStatusTransition(context.Background(), m,
+	inst.RecordStatusTransition(context.Background(),
 		"site", "posit-team", observability.PhaseReconciling, observability.PhaseReady)
-	observability.RecordStatusTransition(context.Background(), m,
+	inst.RecordStatusTransition(context.Background(),
 		"site", "posit-team", observability.PhaseReconciling, observability.PhaseReady)
-	observability.RecordStatusTransition(context.Background(), m,
+	inst.RecordStatusTransition(context.Background(),
 		"connect", "posit-team", observability.PhaseReconciling, observability.PhaseError)
 
 	var rm metricdata.ResourceMetrics
@@ -82,11 +82,11 @@ func TestRecordDependencyCheck(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
-	m := mp.Meter("test")
+	inst := observability.NewInstruments(mp.Meter("test"))
 
-	observability.RecordDependencyCheck(context.Background(), m,
+	inst.RecordDependencyCheck(context.Background(),
 		"connect", "posit-team", observability.DependencyPostgres, observability.ResultSuccess)
-	observability.RecordDependencyCheck(context.Background(), m,
+	inst.RecordDependencyCheck(context.Background(),
 		"connect", "posit-team", observability.DependencySecret, observability.ResultError)
 
 	var rm metricdata.ResourceMetrics
@@ -132,9 +132,9 @@ func TestRecordReconcileRequeue(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
-	m := mp.Meter("test")
+	inst := observability.NewInstruments(mp.Meter("test"))
 
-	observability.RecordReconcileRequeue(context.Background(), m,
+	inst.RecordReconcileRequeue(context.Background(),
 		"workbench", "posit-team", observability.RequeueReasonDepsNotReady)
 
 	var rm metricdata.ResourceMetrics
@@ -172,18 +172,18 @@ func TestRecordStatusTransition_SamePhaseIsNoOp(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
-	m := mp.Meter("test")
+	inst := observability.NewInstruments(mp.Meter("test"))
 
 	// Same-phase calls — must not emit.
-	observability.RecordStatusTransition(context.Background(), m,
+	inst.RecordStatusTransition(context.Background(),
 		"site", "posit-team", observability.PhaseReady, observability.PhaseReady)
-	observability.RecordStatusTransition(context.Background(), m,
+	inst.RecordStatusTransition(context.Background(),
 		"chronicle", "posit-team", observability.PhaseError, observability.PhaseError)
-	observability.RecordStatusTransition(context.Background(), m,
+	inst.RecordStatusTransition(context.Background(),
 		"workbench", "posit-team", observability.PhaseUnknown, observability.PhaseUnknown)
 
 	// One real transition — must emit, proving the meter still works.
-	observability.RecordStatusTransition(context.Background(), m,
+	inst.RecordStatusTransition(context.Background(),
 		"site", "posit-team", observability.PhaseError, observability.PhaseReady)
 
 	var rm metricdata.ResourceMetrics
@@ -204,4 +204,14 @@ func TestRecordStatusTransition_SamePhaseIsNoOp(t *testing.T) {
 		}
 	}
 	t.Fatal("no metric emitted at all — the genuine transition was suppressed too")
+}
+
+// TestNewInstruments_NilMeterIsNoOp verifies that a zero-value Instruments
+// (from passing nil to NewInstruments) does not panic on any Record* call.
+func TestNewInstruments_NilMeterIsNoOp(t *testing.T) {
+	inst := observability.NewInstruments(nil)
+	// None of these should panic.
+	inst.RecordStatusTransition(context.Background(), "site", "ns", observability.PhaseReconciling, observability.PhaseReady)
+	inst.RecordDependencyCheck(context.Background(), "site", "ns", observability.DependencyPostgres, observability.ResultSuccess)
+	inst.RecordReconcileRequeue(context.Background(), "site", "ns", observability.RequeueReasonDepsNotReady)
 }

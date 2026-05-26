@@ -97,14 +97,11 @@ func (r *PackageManagerReconciler) cleanupDeployedService(ctx context.Context, r
 
 const packageManagerConfigShaKey = "package-manager.posit.team/configmap-sha"
 
-func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, req ctrl.Request, pm *positcov1beta1.PackageManager) (ctrl.Result, error) {
+func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, req ctrl.Request, pm *positcov1beta1.PackageManager, priorPhase string) (ctrl.Result, error) {
 	l := r.GetLogger(ctx).WithValues(
 		"event", "reconcile-package-manager-service",
 		"product", "package-manager",
 	)
-
-	// Capture prior phase before any mutation so the success metric reflects the real transition.
-	priorPhase := observability.PhaseFromConditions(pm.Status.Conditions)
 
 	// If suspended, clean up serving resources but preserve data
 	if pm.Spec.Suspended != nil && *pm.Spec.Suspended {
@@ -226,7 +223,7 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 		return ctrl.Result{}, err
 	}
 
-	observability.RecordStatusTransition(ctx, r.Meter, "packagemanager", req.Namespace,
+	r.Instruments.RecordStatusTransition(ctx, "packagemanager", req.Namespace,
 		priorPhase, observability.PhaseReady)
 	return ctrl.Result{}, nil
 }

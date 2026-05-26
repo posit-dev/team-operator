@@ -59,7 +59,7 @@ func TestChronicleReconciler_Suspended(t *testing.T) {
 	err := cli.Create(ctx, c)
 	require.NoError(t, err)
 
-	res, err := r.ReconcileChronicle(ctx, req, c)
+	res, err := r.ReconcileChronicle(ctx, req, c, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -97,10 +97,10 @@ func TestChronicleReconciler_Metrics(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, mp.Shutdown(context.Background())) })
 
 	r := &ChronicleReconciler{
-		Client: cli,
-		Scheme: scheme,
-		Log:    log,
-		Meter:  mp.Meter("test"),
+		Client:      cli,
+		Scheme:      scheme,
+		Log:         log,
+		Instruments: observability.NewInstruments(mp.Meter("test")),
 	}
 
 	ctx = logr.NewContext(ctx, log)
@@ -122,7 +122,7 @@ func TestChronicleReconciler_Metrics(t *testing.T) {
 	require.NoError(t, err)
 
 	// ReconcileChronicle with Suspended=true exercises the PhaseSuspended recording path.
-	_, err = r.ReconcileChronicle(ctx, req, c)
+	_, err = r.ReconcileChronicle(ctx, req, c, observability.PhaseUnknown)
 	require.NoError(t, err)
 
 	var rm metricdata.ResourceMetrics

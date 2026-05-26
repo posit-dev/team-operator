@@ -90,14 +90,11 @@ func (r *WorkbenchReconciler) FetchAndSetClientSecretForAzureDatabricks(ctx cont
 	return nil
 }
 
-func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.Request, w *positcov1beta1.Workbench) (ctrl.Result, error) {
+func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.Request, w *positcov1beta1.Workbench, priorPhase string) (ctrl.Result, error) {
 	l := r.GetLogger(ctx).WithValues(
 		"event", "reconcile-workbench",
 		"product", "workbench",
 	)
-
-	// Capture prior phase before any mutation so the success metric reflects the real transition.
-	priorPhase := observability.PhaseFromConditions(w.Status.Conditions)
 
 	// If suspended, clean up serving resources but preserve data
 	if w.Spec.Suspended != nil && *w.Spec.Suspended {
@@ -217,7 +214,7 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	observability.RecordStatusTransition(ctx, r.Meter, "workbench", req.Namespace,
+	r.Instruments.RecordStatusTransition(ctx, "workbench", req.Namespace,
 		priorPhase, observability.PhaseReady)
 	return ctrl.Result{}, nil
 }

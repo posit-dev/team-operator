@@ -70,8 +70,6 @@ spec:
         - /team-operator
         args:
         - --leader-elect
-        - --observability-metrics-enabled=true
-        - --observability-metrics-prometheus=true
         - --observability-metrics-export-interval=30s
         image: controller:latest
         imagePullPolicy: Always

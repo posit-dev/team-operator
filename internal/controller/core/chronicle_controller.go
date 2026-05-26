@@ -13,7 +13,6 @@ import (
 	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
-	"go.opentelemetry.io/otel/metric"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -32,12 +31,9 @@ import (
 // ChronicleReconciler reconciles a Chronicle object
 type ChronicleReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Log    logr.Logger
-	// Meter is the OTel Meter used for status-transition metrics.
-	// Nil is treated as a no-op by observability.RecordStatusTransition,
-	// so tests that don't care about metrics may leave it unset.
-	Meter metric.Meter
+	Scheme      *runtime.Scheme
+	Log         logr.Logger
+	Instruments observability.Instruments
 }
 
 //+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=chronicles,verbs=get;list;watch;create;update;patch;delete
@@ -89,9 +85,9 @@ func (r *ChronicleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// Capture prior phase before any mutation so the metric reflects the real transition.
 	priorPhase := observability.PhaseFromConditions(c.Status.Conditions)
 
-	if res, err := r.ReconcileChronicle(ctx, req, &c); err != nil {
+	if res, err := r.ReconcileChronicle(ctx, req, &c, priorPhase); err != nil {
 		l.Error(err, "error reconciling product state")
-		observability.RecordStatusTransition(ctx, r.Meter, "chronicle", req.Namespace,
+		r.Instruments.RecordStatusTransition(ctx, "chronicle", req.Namespace,
 			priorPhase, observability.PhaseError)
 		return res, err
 	}
@@ -107,14 +103,11 @@ func (r *ChronicleReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.Request, c *positcov1beta1.Chronicle) (ctrl.Result, error) {
+func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.Request, c *positcov1beta1.Chronicle, priorPhase string) (ctrl.Result, error) {
 	l := r.GetLogger(ctx).WithValues(
 		"event", "reconcile-chronicle",
 		"product", "chronicle",
 	)
-
-	// Capture prior phase before any mutation so the metric reflects the real transition.
-	priorPhase := observability.PhaseFromConditions(c.Status.Conditions)
 
 	// If suspended, clean up serving resources but preserve configuration
 	if c.Spec.Suspended != nil && *c.Spec.Suspended {
@@ -131,7 +124,7 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 			l.Error(patchErr, "Error patching suspended status")
 			return res, patchErr
 		}
-		observability.RecordStatusTransition(ctx, r.Meter, "chronicle", c.Namespace,
+		r.Instruments.RecordStatusTransition(ctx, "chronicle", c.Namespace,
 			priorPhase, observability.PhaseSuspended)
 		return res, nil
 	}
@@ -176,7 +169,7 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	observability.RecordStatusTransition(ctx, r.Meter, "chronicle", c.Namespace,
+	r.Instruments.RecordStatusTransition(ctx, "chronicle", c.Namespace,
 		priorPhase, observability.PhaseReady)
 	return ctrl.Result{}, nil
 }

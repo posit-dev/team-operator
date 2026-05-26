@@ -12,8 +12,6 @@ spec:
         - name: manager
           args:
             - --leader-elect
-            - --observability-metrics-enabled=true
-            - --observability-metrics-prometheus=true
             - --observability-metrics-otlp-endpoint=$(OTEL_COLLECTOR_ENDPOINT)
             - --observability-metrics-export-interval=30s
           env:

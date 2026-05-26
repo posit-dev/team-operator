@@ -30,20 +30,19 @@ import (
 // Note on service.name precedence: Config sets service.name to "team-operator"
 // after resource.WithFromEnv(), so the explicit attribute wins over the
 // OTEL_SERVICE_NAME and OTEL_RESOURCE_ATTRIBUTES env vars by design.
+//
+// Kill switch: set OTEL_SDK_DISABLED=true to disable all OTel instrumentation.
+// The Prometheus exporter is always enabled when the SDK is active; use
+// OTEL_SDK_DISABLED to turn off the entire metrics subsystem.
 type Config struct {
-	// MetricsEnabled is the master toggle. When false, a noop provider is returned.
-	MetricsEnabled bool
-	// PrometheusEnabled registers the OTel Prometheus exporter onto a Prometheus
-	// Registerer. When PrometheusRegisterer is nil, prometheus.DefaultRegisterer is used.
-	PrometheusEnabled bool
 	// PrometheusRegisterer is the Prometheus registerer the exporter binds to.
-	// When nil and PrometheusEnabled is true, prometheus.DefaultRegisterer is used.
+	// When nil, controller-runtime's metrics.Registry is used (which is what
+	// the controller-runtime metrics server reads from).
 	// Tests should pass a fresh prometheus.NewRegistry() to avoid polluting the
 	// process-global default registerer.
 	PrometheusRegisterer prometheus.Registerer
 	// OTLPEndpoint is the gRPC endpoint for OTLP metric push (e.g. "otel-collector:4317").
 	// Empty string means OTLP push is disabled unless OTEL_EXPORTER_OTLP_ENDPOINT is set.
-	// The OTel SDK reads OTEL_EXPORTER_OTLP_ENDPOINT automatically when this is empty.
 	OTLPEndpoint string
 	// OTLPInsecure forces the gRPC exporter to plaintext. Default false (TLS is used).
 	// Set true for in-cluster collectors reachable over the pod network without TLS.
@@ -65,15 +64,11 @@ type Provider struct {
 var providerLog = ctrl.Log.WithName("observability")
 
 // NewProvider initialises the OTel metrics SDK based on cfg.
-// If MetricsEnabled is false, OTEL_SDK_DISABLED=true, or SDK init fails,
-// a noop provider is returned so the operator always boots.
+// If OTEL_SDK_DISABLED=true or SDK init fails, a noop provider is returned
+// so the operator always boots.
 func NewProvider(ctx context.Context, cfg Config) *Provider {
 	// Kill switch: OTEL_SDK_DISABLED env var (standard OTel convention).
 	if os.Getenv("OTEL_SDK_DISABLED") == "true" {
-		return &Provider{mp: noop.NewMeterProvider()}
-	}
-
-	if !cfg.MetricsEnabled {
 		return &Provider{mp: noop.NewMeterProvider()}
 	}
 
@@ -124,7 +119,7 @@ func buildMeterProvider(ctx context.Context, cfg Config) (*sdkmetric.MeterProvid
 	// controller-runtime's metrics server reads from. (NOT
 	// prometheus.DefaultRegisterer; controller-runtime maintains its own
 	// internal *prometheus.Registry, separate from the global default.)
-	if cfg.PrometheusEnabled {
+	{
 		registerer := cfg.PrometheusRegisterer
 		if registerer == nil {
 			registerer = crmetrics.Registry
@@ -136,10 +131,11 @@ func buildMeterProvider(ctx context.Context, cfg Config) (*sdkmetric.MeterProvid
 		opts = append(opts, sdkmetric.WithReader(promExp))
 	}
 
-	// OTLP gRPC exporter. The OTel SDK automatically reads OTEL_EXPORTER_OTLP_ENDPOINT
-	// and OTEL_EXPORTER_OTLP_METRICS_ENDPOINT from the environment. If cfg.OTLPEndpoint
-	// is set it takes precedence (passed via WithEndpoint option). If neither is set and
-	// PrometheusEnabled is also false, the provider will have no readers — valid but useless.
+	// Resolve OTLP endpoint: flag value > OTEL_EXPORTER_OTLP_METRICS_ENDPOINT >
+	// OTEL_EXPORTER_OTLP_ENDPOINT > unset (OTLP push disabled).
+	// We resolve manually because we want to gate on "is OTLP configured at all" —
+	// passing the resolved endpoint via WithEndpoint also lets us emit a startup
+	// log message identifying which endpoint was chosen.
 	otlpEndpoint := cfg.OTLPEndpoint
 	if otlpEndpoint == "" {
 		otlpEndpoint = os.Getenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT")

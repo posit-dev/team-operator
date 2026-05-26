@@ -34,8 +34,6 @@ spec:
             {{- if .Values.sessionGroupLabels.enable }}
             - "--enable-session-group-labels"
             {{- end }}
-            - --observability-metrics-enabled={{ .Values.observability.metrics.enabled }}
-            - --observability-metrics-prometheus={{ .Values.observability.metrics.prometheus }}
             {{- if .Values.observability.metrics.otlpEndpoint }}
             - --observability-metrics-otlp-endpoint={{ .Values.observability.metrics.otlpEndpoint }}
             {{- end }}
