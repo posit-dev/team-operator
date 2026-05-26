@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/localtest"
+	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal/db"
 	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
@@ -22,6 +23,7 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -159,4 +161,68 @@ func TestPackageManagerReconciler_Suspended(t *testing.T) {
 	require.NotNil(t, progressCond, "Progressing condition should be set when suspended")
 	assert.Equal(t, metav1.ConditionFalse, progressCond.Status)
 	assert.Equal(t, status.ReasonSuspended, progressCond.Reason)
+}
+
+// TestPackageManagerReconciler_DeploymentHasProbes verifies that the rendered
+// Package Manager Deployment includes both Readiness and Liveness HTTP probes
+// pointing at /__ping__ on the named "http" port.
+func TestPackageManagerReconciler_DeploymentHasProbes(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "pm-probes"
+
+	fakeEnv := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeEnv.Start(loadSchemes)
+
+	r := &PackageManagerReconciler{
+		Client: cli,
+		Scheme: scheme,
+		Log:    log,
+	}
+
+	ctx = logr.NewContext(ctx, log)
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: ns, Name: name},
+	}
+
+	pm := &positcov1beta1.PackageManager{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageManager",
+			APIVersion: "core.posit.team/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name, UID: "pm-probes-uid"},
+		Spec: positcov1beta1.PackageManagerSpec{
+			Image: "ghcr.io/rstudio/rstudio-pm:test",
+			Secret: positcov1beta1.SecretConfig{
+				Type: product.SiteSecretKubernetes,
+			},
+			Config: &positcov1beta1.PackageManagerConfig{},
+		},
+	}
+
+	require.NoError(t, cli.Create(ctx, pm))
+
+	_, err := r.ensureDeployedService(ctx, req, pm)
+	require.NoError(t, err)
+
+	dep := &appsv1.Deployment{}
+	err = cli.Get(ctx, client.ObjectKey{Name: pm.ComponentName(), Namespace: ns}, dep)
+	require.NoError(t, err)
+
+	container := dep.Spec.Template.Spec.Containers[0]
+
+	httpPort := intstr.IntOrString{Type: intstr.String, StrVal: "http"}
+
+	// Verify ReadinessProbe exists and targets /__ping__ on the http port
+	require.NotNil(t, container.ReadinessProbe)
+	require.NotNil(t, container.ReadinessProbe.HTTPGet)
+	assert.Equal(t, "/__ping__", container.ReadinessProbe.HTTPGet.Path)
+	assert.Equal(t, httpPort, container.ReadinessProbe.HTTPGet.Port)
+
+	// Verify LivenessProbe exists and targets /__ping__ on the http port
+	require.NotNil(t, container.LivenessProbe)
+	require.NotNil(t, container.LivenessProbe.HTTPGet)
+	assert.Equal(t, "/__ping__", container.LivenessProbe.HTTPGet.Path)
+	assert.Equal(t, httpPort, container.LivenessProbe.HTTPGet.Port)
+	assert.Equal(t, int32(10), container.LivenessProbe.InitialDelaySeconds)
 }
