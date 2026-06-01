@@ -6,10 +6,12 @@ on:
 
 env:
   PTD_AWS_ACCOUNT: ${{ secrets.PTD_AWS_ACCOUNT }}
+  ANTHROPIC_DEFAULT_HAIKU_MODEL: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 jobs:
   auto-review:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: read
       pull-requests: read
@@ -27,15 +29,11 @@ jobs:
           aws-region: us-east-2
 
       - name: Automatic PR Review
-        uses: anthropics/claude-code-action@beta
+        uses: anthropics/claude-code-action@v1.0.110
         if: github.event.pull_request.user.login != 'posit-team-dedicated[bot]'
         with:
-          allowed_tools: "mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_pull_request_review_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff"
           use_bedrock: true
-          model: "us.anthropic.claude-opus-4-6-v1"
-          fallback_model: "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
-          timeout_minutes: "60"
-          direct_prompt: |
+          prompt: |
             Please review this PR following the guidelines in `.claude/review-guidelines.md`. Use the GitHub review system:
 
             1. **Start a review**: Use `mcp__github__create_pending_pull_request_review` to begin a pending review
@@ -55,3 +53,6 @@ jobs:
             Use inline comments to highlight specific areas of concern.
 
             IMPORTANT: Do NOT post any additional comments after submitting the review. The GitHub review itself is sufficient and any additional summary comments will be redundant.
+          claude_args: |
+            --model us.anthropic.claude-opus-4-6-v1
+            --allowedTools "mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_pull_request_review_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff"
