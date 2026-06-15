@@ -62,7 +62,9 @@ type WorkbenchSpec struct {
 
 	// AddEnv adds arbitrary environment variables to the container env
 	//
-	// Deprecated: use envVars instead.
+	// Deprecated: use envVars instead. If the same variable name is set in both
+	// addEnv and envVars, envVars takes precedence: it is rendered after addEnv,
+	// and Kubernetes resolves a duplicate env var name to the last occurrence.
 	AddEnv map[string]string `json:"addEnv,omitempty"`
 
 	// EnvVars adds environment variables to the container, supporting valueFrom (e.g. secretKeyRef).

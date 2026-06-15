@@ -142,7 +142,7 @@ The Connect CRD manages standalone Posit Connect deployments. When using the Sit
 | `.spec.ingressAnnotations` | `map[string]string` | No | Ingress annotations |
 | `.spec.imagePullSecrets` | `[]string` | No | Image pull secrets |
 | `.spec.nodeSelector` | `map[string]string` | No | Node selector for pod scheduling |
-| `.spec.addEnv` | `map[string]string` | No | Additional environment variables. **Deprecated:** use `envVars` instead. |
+| `.spec.addEnv` | `map[string]string` | No | Additional environment variables. **Deprecated:** use `envVars`; on a name conflict `envVars` wins. |
 | `.spec.envVars` | `[]EnvVar` | No | Environment variables for the container, supporting `valueFrom` (e.g. `secretKeyRef`) |
 | `.spec.offHostExecution` | `bool` | No | Enable off-host execution (Kubernetes launcher) |
 | `.spec.image` | `string` | No | Connect container image |
@@ -232,7 +232,7 @@ The Workbench CRD manages standalone Posit Workbench deployments. When using the
 | `.spec.imagePullSecrets` | `[]string` | No | Image pull secrets |
 | `.spec.nodeSelector` | `map[string]string` | No | Node selector for pod scheduling |
 | `.spec.tolerations` | `[]Toleration` | No | Pod tolerations |
-| `.spec.addEnv` | `map[string]string` | No | Additional environment variables. **Deprecated:** use `envVars` instead. |
+| `.spec.addEnv` | `map[string]string` | No | Additional environment variables. **Deprecated:** use `envVars`; on a name conflict `envVars` wins. |
 | `.spec.envVars` | `[]EnvVar` | No | Environment variables for the container, supporting `valueFrom` (e.g. `secretKeyRef`) |
 | `.spec.offHostExecution` | `bool` | No | Enable off-host execution (Kubernetes launcher) |
 | `.spec.image` | `string` | No | Workbench container image |
@@ -315,7 +315,7 @@ The PackageManager CRD manages standalone Posit Package Manager deployments. Whe
 | `.spec.ingressAnnotations` | `map[string]string` | No | Ingress annotations |
 | `.spec.imagePullSecrets` | `[]string` | No | Image pull secrets |
 | `.spec.nodeSelector` | `map[string]string` | No | Node selector for pod scheduling |
-| `.spec.addEnv` | `map[string]string` | No | Additional environment variables. **Deprecated:** use `envVars` instead. |
+| `.spec.addEnv` | `map[string]string` | No | Additional environment variables. **Deprecated:** use `envVars`; on a name conflict `envVars` wins. |
 | `.spec.envVars` | `[]EnvVar` | No | Environment variables for the container, supporting `valueFrom` (e.g. `secretKeyRef`) |
 | `.spec.image` | `string` | No | Package Manager container image |
 | `.spec.imagePullPolicy` | `PullPolicy` | No | Image pull policy |
@@ -735,7 +735,7 @@ These types are used within the Site CRD for product configuration.
 | `.license` | `LicenseSpec` | License configuration |
 | `.volume` | `*VolumeSpec` | Data volume |
 | `.nodeSelector` | `map[string]string` | Node selector |
-| `.addEnv` | `map[string]string` | Environment variables. **Deprecated:** use `envVars` instead. |
+| `.addEnv` | `map[string]string` | Environment variables. **Deprecated:** use `envVars`; on a name conflict `envVars` wins. |
 | `.envVars` | `[]EnvVar` | Environment variables for the container, supporting `valueFrom` (e.g. `secretKeyRef`) |
 | `.image` | `string` | Container image |
 | `.imagePullPolicy` | `PullPolicy` | Image pull policy |
@@ -755,7 +755,7 @@ These types are used within the Site CRD for product configuration.
 | `.volume` | `*VolumeSpec` | Data volume |
 | `.nodeSelector` | `map[string]string` | Node selector |
 | `.auth` | `AuthSpec` | Authentication configuration |
-| `.addEnv` | `map[string]string` | Environment variables. **Deprecated:** use `envVars` instead. |
+| `.addEnv` | `map[string]string` | Environment variables. **Deprecated:** use `envVars`; on a name conflict `envVars` wins. |
 | `.envVars` | `[]EnvVar` | Environment variables for the container, supporting `valueFrom` (e.g. `secretKeyRef`) |
 | `.image` | `string` | Container image |
 | `.sessionImage` | `string` | Session container image |
@@ -787,7 +787,7 @@ These types are used within the Site CRD for product configuration.
 | `.createUsersAutomatically` | `bool` | Auto-create users |
 | `.adminGroups` | `[]string` | Admin groups (default: ["workbench-admin"]) |
 | `.adminSuperuserGroups` | `[]string` | Superuser groups |
-| `.addEnv` | `map[string]string` | Environment variables. **Deprecated:** use `envVars` instead. |
+| `.addEnv` | `map[string]string` | Environment variables. **Deprecated:** use `envVars`; on a name conflict `envVars` wins. |
 | `.envVars` | `[]EnvVar` | Environment variables for the container, supporting `valueFrom` (e.g. `secretKeyRef`) |
 | `.auth` | `AuthSpec` | Authentication configuration |
 | `.image` | `string` | Container image |
