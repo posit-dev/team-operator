@@ -21,6 +21,7 @@ type InternalConnectSpecApplyConfiguration struct {
 	Auth                    *AuthSpecApplyConfiguration                            `json:"auth,omitempty"`
 	RegisterOnFirstLogin    *bool                                                  `json:"registerOnFirstLogin,omitempty"`
 	AddEnv                  map[string]string                                      `json:"addEnv,omitempty"`
+	EnvVars                 []v1.EnvVar                                            `json:"envVars,omitempty"`
 	Image                   *string                                                `json:"image,omitempty"`
 	SessionImage            *string                                                `json:"sessionImage,omitempty"`
 	ImagePullPolicy         *v1.PullPolicy                                         `json:"imagePullPolicy,omitempty"`
@@ -116,6 +117,16 @@ func (b *InternalConnectSpecApplyConfiguration) WithAddEnv(entries map[string]st
 	}
 	for k, v := range entries {
 		b.AddEnv[k] = v
+	}
+	return b
+}
+
+// WithEnvVars adds the given value to the EnvVars field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the EnvVars field.
+func (b *InternalConnectSpecApplyConfiguration) WithEnvVars(values ...v1.EnvVar) *InternalConnectSpecApplyConfiguration {
+	for i := range values {
+		b.EnvVars = append(b.EnvVars, values[i])
 	}
 	return b
 }

@@ -896,6 +896,13 @@ func (in *ConnectSpec) DeepCopyInto(out *ConnectSpec) {
 			(*out)[key] = val
 		}
 	}
+	if in.EnvVars != nil {
+		in, out := &in.EnvVars, &out.EnvVars
+		*out = make([]v1.EnvVar, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.AdditionalRuntimeImages != nil {
 		in, out := &in.AdditionalRuntimeImages, &out.AdditionalRuntimeImages
 		*out = make([]ConnectRuntimeImageSpec, len(*in))
@@ -1228,6 +1235,13 @@ func (in *InternalConnectSpec) DeepCopyInto(out *InternalConnectSpec) {
 			(*out)[key] = val
 		}
 	}
+	if in.EnvVars != nil {
+		in, out := &in.EnvVars, &out.EnvVars
+		*out = make([]v1.EnvVar, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.Databricks != nil {
 		in, out := &in.Databricks, &out.Databricks
 		*out = new(DatabricksConfig)
@@ -1339,6 +1353,13 @@ func (in *InternalPackageManagerSpec) DeepCopyInto(out *InternalPackageManagerSp
 		*out = make(map[string]string, len(*in))
 		for key, val := range *in {
 			(*out)[key] = val
+		}
+	}
+	if in.EnvVars != nil {
+		in, out := &in.EnvVars, &out.EnvVars
+		*out = make([]v1.EnvVar, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.GitSSHKeys != nil {
@@ -1493,6 +1514,13 @@ func (in *InternalWorkbenchSpec) DeepCopyInto(out *InternalWorkbenchSpec) {
 		*out = make(map[string]string, len(*in))
 		for key, val := range *in {
 			(*out)[key] = val
+		}
+	}
+	if in.EnvVars != nil {
+		in, out := &in.EnvVars, &out.EnvVars
+		*out = make([]v1.EnvVar, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	in.Auth.DeepCopyInto(&out.Auth)
@@ -1964,6 +1992,13 @@ func (in *PackageManagerSpec) DeepCopyInto(out *PackageManagerSpec) {
 		*out = make(map[string]string, len(*in))
 		for key, val := range *in {
 			(*out)[key] = val
+		}
+	}
+	if in.EnvVars != nil {
+		in, out := &in.EnvVars, &out.EnvVars
+		*out = make([]v1.EnvVar, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	out.Secret = in.Secret
@@ -3362,6 +3397,13 @@ func (in *WorkbenchSpec) DeepCopyInto(out *WorkbenchSpec) {
 		*out = make(map[string]string, len(*in))
 		for key, val := range *in {
 			(*out)[key] = val
+		}
+	}
+	if in.EnvVars != nil {
+		in, out := &in.EnvVars, &out.EnvVars
+		*out = make([]v1.EnvVar, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	out.Snowflake = in.Snowflake

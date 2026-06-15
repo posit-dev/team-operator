@@ -84,7 +84,12 @@ type ConnectSpec struct {
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
 	// AddEnv adds arbitrary environment variables to the container env
+	//
+	// Deprecated: use envVars instead.
 	AddEnv map[string]string `json:"addEnv,omitempty"`
+
+	// EnvVars adds environment variables to the container, supporting valueFrom (e.g. secretKeyRef).
+	EnvVars []corev1.EnvVar `json:"envVars,omitempty"`
 
 	OffHostExecution bool `json:"offHostExecution,omitempty"`
 

@@ -262,6 +262,7 @@ func (r *SiteReconciler) reconcileWorkbench(
 			NodeSelector:                 site.Spec.Workbench.NodeSelector,
 			Tolerations:                  site.Spec.Workbench.Tolerations,
 			AddEnv:                       site.Spec.Workbench.AddEnv,
+			EnvVars:                      site.Spec.Workbench.EnvVars,
 			Auth:                         site.Spec.Workbench.Auth,
 			Secret:                       site.Spec.Secret,
 			WorkloadSecret:               site.Spec.WorkloadSecret,

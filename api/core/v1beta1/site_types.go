@@ -213,7 +213,10 @@ type InternalPackageManagerSpec struct {
 
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
+	// Deprecated: use envVars instead.
 	AddEnv map[string]string `json:"addEnv,omitempty"`
+
+	EnvVars []corev1.EnvVar `json:"envVars,omitempty"`
 
 	Image string `json:"image,omitempty"`
 
@@ -281,7 +284,10 @@ type InternalConnectSpec struct {
 	// when they first log in via OAuth2/OIDC. Only applies when auth type is "oidc".
 	RegisterOnFirstLogin *bool `json:"registerOnFirstLogin,omitempty"`
 
+	// Deprecated: use envVars instead.
 	AddEnv map[string]string `json:"addEnv,omitempty"`
+
+	EnvVars []corev1.EnvVar `json:"envVars,omitempty"`
 
 	Image string `json:"image,omitempty"`
 
@@ -414,7 +420,10 @@ type InternalWorkbenchSpec struct {
 	// If not specified, no superuser groups will be configured
 	AdminSuperuserGroups []string `json:"adminSuperuserGroups,omitempty"`
 
+	// Deprecated: use envVars instead.
 	AddEnv map[string]string `json:"addEnv,omitempty"`
+
+	EnvVars []corev1.EnvVar `json:"envVars,omitempty"`
 
 	Auth AuthSpec `json:"auth,omitempty"`
 

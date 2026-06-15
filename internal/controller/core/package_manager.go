@@ -521,6 +521,7 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 								secretVolumeFactory.EnvVars(),
 								product.StringMapToEnvVars(pm.Spec.AddEnv),
 								[]corev1.EnvVar{},
+								pm.Spec.EnvVars,
 							),
 							Ports: []corev1.ContainerPort{
 								internal.DefaultPortPackageManagerHTTP.ContainerPort("http"),

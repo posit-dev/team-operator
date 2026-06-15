@@ -43,7 +43,12 @@ type PackageManagerSpec struct {
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
 	// AddEnv adds arbitrary environment variables to the container env
+	//
+	// Deprecated: use envVars instead.
 	AddEnv map[string]string `json:"addEnv,omitempty"`
+
+	// EnvVars adds environment variables to the container, supporting valueFrom (e.g. secretKeyRef).
+	EnvVars []v1.EnvVar `json:"envVars,omitempty"`
 
 	Image string `json:"image,omitempty"`
 
