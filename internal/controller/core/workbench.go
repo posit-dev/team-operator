@@ -890,6 +890,7 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 											Value: w.ComponentName(),
 										},
 									},
+									w.Spec.EnvVars,
 								),
 								Command: []string{"supervisord"},
 								Args:    []string{},

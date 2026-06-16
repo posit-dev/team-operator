@@ -145,6 +145,7 @@ func (r *SiteReconciler) reconcileConnect(
 			AdditionalVolumes:            additionalVolumes,
 			NodeSelector:                 site.Spec.Connect.NodeSelector,
 			AddEnv:                       site.Spec.Connect.AddEnv,
+			EnvVars:                      site.Spec.Connect.EnvVars,
 			// default to true...
 			OffHostExecution:        true,
 			AdditionalRuntimeImages: site.Spec.Connect.AdditionalRuntimeImages,

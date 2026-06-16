@@ -528,6 +528,48 @@ func TestConnectReconciler_OIDC_DisableGroupsClaim(t *testing.T) {
 	assert.NotContains(t, config, "GroupsClaim = groups", "GroupsClaim should not have the default 'groups' value")
 }
 
+// TestConnectReconciler_EnvVars verifies that the envVars field, including a
+// valueFrom.secretKeyRef entry, flows through to the rendered Connect
+// container's Env.
+func TestConnectReconciler_EnvVars(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "connect-env-vars"
+
+	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
+
+	plainEnv := corev1.EnvVar{
+		Name:  "CONNECT_ENVVARS_TEST",
+		Value: "plain-value",
+	}
+	secretEnv := corev1.EnvVar{
+		Name: "CONNECT_ENVVARS_TEST_FROM_SECRET",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: "my-secret"},
+				Key:                  "api-key",
+			},
+		},
+	}
+
+	c := defineDefaultConnect(t, ns, name)
+	c.Spec.EnvVars = []corev1.EnvVar{plainEnv, secretEnv}
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	require.NoError(t, err)
+
+	c = getConnect(t, cli, ns, name)
+
+	res, err := r.ReconcileConnect(ctx, req, c)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	deployment := getDeployment(t, cli, ns, c.ComponentName())
+	container := deployment.Spec.Template.Spec.Containers[0]
+	assert.Contains(t, container.Env, plainEnv, "plain envVar should be rendered into the container Env")
+	assert.Contains(t, container.Env, secretEnv, "secretKeyRef envVar should be rendered into the container Env")
+}
+
 // TestConnectReconciler_Suspended verifies that when Connect has Suspended=true,
 // ReconcileConnect does not create serving resources (Deployment, Service, Ingress).
 func TestConnectReconciler_Suspended(t *testing.T) {

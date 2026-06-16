@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -143,4 +144,70 @@ func TestPackageManagerReconciler_DeploymentHasProbes(t *testing.T) {
 	assert.Equal(t, "/__ping__", container.LivenessProbe.HTTPGet.Path)
 	assert.Equal(t, httpPort, container.LivenessProbe.HTTPGet.Port)
 	assert.Equal(t, int32(10), container.LivenessProbe.InitialDelaySeconds)
+}
+
+// TestPackageManagerReconciler_EnvVars verifies that the envVars field, including a
+// valueFrom.secretKeyRef entry, flows through to the rendered Package Manager
+// container's Env.
+func TestPackageManagerReconciler_EnvVars(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "pm-env-vars"
+
+	fakeEnv := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeEnv.Start(loadSchemes)
+
+	r := &PackageManagerReconciler{
+		Client: cli,
+		Scheme: scheme,
+		Log:    log,
+	}
+
+	ctx = logr.NewContext(ctx, log)
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: ns, Name: name},
+	}
+
+	plainEnv := corev1.EnvVar{
+		Name:  "PM_PLAIN",
+		Value: "plain-value",
+	}
+	secretEnv := corev1.EnvVar{
+		Name: "PM_FROM_SECRET",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: "my-secret"},
+				Key:                  "api-key",
+			},
+		},
+	}
+
+	pm := &positcov1beta1.PackageManager{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageManager",
+			APIVersion: "core.posit.team/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name, UID: "pm-env-vars-uid"},
+		Spec: positcov1beta1.PackageManagerSpec{
+			Image: "ghcr.io/rstudio/rstudio-pm:test",
+			Secret: positcov1beta1.SecretConfig{
+				Type: product.SiteSecretKubernetes,
+			},
+			Config:  &positcov1beta1.PackageManagerConfig{},
+			EnvVars: []corev1.EnvVar{plainEnv, secretEnv},
+		},
+	}
+
+	require.NoError(t, cli.Create(ctx, pm))
+
+	_, err := r.ensureDeployedService(ctx, req, pm)
+	require.NoError(t, err)
+
+	dep := &appsv1.Deployment{}
+	err = cli.Get(ctx, client.ObjectKey{Name: pm.ComponentName(), Namespace: ns}, dep)
+	require.NoError(t, err)
+
+	container := dep.Spec.Template.Spec.Containers[0]
+	assert.Contains(t, container.Env, plainEnv, "plain envVar should be rendered into the container Env")
+	assert.Contains(t, container.Env, secretEnv, "secretKeyRef envVar should be rendered into the container Env")
 }

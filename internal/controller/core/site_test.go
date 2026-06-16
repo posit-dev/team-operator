@@ -244,6 +244,54 @@ func TestSiteReconciler_SessionEnvVars(t *testing.T) {
 	assert.Equal(t, "some-value", testConnect.Spec.SessionConfig.Pod.Env[0].Value)
 }
 
+// TestSiteReconciler_EnvVars verifies that the new envVars field, including a
+// valueFrom.secretKeyRef entry, propagates from the Site spec to each product CR
+// spec for Workbench, Connect, and Package Manager.
+func TestSiteReconciler_EnvVars(t *testing.T) {
+	siteName := "env-vars"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+
+	envVars := func(prefix string) []corev1.EnvVar {
+		return []corev1.EnvVar{
+			{
+				Name:  prefix + "_PLAIN",
+				Value: "plain-value",
+			},
+			{
+				Name: prefix + "_FROM_SECRET",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: "my-secret"},
+						Key:                  "api-key",
+					},
+				},
+			},
+		}
+	}
+
+	site.Spec.Workbench.EnvVars = envVars("WB")
+	site.Spec.Connect.EnvVars = envVars("CONNECT")
+	site.Spec.PackageManager.EnvVars = envVars("PM")
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	assertEnvVars := func(t *testing.T, prefix string, got []corev1.EnvVar) {
+		t.Helper()
+		assert.Equal(t, envVars(prefix), got)
+	}
+
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+	assertEnvVars(t, "WB", testWorkbench.Spec.EnvVars)
+
+	testConnect := getConnect(t, cli, siteNamespace, siteName)
+	assertEnvVars(t, "CONNECT", testConnect.Spec.EnvVars)
+
+	testPackageManager := getPackageManager(t, cli, siteNamespace, siteName)
+	assertEnvVars(t, "PM", testPackageManager.Spec.EnvVars)
+}
+
 func TestSiteLoggingAndDebug(t *testing.T) {
 	siteName := "logging-site"
 	siteNamespace := "posit-team"

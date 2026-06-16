@@ -437,6 +437,48 @@ func TestWorkbenchPodDisruptionBudgets(t *testing.T) {
 		"Session PDB should have maxUnavailable=0 to prevent session evictions")
 }
 
+// TestWorkbenchReconciler_EnvVars verifies that the envVars field, including a
+// valueFrom.secretKeyRef entry, flows through to the rendered Workbench
+// container's Env.
+func TestWorkbenchReconciler_EnvVars(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-env-vars"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	plainEnv := corev1.EnvVar{
+		Name:  "WORKBENCH_ENVVARS_TEST",
+		Value: "plain-value",
+	}
+	secretEnv := corev1.EnvVar{
+		Name: "WORKBENCH_ENVVARS_TEST_FROM_SECRET",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: "my-secret"},
+				Key:                  "api-key",
+			},
+		},
+	}
+
+	wb := defineDefaultWorkbench(t, ns, name)
+	wb.Spec.EnvVars = []corev1.EnvVar{plainEnv, secretEnv}
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	deployment := getDeployment(t, cli, ns, wb.ComponentName())
+	mainContainer := deployment.Spec.Template.Spec.Containers[0]
+	assert.Contains(t, mainContainer.Env, plainEnv, "plain envVar should be rendered into the container Env")
+	assert.Contains(t, mainContainer.Env, secretEnv, "secretKeyRef envVar should be rendered into the container Env")
+}
+
 // TestWorkbenchReconciler_Suspended verifies that when Workbench has Suspended=true,
 // ReconcileWorkbench does not create serving resources (Deployment, Service, Ingress).
 func TestWorkbenchReconciler_Suspended(t *testing.T) {

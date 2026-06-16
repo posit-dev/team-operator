@@ -684,6 +684,7 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 										Value: c.ComponentName(),
 									},
 								},
+								c.Spec.EnvVars,
 							),
 							Ports: []corev1.ContainerPort{
 								internal.DefaultPortConnectHTTP.ContainerPort("http"),
