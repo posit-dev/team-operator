@@ -1,3 +1,10 @@
+# [1.27.0](https://github.com/posit-dev/team-operator/compare/v1.26.0...v1.27.0) (2026-06-16)
+
+
+### Features
+
+* add envVars field for Workbench, Connect, and Package Manager ([#141](https://github.com/posit-dev/team-operator/issues/141)) ([6e1eea5](https://github.com/posit-dev/team-operator/commit/6e1eea55bd47ad99b3985051beee5e45451ba2a8))
+
 # [1.26.0](https://github.com/posit-dev/team-operator/compare/v1.25.0...v1.26.0) (2026-05-22)
 
 
