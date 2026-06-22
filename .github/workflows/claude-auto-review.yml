@@ -52,5 +52,5 @@ jobs:
             Don't be overly complimentary; focus on actionable insights and keep your comments concise.
             Use inline comments to highlight specific areas of concern.
           claude_args: |
-            --model us.anthropic.claude-sonnet-4-5-20250929-v1:0
+            --model us.anthropic.claude-sonnet-4-6
             --allowedTools "mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff"
