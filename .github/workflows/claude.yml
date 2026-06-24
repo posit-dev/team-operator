@@ -12,7 +12,6 @@ on:
 
 env:
   PTD_AWS_ACCOUNT: ${{ secrets.PTD_AWS_ACCOUNT }}
-  ANTHROPIC_DEFAULT_HAIKU_MODEL: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 jobs:
   claude-code-action:
