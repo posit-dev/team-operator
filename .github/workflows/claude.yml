@@ -12,7 +12,6 @@ on:
 
 env:
   PTD_AWS_ACCOUNT: ${{ secrets.PTD_AWS_ACCOUNT }}
-  ANTHROPIC_DEFAULT_HAIKU_MODEL: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 jobs:
   claude-code-action:
@@ -66,6 +65,6 @@ jobs:
           branch_prefix: "claude-"
           additional_permissions: "actions: read"
           claude_args: |
-            --model us.anthropic.claude-opus-4-6-v1
-            --allowedTools "mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_pull_request_review_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff"
+            --model us.anthropic.claude-sonnet-4-6
+            --allowedTools "mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__get_pull_request,mcp__github__get_pull_request_files,mcp__github__get_pull_request_reviews,mcp__github__get_pull_request_review_comments"
             --append-system-prompt "You are a helpful AI assistant for code reviews and issue triage. Respond to comments and issues that mention you with relevant code suggestions or triage actions. If you cannot assist, politely inform the user. In your responses, don't be overly complimentary. Stick to the facts and provide actionable advice."
