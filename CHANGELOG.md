@@ -1,3 +1,10 @@
+## [1.27.1](https://github.com/posit-dev/team-operator/compare/v1.27.0...v1.27.1) (2026-06-26)
+
+
+### Bug Fixes
+
+* correct load-balancer XDG_CONFIG_DIRS path so Workbench finds config ([#144](https://github.com/posit-dev/team-operator/issues/144)) ([855ad0e](https://github.com/posit-dev/team-operator/commit/855ad0e7d12999579fc56566072c64cc24e52dd1))
+
 # [1.27.0](https://github.com/posit-dev/team-operator/compare/v1.26.0...v1.27.0) (2026-06-16)
 
 
