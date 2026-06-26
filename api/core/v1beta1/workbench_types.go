@@ -509,7 +509,10 @@ func (w *Workbench) InitializeNonRootSupervisorConfig(ctx context.Context, confi
 			StdOutLogFileMaxBytes: 0,
 			StdErrLogFile:         "/dev/stderr",
 			StdErrLogFileMaxBytes: 0,
-			Environment:           `XDG_CONFIG_DIRS="/mnt/config/rstudio:/mnt/config:/mnt/secure:/mnt/secure-config:/mnt/session:/mnt/load-balancer/rstudio"`,
+			// XDG_CONFIG_DIRS entries are base dirs; Workbench appends "rstudio/<file>"
+			// to each. The load-balancer config lives at /mnt/load-balancer/rstudio/load-balancer,
+			// so the entry must be /mnt/load-balancer (NOT /mnt/load-balancer/rstudio).
+			Environment: `XDG_CONFIG_DIRS="/mnt/config/rstudio:/mnt/config:/mnt/secure:/mnt/secure-config:/mnt/session:/mnt/load-balancer"`,
 		},
 	}
 	return nil
@@ -707,8 +710,11 @@ func (w *Workbench) CreateVolumeFactory(cfg *WorkbenchConfig) *product.VolumeFac
 			Mounts: configVolumeMounts,
 			Env: []corev1.EnvVar{
 				{
+					// XDG_CONFIG_DIRS entries are base dirs; Workbench appends "rstudio/<file>"
+					// to each. The load-balancer config lives at /mnt/load-balancer/rstudio/load-balancer,
+					// so the entry must be /mnt/load-balancer (NOT /mnt/load-balancer/rstudio).
 					Name:  "XDG_CONFIG_DIRS",
-					Value: "/mnt/config/rstudio:/mnt/config:/mnt/secure:/mnt/secure-config:/mnt/session:/mnt/load-balancer/rstudio",
+					Value: "/mnt/config/rstudio:/mnt/config:/mnt/secure:/mnt/secure-config:/mnt/session:/mnt/load-balancer",
 				},
 				{
 					Name: "RSW_TESTUSER_PASSWD",
