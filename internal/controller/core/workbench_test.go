@@ -18,6 +18,7 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -477,6 +478,72 @@ func TestWorkbenchReconciler_EnvVars(t *testing.T) {
 	mainContainer := deployment.Spec.Template.Spec.Containers[0]
 	assert.Contains(t, mainContainer.Env, plainEnv, "plain envVar should be rendered into the container Env")
 	assert.Contains(t, mainContainer.Env, secretEnv, "secretKeyRef envVar should be rendered into the container Env")
+}
+
+// TestWorkbenchReconciler_DefaultResources verifies the server container gets the
+// default resource requests (and no limits) when Spec.Resources is unset.
+func TestWorkbenchReconciler_DefaultResources(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-default-resources"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	wb := defineDefaultWorkbench(t, ns, name)
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	deployment := getDeployment(t, cli, ns, wb.ComponentName())
+	resources := deployment.Spec.Template.Spec.Containers[0].Resources
+
+	assert.Equal(t, resource.MustParse("100m"), resources.Requests[corev1.ResourceCPU])
+	assert.Equal(t, resource.MustParse("2Gi"), resources.Requests[corev1.ResourceMemory])
+	assert.Empty(t, resources.Limits, "default Workbench resources should not set limits")
+}
+
+// TestWorkbenchReconciler_ResourcesOverride verifies an explicit Spec.Resources
+// override replaces the defaults entirely.
+func TestWorkbenchReconciler_ResourcesOverride(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-resources-override"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	override := corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("500m"),
+			corev1.ResourceMemory: resource.MustParse("4Gi"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("2"),
+			corev1.ResourceMemory: resource.MustParse("8Gi"),
+		},
+	}
+
+	wb := defineDefaultWorkbench(t, ns, name)
+	wb.Spec.Resources = &override
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	deployment := getDeployment(t, cli, ns, wb.ComponentName())
+	resources := deployment.Spec.Template.Spec.Containers[0].Resources
+
+	assert.Equal(t, override, resources)
 }
 
 // TestWorkbenchReconciler_Suspended verifies that when Workbench has Suspended=true,

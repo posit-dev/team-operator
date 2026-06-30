@@ -29,6 +29,7 @@ type WorkbenchSpecApplyConfiguration struct {
 	IngressAnnotations                   map[string]string                         `json:"ingressAnnotations,omitempty"`
 	ImagePullSecrets                     []string                                  `json:"imagePullSecrets,omitempty"`
 	NodeSelector                         map[string]string                         `json:"nodeSelector,omitempty"`
+	Resources                            *v1.ResourceRequirements                  `json:"resources,omitempty"`
 	Tolerations                          []v1.Toleration                           `json:"tolerations,omitempty"`
 	AddEnv                               map[string]string                         `json:"addEnv,omitempty"`
 	EnvVars                              []v1.EnvVar                               `json:"envVars,omitempty"`
@@ -199,6 +200,14 @@ func (b *WorkbenchSpecApplyConfiguration) WithNodeSelector(entries map[string]st
 	for k, v := range entries {
 		b.NodeSelector[k] = v
 	}
+	return b
+}
+
+// WithResources sets the Resources field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Resources field is set to the value of the last call.
+func (b *WorkbenchSpecApplyConfiguration) WithResources(value v1.ResourceRequirements) *WorkbenchSpecApplyConfiguration {
+	b.Resources = &value
 	return b
 }
 

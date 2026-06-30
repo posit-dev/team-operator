@@ -18,6 +18,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -144,6 +145,130 @@ func TestPackageManagerReconciler_DeploymentHasProbes(t *testing.T) {
 	assert.Equal(t, "/__ping__", container.LivenessProbe.HTTPGet.Path)
 	assert.Equal(t, httpPort, container.LivenessProbe.HTTPGet.Port)
 	assert.Equal(t, int32(10), container.LivenessProbe.InitialDelaySeconds)
+}
+
+// TestPackageManagerReconciler_DefaultResources verifies the server container gets
+// the full default resource requests/limits when Spec.Resources is unset.
+func TestPackageManagerReconciler_DefaultResources(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "pm-default-resources"
+
+	fakeEnv := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeEnv.Start(loadSchemes)
+
+	r := &PackageManagerReconciler{
+		Client: cli,
+		Scheme: scheme,
+		Log:    log,
+	}
+
+	ctx = logr.NewContext(ctx, log)
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: ns, Name: name},
+	}
+
+	pm := &positcov1beta1.PackageManager{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageManager",
+			APIVersion: "core.posit.team/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name, UID: "pm-default-resources-uid"},
+		Spec: positcov1beta1.PackageManagerSpec{
+			Image: "ghcr.io/rstudio/rstudio-pm:test",
+			Secret: positcov1beta1.SecretConfig{
+				Type: product.SiteSecretKubernetes,
+			},
+			Config: &positcov1beta1.PackageManagerConfig{},
+		},
+	}
+
+	require.NoError(t, cli.Create(ctx, pm))
+
+	_, err := r.ensureDeployedService(ctx, req, pm)
+	require.NoError(t, err)
+
+	dep := &appsv1.Deployment{}
+	err = cli.Get(ctx, client.ObjectKey{Name: pm.ComponentName(), Namespace: ns}, dep)
+	require.NoError(t, err)
+
+	resources := dep.Spec.Template.Spec.Containers[0].Resources
+
+	// Compare by value (Cmp) since the API round-trip canonicalizes quantity strings
+	// (e.g. "2000m" -> "2").
+	assertQuantityEqual := func(want string, got resource.Quantity) {
+		w := resource.MustParse(want)
+		assert.Zerof(t, w.Cmp(got), "expected %s, got %s", want, got.String())
+	}
+
+	assertQuantityEqual("100m", resources.Requests[corev1.ResourceCPU])
+	assertQuantityEqual("2Gi", resources.Requests[corev1.ResourceMemory])
+	assertQuantityEqual("500Mi", resources.Requests[corev1.ResourceEphemeralStorage])
+	assertQuantityEqual("2000m", resources.Limits[corev1.ResourceCPU])
+	assertQuantityEqual("4Gi", resources.Limits[corev1.ResourceMemory])
+	assertQuantityEqual("2Gi", resources.Limits[corev1.ResourceEphemeralStorage])
+}
+
+// TestPackageManagerReconciler_ResourcesOverride verifies an explicit Spec.Resources
+// override replaces the defaults entirely.
+func TestPackageManagerReconciler_ResourcesOverride(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "pm-resources-override"
+
+	fakeEnv := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeEnv.Start(loadSchemes)
+
+	r := &PackageManagerReconciler{
+		Client: cli,
+		Scheme: scheme,
+		Log:    log,
+	}
+
+	ctx = logr.NewContext(ctx, log)
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: ns, Name: name},
+	}
+
+	override := corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("500m"),
+			corev1.ResourceMemory: resource.MustParse("4Gi"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("4"),
+			corev1.ResourceMemory: resource.MustParse("16Gi"),
+		},
+	}
+
+	pm := &positcov1beta1.PackageManager{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageManager",
+			APIVersion: "core.posit.team/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name, UID: "pm-resources-override-uid"},
+		Spec: positcov1beta1.PackageManagerSpec{
+			Image: "ghcr.io/rstudio/rstudio-pm:test",
+			Secret: positcov1beta1.SecretConfig{
+				Type: product.SiteSecretKubernetes,
+			},
+			Config:    &positcov1beta1.PackageManagerConfig{},
+			Resources: &override,
+		},
+	}
+
+	require.NoError(t, cli.Create(ctx, pm))
+
+	_, err := r.ensureDeployedService(ctx, req, pm)
+	require.NoError(t, err)
+
+	dep := &appsv1.Deployment{}
+	err = cli.Get(ctx, client.ObjectKey{Name: pm.ComponentName(), Namespace: ns}, dep)
+	require.NoError(t, err)
+
+	resources := dep.Spec.Template.Spec.Containers[0].Resources
+
+	assert.Equal(t, override, resources)
 }
 
 // TestPackageManagerReconciler_EnvVars verifies that the envVars field, including a

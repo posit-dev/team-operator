@@ -98,6 +98,7 @@ func (r *SiteReconciler) reconcilePackageManager(
 			ImagePullSecrets:             site.Spec.ImagePullSecrets,
 			ChronicleAgentImage:          site.Spec.Chronicle.AgentImage,
 			NodeSelector:                 site.Spec.PackageManager.NodeSelector,
+			Resources:                    site.Spec.PackageManager.Resources,
 			AddEnv:                       site.Spec.PackageManager.AddEnv,
 			EnvVars:                      site.Spec.PackageManager.EnvVars,
 			Secret:                       site.Spec.Secret,

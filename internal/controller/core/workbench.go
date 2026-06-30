@@ -916,19 +916,7 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 									r.buildLoadBalancerVolumeMounts(w),
 									r.buildSCIMTokenVolumeMounts(w, scimTokenSecretName),
 								),
-								Resources: corev1.ResourceRequirements{
-									Requests: corev1.ResourceList{
-										// TODO: resources for Workbench
-										//"cpu":               resource.Quantity{Format: "2000m"},
-										//"memory":            resource.Quantity{Format: "3Gi"},
-										//"ephemeral-storage": resource.Quantity{Format: "100Mi"},
-									},
-									Limits: corev1.ResourceList{
-										//"cpu":               resource.Quantity{Format: "6000m"},
-										//"memory":            resource.Quantity{Format: "8Gi"},
-										//"ephemeral-storage": resource.Quantity{Format: "200Mi"},
-									},
-								},
+								Resources: workbenchResources(w),
 								ReadinessProbe: &corev1.Probe{
 									ProbeHandler: corev1.ProbeHandler{
 										HTTPGet: &corev1.HTTPGetAction{
@@ -1467,6 +1455,20 @@ func (r *WorkbenchReconciler) buildSCIMTokenVolumeMounts(w *positcov1beta1.Workb
 			MountPath: "/etc/rstudio/scim-token",
 			SubPath:   "scim-token",
 			ReadOnly:  true,
+		},
+	}
+}
+
+// workbenchResources returns the server container's resource requirements,
+// using the spec override when set, otherwise the product default.
+func workbenchResources(w *positcov1beta1.Workbench) corev1.ResourceRequirements {
+	if w.Spec.Resources != nil {
+		return *w.Spec.Resources
+	}
+	return corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("100m"),
+			corev1.ResourceMemory: resource.MustParse("2Gi"),
 		},
 	}
 }

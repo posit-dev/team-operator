@@ -560,18 +560,7 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 								}(),
 								secretVolumeFactory.VolumeMounts(),
 							),
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:              resource.MustParse("100m"),
-									corev1.ResourceMemory:           resource.MustParse("2Gi"),
-									corev1.ResourceEphemeralStorage: resource.MustParse("500Mi"),
-								},
-								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:              resource.MustParse("2000m"),
-									corev1.ResourceMemory:           resource.MustParse("4Gi"),
-									corev1.ResourceEphemeralStorage: resource.MustParse("2Gi"),
-								},
-							},
+							Resources: packageManagerResources(pm),
 							ReadinessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
@@ -743,4 +732,24 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// packageManagerResources returns the server container's resource requirements,
+// using the spec override when set, otherwise the product default.
+func packageManagerResources(pm *positcov1beta1.PackageManager) corev1.ResourceRequirements {
+	if pm.Spec.Resources != nil {
+		return *pm.Spec.Resources
+	}
+	return corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:              resource.MustParse("100m"),
+			corev1.ResourceMemory:           resource.MustParse("2Gi"),
+			corev1.ResourceEphemeralStorage: resource.MustParse("500Mi"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:              resource.MustParse("2000m"),
+			corev1.ResourceMemory:           resource.MustParse("4Gi"),
+			corev1.ResourceEphemeralStorage: resource.MustParse("2Gi"),
+		},
+	}
 }

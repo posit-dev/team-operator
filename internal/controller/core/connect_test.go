@@ -16,6 +16,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -568,6 +569,72 @@ func TestConnectReconciler_EnvVars(t *testing.T) {
 	container := deployment.Spec.Template.Spec.Containers[0]
 	assert.Contains(t, container.Env, plainEnv, "plain envVar should be rendered into the container Env")
 	assert.Contains(t, container.Env, secretEnv, "secretKeyRef envVar should be rendered into the container Env")
+}
+
+// TestConnectReconciler_DefaultResources verifies the server container gets the
+// default resource requests (and no limits) when Spec.Resources is unset.
+func TestConnectReconciler_DefaultResources(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "connect-default-resources"
+
+	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
+
+	c := defineDefaultConnect(t, ns, name)
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	require.NoError(t, err)
+
+	c = getConnect(t, cli, ns, name)
+
+	res, err := r.ReconcileConnect(ctx, req, c)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	deployment := getDeployment(t, cli, ns, c.ComponentName())
+	resources := deployment.Spec.Template.Spec.Containers[0].Resources
+
+	assert.Equal(t, resource.MustParse("100m"), resources.Requests[corev1.ResourceCPU])
+	assert.Equal(t, resource.MustParse("1Gi"), resources.Requests[corev1.ResourceMemory])
+	assert.Empty(t, resources.Limits, "default Connect resources should not set limits")
+}
+
+// TestConnectReconciler_ResourcesOverride verifies an explicit Spec.Resources
+// override replaces the defaults entirely.
+func TestConnectReconciler_ResourcesOverride(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "connect-resources-override"
+
+	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
+
+	override := corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("500m"),
+			corev1.ResourceMemory: resource.MustParse("4Gi"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("2"),
+			corev1.ResourceMemory: resource.MustParse("8Gi"),
+		},
+	}
+
+	c := defineDefaultConnect(t, ns, name)
+	c.Spec.Resources = &override
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	require.NoError(t, err)
+
+	c = getConnect(t, cli, ns, name)
+
+	res, err := r.ReconcileConnect(ctx, req, c)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	deployment := getDeployment(t, cli, ns, c.ComponentName())
+	resources := deployment.Spec.Template.Spec.Containers[0].Resources
+
+	assert.Equal(t, override, resources)
 }
 
 // TestConnectReconciler_Suspended verifies that when Connect has Suspended=true,

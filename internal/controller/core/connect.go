@@ -707,20 +707,7 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 								secretVolumeFactory.VolumeMounts(),
 								c.TokenVolumeMounts(),
 							),
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									// TODO: resources
-									//"cpu":               resource.Quantity{Format: "2000m"},
-									//"memory":            resource.Quantity{Format: "3Gi"},
-									//"ephemeral-storage": resource.Quantity{Format: "100Mi"},
-								},
-								Limits: corev1.ResourceList{
-									// TODO: resources
-									//"cpu":               resource.Quantity{Format: "6000m"},
-									//"memory":            resource.Quantity{Format: "8Gi"},
-									//"ephemeral-storage": resource.Quantity{Format: "200Mi"},
-								},
-							},
+							Resources: connectResources(c),
 							ReadinessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
@@ -961,4 +948,18 @@ func (r *ConnectReconciler) cleanupDeployedService(ctx context.Context, req ctrl
 	}
 
 	return nil
+}
+
+// connectResources returns the server container's resource requirements,
+// using the spec override when set, otherwise the product default.
+func connectResources(c *positcov1beta1.Connect) corev1.ResourceRequirements {
+	if c.Spec.Resources != nil {
+		return *c.Spec.Resources
+	}
+	return corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("100m"),
+			corev1.ResourceMemory: resource.MustParse("1Gi"),
+		},
+	}
 }

@@ -45,6 +45,7 @@ type ConnectSpecApplyConfiguration struct {
 	RegisterOnFirstLogin                 *bool                                       `json:"registerOnFirstLogin,omitempty"`
 	Debug                                *bool                                       `json:"debug,omitempty"`
 	Replicas                             *int                                        `json:"replicas,omitempty"`
+	Resources                            *v1.ResourceRequirements                    `json:"resources,omitempty"`
 	DsnSecret                            *string                                     `json:"dsnSecret,omitempty"`
 	ChronicleSidecarProductApiKeyEnabled *bool                                       `json:"chronicleSidecarProductApiKeyEnabled,omitempty"`
 }
@@ -337,6 +338,14 @@ func (b *ConnectSpecApplyConfiguration) WithDebug(value bool) *ConnectSpecApplyC
 // If called multiple times, the Replicas field is set to the value of the last call.
 func (b *ConnectSpecApplyConfiguration) WithReplicas(value int) *ConnectSpecApplyConfiguration {
 	b.Replicas = &value
+	return b
+}
+
+// WithResources sets the Resources field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Resources field is set to the value of the last call.
+func (b *ConnectSpecApplyConfiguration) WithResources(value v1.ResourceRequirements) *ConnectSpecApplyConfiguration {
+	b.Resources = &value
 	return b
 }
 

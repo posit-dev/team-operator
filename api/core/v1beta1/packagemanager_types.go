@@ -42,6 +42,10 @@ type PackageManagerSpec struct {
 
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
+	// Resources sets the server container's resource requests/limits.
+	// If unset, product defaults are applied. Setting this replaces the defaults entirely.
+	Resources *v1.ResourceRequirements `json:"resources,omitempty"`
+
 	// AddEnv adds arbitrary environment variables to the container env
 	//
 	// Deprecated: use envVars instead. If the same variable name is set in both

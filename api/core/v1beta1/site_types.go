@@ -213,6 +213,10 @@ type InternalPackageManagerSpec struct {
 
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
+	// Resources sets the server container's resource requests/limits.
+	// If unset, product defaults are applied. Setting this replaces the defaults entirely.
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+
 	// Deprecated: use envVars instead. If the same variable name is set in both
 	// addEnv and envVars, envVars takes precedence: it is rendered after addEnv,
 	// and Kubernetes resolves a duplicate env var name to the last occurrence.
@@ -279,6 +283,10 @@ type InternalConnectSpec struct {
 	Volume *product.VolumeSpec `json:"volume,omitempty"`
 
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// Resources sets the server container's resource requests/limits.
+	// If unset, product defaults are applied. Setting this replaces the defaults entirely.
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 
 	Auth AuthSpec `json:"auth,omitempty"`
 
@@ -405,6 +413,10 @@ type InternalWorkbenchSpec struct {
 
 	// NodeSelector that is applied universally to server and sessions
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// Resources sets the server container's resource requests/limits.
+	// If unset, product defaults are applied. Setting this replaces the defaults entirely.
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 
 	// Tolerations that are applied universally to server and sessions
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
