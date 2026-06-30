@@ -63,7 +63,10 @@ func (r *SiteReconciler) reconcileWorkbench(
 	}
 
 	threadPoolSize := 16
-	proxyMaxWaitSecs := 30
+	// The Workbench team suggested launcher-sessions-proxy-timeout-seconds=2 is a better
+	// default for Kubernetes environments. Set as the managed default; a Site can still
+	// override it via Workbench.ExperimentalFeatures.LauncherSessionsProxyTimeoutSeconds.
+	proxyMaxWaitSecs := 2
 	vsCodeArgs := "--host=0.0.0.0"
 	resourceProfiles := defaultWorkbenchResourceProfiles()
 	if site.Spec.Workbench.ExperimentalFeatures != nil {

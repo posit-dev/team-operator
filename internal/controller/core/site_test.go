@@ -204,6 +204,37 @@ func TestSiteReconciler_ReadinessProbePath(t *testing.T) {
 	})
 }
 
+func TestSiteReconciler_LauncherSessionsProxyTimeout(t *testing.T) {
+	t.Run("default_is_two", func(t *testing.T) {
+		siteName := "proxy-timeout-default"
+		siteNamespace := "posit-team"
+		site := defaultSite(siteName)
+
+		cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+		assert.Nil(t, err)
+
+		testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+		require.NotNil(t, testWorkbench.Spec.Config.RServer)
+		assert.Equal(t, 2, testWorkbench.Spec.Config.RServer.LauncherSessionsProxyTimeoutSeconds)
+	})
+
+	t.Run("override_propagates", func(t *testing.T) {
+		siteName := "proxy-timeout-override"
+		siteNamespace := "posit-team"
+		site := defaultSite(siteName)
+		site.Spec.Workbench.ExperimentalFeatures = &v1beta1.InternalWorkbenchExperimentalFeatures{
+			LauncherSessionsProxyTimeoutSeconds: ptr.To(45),
+		}
+
+		cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+		assert.Nil(t, err)
+
+		testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+		require.NotNil(t, testWorkbench.Spec.Config.RServer)
+		assert.Equal(t, 45, testWorkbench.Spec.Config.RServer.LauncherSessionsProxyTimeoutSeconds)
+	})
+}
+
 func TestSiteReconciler_SessionEnvVars(t *testing.T) {
 	siteName := "session-env-vars"
 	siteNamespace := "posit-team"
