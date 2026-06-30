@@ -1,3 +1,10 @@
+# [1.28.0](https://github.com/posit-dev/team-operator/compare/v1.27.1...v1.28.0) (2026-06-30)
+
+
+### Features
+
+* **workbench:** default launcher-sessions-proxy-timeout-seconds to 2 ([#145](https://github.com/posit-dev/team-operator/issues/145)) ([ea42ac2](https://github.com/posit-dev/team-operator/commit/ea42ac222c7fa11fb97652e260154108d8b64c3e))
+
 ## [1.27.1](https://github.com/posit-dev/team-operator/compare/v1.27.0...v1.27.1) (2026-06-26)
 
 
