@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	utilptr "k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	secretstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
@@ -217,6 +218,17 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 }
 
 var defaultWorkbenchVolumeSize = resource.MustParse("2Gi")
+
+// workbenchDefaultResources is the fallback resource requirements for the
+// Workbench server container when the spec does not override them. This
+// deliberately sets requests only, no limits (unlike PackageManager/Flightdeck
+// which set limits).
+var workbenchDefaultResources = corev1.ResourceRequirements{
+	Requests: corev1.ResourceList{
+		corev1.ResourceCPU:    resource.MustParse("100m"),
+		corev1.ResourceMemory: resource.MustParse("2Gi"),
+	},
+}
 
 func (r *WorkbenchReconciler) CspMiddleware(w *positcov1beta1.Workbench) string {
 	return fmt.Sprintf("%s-csp", w.ComponentName())
@@ -916,7 +928,7 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 									r.buildLoadBalancerVolumeMounts(w),
 									r.buildSCIMTokenVolumeMounts(w, scimTokenSecretName),
 								),
-								Resources: workbenchResources(w),
+								Resources: utilptr.Deref(w.Spec.Resources, workbenchDefaultResources),
 								ReadinessProbe: &corev1.Probe{
 									ProbeHandler: corev1.ProbeHandler{
 										HTTPGet: &corev1.HTTPGetAction{
@@ -1455,20 +1467,6 @@ func (r *WorkbenchReconciler) buildSCIMTokenVolumeMounts(w *positcov1beta1.Workb
 			MountPath: "/etc/rstudio/scim-token",
 			SubPath:   "scim-token",
 			ReadOnly:  true,
-		},
-	}
-}
-
-// workbenchResources returns the server container's resource requirements,
-// using the spec override when set, otherwise the product default.
-func workbenchResources(w *positcov1beta1.Workbench) corev1.ResourceRequirements {
-	if w.Spec.Resources != nil {
-		return *w.Spec.Resources
-	}
-	return corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("100m"),
-			corev1.ResourceMemory: resource.MustParse("2Gi"),
 		},
 	}
 }

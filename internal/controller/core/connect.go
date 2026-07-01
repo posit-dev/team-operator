@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	utilptr "k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
@@ -181,6 +182,16 @@ func (r *ConnectReconciler) deployTraefikMiddlewares(ctx context.Context, req ct
 }
 
 var defaultConnectVolumeSize = resource.MustParse("2Gi")
+
+// connectDefaultResources is the fallback resource requirements for the Connect
+// server container when the spec does not override them. This deliberately sets
+// requests only, no limits (unlike PackageManager/Flightdeck which set limits).
+var connectDefaultResources = corev1.ResourceRequirements{
+	Requests: corev1.ResourceList{
+		corev1.ResourceCPU:    resource.MustParse("100m"),
+		corev1.ResourceMemory: resource.MustParse("1Gi"),
+	},
+}
 
 const connectConfigShaKey = "connect.posit.team/configmap-sha"
 const connectTemplateShaKey = "connect.posit.team/template-sha"
@@ -707,7 +718,7 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 								secretVolumeFactory.VolumeMounts(),
 								c.TokenVolumeMounts(),
 							),
-							Resources: connectResources(c),
+							Resources: utilptr.Deref(c.Spec.Resources, connectDefaultResources),
 							ReadinessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
@@ -948,18 +959,4 @@ func (r *ConnectReconciler) cleanupDeployedService(ctx context.Context, req ctrl
 	}
 
 	return nil
-}
-
-// connectResources returns the server container's resource requirements,
-// using the spec override when set, otherwise the product default.
-func connectResources(c *positcov1beta1.Connect) corev1.ResourceRequirements {
-	if c.Spec.Resources != nil {
-		return *c.Spec.Resources
-	}
-	return corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("100m"),
-			corev1.ResourceMemory: resource.MustParse("1Gi"),
-		},
-	}
 }

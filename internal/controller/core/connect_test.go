@@ -571,6 +571,16 @@ func TestConnectReconciler_EnvVars(t *testing.T) {
 	assert.Contains(t, container.Env, secretEnv, "secretKeyRef envVar should be rendered into the container Env")
 }
 
+// resourceNames returns the keys of a ResourceList, for asserting that a
+// resource map contains exactly the expected entries.
+func resourceNames(rl corev1.ResourceList) []corev1.ResourceName {
+	names := make([]corev1.ResourceName, 0, len(rl))
+	for name := range rl {
+		names = append(names, name)
+	}
+	return names
+}
+
 // TestConnectReconciler_DefaultResources verifies the server container gets the
 // default resource requests (and no limits) when Spec.Resources is unset.
 func TestConnectReconciler_DefaultResources(t *testing.T) {
@@ -634,7 +644,23 @@ func TestConnectReconciler_ResourcesOverride(t *testing.T) {
 	deployment := getDeployment(t, cli, ns, c.ComponentName())
 	resources := deployment.Spec.Template.Spec.Containers[0].Resources
 
-	assert.Equal(t, override, resources)
+	// Compare by value (Cmp) since the API round-trip canonicalizes quantity
+	// strings (e.g. "2000m" -> "2"), which would break assert.Equal on the raw
+	// struct if a non-canonical override literal were used.
+	assertQuantityEqual := func(want string, got resource.Quantity) {
+		w := resource.MustParse(want)
+		assert.Zerof(t, w.Cmp(got), "expected %s, got %s", want, got.String())
+	}
+
+	// The override fully replaces the defaults: requests match the override and
+	// limits are set (Connect's default has no limits).
+	assert.ElementsMatch(t, []corev1.ResourceName{corev1.ResourceCPU, corev1.ResourceMemory}, resourceNames(resources.Requests))
+	assertQuantityEqual("500m", resources.Requests[corev1.ResourceCPU])
+	assertQuantityEqual("4Gi", resources.Requests[corev1.ResourceMemory])
+
+	assert.ElementsMatch(t, []corev1.ResourceName{corev1.ResourceCPU, corev1.ResourceMemory}, resourceNames(resources.Limits))
+	assertQuantityEqual("2", resources.Limits[corev1.ResourceCPU])
+	assertQuantityEqual("8Gi", resources.Limits[corev1.ResourceMemory])
 }
 
 // TestConnectReconciler_Suspended verifies that when Connect has Suspended=true,
