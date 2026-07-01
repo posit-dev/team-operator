@@ -230,16 +230,14 @@ var defaultPmVolumeSize = resource.MustParse("2Gi")
 
 // packageManagerDefaultResources is the fallback resource requirements for the
 // Package Manager server container when the spec does not override them.
+// Default requests sourced from the published Posit Helm chart `rstudio-pm`
+// (docs.posit.co/helm). Requests only, no limits — in parity with
+// Connect/Workbench (the chart also ships limits disabled by default).
 var packageManagerDefaultResources = corev1.ResourceRequirements{
 	Requests: corev1.ResourceList{
 		corev1.ResourceCPU:              resource.MustParse("100m"),
 		corev1.ResourceMemory:           resource.MustParse("2Gi"),
 		corev1.ResourceEphemeralStorage: resource.MustParse("500Mi"),
-	},
-	Limits: corev1.ResourceList{
-		corev1.ResourceCPU:              resource.MustParse("2000m"),
-		corev1.ResourceMemory:           resource.MustParse("4Gi"),
-		corev1.ResourceEphemeralStorage: resource.MustParse("2Gi"),
 	},
 }
 

@@ -148,7 +148,7 @@ func TestPackageManagerReconciler_DeploymentHasProbes(t *testing.T) {
 }
 
 // TestPackageManagerReconciler_DefaultResources verifies the server container gets
-// the full default resource requests/limits when Spec.Resources is unset.
+// the default resource requests (and no limits) when Spec.Resources is unset.
 func TestPackageManagerReconciler_DefaultResources(t *testing.T) {
 	ctx := context.Background()
 	ns := "posit-team"
@@ -194,19 +194,10 @@ func TestPackageManagerReconciler_DefaultResources(t *testing.T) {
 
 	resources := dep.Spec.Template.Spec.Containers[0].Resources
 
-	// Compare by value (Cmp) since the API round-trip canonicalizes quantity strings
-	// (e.g. "2000m" -> "2").
-	assertQuantityEqual := func(want string, got resource.Quantity) {
-		w := resource.MustParse(want)
-		assert.Zerof(t, w.Cmp(got), "expected %s, got %s", want, got.String())
-	}
-
-	assertQuantityEqual("100m", resources.Requests[corev1.ResourceCPU])
-	assertQuantityEqual("2Gi", resources.Requests[corev1.ResourceMemory])
-	assertQuantityEqual("500Mi", resources.Requests[corev1.ResourceEphemeralStorage])
-	assertQuantityEqual("2000m", resources.Limits[corev1.ResourceCPU])
-	assertQuantityEqual("4Gi", resources.Limits[corev1.ResourceMemory])
-	assertQuantityEqual("2Gi", resources.Limits[corev1.ResourceEphemeralStorage])
+	assertQuantityEqual(t, "100m", resources.Requests[corev1.ResourceCPU])
+	assertQuantityEqual(t, "2Gi", resources.Requests[corev1.ResourceMemory])
+	assertQuantityEqual(t, "500Mi", resources.Requests[corev1.ResourceEphemeralStorage])
+	assert.Empty(t, resources.Limits, "default Package Manager resources should not set limits")
 }
 
 // TestPackageManagerReconciler_ResourcesOverride verifies an explicit Spec.Resources
@@ -268,7 +259,15 @@ func TestPackageManagerReconciler_ResourcesOverride(t *testing.T) {
 
 	resources := dep.Spec.Template.Spec.Containers[0].Resources
 
-	assert.Equal(t, override, resources)
+	// The override fully replaces the defaults: requests match the override and
+	// limits are set (Package Manager's default has no limits).
+	assert.ElementsMatch(t, []corev1.ResourceName{corev1.ResourceCPU, corev1.ResourceMemory}, resourceNames(resources.Requests))
+	assertQuantityEqual(t, "500m", resources.Requests[corev1.ResourceCPU])
+	assertQuantityEqual(t, "4Gi", resources.Requests[corev1.ResourceMemory])
+
+	assert.ElementsMatch(t, []corev1.ResourceName{corev1.ResourceCPU, corev1.ResourceMemory}, resourceNames(resources.Limits))
+	assertQuantityEqual(t, "4", resources.Limits[corev1.ResourceCPU])
+	assertQuantityEqual(t, "16Gi", resources.Limits[corev1.ResourceMemory])
 }
 
 // TestPackageManagerReconciler_EnvVars verifies that the envVars field, including a

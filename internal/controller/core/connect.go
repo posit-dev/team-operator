@@ -184,8 +184,10 @@ func (r *ConnectReconciler) deployTraefikMiddlewares(ctx context.Context, req ct
 var defaultConnectVolumeSize = resource.MustParse("2Gi")
 
 // connectDefaultResources is the fallback resource requirements for the Connect
-// server container when the spec does not override them. This deliberately sets
-// requests only, no limits (unlike PackageManager/Flightdeck which set limits).
+// server container when the spec does not override them.
+// Default requests sourced from the published Posit Helm chart `rstudio-connect`
+// (docs.posit.co/helm). Requests only, no limits — deliberate; differs from
+// Flightdeck, which sets limits.
 var connectDefaultResources = corev1.ResourceRequirements{
 	Requests: corev1.ResourceList{
 		corev1.ResourceCPU:    resource.MustParse("100m"),

@@ -220,9 +220,10 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 var defaultWorkbenchVolumeSize = resource.MustParse("2Gi")
 
 // workbenchDefaultResources is the fallback resource requirements for the
-// Workbench server container when the spec does not override them. This
-// deliberately sets requests only, no limits (unlike PackageManager/Flightdeck
-// which set limits).
+// Workbench server container when the spec does not override them.
+// Default requests sourced from the published Posit Helm chart `rstudio-workbench`
+// (docs.posit.co/helm). Requests only, no limits — deliberate; differs from
+// Flightdeck, which sets limits.
 var workbenchDefaultResources = corev1.ResourceRequirements{
 	Requests: corev1.ResourceList{
 		corev1.ResourceCPU:    resource.MustParse("100m"),
