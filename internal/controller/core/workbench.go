@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	utilptr "k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	secretstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
@@ -217,6 +218,18 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 }
 
 var defaultWorkbenchVolumeSize = resource.MustParse("2Gi")
+
+// workbenchDefaultResources is the fallback resource requirements for the
+// Workbench server container when the spec does not override them.
+// Default requests sourced from the published Posit Helm chart `rstudio-workbench`
+// (docs.posit.co/helm). Requests only, no limits — deliberate; differs from
+// Flightdeck, which sets limits.
+var workbenchDefaultResources = corev1.ResourceRequirements{
+	Requests: corev1.ResourceList{
+		corev1.ResourceCPU:    resource.MustParse("100m"),
+		corev1.ResourceMemory: resource.MustParse("2Gi"),
+	},
+}
 
 func (r *WorkbenchReconciler) CspMiddleware(w *positcov1beta1.Workbench) string {
 	return fmt.Sprintf("%s-csp", w.ComponentName())
@@ -916,19 +929,7 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 									r.buildLoadBalancerVolumeMounts(w),
 									r.buildSCIMTokenVolumeMounts(w, scimTokenSecretName),
 								),
-								Resources: corev1.ResourceRequirements{
-									Requests: corev1.ResourceList{
-										// TODO: resources for Workbench
-										//"cpu":               resource.Quantity{Format: "2000m"},
-										//"memory":            resource.Quantity{Format: "3Gi"},
-										//"ephemeral-storage": resource.Quantity{Format: "100Mi"},
-									},
-									Limits: corev1.ResourceList{
-										//"cpu":               resource.Quantity{Format: "6000m"},
-										//"memory":            resource.Quantity{Format: "8Gi"},
-										//"ephemeral-storage": resource.Quantity{Format: "200Mi"},
-									},
-								},
+								Resources: utilptr.Deref(w.Spec.Resources, workbenchDefaultResources),
 								ReadinessProbe: &corev1.Probe{
 									ProbeHandler: corev1.ProbeHandler{
 										HTTPGet: &corev1.HTTPGetAction{

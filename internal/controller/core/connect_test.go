@@ -16,6 +16,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -568,6 +569,99 @@ func TestConnectReconciler_EnvVars(t *testing.T) {
 	container := deployment.Spec.Template.Spec.Containers[0]
 	assert.Contains(t, container.Env, plainEnv, "plain envVar should be rendered into the container Env")
 	assert.Contains(t, container.Env, secretEnv, "secretKeyRef envVar should be rendered into the container Env")
+}
+
+// resourceNames returns the keys of a ResourceList, for asserting that a
+// resource map contains exactly the expected entries.
+func resourceNames(rl corev1.ResourceList) []corev1.ResourceName {
+	names := make([]corev1.ResourceName, 0, len(rl))
+	for name := range rl {
+		names = append(names, name)
+	}
+	return names
+}
+
+// assertQuantityEqual compares a resource.Quantity by value (Cmp) rather than
+// by its string form, since the API round-trip canonicalizes quantity strings
+// (e.g. "2000m" -> "2"), which would break assert.Equal on the raw struct if a
+// non-canonical override literal were used.
+func assertQuantityEqual(t *testing.T, expected string, actual resource.Quantity) {
+	w := resource.MustParse(expected)
+	assert.Zerof(t, w.Cmp(actual), "expected %s, got %s", expected, actual.String())
+}
+
+// TestConnectReconciler_DefaultResources verifies the server container gets the
+// default resource requests (and no limits) when Spec.Resources is unset.
+func TestConnectReconciler_DefaultResources(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "connect-default-resources"
+
+	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
+
+	c := defineDefaultConnect(t, ns, name)
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	require.NoError(t, err)
+
+	c = getConnect(t, cli, ns, name)
+
+	res, err := r.ReconcileConnect(ctx, req, c)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	deployment := getDeployment(t, cli, ns, c.ComponentName())
+	resources := deployment.Spec.Template.Spec.Containers[0].Resources
+
+	assert.Equal(t, resource.MustParse("100m"), resources.Requests[corev1.ResourceCPU])
+	assert.Equal(t, resource.MustParse("1Gi"), resources.Requests[corev1.ResourceMemory])
+	assert.Empty(t, resources.Limits, "default Connect resources should not set limits")
+}
+
+// TestConnectReconciler_ResourcesOverride verifies an explicit Spec.Resources
+// override replaces the defaults entirely.
+func TestConnectReconciler_ResourcesOverride(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "connect-resources-override"
+
+	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
+
+	override := corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("500m"),
+			corev1.ResourceMemory: resource.MustParse("4Gi"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("2"),
+			corev1.ResourceMemory: resource.MustParse("8Gi"),
+		},
+	}
+
+	c := defineDefaultConnect(t, ns, name)
+	c.Spec.Resources = &override
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	require.NoError(t, err)
+
+	c = getConnect(t, cli, ns, name)
+
+	res, err := r.ReconcileConnect(ctx, req, c)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	deployment := getDeployment(t, cli, ns, c.ComponentName())
+	resources := deployment.Spec.Template.Spec.Containers[0].Resources
+
+	// The override fully replaces the defaults: requests match the override and
+	// limits are set (Connect's default has no limits).
+	assert.ElementsMatch(t, []corev1.ResourceName{corev1.ResourceCPU, corev1.ResourceMemory}, resourceNames(resources.Requests))
+	assertQuantityEqual(t, "500m", resources.Requests[corev1.ResourceCPU])
+	assertQuantityEqual(t, "4Gi", resources.Requests[corev1.ResourceMemory])
+
+	assert.ElementsMatch(t, []corev1.ResourceName{corev1.ResourceCPU, corev1.ResourceMemory}, resourceNames(resources.Limits))
+	assertQuantityEqual(t, "2", resources.Limits[corev1.ResourceCPU])
+	assertQuantityEqual(t, "8Gi", resources.Limits[corev1.ResourceMemory])
 }
 
 // TestConnectReconciler_Suspended verifies that when Connect has Suspended=true,

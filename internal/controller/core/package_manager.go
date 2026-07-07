@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	utilptr "k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	secretstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
@@ -226,6 +227,19 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 }
 
 var defaultPmVolumeSize = resource.MustParse("2Gi")
+
+// packageManagerDefaultResources is the fallback resource requirements for the
+// Package Manager server container when the spec does not override them.
+// Default requests sourced from the published Posit Helm chart `rstudio-pm`
+// (docs.posit.co/helm). Requests only, no limits — in parity with
+// Connect/Workbench (the chart also ships limits disabled by default).
+var packageManagerDefaultResources = corev1.ResourceRequirements{
+	Requests: corev1.ResourceList{
+		corev1.ResourceCPU:              resource.MustParse("100m"),
+		corev1.ResourceMemory:           resource.MustParse("2Gi"),
+		corev1.ResourceEphemeralStorage: resource.MustParse("500Mi"),
+	},
+}
 
 // createAzureFilesStoragePVC creates a PVC that uses the Azure Files CSI StorageClass
 func (r *PackageManagerReconciler) createAzureFilesStoragePVC(ctx context.Context, pm *positcov1beta1.PackageManager) error {
@@ -560,18 +574,7 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 								}(),
 								secretVolumeFactory.VolumeMounts(),
 							),
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:              resource.MustParse("100m"),
-									corev1.ResourceMemory:           resource.MustParse("2Gi"),
-									corev1.ResourceEphemeralStorage: resource.MustParse("500Mi"),
-								},
-								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:              resource.MustParse("2000m"),
-									corev1.ResourceMemory:           resource.MustParse("4Gi"),
-									corev1.ResourceEphemeralStorage: resource.MustParse("2Gi"),
-								},
-							},
+							Resources: utilptr.Deref(pm.Spec.Resources, packageManagerDefaultResources),
 							ReadinessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{

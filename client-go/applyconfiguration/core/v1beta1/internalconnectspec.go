@@ -18,6 +18,7 @@ type InternalConnectSpecApplyConfiguration struct {
 	License                 *product.LicenseSpec                                   `json:"license,omitempty"`
 	Volume                  *product.VolumeSpec                                    `json:"volume,omitempty"`
 	NodeSelector            map[string]string                                      `json:"nodeSelector,omitempty"`
+	Resources               *v1.ResourceRequirements                               `json:"resources,omitempty"`
 	Auth                    *AuthSpecApplyConfiguration                            `json:"auth,omitempty"`
 	RegisterOnFirstLogin    *bool                                                  `json:"registerOnFirstLogin,omitempty"`
 	AddEnv                  map[string]string                                      `json:"addEnv,omitempty"`
@@ -88,6 +89,14 @@ func (b *InternalConnectSpecApplyConfiguration) WithNodeSelector(entries map[str
 	for k, v := range entries {
 		b.NodeSelector[k] = v
 	}
+	return b
+}
+
+// WithResources sets the Resources field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Resources field is set to the value of the last call.
+func (b *InternalConnectSpecApplyConfiguration) WithResources(value v1.ResourceRequirements) *InternalConnectSpecApplyConfiguration {
+	b.Resources = &value
 	return b
 }
 

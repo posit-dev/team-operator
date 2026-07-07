@@ -18,6 +18,7 @@ type InternalPackageManagerSpecApplyConfiguration struct {
 	License             *product.LicenseSpec                `json:"license,omitempty"`
 	Volume              *product.VolumeSpec                 `json:"volume,omitempty"`
 	NodeSelector        map[string]string                   `json:"nodeSelector,omitempty"`
+	Resources           *v1.ResourceRequirements            `json:"resources,omitempty"`
 	AddEnv              map[string]string                   `json:"addEnv,omitempty"`
 	EnvVars             []v1.EnvVar                         `json:"envVars,omitempty"`
 	Image               *string                             `json:"image,omitempty"`
@@ -82,6 +83,14 @@ func (b *InternalPackageManagerSpecApplyConfiguration) WithNodeSelector(entries 
 	for k, v := range entries {
 		b.NodeSelector[k] = v
 	}
+	return b
+}
+
+// WithResources sets the Resources field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Resources field is set to the value of the last call.
+func (b *InternalPackageManagerSpecApplyConfiguration) WithResources(value v1.ResourceRequirements) *InternalPackageManagerSpecApplyConfiguration {
+	b.Resources = &value
 	return b
 }
 

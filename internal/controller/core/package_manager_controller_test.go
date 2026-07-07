@@ -18,6 +18,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -144,6 +145,129 @@ func TestPackageManagerReconciler_DeploymentHasProbes(t *testing.T) {
 	assert.Equal(t, "/__ping__", container.LivenessProbe.HTTPGet.Path)
 	assert.Equal(t, httpPort, container.LivenessProbe.HTTPGet.Port)
 	assert.Equal(t, int32(10), container.LivenessProbe.InitialDelaySeconds)
+}
+
+// TestPackageManagerReconciler_DefaultResources verifies the server container gets
+// the default resource requests (and no limits) when Spec.Resources is unset.
+func TestPackageManagerReconciler_DefaultResources(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "pm-default-resources"
+
+	fakeEnv := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeEnv.Start(loadSchemes)
+
+	r := &PackageManagerReconciler{
+		Client: cli,
+		Scheme: scheme,
+		Log:    log,
+	}
+
+	ctx = logr.NewContext(ctx, log)
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: ns, Name: name},
+	}
+
+	pm := &positcov1beta1.PackageManager{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageManager",
+			APIVersion: "core.posit.team/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name, UID: "pm-default-resources-uid"},
+		Spec: positcov1beta1.PackageManagerSpec{
+			Image: "ghcr.io/rstudio/rstudio-pm:test",
+			Secret: positcov1beta1.SecretConfig{
+				Type: product.SiteSecretKubernetes,
+			},
+			Config: &positcov1beta1.PackageManagerConfig{},
+		},
+	}
+
+	require.NoError(t, cli.Create(ctx, pm))
+
+	_, err := r.ensureDeployedService(ctx, req, pm)
+	require.NoError(t, err)
+
+	dep := &appsv1.Deployment{}
+	err = cli.Get(ctx, client.ObjectKey{Name: pm.ComponentName(), Namespace: ns}, dep)
+	require.NoError(t, err)
+
+	resources := dep.Spec.Template.Spec.Containers[0].Resources
+
+	assertQuantityEqual(t, "100m", resources.Requests[corev1.ResourceCPU])
+	assertQuantityEqual(t, "2Gi", resources.Requests[corev1.ResourceMemory])
+	assertQuantityEqual(t, "500Mi", resources.Requests[corev1.ResourceEphemeralStorage])
+	assert.Empty(t, resources.Limits, "default Package Manager resources should not set limits")
+}
+
+// TestPackageManagerReconciler_ResourcesOverride verifies an explicit Spec.Resources
+// override replaces the defaults entirely.
+func TestPackageManagerReconciler_ResourcesOverride(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "pm-resources-override"
+
+	fakeEnv := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeEnv.Start(loadSchemes)
+
+	r := &PackageManagerReconciler{
+		Client: cli,
+		Scheme: scheme,
+		Log:    log,
+	}
+
+	ctx = logr.NewContext(ctx, log)
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: ns, Name: name},
+	}
+
+	override := corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("500m"),
+			corev1.ResourceMemory: resource.MustParse("4Gi"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("4"),
+			corev1.ResourceMemory: resource.MustParse("16Gi"),
+		},
+	}
+
+	pm := &positcov1beta1.PackageManager{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageManager",
+			APIVersion: "core.posit.team/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name, UID: "pm-resources-override-uid"},
+		Spec: positcov1beta1.PackageManagerSpec{
+			Image: "ghcr.io/rstudio/rstudio-pm:test",
+			Secret: positcov1beta1.SecretConfig{
+				Type: product.SiteSecretKubernetes,
+			},
+			Config:    &positcov1beta1.PackageManagerConfig{},
+			Resources: &override,
+		},
+	}
+
+	require.NoError(t, cli.Create(ctx, pm))
+
+	_, err := r.ensureDeployedService(ctx, req, pm)
+	require.NoError(t, err)
+
+	dep := &appsv1.Deployment{}
+	err = cli.Get(ctx, client.ObjectKey{Name: pm.ComponentName(), Namespace: ns}, dep)
+	require.NoError(t, err)
+
+	resources := dep.Spec.Template.Spec.Containers[0].Resources
+
+	// The override fully replaces the defaults: requests match the override and
+	// limits are set (Package Manager's default has no limits).
+	assert.ElementsMatch(t, []corev1.ResourceName{corev1.ResourceCPU, corev1.ResourceMemory}, resourceNames(resources.Requests))
+	assertQuantityEqual(t, "500m", resources.Requests[corev1.ResourceCPU])
+	assertQuantityEqual(t, "4Gi", resources.Requests[corev1.ResourceMemory])
+
+	assert.ElementsMatch(t, []corev1.ResourceName{corev1.ResourceCPU, corev1.ResourceMemory}, resourceNames(resources.Limits))
+	assertQuantityEqual(t, "4", resources.Limits[corev1.ResourceCPU])
+	assertQuantityEqual(t, "16Gi", resources.Limits[corev1.ResourceMemory])
 }
 
 // TestPackageManagerReconciler_EnvVars verifies that the envVars field, including a

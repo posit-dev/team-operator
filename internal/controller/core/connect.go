@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	utilptr "k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
@@ -181,6 +182,18 @@ func (r *ConnectReconciler) deployTraefikMiddlewares(ctx context.Context, req ct
 }
 
 var defaultConnectVolumeSize = resource.MustParse("2Gi")
+
+// connectDefaultResources is the fallback resource requirements for the Connect
+// server container when the spec does not override them.
+// Default requests sourced from the published Posit Helm chart `rstudio-connect`
+// (docs.posit.co/helm). Requests only, no limits — deliberate; differs from
+// Flightdeck, which sets limits.
+var connectDefaultResources = corev1.ResourceRequirements{
+	Requests: corev1.ResourceList{
+		corev1.ResourceCPU:    resource.MustParse("100m"),
+		corev1.ResourceMemory: resource.MustParse("1Gi"),
+	},
+}
 
 const connectConfigShaKey = "connect.posit.team/configmap-sha"
 const connectTemplateShaKey = "connect.posit.team/template-sha"
@@ -707,20 +720,7 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 								secretVolumeFactory.VolumeMounts(),
 								c.TokenVolumeMounts(),
 							),
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									// TODO: resources
-									//"cpu":               resource.Quantity{Format: "2000m"},
-									//"memory":            resource.Quantity{Format: "3Gi"},
-									//"ephemeral-storage": resource.Quantity{Format: "100Mi"},
-								},
-								Limits: corev1.ResourceList{
-									// TODO: resources
-									//"cpu":               resource.Quantity{Format: "6000m"},
-									//"memory":            resource.Quantity{Format: "8Gi"},
-									//"ephemeral-storage": resource.Quantity{Format: "200Mi"},
-								},
-							},
+							Resources: utilptr.Deref(c.Spec.Resources, connectDefaultResources),
 							ReadinessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{

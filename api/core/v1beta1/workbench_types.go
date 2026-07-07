@@ -58,6 +58,10 @@ type WorkbenchSpec struct {
 
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
+	// Resources sets the server container's resource requests/limits.
+	// If unset, product defaults are applied. Setting this replaces the defaults entirely.
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 
 	// AddEnv adds arbitrary environment variables to the container env

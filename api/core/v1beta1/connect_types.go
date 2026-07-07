@@ -148,6 +148,10 @@ type ConnectSpec struct {
 
 	Replicas int `json:"replicas,omitempty"`
 
+	// Resources sets the server container's resource requests/limits.
+	// If unset, product defaults are applied. Setting this replaces the defaults entirely.
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+
 	// DsnSecret is the name of the secret that contains the DSN to include with all Connect sessions
 	DsnSecret string `json:"dsnSecret,omitempty"`
 
