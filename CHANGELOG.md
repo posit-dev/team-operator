@@ -1,3 +1,10 @@
+# [1.29.0](https://github.com/posit-dev/team-operator/compare/v1.28.0...v1.29.0) (2026-07-07)
+
+
+### Features
+
+* add configurable resource requests/limits for Connect, Workbench, and Package Manager ([#146](https://github.com/posit-dev/team-operator/issues/146)) ([ab7287f](https://github.com/posit-dev/team-operator/commit/ab7287fc6d92aff5ecff4222a8a4629b795407f4))
+
 # [1.28.0](https://github.com/posit-dev/team-operator/compare/v1.27.1...v1.28.0) (2026-06-30)
 
 
