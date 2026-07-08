@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
+	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	v1 "k8s.io/api/apps/v1"
@@ -30,8 +31,9 @@ import (
 // ChronicleReconciler reconciles a Chronicle object
 type ChronicleReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Log    logr.Logger
+	Scheme      *runtime.Scheme
+	Log         logr.Logger
+	Instruments observability.Instruments
 }
 
 //+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=chronicles,verbs=get;list;watch;create;update;patch;delete
@@ -80,12 +82,16 @@ func (r *ChronicleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	l.Info("Chronicle found; updating resources")
 
-	if res, err := r.ReconcileChronicle(ctx, req, &c); err != nil {
+	// Capture prior phase before any mutation so the metric reflects the real transition.
+	priorPhase := observability.PhaseFromConditions(c.Status.Conditions)
+
+	if res, err := r.ReconcileChronicle(ctx, req, &c, priorPhase); err != nil {
 		l.Error(err, "error reconciling product state")
+		r.Instruments.RecordStatusTransition(ctx, "chronicle", req.Namespace,
+			priorPhase, observability.PhaseError)
 		return res, err
 	}
-
-	// reconcile successful
+	// reconcile successful — success metric recorded inside ReconcileChronicle
 	return ctrl.Result{}, nil
 }
 
@@ -97,7 +103,7 @@ func (r *ChronicleReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.Request, c *positcov1beta1.Chronicle) (ctrl.Result, error) {
+func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.Request, c *positcov1beta1.Chronicle, priorPhase string) (ctrl.Result, error) {
 	l := r.GetLogger(ctx).WithValues(
 		"event", "reconcile-chronicle",
 		"product", "chronicle",
@@ -118,6 +124,8 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 			l.Error(patchErr, "Error patching suspended status")
 			return res, patchErr
 		}
+		r.Instruments.RecordStatusTransition(ctx, "chronicle", c.Namespace,
+			priorPhase, observability.PhaseSuspended)
 		return res, nil
 	}
 
@@ -161,6 +169,8 @@ func (r *ChronicleReconciler) ReconcileChronicle(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, err
 	}
 
+	r.Instruments.RecordStatusTransition(ctx, "chronicle", c.Namespace,
+		priorPhase, observability.PhaseReady)
 	return ctrl.Result{}, nil
 }
 

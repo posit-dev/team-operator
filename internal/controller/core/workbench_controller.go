@@ -18,13 +18,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
+	"github.com/posit-dev/team-operator/internal/observability"
 )
 
 // WorkbenchReconciler reconciles a Workbench object
 type WorkbenchReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Log    logr.Logger
+	Scheme      *runtime.Scheme
+	Log         logr.Logger
+	Instruments observability.Instruments
 }
 
 //+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=workbenches,verbs=get;list;watch;create;update;patch;delete
@@ -79,11 +81,16 @@ func (r *WorkbenchReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	l.Info("Workbench found; updating resources")
 
-	if res, err := r.ReconcileWorkbench(ctx, req, &w); err != nil {
+	// Capture prior phase before any mutation so the metric reflects the real transition.
+	priorPhase := observability.PhaseFromConditions(w.Status.Conditions)
+
+	if res, err := r.ReconcileWorkbench(ctx, req, &w, priorPhase); err != nil {
 		l.Error(err, "error reconciling product state")
+		r.Instruments.RecordStatusTransition(ctx, "workbench", req.Namespace,
+			priorPhase, observability.PhaseError)
 		return res, err
 	}
-	// reconcile successful
+	// reconcile successful — success metric recorded inside ReconcileWorkbench
 	return ctrl.Result{}, nil
 }
 

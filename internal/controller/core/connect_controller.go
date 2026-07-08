@@ -18,13 +18,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
+	"github.com/posit-dev/team-operator/internal/observability"
 )
 
 // ConnectReconciler reconciles a ImplConnect object
 type ConnectReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Log    logr.Logger
+	Scheme      *runtime.Scheme
+	Log         logr.Logger
+	Instruments observability.Instruments
 }
 
 //+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=connects,verbs=get;list;watch;create;update;patch;delete
@@ -77,11 +79,16 @@ func (r *ConnectReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	l.Info("Connect found; updating resources")
 
-	if res, err := r.ReconcileConnect(ctx, req, &c); err != nil {
+	// Capture prior phase before any mutation so the metric reflects the real transition.
+	priorPhase := observability.PhaseFromConditions(c.Status.Conditions)
+
+	if res, err := r.ReconcileConnect(ctx, req, &c, priorPhase); err != nil {
 		l.Error(err, "error reconciling product state")
+		r.Instruments.RecordStatusTransition(ctx, "connect", req.Namespace,
+			priorPhase, observability.PhaseError)
 		return res, err
 	}
-	// reconcile successful
+	// reconcile successful — success metric recorded inside ReconcileConnect
 	return ctrl.Result{}, nil
 }
 

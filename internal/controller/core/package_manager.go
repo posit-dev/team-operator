@@ -8,6 +8,7 @@ import (
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/posit-dev/team-operator/internal/db"
+	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	v1 "k8s.io/api/apps/v1"
@@ -97,7 +98,7 @@ func (r *PackageManagerReconciler) cleanupDeployedService(ctx context.Context, r
 
 const packageManagerConfigShaKey = "package-manager.posit.team/configmap-sha"
 
-func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, req ctrl.Request, pm *positcov1beta1.PackageManager) (ctrl.Result, error) {
+func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, req ctrl.Request, pm *positcov1beta1.PackageManager, priorPhase string) (ctrl.Result, error) {
 	l := r.GetLogger(ctx).WithValues(
 		"event", "reconcile-package-manager-service",
 		"product", "package-manager",
@@ -223,6 +224,8 @@ func (r *PackageManagerReconciler) ReconcilePackageManager(ctx context.Context, 
 		return ctrl.Result{}, err
 	}
 
+	r.Instruments.RecordStatusTransition(ctx, "packagemanager", req.Namespace,
+		priorPhase, observability.PhaseReady)
 	return ctrl.Result{}, nil
 }
 

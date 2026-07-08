@@ -247,10 +247,13 @@ func init() {
 }
 
 func (w *Workbench) OwnerReferencesForChildren() []metav1.OwnerReference {
+	// APIVersion/Kind are hardcoded because controller-runtime's client.Get
+	// strips TypeMeta from typed-object responses, leaving w.APIVersion and
+	// w.Kind empty in the reconcile path.
 	return []metav1.OwnerReference{
 		{
-			APIVersion: w.APIVersion,
-			Kind:       w.Kind,
+			APIVersion: GroupVersion.String(),
+			Kind:       "Workbench",
 			Name:       w.Name,
 			UID:        w.UID,
 		},

@@ -20,6 +20,10 @@ import (
 )
 
 var invalidCharacters = regexp.MustCompile("[^a-z0-9]") // do not glob, lest we lose uniqueness
+
+// ErrDBHostnameMissing is returned by EnsureDatabaseExists when the configured database URL has no host component.
+var ErrDBHostnameMissing = errors.New("database connection hostname not provided")
+
 func DbKey(req ctrl.Request, name string) client.ObjectKey {
 	return client.ObjectKey{
 		Name:      name,
@@ -81,9 +85,8 @@ func EnsureDatabaseExists(
 
 	fmt.Printf("Database URL: %s\n", u.String())
 	if u.Host == "" {
-		err := errors.New("database connection hostname not provided")
-		l.Error(err, "error creating database connection URL")
-		return err
+		l.Error(ErrDBHostnameMissing, "error creating database connection URL")
+		return ErrDBHostnameMissing
 	}
 
 	pgd := &v1beta1.PostgresDatabase{

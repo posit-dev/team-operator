@@ -116,3 +116,15 @@ networkPolicy:
 # under workbench.sessionLabels — see the team-operator docs for the schema.
 sessionGroupLabels:
   enable: false
+
+# [OBSERVABILITY]: OTel metrics configuration
+observability:
+  metrics:
+    # gRPC OTLP endpoint for metric push.
+    # Leave empty to disable OTLP push (falls back to OTEL_EXPORTER_OTLP_ENDPOINT env var if set).
+    # Example: "otel-collector.monitoring.svc.cluster.local:4317"
+    otlpEndpoint: ""
+    # Cadence for OTLP metric export and async gauge collection
+    metricsExportInterval: "30s"
+  # Optional k8s.cluster.name resource attribute value
+  clusterName: ""

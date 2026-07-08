@@ -16,6 +16,7 @@ import (
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/posit-dev/team-operator/internal/db"
+	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,8 +49,9 @@ var (
 // PostgresDatabaseReconciler reconciles a PostgresDatabase object
 type PostgresDatabaseReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log         logr.Logger
+	Scheme      *runtime.Scheme
+	Instruments observability.Instruments
 }
 
 func (r *PostgresDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -82,6 +84,9 @@ func (r *PostgresDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	l.Info("PostgresDatabase found; reconciling database")
 
+	// Capture prior phase before any mutation so the metric reflects the real transition.
+	priorPhase := observability.PhaseFromConditions(pgd.Status.Conditions)
+
 	// Save a copy for status patching
 	patchBase := client.MergeFrom(pgd.DeepCopy())
 
@@ -96,9 +101,13 @@ func (r *PostgresDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		msg := status.TruncateMessage(createErr.Error())
 		status.SetReady(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionFalse, status.ReasonReconcileError, msg)
 		status.SetProgressing(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionFalse, status.ReasonReconcileError, msg)
+		r.Instruments.RecordStatusTransition(ctx, "postgres-database", req.Namespace,
+			priorPhase, observability.PhaseError)
 	} else {
 		status.SetReady(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionTrue, status.ReasonDatabaseReady, "Database provisioned successfully")
 		status.SetProgressing(&pgd.Status.Conditions, pgd.Generation, metav1.ConditionFalse, status.ReasonReconcileComplete, "Reconciliation complete")
+		r.Instruments.RecordStatusTransition(ctx, "postgres-database", req.Namespace,
+			priorPhase, observability.PhaseDatabaseReady)
 	}
 
 	// Patch status regardless of createDatabase result
@@ -237,8 +246,12 @@ func (r *PostgresDatabaseReconciler) createDatabase(ctx context.Context, req ctr
 	mainDbUrl, specDbUrl, err := r.loadValidatedDatabaseURLs(ctx, pgd, req, pgd.Spec.Secret, pgd.Spec.SecretPasswordKey)
 	if err != nil {
 		l.Error(err, "failed to load validated database urls")
+		r.Instruments.RecordDependencyCheck(ctx, "postgres-database", req.Namespace,
+			observability.DependencyPostgres, observability.ResultError)
 		return ctrl.Result{}, err
 	}
+	r.Instruments.RecordDependencyCheck(ctx, "postgres-database", req.Namespace,
+		observability.DependencyPostgres, observability.ResultSuccess)
 
 	superuserDbUrl, _ := url.Parse(specDbUrl.String())
 	mainDbPassword, hasPassword := mainDbUrl.User.Password()

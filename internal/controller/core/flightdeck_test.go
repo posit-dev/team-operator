@@ -6,8 +6,11 @@ import (
 
 	"github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/localtest"
+	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -436,4 +439,49 @@ func TestResolveFlightdeckImage(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestFlightdeckReconciler_Metrics(t *testing.T) {
+	fdName := "metrics-flightdeck"
+	fdNamespace := "posit-team"
+	fd := defaultFlightdeck(fdName, fdNamespace)
+
+	fakeClient := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeClient.Start(loadSchemes)
+
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	defer mp.Shutdown(context.Background())
+
+	rec := FlightdeckReconciler{
+		Client:      cli,
+		Scheme:      scheme,
+		Log:         log,
+		Instruments: observability.NewInstruments(mp.Meter("test")),
+	}
+
+	err := cli.Create(context.TODO(), fd)
+	require.NoError(t, err)
+
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: fdNamespace,
+			Name:      fdName,
+		},
+	}
+
+	_, err = rec.Reconcile(context.TODO(), req)
+	require.NoError(t, err)
+
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(context.Background(), &rm))
+	found := false
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name == observability.MetricStatusTransitionTotal {
+				found = true
+			}
+		}
+	}
+	assert.True(t, found, "expected status transition to be recorded")
 }

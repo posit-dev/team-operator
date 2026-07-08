@@ -10,6 +10,7 @@ import (
 	"github.com/posit-dev/team-operator/api/templates"
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/posit-dev/team-operator/internal/db"
+	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	v1 "k8s.io/api/apps/v1"
@@ -33,7 +34,7 @@ import (
 //+kubebuilder:rbac:namespace=posit-team,groups=rbac.authorization.k8s.io,resources=roles,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:namespace=posit-team,groups=secrets-store.csi.x-k8s.io,resources=secretproviderclasses,verbs=get;list;watch;create;update;patch;delete
 
-func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Request, c *positcov1beta1.Connect) (ctrl.Result, error) {
+func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Request, c *positcov1beta1.Connect, priorPhase string) (ctrl.Result, error) {
 	l := r.GetLogger(ctx).WithValues(
 		"event", "reconcile-connect",
 		"product", "connect",
@@ -162,6 +163,8 @@ func (r *ConnectReconciler) ReconcileConnect(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
+	r.Instruments.RecordStatusTransition(ctx, "connect", req.Namespace,
+		priorPhase, observability.PhaseReady)
 	return ctrl.Result{}, nil
 }
 

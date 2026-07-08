@@ -13,7 +13,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy the go source
-COPY cmd/team-operator/main.go cmd/team-operator/main.go
+COPY cmd/team-operator/ cmd/team-operator/
 COPY api/ api/
 COPY internal/ ./internal/
 
@@ -29,7 +29,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} \
     -ldflags="-X 'github.com/posit-dev/team-operator/internal.VersionString=${VERSION}'"\
     -a \
     -o team-operator \
-    cmd/team-operator/main.go
+    ./cmd/team-operator/
 
 # Use distroless as minimal base image to package the team-operator binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details

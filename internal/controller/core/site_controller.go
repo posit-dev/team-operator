@@ -13,6 +13,7 @@ import (
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
+	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	corev1 "k8s.io/api/core/v1"
@@ -38,8 +39,9 @@ func checkBool(b *bool, defaultVal bool) bool {
 // SiteReconciler reconciles a Site object
 type SiteReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log         logr.Logger
+	Scheme      *runtime.Scheme
+	Instruments observability.Instruments
 }
 
 //+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=sites,verbs=get;list;watch;create;update;patch;delete
@@ -86,6 +88,9 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	l.Info("Site found; updating resources")
 
+	// Capture prior phase before any mutation so the metric reflects the real transition.
+	priorPhase := observability.PhaseFromConditions(s.Status.Conditions)
+
 	// Save a copy for status patching
 	patchBase := client.MergeFrom(s.DeepCopy())
 
@@ -98,18 +103,24 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	// Aggregate child component status
 	aggregateErr := r.aggregateChildStatus(ctx, req, s)
 
-	// Update status based on reconciliation result
+	// Update status based on reconciliation result. Capture the destination phase
+	// so the metric is emitted only after a successful status persist, and only
+	// when the phase actually changed.
+	var toPhase string
 	if reconcileErr != nil {
 		msg := status.TruncateMessage(reconcileErr.Error())
 		status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconcileError, msg)
+		toPhase = observability.PhaseError
 		status.SetProgressing(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconcileError, msg)
 	} else {
 		// Overall Ready is true only if all children are ready
 		allReady := s.Status.ConnectReady && s.Status.WorkbenchReady && s.Status.PackageManagerReady && s.Status.ChronicleReady && s.Status.FlightdeckReady
 		if allReady {
 			status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionTrue, status.ReasonAllComponentsReady, "All child components are ready")
+			toPhase = observability.PhaseComponentsReady
 		} else {
 			status.SetReady(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonComponentsNotReady, "One or more child components are not ready")
+			toPhase = observability.PhaseProgressing
 		}
 		status.SetProgressing(&s.Status.Conditions, s.Generation, metav1.ConditionFalse, status.ReasonReconcileComplete, "Reconciliation complete")
 	}
@@ -122,6 +133,10 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		}
 		return ctrl.Result{}, patchErr
 	}
+
+	// Only record on actual phase transitions and after the status was persisted,
+	// so the counter reflects real state changes, not steady-state reconciles.
+	r.Instruments.RecordStatusTransition(ctx, "site", req.Namespace, priorPhase, toPhase)
 
 	if reconcileErr != nil {
 		if aggregateErr != nil {

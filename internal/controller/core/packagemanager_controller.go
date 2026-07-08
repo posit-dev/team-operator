@@ -18,13 +18,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
+	"github.com/posit-dev/team-operator/internal/observability"
 )
 
 // PackageManagerReconciler reconciles a PackageManager object
 type PackageManagerReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Log    logr.Logger
+	Scheme      *runtime.Scheme
+	Log         logr.Logger
+	Instruments observability.Instruments
 }
 
 //+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=packagemanagers,verbs=get;list;watch;create;update;patch;delete
@@ -71,12 +73,16 @@ func (r *PackageManagerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	l.Info("PackageManager found; updating resources")
 
-	if res, err := r.ReconcilePackageManager(ctx, req, &pm); err != nil {
+	// Capture prior phase before any mutation so the metric reflects the real transition.
+	priorPhase := observability.PhaseFromConditions(pm.Status.Conditions)
+
+	if res, err := r.ReconcilePackageManager(ctx, req, &pm, priorPhase); err != nil {
 		l.Error(err, "error reconciling product state")
+		r.Instruments.RecordStatusTransition(ctx, "packagemanager", req.Namespace,
+			priorPhase, observability.PhaseError)
 		return res, err
 	}
-
-	// reconcile successful
+	// reconcile successful — success metric recorded inside ReconcilePackageManager
 	return ctrl.Result{}, nil
 }
 

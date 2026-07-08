@@ -15,6 +15,7 @@ import (
 	"github.com/posit-dev/team-operator/api/templates"
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/posit-dev/team-operator/internal/db"
+	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	"github.com/traefik/traefik/v3/pkg/config/dynamic"
@@ -90,7 +91,7 @@ func (r *WorkbenchReconciler) FetchAndSetClientSecretForAzureDatabricks(ctx cont
 	return nil
 }
 
-func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.Request, w *positcov1beta1.Workbench) (ctrl.Result, error) {
+func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.Request, w *positcov1beta1.Workbench, priorPhase string) (ctrl.Result, error) {
 	l := r.GetLogger(ctx).WithValues(
 		"event", "reconcile-workbench",
 		"product", "workbench",
@@ -214,6 +215,8 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, err
 	}
 
+	r.Instruments.RecordStatusTransition(ctx, "workbench", req.Namespace,
+		priorPhase, observability.PhaseReady)
 	return ctrl.Result{}, nil
 }
 

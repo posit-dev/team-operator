@@ -13,6 +13,7 @@ import (
 
 	"github.com/posit-dev/team-operator/api/keycloak/v2alpha1"
 	"github.com/posit-dev/team-operator/api/product"
+	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/traefik/traefik/v3/pkg/provider/kubernetes/crd/traefikio/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -111,6 +112,20 @@ func main() {
 			"configurable Workbench session pod field and writes one numbered label per "+
 			"match onto the pod. Per-site config lives in the Workbench CR's sessionLabels field.")
 
+	var (
+		obsMetricsOTLPEndpoint   string
+		obsMetricsExportInterval time.Duration
+		obsClusterName           string
+	)
+
+	flag.StringVar(&obsMetricsOTLPEndpoint, "observability-metrics-otlp-endpoint", "",
+		"gRPC OTLP endpoint for metric push (e.g. otel-collector:4317). "+
+			"Falls back to OTEL_EXPORTER_OTLP_METRICS_ENDPOINT then OTEL_EXPORTER_OTLP_ENDPOINT.")
+	flag.DurationVar(&obsMetricsExportInterval, "observability-metrics-export-interval", 30*time.Second,
+		"Cadence for OTLP metric export and async gauge collection")
+	flag.StringVar(&obsClusterName, "observability-cluster-name", "",
+		"Value for the k8s.cluster.name resource attribute")
+
 	opts := zap.Options{Development: true}
 
 	opts.BindFlags(flag.CommandLine)
@@ -123,6 +138,26 @@ func main() {
 	klog.SetLogger(zl)
 
 	zl.Info("team-operator version", "version", internal.VersionString)
+
+	instanceID := os.Getenv("POD_NAME")
+	if instanceID == "" {
+		setupLog.Info("POD_NAME env var not set; service.instance.id resource attribute will be empty. " +
+			"Wire POD_NAME from the downward API (metadata.name) for per-pod metric aggregation.")
+	}
+
+	obsProvider := observability.NewProvider(context.Background(), observability.Config{
+		OTLPEndpoint:          obsMetricsOTLPEndpoint,
+		MetricsExportInterval: obsMetricsExportInterval,
+		ClusterName:           obsClusterName,
+		InstanceID:            instanceID,
+	})
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := obsProvider.Shutdown(shutdownCtx); err != nil {
+			setupLog.Error(err, "error shutting down observability provider")
+		}
+	}()
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
@@ -171,62 +206,69 @@ func main() {
 	}
 
 	if err = (&corecontroller.SiteReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Log:    setupLog,
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Log:         setupLog,
+		Instruments: observability.NewInstruments(obsProvider.Meter("team-operator/site")),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Site")
 		os.Exit(1)
 	}
 
 	if err = (&corecontroller.PostgresDatabaseReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Log:    setupLog,
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Log:         setupLog,
+		Instruments: observability.NewInstruments(obsProvider.Meter("team-operator/postgres-database")),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PostgresDatabase")
 		os.Exit(1)
 	}
 
 	if err = (&corecontroller.ConnectReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Log:    setupLog,
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Log:         setupLog,
+		Instruments: observability.NewInstruments(obsProvider.Meter("team-operator/connect")),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ImplConnect")
 		os.Exit(1)
 	}
 
 	if err = (&corecontroller.WorkbenchReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Instruments: observability.NewInstruments(obsProvider.Meter("team-operator/workbench")),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Workbench")
 		os.Exit(1)
 	}
 
 	if err = (&corecontroller.PackageManagerReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Log:    setupLog,
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Log:         setupLog,
+		Instruments: observability.NewInstruments(obsProvider.Meter("team-operator/package-manager")),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PackageManager")
 		os.Exit(1)
 	}
 
 	if err = (&corecontroller.ChronicleReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Log:    setupLog,
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Log:         setupLog,
+		Instruments: observability.NewInstruments(obsProvider.Meter("team-operator/chronicle")),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Chronicle")
 		os.Exit(1)
 	}
 
 	if err = (&corecontroller.FlightdeckReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Log:    setupLog,
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Log:         setupLog,
+		Instruments: observability.NewInstruments(obsProvider.Meter("team-operator/flightdeck")),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Flightdeck")
 		os.Exit(1)
@@ -247,6 +289,14 @@ func main() {
 	}
 
 	//+kubebuilder:scaffold:builder
+
+	lister := &multiKindLister{client: mgr.GetClient(), log: setupLog}
+	if err := observability.RegisterResourceCountGauge(
+		obsProvider.Meter("team-operator/resource-count"),
+		lister,
+	); err != nil {
+		setupLog.Error(err, "failed to register resource count gauge; continuing without it")
+	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

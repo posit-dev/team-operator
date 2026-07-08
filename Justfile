@@ -28,7 +28,7 @@ deps-up:
 
 # Run team-operator directly from source
 run:
-  go run cmd/team-operator/main.go
+  go run ./cmd/team-operator/
 
 # Run team-operator via the Makefile target
 mrun:
@@ -40,7 +40,7 @@ build:
     -ldflags="-X 'github.com/posit-dev/team-operator/internal.VersionString={{ VERSION }}'" \
     -a \
     -o ./bin/team-operator \
-    cmd/team-operator/main.go
+    ./cmd/team-operator/
 
 # Build ./bin/team-operator via the Makefile target
 mbuild:

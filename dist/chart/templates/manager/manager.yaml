@@ -34,6 +34,13 @@ spec:
             {{- if .Values.sessionGroupLabels.enable }}
             - "--enable-session-group-labels"
             {{- end }}
+            {{- if .Values.observability.metrics.otlpEndpoint }}
+            - --observability-metrics-otlp-endpoint={{ .Values.observability.metrics.otlpEndpoint }}
+            {{- end }}
+            - --observability-metrics-export-interval={{ .Values.observability.metrics.metricsExportInterval }}
+            {{- if .Values.observability.clusterName }}
+            - --observability-cluster-name={{ .Values.observability.clusterName }}
+            {{- end }}
           command:
             - /team-operator
           {{- $tag := .Values.controllerManager.container.image.tag | default .Chart.AppVersion }}
@@ -42,13 +49,15 @@ spec:
           {{- else }}
           image: {{ .Values.controllerManager.container.image.repository }}:{{ $tag }}
           {{- end }}
-          {{- if .Values.controllerManager.container.env }}
           env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             {{- range $key, $value := .Values.controllerManager.container.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
-          {{- end }}
           livenessProbe:
             {{- toYaml .Values.controllerManager.container.livenessProbe | nindent 12 }}
           readinessProbe:

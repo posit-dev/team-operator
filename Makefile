@@ -190,7 +190,7 @@ test-integration: go-test test-kind ## Run all tests (unit + integration).
 
 .PHONY: build
 build: copy-crds generate-all fmt vet ## Build manager binary.
-	go build -o bin/team-operator ./cmd/team-operator/main.go
+	go build -o bin/team-operator ./cmd/team-operator/
 
 .PHONY: docker-build
 docker-build: build ## Build the operator Docker image.
@@ -203,7 +203,7 @@ distclean:
 
 .PHONY: run
 run: manifests generate-all fmt vet ## Run a controller from your host.
-	go run ./cmd/team-operator/main.go
+	go run ./cmd/team-operator/
 
 ##@ Deployment
 

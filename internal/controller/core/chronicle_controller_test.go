@@ -10,9 +10,12 @@ import (
 	"github.com/go-logr/logr"
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/localtest"
+	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -56,7 +59,7 @@ func TestChronicleReconciler_Suspended(t *testing.T) {
 	err := cli.Create(ctx, c)
 	require.NoError(t, err)
 
-	res, err := r.ReconcileChronicle(ctx, req, c)
+	res, err := r.ReconcileChronicle(ctx, req, c, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -77,4 +80,81 @@ func TestChronicleReconciler_Suspended(t *testing.T) {
 	require.NotNil(t, progressCond, "Progressing condition should be set when suspended")
 	assert.Equal(t, metav1.ConditionFalse, progressCond.Status)
 	assert.Equal(t, status.ReasonSuspended, progressCond.Reason)
+}
+
+// TestChronicleReconciler_Metrics verifies that a status transition metric is recorded
+// when ReconcileChronicle processes a suspended Chronicle (PhaseSuspended path).
+func TestChronicleReconciler_Metrics(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "chronicle-metrics"
+
+	fakeEnv := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeEnv.Start(loadSchemes)
+
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	t.Cleanup(func() { require.NoError(t, mp.Shutdown(context.Background())) })
+
+	r := &ChronicleReconciler{
+		Client:      cli,
+		Scheme:      scheme,
+		Log:         log,
+		Instruments: observability.NewInstruments(mp.Meter("test")),
+	}
+
+	ctx = logr.NewContext(ctx, log)
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: ns, Name: name},
+	}
+
+	suspended := true
+	c := &positcov1beta1.Chronicle{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Chronicle",
+			APIVersion: "core.posit.team/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name},
+		Spec:       positcov1beta1.ChronicleSpec{Suspended: &suspended},
+	}
+
+	err := cli.Create(ctx, c)
+	require.NoError(t, err)
+
+	// ReconcileChronicle with Suspended=true exercises the PhaseSuspended recording path.
+	_, err = r.ReconcileChronicle(ctx, req, c, observability.PhaseUnknown)
+	require.NoError(t, err)
+
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(ctx, &rm))
+	var dp metricdata.DataPoint[int64]
+	found := false
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != observability.MetricStatusTransitionTotal {
+				continue
+			}
+			sum, ok := m.Data.(metricdata.Sum[int64])
+			require.True(t, ok, "expected Sum[int64] data type")
+			require.Len(t, sum.DataPoints, 1, "expected exactly one data point for the single transition")
+			dp = sum.DataPoints[0]
+			found = true
+			break
+		}
+		if found {
+			break
+		}
+	}
+	require.True(t, found, "expected status transition metric to be emitted on suspended path")
+	attrs := make(map[string]string, dp.Attributes.Len())
+	for _, kv := range dp.Attributes.ToSlice() {
+		attrs[string(kv.Key)] = kv.Value.Emit()
+	}
+	assert.Equal(t, map[string]string{
+		observability.LabelController: "chronicle",
+		observability.LabelNamespace:  ns,
+		observability.LabelFromPhase:  observability.PhaseUnknown,
+		observability.LabelToPhase:    observability.PhaseSuspended,
+	}, attrs)
+	assert.Equal(t, int64(1), dp.Value, "expected exactly one transition recorded")
 }

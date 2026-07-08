@@ -9,11 +9,14 @@ import (
 	"github.com/posit-dev/team-operator/api/keycloak/v2alpha1"
 	"github.com/posit-dev/team-operator/api/localtest"
 	"github.com/posit-dev/team-operator/api/product"
+	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/traefik/traefik/v3/pkg/provider/kubernetes/crd/traefikio/v1alpha1"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
@@ -809,11 +812,11 @@ func TestSiteReconcileWithSA(t *testing.T) {
 	localTestEnv := localtest.LocalTestEnv{}
 	cli, cliScheme, log, err := localTestEnv.Start(loadSchemes)
 
-	r.NoError(err)
-
 	t.Cleanup(func() {
 		r.NoError(localTestEnv.Stop())
 	})
+
+	r.NoError(err)
 
 	site := defaultSite("test-site")
 	site.Spec.Workbench.ExperimentalFeatures = &v1beta1.InternalWorkbenchExperimentalFeatures{
@@ -867,6 +870,8 @@ func TestSiteReconcileWithSA(t *testing.T) {
 func TestSiteReconcileWithExperimental(t *testing.T) {
 	localTestEnv := localtest.LocalTestEnv{}
 	cli, cliScheme, log, err := localTestEnv.Start(loadSchemes)
+
+	t.Cleanup(func() { _ = localTestEnv.Stop() })
 
 	assert.Nil(t, err)
 
@@ -923,10 +928,6 @@ func TestSiteReconcileWithExperimental(t *testing.T) {
 	assert.NotNil(t, tmpWorkbench)
 	assert.NotNil(t, tmpWorkbench.Spec.Config.RServer)
 	assert.Equal(t, 1, tmpWorkbench.Spec.Config.RServer.DatabricksEnabled)
-
-	// stop testEnv
-	err = localTestEnv.Stop()
-	assert.Nil(t, err)
 }
 
 func TestSiteKeycloak(t *testing.T) {
@@ -1813,7 +1814,13 @@ func TestSiteReadyWithDisabledProducts(t *testing.T) {
 	// Use shared fake client to run multiple reconcile passes
 	fakeClient := localtest.FakeTestEnv{}
 	cli, scheme, log := fakeClient.Start(loadSchemes)
-	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
+
+	// Set up in-memory meter for metric assertion
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	t.Cleanup(func() { require.NoError(t, mp.Shutdown(context.Background())) })
+
+	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log, Instruments: observability.NewInstruments(mp.Meter("test"))}
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
 
 	// Create the Site
@@ -1823,6 +1830,38 @@ func TestSiteReadyWithDisabledProducts(t *testing.T) {
 	// Run initial reconcile
 	_, err = rec.Reconcile(context.TODO(), req)
 	assert.NoError(t, err)
+
+	// Assert that the status transition metric was emitted with the expected label
+	// contract. Reconcile transitions from no prior Ready condition (PhaseUnknown)
+	// to PhaseComponentsReady because all required products are disabled.
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(context.Background(), &rm))
+	var dp metricdata.DataPoint[int64]
+	found := false
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != observability.MetricStatusTransitionTotal {
+				continue
+			}
+			sum, ok := m.Data.(metricdata.Sum[int64])
+			require.True(t, ok, "expected Sum[int64] data type")
+			require.Len(t, sum.DataPoints, 1, "expected one transition per reconcile")
+			dp = sum.DataPoints[0]
+			found = true
+		}
+	}
+	require.True(t, found, "expected status transition metric to be emitted")
+	attrs := make(map[string]string, dp.Attributes.Len())
+	for _, kv := range dp.Attributes.ToSlice() {
+		attrs[string(kv.Key)] = kv.Value.Emit()
+	}
+	assert.Equal(t, map[string]string{
+		observability.LabelController: "site",
+		observability.LabelNamespace:  siteNamespace,
+		observability.LabelFromPhase:  observability.PhaseUnknown,
+		observability.LabelToPhase:    observability.PhaseComponentsReady,
+	}, attrs)
+	assert.Equal(t, int64(1), dp.Value, "expected exactly one transition recorded")
 
 	// Fetch the Site to check its status
 	fetchedSite := &v1beta1.Site{}

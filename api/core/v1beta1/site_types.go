@@ -756,10 +756,13 @@ func (s *Site) GetSecretType() product.SiteSecretType {
 }
 
 func (s *Site) OwnerReferencesForChildren() []metav1.OwnerReference {
+	// APIVersion/Kind are hardcoded because controller-runtime's client.Get
+	// strips TypeMeta from typed-object responses, leaving s.APIVersion and
+	// s.Kind empty in the reconcile path.
 	return []metav1.OwnerReference{
 		{
-			APIVersion: s.APIVersion,
-			Kind:       s.Kind,
+			APIVersion: GroupVersion.String(),
+			Kind:       "Site",
 			Name:       s.Name,
 			UID:        s.UID,
 		},

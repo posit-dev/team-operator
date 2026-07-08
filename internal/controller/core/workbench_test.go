@@ -10,9 +10,12 @@ import (
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/posit-dev/team-operator/internal/db"
+	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -78,6 +81,7 @@ func initWorkbenchReconciler(t *testing.T, ctx context.Context, namespace, name 
 	localEnv := localtest.LocalTestEnv{}
 	cli, cliScheme, log, err := localEnv.Start(loadSchemes)
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = localEnv.Stop() })
 	r := &WorkbenchReconciler{
 		Client: cli,
 		Scheme: cliScheme,
@@ -139,6 +143,12 @@ func TestWorkbenchReconciler_Basic(t *testing.T) {
 
 	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
 
+	// Wire up an in-memory meter so we can assert metric recording.
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	t.Cleanup(func() { require.NoError(t, mp.Shutdown(context.Background())) })
+	r.Instruments = observability.NewInstruments(mp.Meter("test"))
+
 	wb := defineDefaultWorkbench(t, ns, name)
 
 	// have to make sure the CRD _actually exists_
@@ -147,7 +157,7 @@ func TestWorkbenchReconciler_Basic(t *testing.T) {
 
 	wb = getWorkbench(t, cli, ns, name)
 
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -160,6 +170,103 @@ func TestWorkbenchReconciler_Basic(t *testing.T) {
 
 	headersMiddleware := getMiddleware(t, cli, ns, r.HeadersMiddleware(wb))
 	require.Equal(t, headersMiddleware.Name, r.HeadersMiddleware(wb))
+
+	// Assert that the status transition metric was emitted with the expected
+	// label contract. A regression that swapped from/to phases, omitted the
+	// namespace label, or recorded the wrong controller would change this map.
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(ctx, &rm))
+	var dp metricdata.DataPoint[int64]
+	found := false
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != observability.MetricStatusTransitionTotal {
+				continue
+			}
+			sum, ok := m.Data.(metricdata.Sum[int64])
+			require.True(t, ok, "expected Sum[int64] data type")
+			require.Len(t, sum.DataPoints, 1, "expected exactly one data point for the single transition")
+			dp = sum.DataPoints[0]
+			found = true
+			break
+		}
+		if found {
+			break
+		}
+	}
+	require.True(t, found, "expected status transition metric to be emitted")
+	attrs := make(map[string]string, dp.Attributes.Len())
+	for _, kv := range dp.Attributes.ToSlice() {
+		attrs[string(kv.Key)] = kv.Value.Emit()
+	}
+	assert.Equal(t, map[string]string{
+		observability.LabelController: "workbench",
+		observability.LabelNamespace:  ns,
+		observability.LabelFromPhase:  observability.PhaseUnknown,
+		observability.LabelToPhase:    observability.PhaseReady,
+	}, attrs)
+	assert.Equal(t, int64(1), dp.Value, "expected exactly one transition recorded")
+}
+
+// TestWorkbenchReconciler_ErrorRecordsTransition exercises the error emission
+// site in Reconcile (not ReconcileWorkbench), so a regression that drops the
+// error metric while keeping the success metric — or vice versa — is caught.
+func TestWorkbenchReconciler_ErrorRecordsTransition(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-err"
+
+	ctx, r, req, _ := initWorkbenchReconciler(t, ctx, ns, name)
+
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	t.Cleanup(func() { require.NoError(t, mp.Shutdown(context.Background())) })
+	r.Instruments = observability.NewInstruments(mp.Meter("test"))
+
+	// Force ReconcileWorkbench to error via the SAML missing-metadata-URL check.
+	wb := defineDefaultWorkbench(t, ns, name)
+	wb.Spec.Auth = positcov1beta1.AuthSpec{
+		Type:          positcov1beta1.AuthTypeSaml,
+		UsernameClaim: "email",
+		// SamlMetadataUrl intentionally not set
+	}
+
+	require.NoError(t, internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb))
+
+	_, err := r.Reconcile(ctx, req)
+	require.ErrorContains(t, err, "SAML authentication requires a metadata URL")
+
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(ctx, &rm))
+	var dp metricdata.DataPoint[int64]
+	found := false
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != observability.MetricStatusTransitionTotal {
+				continue
+			}
+			sum, ok := m.Data.(metricdata.Sum[int64])
+			require.True(t, ok, "expected Sum[int64] data type")
+			require.Len(t, sum.DataPoints, 1, "expected exactly one data point for the single transition")
+			dp = sum.DataPoints[0]
+			found = true
+			break
+		}
+		if found {
+			break
+		}
+	}
+	require.True(t, found, "expected status transition metric to be emitted on error")
+	attrs := make(map[string]string, dp.Attributes.Len())
+	for _, kv := range dp.Attributes.ToSlice() {
+		attrs[string(kv.Key)] = kv.Value.Emit()
+	}
+	assert.Equal(t, map[string]string{
+		observability.LabelController: "workbench",
+		observability.LabelNamespace:  ns,
+		observability.LabelFromPhase:  observability.PhaseUnknown,
+		observability.LabelToPhase:    observability.PhaseError,
+	}, attrs)
 }
 
 func TestWorkbenchReadinessProbePath(t *testing.T) {
@@ -190,7 +297,7 @@ func TestWorkbenchReadinessProbePath(t *testing.T) {
 			require.NoError(t, err)
 
 			wb = getWorkbench(t, cli, ns, wbName)
-			res, err := r.ReconcileWorkbench(ctx, req, wb)
+			res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 			require.NoError(t, err)
 			require.True(t, res.IsZero())
 
@@ -219,7 +326,7 @@ func TestWorkbenchConfigReload(t *testing.T) {
 
 	wb = getWorkbench(t, cli, ns, name)
 
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -238,7 +345,7 @@ func TestWorkbenchConfigReload(t *testing.T) {
 	// reconcile again... (have to create/update too...?)
 	err = internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, preWb)
 	require.NoError(t, err)
-	res, err = r.ReconcileWorkbench(ctx, req, preWb)
+	res, err = r.ReconcileWorkbench(ctx, req, preWb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -269,7 +376,7 @@ func TestWorkbenchAuthSaml(t *testing.T) {
 
 	wb = getWorkbench(t, cli, ns, name)
 
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -306,7 +413,7 @@ func TestWorkbenchAuthSamlMissingMetadata(t *testing.T) {
 	wb = getWorkbench(t, cli, ns, name)
 
 	// Should return an error when SamlMetadataUrl is not provided
-	_, err = r.ReconcileWorkbench(ctx, req, wb)
+	_, err = r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "SAML authentication requires a metadata URL")
 }
@@ -329,7 +436,7 @@ func TestWorkbenchLoadBalancingInitContainer(t *testing.T) {
 
 	wb = getWorkbench(t, cli, ns, name)
 
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -388,7 +495,7 @@ func TestWorkbenchLoadBalancingDisabled(t *testing.T) {
 
 	wb = getWorkbench(t, cli, ns, name)
 
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -418,7 +525,7 @@ func TestWorkbenchPodDisruptionBudgets(t *testing.T) {
 
 	wb = getWorkbench(t, cli, ns, name)
 
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -572,7 +679,7 @@ func TestWorkbenchReconciler_Suspended(t *testing.T) {
 
 	wb = getWorkbench(t, cli, ns, name)
 
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -620,7 +727,7 @@ func TestWorkbenchReconciler_SuspendRemovesDeployment(t *testing.T) {
 	wb = getWorkbench(t, cli, ns, name)
 
 	// Pass 1: normal reconcile — Deployment should be created
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -646,7 +753,7 @@ func TestWorkbenchReconciler_SuspendRemovesDeployment(t *testing.T) {
 	require.NoError(t, err)
 
 	wb = getWorkbench(t, cli, ns, name)
-	res, err = r.ReconcileWorkbench(ctx, req, wb)
+	res, err = r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -731,7 +838,7 @@ func TestWorkbenchSCIM_Disabled(t *testing.T) {
 
 	wb = getWorkbench(t, cli, ns, name)
 
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -773,7 +880,7 @@ func TestWorkbenchSCIM_EnabledManagedToken(t *testing.T) {
 
 	wb = getWorkbench(t, cli, ns, name)
 
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -851,7 +958,7 @@ func TestWorkbenchSCIM_BYOToken(t *testing.T) {
 
 	wb = getWorkbench(t, cli, ns, name)
 
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -895,7 +1002,7 @@ func TestWorkbenchSCIM_NoTokenRotation(t *testing.T) {
 	wb = getWorkbench(t, cli, ns, name)
 
 	// First reconcile — creates the managed secret.
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -908,7 +1015,7 @@ func TestWorkbenchSCIM_NoTokenRotation(t *testing.T) {
 
 	// Second reconcile — token must not change.
 	wb = getWorkbench(t, cli, ns, name)
-	res, err = r.ReconcileWorkbench(ctx, req, wb)
+	res, err = r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -940,7 +1047,7 @@ func TestWorkbenchSCIM_DisableAfterEnable(t *testing.T) {
 	wb = getWorkbench(t, cli, ns, name)
 
 	// First reconcile — SCIM enabled.
-	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	res, err := r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -964,7 +1071,7 @@ func TestWorkbenchSCIM_DisableAfterEnable(t *testing.T) {
 	require.NoError(t, err)
 
 	wb = getWorkbench(t, cli, ns, name)
-	res, err = r.ReconcileWorkbench(ctx, req, wb)
+	res, err = r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.NoError(t, err)
 	require.True(t, res.IsZero())
 
@@ -1013,6 +1120,6 @@ func TestWorkbenchSCIM_BYOTokenMissingKey(t *testing.T) {
 	wb = getWorkbench(t, cli, ns, name)
 
 	// Reconciliation should fail — missing "token" key is a blocking error.
-	_, err = r.ReconcileWorkbench(ctx, req, wb)
+	_, err = r.ReconcileWorkbench(ctx, req, wb, observability.PhaseUnknown)
 	require.ErrorContains(t, err, `BYO SCIM token secret "my-incomplete-scim-secret" is missing required key "token"`)
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	positcov1beta1 "github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/internal"
+	"github.com/posit-dev/team-operator/internal/observability"
 	"github.com/posit-dev/team-operator/internal/status"
 	"github.com/rstudio/goex/ptr"
 	appsv1 "k8s.io/api/apps/v1"
@@ -29,8 +30,9 @@ import (
 // FlightdeckReconciler reconciles a Flightdeck object
 type FlightdeckReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log         logr.Logger
+	Scheme      *runtime.Scheme
+	Instruments observability.Instruments
 }
 
 //+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=flightdecks,verbs=get;list;watch;create;update;patch;delete
@@ -70,6 +72,9 @@ func (r *FlightdeckReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		"domain", fd.Spec.Domain,
 	)
 
+	// Capture prior phase before any mutation so the metric reflects the real transition.
+	priorPhase := observability.PhaseFromConditions(fd.Status.Conditions)
+
 	// Save a copy for status patching
 	patchBase := client.MergeFrom(fd.DeepCopy())
 
@@ -79,6 +84,8 @@ func (r *FlightdeckReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	if res, err := r.reconcileFlightdeckResources(ctx, req, fd, l); err != nil {
 		l.Error(err, "failed to reconcile flightdeck resources")
+		r.Instruments.RecordStatusTransition(ctx, "flightdeck", req.Namespace,
+			priorPhase, observability.PhaseError)
 		if patchErr := status.PatchErrorStatus(ctx, r.Status(), fd, patchBase, &fd.Status.Conditions, fd.Generation, err); patchErr != nil {
 			l.Error(patchErr, "Error patching error status")
 		}
@@ -104,6 +111,9 @@ func (r *FlightdeckReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		l.Error(err, "Error patching status")
 		return ctrl.Result{}, err
 	}
+
+	r.Instruments.RecordStatusTransition(ctx, "flightdeck", req.Namespace,
+		priorPhase, observability.PhaseReady)
 
 	l.Info("reconciliation completed successfully",
 		"component", fd.ComponentName(),
