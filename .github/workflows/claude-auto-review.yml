@@ -10,6 +10,7 @@ env:
 jobs:
   auto-review:
     runs-on: ubuntu-latest
+    if: ${{ !github.event.pull_request.draft && github.event.pull_request.user.login != 'posit-team-dedicated[bot]' }}
     timeout-minutes: 60
     permissions:
       contents: read
@@ -29,7 +30,6 @@ jobs:
 
       - name: Automatic PR Review
         uses: anthropics/claude-code-action@v1.0.110
-        if: github.event.pull_request.user.login != 'posit-team-dedicated[bot]'
         with:
           use_bedrock: true
           prompt: |
