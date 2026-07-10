@@ -32,25 +32,25 @@ jobs:
         uses: anthropics/claude-code-action@v1.0.110
         with:
           use_bedrock: true
-          track_progress: "true"
+          track_progress: true
           prompt: |
-            Please review this PR following the guidelines in `.claude/review-guidelines.md`. Use the GitHub review system:
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
 
-            1. **Start a review**: Use `mcp__github__create_pending_pull_request_review` to begin a pending review
-            2. **Get diff information**: Use `mcp__github__get_pull_request_diff` to understand the code changes and line numbers
-            3. **Add inline comments**: Use `mcp__github__add_comment_to_pending_review` for each specific piece of feedback on particular lines
-            4. **Submit the review**: Use `mcp__github__submit_pending_pull_request_review` with event type "COMMENT" (not "REQUEST_CHANGES") to publish all comments as a non-blocking review
+            Review this pull request following the guidelines in `.claude/review-guidelines.md`.
+            Use the area-specific checklists from the guidelines for API changes, Controller
+            changes, Helm chart, and Flightdeck.
 
-            Review priorities from guidelines:
+            Use inline comments for specific line-level feedback, and a single top-level
+            comment for general observations. Post comments only — do NOT approve or
+            request changes.
+
+            Review priorities from the guidelines:
             - **Simplicity**: Code should be explicit, not clever. Functions do one thing. Names reveal intent.
             - **Maintainability**: Follow existing patterns. New code should look like it belongs.
             - **Security (elevated scrutiny)**: Extra attention for file system, network, credentials, RBAC, and IAM changes.
 
-            Use the area-specific checklists from the guidelines for API changes, Controller changes, Helm chart, and Flightdeck.
-
-            Provide constructive feedback with specific suggestions for improvement.
-            Don't be overly complimentary; focus on actionable insights and keep your comments concise.
-            Use inline comments to highlight specific areas of concern.
+            Don't be overly complimentary; keep feedback concise and actionable.
           claude_args: |
             --model us.anthropic.claude-sonnet-4-6
-            --disallowedTools "Bash,Edit,Write,MultiEdit,NotebookEdit,WebFetch"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Read,Glob,Grep"
