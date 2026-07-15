@@ -1,3 +1,10 @@
+## [1.29.1](https://github.com/posit-dev/team-operator/compare/v1.29.0...v1.29.1) (2026-07-15)
+
+
+### Bug Fixes
+
+* prevent YAML line-wrap in Workbench job launcher template ([#149](https://github.com/posit-dev/team-operator/issues/149)) ([cd3059c](https://github.com/posit-dev/team-operator/commit/cd3059c2fa9cee3fe79fa713dbc09a5e165e7b7d))
+
 # [1.29.0](https://github.com/posit-dev/team-operator/compare/v1.28.0...v1.29.0) (2026-07-07)
 
 
