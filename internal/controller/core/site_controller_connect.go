@@ -63,6 +63,8 @@ func (r *SiteReconciler) reconcileConnect(
 					ImagePullPolicy:    site.Spec.Connect.ImagePullPolicy,
 					ImagePullSecrets:   product.MakePullSecrets(site.Spec.ImagePullSecrets),
 					ServiceAccountName: fmt.Sprintf("%s-connect-session", req.Name),
+					Tolerations:        site.Spec.Connect.ContentTolerations,
+					NodeSelector:       site.Spec.Connect.ContentNodeSelector,
 				},
 			},
 			Config: v1beta1.ConnectConfig{

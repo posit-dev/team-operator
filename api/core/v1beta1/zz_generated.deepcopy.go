@@ -1227,6 +1227,20 @@ func (in *InternalConnectSpec) DeepCopyInto(out *InternalConnectSpec) {
 			(*out)[key] = val
 		}
 	}
+	if in.ContentTolerations != nil {
+		in, out := &in.ContentTolerations, &out.ContentTolerations
+		*out = make([]v1.Toleration, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+	if in.ContentNodeSelector != nil {
+		in, out := &in.ContentNodeSelector, &out.ContentNodeSelector
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.Resources != nil {
 		in, out := &in.Resources, &out.Resources
 		*out = new(v1.ResourceRequirements)

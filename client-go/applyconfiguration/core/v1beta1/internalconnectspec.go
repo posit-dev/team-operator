@@ -18,6 +18,8 @@ type InternalConnectSpecApplyConfiguration struct {
 	License                 *product.LicenseSpec                                   `json:"license,omitempty"`
 	Volume                  *product.VolumeSpec                                    `json:"volume,omitempty"`
 	NodeSelector            map[string]string                                      `json:"nodeSelector,omitempty"`
+	ContentTolerations      []v1.Toleration                                        `json:"contentTolerations,omitempty"`
+	ContentNodeSelector     map[string]string                                      `json:"contentNodeSelector,omitempty"`
 	Resources               *v1.ResourceRequirements                               `json:"resources,omitempty"`
 	Auth                    *AuthSpecApplyConfiguration                            `json:"auth,omitempty"`
 	RegisterOnFirstLogin    *bool                                                  `json:"registerOnFirstLogin,omitempty"`
@@ -88,6 +90,30 @@ func (b *InternalConnectSpecApplyConfiguration) WithNodeSelector(entries map[str
 	}
 	for k, v := range entries {
 		b.NodeSelector[k] = v
+	}
+	return b
+}
+
+// WithContentTolerations adds the given value to the ContentTolerations field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the ContentTolerations field.
+func (b *InternalConnectSpecApplyConfiguration) WithContentTolerations(values ...v1.Toleration) *InternalConnectSpecApplyConfiguration {
+	for i := range values {
+		b.ContentTolerations = append(b.ContentTolerations, values[i])
+	}
+	return b
+}
+
+// WithContentNodeSelector puts the entries into the ContentNodeSelector field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, the entries provided by each call will be put on the ContentNodeSelector field,
+// overwriting an existing map entries in ContentNodeSelector field with the same key.
+func (b *InternalConnectSpecApplyConfiguration) WithContentNodeSelector(entries map[string]string) *InternalConnectSpecApplyConfiguration {
+	if b.ContentNodeSelector == nil && len(entries) > 0 {
+		b.ContentNodeSelector = make(map[string]string, len(entries))
+	}
+	for k, v := range entries {
+		b.ContentNodeSelector[k] = v
 	}
 	return b
 }
