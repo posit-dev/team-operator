@@ -340,6 +340,11 @@ func (in *ChronicleSpec) DeepCopyInto(out *ChronicleSpec) {
 			(*out)[key] = val
 		}
 	}
+	if in.Resources != nil {
+		in, out := &in.Resources, &out.Resources
+		*out = new(v1.ResourceRequirements)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.AddEnv != nil {
 		in, out := &in.AddEnv, &out.AddEnv
 		*out = make(map[string]string, len(*in))
@@ -1159,6 +1164,11 @@ func (in *InternalChronicleSpec) DeepCopyInto(out *InternalChronicleSpec) {
 		for key, val := range *in {
 			(*out)[key] = val
 		}
+	}
+	if in.Resources != nil {
+		in, out := &in.Resources, &out.Resources
+		*out = new(v1.ResourceRequirements)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.AddEnv != nil {
 		in, out := &in.AddEnv, &out.AddEnv
