@@ -5,6 +5,10 @@
 
 package v1beta1
 
+import (
+	v1 "k8s.io/api/core/v1"
+)
+
 // ChronicleSpecApplyConfiguration represents a declarative configuration of the ChronicleSpec type for use
 // with apply.
 type ChronicleSpecApplyConfiguration struct {
@@ -12,6 +16,7 @@ type ChronicleSpecApplyConfiguration struct {
 	Config               *ChronicleConfigApplyConfiguration `json:"config,omitempty"`
 	ImagePullSecrets     []string                           `json:"imagePullSecrets,omitempty"`
 	NodeSelector         map[string]string                  `json:"nodeSelector,omitempty"`
+	Resources            *v1.ResourceRequirements           `json:"resources,omitempty"`
 	AddEnv               map[string]string                  `json:"addEnv,omitempty"`
 	Image                *string                            `json:"image,omitempty"`
 	AwsAccountId         *string                            `json:"awsAccountId,omitempty"`
@@ -62,6 +67,14 @@ func (b *ChronicleSpecApplyConfiguration) WithNodeSelector(entries map[string]st
 	for k, v := range entries {
 		b.NodeSelector[k] = v
 	}
+	return b
+}
+
+// WithResources sets the Resources field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Resources field is set to the value of the last call.
+func (b *ChronicleSpecApplyConfiguration) WithResources(value v1.ResourceRequirements) *ChronicleSpecApplyConfiguration {
+	b.Resources = &value
 	return b
 }
 

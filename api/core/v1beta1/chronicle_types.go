@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/posit-dev/team-operator/api/product"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -25,6 +26,10 @@ type ChronicleSpec struct {
 	ImagePullSecrets []string `json:"imagePullSecrets,omitempty"`
 
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// Resources sets the chronicle-server container's resource requests/limits.
+	// If unset, product defaults are applied. Setting this replaces the defaults entirely.
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 
 	// AddEnv adds arbitrary environment variables to the container env
 	AddEnv map[string]string `json:"addEnv,omitempty"`

@@ -15,9 +15,11 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	utilptr "k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,6 +34,18 @@ type ChronicleReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Log    logr.Logger
+}
+
+// chronicleDefaultResources is the fallback resource requirements for the
+// chronicle-server container when the spec does not override them.
+var chronicleDefaultResources = corev1.ResourceRequirements{
+	Requests: corev1.ResourceList{
+		corev1.ResourceCPU:    resource.MustParse("100m"),
+		corev1.ResourceMemory: resource.MustParse("1Gi"),
+	},
+	Limits: corev1.ResourceList{
+		corev1.ResourceMemory: resource.MustParse("4Gi"),
+	},
 }
 
 //+kubebuilder:rbac:namespace=posit-team,groups=core.posit.team,resources=chronicles,verbs=get;list;watch;create;update;patch;delete
@@ -290,10 +304,7 @@ func (r *ChronicleReconciler) ensureDeployedService(ctx context.Context, req ctr
 								internal.DefaultPortChronicleHTTP.ContainerPort("http"),
 								internal.DefaultPortChronicleMetrics.ContainerPort("profile"),
 							},
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{},
-								Limits:   corev1.ResourceList{},
-							},
+							Resources: utilptr.Deref(c.Spec.Resources, chronicleDefaultResources),
 							VolumeMounts: product.ConcatLists(
 								[]corev1.VolumeMount{{
 									Name:      "config",

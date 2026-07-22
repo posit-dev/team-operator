@@ -73,6 +73,7 @@ func (r *SiteReconciler) reconcileChronicle(ctx context.Context, req controllerr
 			},
 			ImagePullSecrets: site.Spec.ImagePullSecrets,
 			NodeSelector:     site.Spec.Chronicle.NodeSelector,
+			Resources:        site.Spec.Chronicle.Resources,
 			AddEnv:           site.Spec.Chronicle.AddEnv,
 			Image:            chronicleServerImage,
 		}

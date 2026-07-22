@@ -627,6 +627,10 @@ type InternalChronicleSpec struct {
 
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
+	// Resources sets the chronicle-server container's resource requests/limits.
+	// If unset, product defaults are applied. Setting this replaces the defaults entirely.
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+
 	Image string `json:"image,omitempty"`
 
 	AddEnv map[string]string `json:"addEnv,omitempty"`

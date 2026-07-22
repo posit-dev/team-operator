@@ -12,14 +12,15 @@ import (
 // InternalChronicleSpecApplyConfiguration represents a declarative configuration of the InternalChronicleSpec type for use
 // with apply.
 type InternalChronicleSpecApplyConfiguration struct {
-	Enabled         *bool             `json:"enabled,omitempty"`
-	Teardown        *bool             `json:"teardown,omitempty"`
-	NodeSelector    map[string]string `json:"nodeSelector,omitempty"`
-	Image           *string           `json:"image,omitempty"`
-	AddEnv          map[string]string `json:"addEnv,omitempty"`
-	ImagePullPolicy *v1.PullPolicy    `json:"imagePullPolicy,omitempty"`
-	S3Bucket        *string           `json:"s3Bucket,omitempty"`
-	AgentImage      *string           `json:"agentImage,omitempty"`
+	Enabled         *bool                    `json:"enabled,omitempty"`
+	Teardown        *bool                    `json:"teardown,omitempty"`
+	NodeSelector    map[string]string        `json:"nodeSelector,omitempty"`
+	Resources       *v1.ResourceRequirements `json:"resources,omitempty"`
+	Image           *string                  `json:"image,omitempty"`
+	AddEnv          map[string]string        `json:"addEnv,omitempty"`
+	ImagePullPolicy *v1.PullPolicy           `json:"imagePullPolicy,omitempty"`
+	S3Bucket        *string                  `json:"s3Bucket,omitempty"`
+	AgentImage      *string                  `json:"agentImage,omitempty"`
 }
 
 // InternalChronicleSpecApplyConfiguration constructs a declarative configuration of the InternalChronicleSpec type for use with
@@ -55,6 +56,14 @@ func (b *InternalChronicleSpecApplyConfiguration) WithNodeSelector(entries map[s
 	for k, v := range entries {
 		b.NodeSelector[k] = v
 	}
+	return b
+}
+
+// WithResources sets the Resources field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Resources field is set to the value of the last call.
+func (b *InternalChronicleSpecApplyConfiguration) WithResources(value v1.ResourceRequirements) *InternalChronicleSpecApplyConfiguration {
+	b.Resources = &value
 	return b
 }
 
