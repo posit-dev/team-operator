@@ -1,3 +1,15 @@
+# [1.30.0](https://github.com/posit-dev/team-operator/compare/v1.29.1...v1.30.0) (2026-07-22)
+
+
+### Bug Fixes
+
+* make auto-review post (track_progress), trigger on ready, skip drafts ([#148](https://github.com/posit-dev/team-operator/issues/148)) ([982e9a2](https://github.com/posit-dev/team-operator/commit/982e9a28ef928f8d3073c30e9d6ac04defe56bbb))
+
+
+### Features
+
+* **chronicle:** make chronicle-server resources configurable ([#151](https://github.com/posit-dev/team-operator/issues/151)) ([2fc7731](https://github.com/posit-dev/team-operator/commit/2fc7731db6899ae0b648175db79cc2f879458d8b))
+
 ## [1.29.1](https://github.com/posit-dev/team-operator/compare/v1.29.0...v1.29.1) (2026-07-15)
 
 
