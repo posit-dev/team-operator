@@ -25,6 +25,7 @@ type PackageManagerSpecApplyConfiguration struct {
 	ImagePullSecrets             []string                                  `json:"imagePullSecrets,omitempty"`
 	NodeSelector                 map[string]string                         `json:"nodeSelector,omitempty"`
 	Resources                    *v1.ResourceRequirements                  `json:"resources,omitempty"`
+	TopologySpreadConstraints    []v1.TopologySpreadConstraint             `json:"topologySpreadConstraints,omitempty"`
 	AddEnv                       map[string]string                         `json:"addEnv,omitempty"`
 	EnvVars                      []v1.EnvVar                               `json:"envVars,omitempty"`
 	Image                        *string                                   `json:"image,omitempty"`
@@ -156,6 +157,16 @@ func (b *PackageManagerSpecApplyConfiguration) WithNodeSelector(entries map[stri
 // If called multiple times, the Resources field is set to the value of the last call.
 func (b *PackageManagerSpecApplyConfiguration) WithResources(value v1.ResourceRequirements) *PackageManagerSpecApplyConfiguration {
 	b.Resources = &value
+	return b
+}
+
+// WithTopologySpreadConstraints adds the given value to the TopologySpreadConstraints field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the TopologySpreadConstraints field.
+func (b *PackageManagerSpecApplyConfiguration) WithTopologySpreadConstraints(values ...v1.TopologySpreadConstraint) *PackageManagerSpecApplyConfiguration {
+	for i := range values {
+		b.TopologySpreadConstraints = append(b.TopologySpreadConstraints, values[i])
+	}
 	return b
 }
 

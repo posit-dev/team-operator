@@ -25,6 +25,7 @@ type ConnectSpecApplyConfiguration struct {
 	IngressAnnotations                   map[string]string                           `json:"ingressAnnotations,omitempty"`
 	ImagePullSecrets                     []string                                    `json:"imagePullSecrets,omitempty"`
 	NodeSelector                         map[string]string                           `json:"nodeSelector,omitempty"`
+	TopologySpreadConstraints            []v1.TopologySpreadConstraint               `json:"topologySpreadConstraints,omitempty"`
 	AddEnv                               map[string]string                           `json:"addEnv,omitempty"`
 	EnvVars                              []v1.EnvVar                                 `json:"envVars,omitempty"`
 	OffHostExecution                     *bool                                       `json:"offHostExecution,omitempty"`
@@ -162,6 +163,16 @@ func (b *ConnectSpecApplyConfiguration) WithNodeSelector(entries map[string]stri
 	}
 	for k, v := range entries {
 		b.NodeSelector[k] = v
+	}
+	return b
+}
+
+// WithTopologySpreadConstraints adds the given value to the TopologySpreadConstraints field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the TopologySpreadConstraints field.
+func (b *ConnectSpecApplyConfiguration) WithTopologySpreadConstraints(values ...v1.TopologySpreadConstraint) *ConnectSpecApplyConfiguration {
+	for i := range values {
+		b.TopologySpreadConstraints = append(b.TopologySpreadConstraints, values[i])
 	}
 	return b
 }

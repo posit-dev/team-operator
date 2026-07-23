@@ -23,6 +23,7 @@ type InternalWorkbenchSpecApplyConfiguration struct {
 	AdditionalVolumes             []product.VolumeSpec                                     `json:"additionalVolumes,omitempty"`
 	NodeSelector                  map[string]string                                        `json:"nodeSelector,omitempty"`
 	Resources                     *v1.ResourceRequirements                                 `json:"resources,omitempty"`
+	TopologySpreadConstraints     []v1.TopologySpreadConstraint                            `json:"topologySpreadConstraints,omitempty"`
 	Tolerations                   []v1.Toleration                                          `json:"tolerations,omitempty"`
 	SessionTolerations            []v1.Toleration                                          `json:"sessionTolerations,omitempty"`
 	CreateUsersAutomatically      *bool                                                    `json:"createUsersAutomatically,omitempty"`
@@ -144,6 +145,16 @@ func (b *InternalWorkbenchSpecApplyConfiguration) WithNodeSelector(entries map[s
 // If called multiple times, the Resources field is set to the value of the last call.
 func (b *InternalWorkbenchSpecApplyConfiguration) WithResources(value v1.ResourceRequirements) *InternalWorkbenchSpecApplyConfiguration {
 	b.Resources = &value
+	return b
+}
+
+// WithTopologySpreadConstraints adds the given value to the TopologySpreadConstraints field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the TopologySpreadConstraints field.
+func (b *InternalWorkbenchSpecApplyConfiguration) WithTopologySpreadConstraints(values ...v1.TopologySpreadConstraint) *InternalWorkbenchSpecApplyConfiguration {
+	for i := range values {
+		b.TopologySpreadConstraints = append(b.TopologySpreadConstraints, values[i])
+	}
 	return b
 }
 

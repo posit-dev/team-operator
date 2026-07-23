@@ -99,6 +99,7 @@ func (r *SiteReconciler) reconcilePackageManager(
 			ChronicleAgentImage:          site.Spec.Chronicle.AgentImage,
 			NodeSelector:                 site.Spec.PackageManager.NodeSelector,
 			Resources:                    site.Spec.PackageManager.Resources,
+			TopologySpreadConstraints:    site.Spec.PackageManager.TopologySpreadConstraints,
 			AddEnv:                       site.Spec.PackageManager.AddEnv,
 			EnvVars:                      site.Spec.PackageManager.EnvVars,
 			Secret:                       site.Spec.Secret,

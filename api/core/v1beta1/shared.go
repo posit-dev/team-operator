@@ -68,6 +68,29 @@ type SecretConfig struct {
 	Type      product.SiteSecretType `json:"type,omitempty"`
 }
 
+// componentSelector is the label-identity selector for a component's own pods —
+// shared by anti-affinity and topology spread so both target the same pod set.
+func componentSelector(p product.KubernetesLabelser) *metav1.LabelSelector {
+	return &metav1.LabelSelector{
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Key:      KubernetesInstanceLabelKey,
+				Operator: metav1.LabelSelectorOpIn,
+				Values: []string{
+					p.KubernetesLabels()[KubernetesInstanceLabelKey],
+				},
+			},
+			{
+				Key:      SiteLabelKey,
+				Operator: metav1.LabelSelectorOpIn,
+				Values: []string{
+					p.KubernetesLabels()[SiteLabelKey],
+				},
+			},
+		},
+	}
+}
+
 // ComponentSpecPodAntiAffinity generates a *corev1.PodAntiAffinity suitable for use in a
 // given component's deployment template spec to inform kubernetes to place pod replicas
 // on separate nodes when possible.
@@ -77,28 +100,31 @@ func ComponentSpecPodAntiAffinity(p product.KubernetesLabelser, namespace string
 			{
 				Weight: 1,
 				PodAffinityTerm: corev1.PodAffinityTerm{
-					TopologyKey: "kubernetes.io/hostname",
-					Namespaces:  []string{namespace},
-					LabelSelector: &metav1.LabelSelector{
-						MatchExpressions: []metav1.LabelSelectorRequirement{
-							{
-								Key:      KubernetesInstanceLabelKey,
-								Operator: metav1.LabelSelectorOpIn,
-								Values: []string{
-									p.KubernetesLabels()[KubernetesInstanceLabelKey],
-								},
-							},
-							{
-								Key:      SiteLabelKey,
-								Operator: metav1.LabelSelectorOpIn,
-								Values: []string{
-									p.KubernetesLabels()[SiteLabelKey],
-								},
-							},
-						},
-					},
+					TopologyKey:   "kubernetes.io/hostname",
+					Namespaces:    []string{namespace},
+					LabelSelector: componentSelector(p),
 				},
 			},
 		},
 	}
+}
+
+// ComponentSpecTopologySpreadConstraints defaults any constraint's LabelSelector to
+// componentSelector when the caller left it nil. A nil LabelSelector matches zero pods
+// (Kubernetes semantics: metav1.LabelSelectorAsSelector(nil) returns labels.Nothing()),
+// silently turning maxSkew/whenUnsatisfiable into a no-op. This exists so the common case
+// (spread this component's own replicas) works without the caller re-deriving labels the
+// operator already owns; an explicit caller-supplied LabelSelector is always left untouched.
+func ComponentSpecTopologySpreadConstraints(
+	constraints []corev1.TopologySpreadConstraint,
+	p product.KubernetesLabelser,
+) []corev1.TopologySpreadConstraint {
+	out := make([]corev1.TopologySpreadConstraint, len(constraints))
+	for i, c := range constraints {
+		if c.LabelSelector == nil {
+			c.LabelSelector = componentSelector(p)
+		}
+		out[i] = c
+	}
+	return out
 }
