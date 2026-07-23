@@ -13,25 +13,26 @@ import (
 // InternalPackageManagerSpecApplyConfiguration represents a declarative configuration of the InternalPackageManagerSpec type for use
 // with apply.
 type InternalPackageManagerSpecApplyConfiguration struct {
-	Enabled             *bool                               `json:"enabled,omitempty"`
-	Teardown            *bool                               `json:"teardown,omitempty"`
-	License             *product.LicenseSpec                `json:"license,omitempty"`
-	Volume              *product.VolumeSpec                 `json:"volume,omitempty"`
-	NodeSelector        map[string]string                   `json:"nodeSelector,omitempty"`
-	Resources           *v1.ResourceRequirements            `json:"resources,omitempty"`
-	AddEnv              map[string]string                   `json:"addEnv,omitempty"`
-	EnvVars             []v1.EnvVar                         `json:"envVars,omitempty"`
-	Image               *string                             `json:"image,omitempty"`
-	ImagePullPolicy     *v1.PullPolicy                      `json:"imagePullPolicy,omitempty"`
-	S3Bucket            *string                             `json:"s3Bucket,omitempty"`
-	Replicas            *int                                `json:"replicas,omitempty"`
-	DomainPrefix        *string                             `json:"domainPrefix,omitempty"`
-	BaseDomain          *string                             `json:"baseDomain,omitempty"`
-	GitSSHKeys          []SSHKeyConfigApplyConfiguration    `json:"gitSSHKeys,omitempty"`
-	AzureFiles          *AzureFilesConfigApplyConfiguration `json:"azureFiles,omitempty"`
-	AdditionalConfig    *string                             `json:"additionalConfig,omitempty"`
-	Auth                *AuthSpecApplyConfiguration         `json:"auth,omitempty"`
-	OIDCClientSecretKey *string                             `json:"oidcClientSecretKey,omitempty"`
+	Enabled                   *bool                               `json:"enabled,omitempty"`
+	Teardown                  *bool                               `json:"teardown,omitempty"`
+	License                   *product.LicenseSpec                `json:"license,omitempty"`
+	Volume                    *product.VolumeSpec                 `json:"volume,omitempty"`
+	NodeSelector              map[string]string                   `json:"nodeSelector,omitempty"`
+	Resources                 *v1.ResourceRequirements            `json:"resources,omitempty"`
+	TopologySpreadConstraints []v1.TopologySpreadConstraint       `json:"topologySpreadConstraints,omitempty"`
+	AddEnv                    map[string]string                   `json:"addEnv,omitempty"`
+	EnvVars                   []v1.EnvVar                         `json:"envVars,omitempty"`
+	Image                     *string                             `json:"image,omitempty"`
+	ImagePullPolicy           *v1.PullPolicy                      `json:"imagePullPolicy,omitempty"`
+	S3Bucket                  *string                             `json:"s3Bucket,omitempty"`
+	Replicas                  *int                                `json:"replicas,omitempty"`
+	DomainPrefix              *string                             `json:"domainPrefix,omitempty"`
+	BaseDomain                *string                             `json:"baseDomain,omitempty"`
+	GitSSHKeys                []SSHKeyConfigApplyConfiguration    `json:"gitSSHKeys,omitempty"`
+	AzureFiles                *AzureFilesConfigApplyConfiguration `json:"azureFiles,omitempty"`
+	AdditionalConfig          *string                             `json:"additionalConfig,omitempty"`
+	Auth                      *AuthSpecApplyConfiguration         `json:"auth,omitempty"`
+	OIDCClientSecretKey       *string                             `json:"oidcClientSecretKey,omitempty"`
 }
 
 // InternalPackageManagerSpecApplyConfiguration constructs a declarative configuration of the InternalPackageManagerSpec type for use with
@@ -91,6 +92,16 @@ func (b *InternalPackageManagerSpecApplyConfiguration) WithNodeSelector(entries 
 // If called multiple times, the Resources field is set to the value of the last call.
 func (b *InternalPackageManagerSpecApplyConfiguration) WithResources(value v1.ResourceRequirements) *InternalPackageManagerSpecApplyConfiguration {
 	b.Resources = &value
+	return b
+}
+
+// WithTopologySpreadConstraints adds the given value to the TopologySpreadConstraints field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the TopologySpreadConstraints field.
+func (b *InternalPackageManagerSpecApplyConfiguration) WithTopologySpreadConstraints(values ...v1.TopologySpreadConstraint) *InternalPackageManagerSpecApplyConfiguration {
+	for i := range values {
+		b.TopologySpreadConstraints = append(b.TopologySpreadConstraints, values[i])
+	}
 	return b
 }
 

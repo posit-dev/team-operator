@@ -264,6 +264,7 @@ func (r *SiteReconciler) reconcileWorkbench(
 			ImagePullSecrets:             site.Spec.ImagePullSecrets,
 			NodeSelector:                 site.Spec.Workbench.NodeSelector,
 			Resources:                    site.Spec.Workbench.Resources,
+			TopologySpreadConstraints:    site.Spec.Workbench.TopologySpreadConstraints,
 			Tolerations:                  site.Spec.Workbench.Tolerations,
 			AddEnv:                       site.Spec.Workbench.AddEnv,
 			EnvVars:                      site.Spec.Workbench.EnvVars,

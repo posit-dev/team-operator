@@ -881,6 +881,7 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 				Spec: corev1.PodSpec{
 					EnableServiceLinks:           ptr.To(false),
 					NodeSelector:                 w.Spec.NodeSelector,
+					TopologySpreadConstraints:    w.Spec.TopologySpreadConstraints,
 					ImagePullSecrets:             pullSecrets,
 					ServiceAccountName:           maybeServiceAccountName,
 					AutomountServiceAccountToken: ptr.To(true),

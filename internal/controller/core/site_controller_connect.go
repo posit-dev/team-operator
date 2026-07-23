@@ -145,6 +145,7 @@ func (r *SiteReconciler) reconcileConnect(
 			AdditionalVolumes:            additionalVolumes,
 			NodeSelector:                 site.Spec.Connect.NodeSelector,
 			Resources:                    site.Spec.Connect.Resources,
+			TopologySpreadConstraints:    site.Spec.Connect.TopologySpreadConstraints,
 			AddEnv:                       site.Spec.Connect.AddEnv,
 			EnvVars:                      site.Spec.Connect.EnvVars,
 			// default to true...

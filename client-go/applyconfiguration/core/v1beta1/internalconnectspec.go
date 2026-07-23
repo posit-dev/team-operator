@@ -13,31 +13,32 @@ import (
 // InternalConnectSpecApplyConfiguration represents a declarative configuration of the InternalConnectSpec type for use
 // with apply.
 type InternalConnectSpecApplyConfiguration struct {
-	Enabled                 *bool                                                  `json:"enabled,omitempty"`
-	Teardown                *bool                                                  `json:"teardown,omitempty"`
-	License                 *product.LicenseSpec                                   `json:"license,omitempty"`
-	Volume                  *product.VolumeSpec                                    `json:"volume,omitempty"`
-	NodeSelector            map[string]string                                      `json:"nodeSelector,omitempty"`
-	Resources               *v1.ResourceRequirements                               `json:"resources,omitempty"`
-	Auth                    *AuthSpecApplyConfiguration                            `json:"auth,omitempty"`
-	RegisterOnFirstLogin    *bool                                                  `json:"registerOnFirstLogin,omitempty"`
-	AddEnv                  map[string]string                                      `json:"addEnv,omitempty"`
-	EnvVars                 []v1.EnvVar                                            `json:"envVars,omitempty"`
-	Image                   *string                                                `json:"image,omitempty"`
-	SessionImage            *string                                                `json:"sessionImage,omitempty"`
-	ImagePullPolicy         *v1.PullPolicy                                         `json:"imagePullPolicy,omitempty"`
-	Databricks              *DatabricksConfigApplyConfiguration                    `json:"databricks,omitempty"`
-	LoggedInWarning         *string                                                `json:"loggedInWarning,omitempty"`
-	PublicWarning           *string                                                `json:"publicWarning,omitempty"`
-	Replicas                *int                                                   `json:"replicas,omitempty"`
-	ExperimentalFeatures    *InternalConnectExperimentalFeaturesApplyConfiguration `json:"experimentalFeatures,omitempty"`
-	DomainPrefix            *string                                                `json:"domainPrefix,omitempty"`
-	BaseDomain              *string                                                `json:"baseDomain,omitempty"`
-	GPUSettings             *GPUSettingsApplyConfiguration                         `json:"gpuSettings,omitempty"`
-	DatabaseSettings        *DatabaseSettingsApplyConfiguration                    `json:"databaseSettings,omitempty"`
-	ScheduleConcurrency     *int                                                   `json:"scheduleConcurrency,omitempty"`
-	AdditionalRuntimeImages []ConnectRuntimeImageSpecApplyConfiguration            `json:"additionalRuntimeImages,omitempty"`
-	AdditionalConfig        *string                                                `json:"additionalConfig,omitempty"`
+	Enabled                   *bool                                                  `json:"enabled,omitempty"`
+	Teardown                  *bool                                                  `json:"teardown,omitempty"`
+	License                   *product.LicenseSpec                                   `json:"license,omitempty"`
+	Volume                    *product.VolumeSpec                                    `json:"volume,omitempty"`
+	NodeSelector              map[string]string                                      `json:"nodeSelector,omitempty"`
+	Resources                 *v1.ResourceRequirements                               `json:"resources,omitempty"`
+	TopologySpreadConstraints []v1.TopologySpreadConstraint                          `json:"topologySpreadConstraints,omitempty"`
+	Auth                      *AuthSpecApplyConfiguration                            `json:"auth,omitempty"`
+	RegisterOnFirstLogin      *bool                                                  `json:"registerOnFirstLogin,omitempty"`
+	AddEnv                    map[string]string                                      `json:"addEnv,omitempty"`
+	EnvVars                   []v1.EnvVar                                            `json:"envVars,omitempty"`
+	Image                     *string                                                `json:"image,omitempty"`
+	SessionImage              *string                                                `json:"sessionImage,omitempty"`
+	ImagePullPolicy           *v1.PullPolicy                                         `json:"imagePullPolicy,omitempty"`
+	Databricks                *DatabricksConfigApplyConfiguration                    `json:"databricks,omitempty"`
+	LoggedInWarning           *string                                                `json:"loggedInWarning,omitempty"`
+	PublicWarning             *string                                                `json:"publicWarning,omitempty"`
+	Replicas                  *int                                                   `json:"replicas,omitempty"`
+	ExperimentalFeatures      *InternalConnectExperimentalFeaturesApplyConfiguration `json:"experimentalFeatures,omitempty"`
+	DomainPrefix              *string                                                `json:"domainPrefix,omitempty"`
+	BaseDomain                *string                                                `json:"baseDomain,omitempty"`
+	GPUSettings               *GPUSettingsApplyConfiguration                         `json:"gpuSettings,omitempty"`
+	DatabaseSettings          *DatabaseSettingsApplyConfiguration                    `json:"databaseSettings,omitempty"`
+	ScheduleConcurrency       *int                                                   `json:"scheduleConcurrency,omitempty"`
+	AdditionalRuntimeImages   []ConnectRuntimeImageSpecApplyConfiguration            `json:"additionalRuntimeImages,omitempty"`
+	AdditionalConfig          *string                                                `json:"additionalConfig,omitempty"`
 }
 
 // InternalConnectSpecApplyConfiguration constructs a declarative configuration of the InternalConnectSpec type for use with
@@ -97,6 +98,16 @@ func (b *InternalConnectSpecApplyConfiguration) WithNodeSelector(entries map[str
 // If called multiple times, the Resources field is set to the value of the last call.
 func (b *InternalConnectSpecApplyConfiguration) WithResources(value v1.ResourceRequirements) *InternalConnectSpecApplyConfiguration {
 	b.Resources = &value
+	return b
+}
+
+// WithTopologySpreadConstraints adds the given value to the TopologySpreadConstraints field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the TopologySpreadConstraints field.
+func (b *InternalConnectSpecApplyConfiguration) WithTopologySpreadConstraints(values ...v1.TopologySpreadConstraint) *InternalConnectSpecApplyConfiguration {
+	for i := range values {
+		b.TopologySpreadConstraints = append(b.TopologySpreadConstraints, values[i])
+	}
 	return b
 }
 

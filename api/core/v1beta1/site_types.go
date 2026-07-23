@@ -217,6 +217,11 @@ type InternalPackageManagerSpec struct {
 	// If unset, product defaults are applied. Setting this replaces the defaults entirely.
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 
+	// TopologySpreadConstraints controls how server pod replicas are spread across topology
+	// domains (e.g. node architecture, zone, hostname). Composes with the operator's built-in
+	// hostname-keyed soft anti-affinity.
+	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
+
 	// Deprecated: use envVars instead. If the same variable name is set in both
 	// addEnv and envVars, envVars takes precedence: it is rendered after addEnv,
 	// and Kubernetes resolves a duplicate env var name to the last occurrence.
@@ -287,6 +292,11 @@ type InternalConnectSpec struct {
 	// Resources sets the server container's resource requests/limits.
 	// If unset, product defaults are applied. Setting this replaces the defaults entirely.
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+
+	// TopologySpreadConstraints controls how server pod replicas are spread across topology
+	// domains (e.g. node architecture, zone, hostname). Composes with the operator's built-in
+	// hostname-keyed soft anti-affinity.
+	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
 
 	Auth AuthSpec `json:"auth,omitempty"`
 
@@ -417,6 +427,11 @@ type InternalWorkbenchSpec struct {
 	// Resources sets the server container's resource requests/limits.
 	// If unset, product defaults are applied. Setting this replaces the defaults entirely.
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+
+	// TopologySpreadConstraints controls how server pod replicas are spread across topology
+	// domains (e.g. node architecture, zone, hostname). Composes with the operator's built-in
+	// hostname-keyed soft anti-affinity. Applies only to the server Deployment, not sessions.
+	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
 
 	// Tolerations that are applied universally to server and sessions
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`

@@ -520,10 +520,11 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 					},
 				},
 				Spec: corev1.PodSpec{
-					EnableServiceLinks: ptr.To(false),
-					NodeSelector:       pm.Spec.NodeSelector,
-					ImagePullSecrets:   pullSecrets,
-					ServiceAccountName: pm.ComponentName(),
+					EnableServiceLinks:        ptr.To(false),
+					NodeSelector:              pm.Spec.NodeSelector,
+					TopologySpreadConstraints: pm.Spec.TopologySpreadConstraints,
+					ImagePullSecrets:          pullSecrets,
+					ServiceAccountName:        pm.ComponentName(),
 					Containers: product.ConcatLists([]corev1.Container{
 						{
 							Name:            "rspm",
