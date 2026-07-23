@@ -676,7 +676,7 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 				Spec: corev1.PodSpec{
 					EnableServiceLinks:        ptr.To(false),
 					NodeSelector:              c.Spec.NodeSelector,
-					TopologySpreadConstraints: c.Spec.TopologySpreadConstraints,
+					TopologySpreadConstraints: positcov1beta1.ComponentSpecTopologySpreadConstraints(c.Spec.TopologySpreadConstraints, c),
 					ImagePullSecrets:          pullSecrets,
 					ServiceAccountName:        maybeServiceAccountName,
 					// TODO: go back to automounting service token...

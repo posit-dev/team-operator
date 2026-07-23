@@ -18,6 +18,7 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -665,7 +666,10 @@ func TestConnectReconciler_ResourcesOverride(t *testing.T) {
 }
 
 // TestConnectReconciler_TopologySpreadConstraints verifies an explicit
-// Spec.TopologySpreadConstraints passes through unchanged onto the server Deployment.
+// Spec.TopologySpreadConstraints passes through onto the server Deployment, with an
+// omitted LabelSelector auto-filled to match this component's own pods. Without this,
+// the constraint would silently match zero pods and never do anything (Kubernetes
+// semantics: a nil LabelSelector matches nothing, not everything).
 func TestConnectReconciler_TopologySpreadConstraints(t *testing.T) {
 	ctx := context.Background()
 	ns := "posit-team"
@@ -673,16 +677,14 @@ func TestConnectReconciler_TopologySpreadConstraints(t *testing.T) {
 
 	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
 
-	constraints := []corev1.TopologySpreadConstraint{
+	c := defineDefaultConnect(t, ns, name)
+	c.Spec.TopologySpreadConstraints = []corev1.TopologySpreadConstraint{
 		{
 			MaxSkew:           1,
 			TopologyKey:       "kubernetes.io/arch",
 			WhenUnsatisfiable: corev1.DoNotSchedule,
 		},
 	}
-
-	c := defineDefaultConnect(t, ns, name)
-	c.Spec.TopologySpreadConstraints = constraints
 
 	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
 	require.NoError(t, err)
@@ -694,7 +696,54 @@ func TestConnectReconciler_TopologySpreadConstraints(t *testing.T) {
 	require.True(t, res.IsZero())
 
 	deployment := getDeployment(t, cli, ns, c.ComponentName())
-	assert.Equal(t, constraints, deployment.Spec.Template.Spec.TopologySpreadConstraints)
+	got := deployment.Spec.Template.Spec.TopologySpreadConstraints
+	require.Len(t, got, 1)
+	assert.Equal(t, int32(1), got[0].MaxSkew)
+	assert.Equal(t, "kubernetes.io/arch", got[0].TopologyKey)
+	assert.Equal(t, corev1.DoNotSchedule, got[0].WhenUnsatisfiable)
+
+	require.NotNil(t, got[0].LabelSelector, "an omitted LabelSelector must be auto-filled, or the constraint silently matches zero pods")
+	selector, err := metav1.LabelSelectorAsSelector(got[0].LabelSelector)
+	require.NoError(t, err)
+	assert.True(t, selector.Matches(labels.Set(c.KubernetesLabels())),
+		"auto-filled LabelSelector must match this component's own pod labels, or the constraint counts nothing")
+}
+
+// TestConnectReconciler_TopologySpreadConstraintsExplicitSelector verifies that an
+// explicit LabelSelector on a constraint is left untouched, not overridden by the
+// auto-fill default.
+func TestConnectReconciler_TopologySpreadConstraintsExplicitSelector(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "connect-topology-spread-explicit"
+
+	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
+
+	explicitSelector := &metav1.LabelSelector{MatchLabels: map[string]string{"custom": "selector"}}
+
+	c := defineDefaultConnect(t, ns, name)
+	c.Spec.TopologySpreadConstraints = []corev1.TopologySpreadConstraint{
+		{
+			MaxSkew:           1,
+			TopologyKey:       "kubernetes.io/arch",
+			WhenUnsatisfiable: corev1.DoNotSchedule,
+			LabelSelector:     explicitSelector,
+		},
+	}
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	require.NoError(t, err)
+
+	c = getConnect(t, cli, ns, name)
+
+	res, err := r.ReconcileConnect(ctx, req, c)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	deployment := getDeployment(t, cli, ns, c.ComponentName())
+	got := deployment.Spec.Template.Spec.TopologySpreadConstraints
+	require.Len(t, got, 1)
+	assert.Equal(t, explicitSelector, got[0].LabelSelector, "an explicit LabelSelector must not be overridden by the auto-fill default")
 }
 
 // TestConnectReconciler_Suspended verifies that when Connect has Suspended=true,
