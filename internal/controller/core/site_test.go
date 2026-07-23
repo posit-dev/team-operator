@@ -486,6 +486,37 @@ func TestSiteReconcileWithTolerations(t *testing.T) {
 	assert.Equal(t, "workbench-session", workbench.Spec.SessionConfig.Pod.Tolerations[0].Key)
 }
 
+func TestSiteReconcileWithContentPlacement(t *testing.T) {
+	siteName := "content-placement-site"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	// ContentTolerations and ContentNodeSelector apply to Connect content (session) pods
+	site.Spec.Connect.ContentTolerations = []corev1.Toleration{
+		{
+			Key:      "workload-type",
+			Operator: corev1.TolerationOpEqual,
+			Value:    "session",
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+	}
+	site.Spec.Connect.ContentNodeSelector = map[string]string{
+		"karpenter.sh/nodepool": "test-pool",
+	}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	// Verify content (session) pods receive the ContentTolerations and ContentNodeSelector
+	connect := getConnect(t, cli, siteNamespace, siteName)
+	assert.NotNil(t, connect.Spec.SessionConfig)
+	assert.NotNil(t, connect.Spec.SessionConfig.Pod)
+	assert.Len(t, connect.Spec.SessionConfig.Pod.Tolerations, 1)
+	assert.Equal(t, "workload-type", connect.Spec.SessionConfig.Pod.Tolerations[0].Key)
+	assert.Equal(t, "session", connect.Spec.SessionConfig.Pod.Tolerations[0].Value)
+	assert.Equal(t, corev1.TaintEffectNoSchedule, connect.Spec.SessionConfig.Pod.Tolerations[0].Effect)
+	assert.Equal(t, "test-pool", connect.Spec.SessionConfig.Pod.NodeSelector["karpenter.sh/nodepool"])
+}
+
 func TestSiteReconcileWithSharedDirectory(t *testing.T) {
 	siteName := "shared-site"
 	siteNamespace := "posit-team"

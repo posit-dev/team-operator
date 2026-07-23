@@ -284,6 +284,12 @@ type InternalConnectSpec struct {
 
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
+	// ContentTolerations are tolerations applied only to Connect content (session) pods, not the Connect server.
+	ContentTolerations []corev1.Toleration `json:"contentTolerations,omitempty"`
+
+	// ContentNodeSelector is a node selector applied only to Connect content (session) pods, not the Connect server.
+	ContentNodeSelector map[string]string `json:"contentNodeSelector,omitempty"`
+
 	// Resources sets the server container's resource requests/limits.
 	// If unset, product defaults are applied. Setting this replaces the defaults entirely.
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
