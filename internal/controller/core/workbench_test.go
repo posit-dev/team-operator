@@ -554,6 +554,39 @@ func TestWorkbenchReconciler_ResourcesOverride(t *testing.T) {
 	assertQuantityEqual(t, "8Gi", resources.Limits[corev1.ResourceMemory])
 }
 
+// TestWorkbenchReconciler_TopologySpreadConstraints verifies an explicit
+// Spec.TopologySpreadConstraints passes through unchanged onto the server Deployment.
+func TestWorkbenchReconciler_TopologySpreadConstraints(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-topology-spread"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	constraints := []corev1.TopologySpreadConstraint{
+		{
+			MaxSkew:           1,
+			TopologyKey:       "kubernetes.io/arch",
+			WhenUnsatisfiable: corev1.DoNotSchedule,
+		},
+	}
+
+	wb := defineDefaultWorkbench(t, ns, name)
+	wb.Spec.TopologySpreadConstraints = constraints
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	deployment := getDeployment(t, cli, ns, wb.ComponentName())
+	assert.Equal(t, constraints, deployment.Spec.Template.Spec.TopologySpreadConstraints)
+}
+
 // TestWorkbenchReconciler_Suspended verifies that when Workbench has Suspended=true,
 // ReconcileWorkbench does not create serving resources (Deployment, Service, Ingress).
 func TestWorkbenchReconciler_Suspended(t *testing.T) {

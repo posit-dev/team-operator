@@ -664,6 +664,39 @@ func TestConnectReconciler_ResourcesOverride(t *testing.T) {
 	assertQuantityEqual(t, "8Gi", resources.Limits[corev1.ResourceMemory])
 }
 
+// TestConnectReconciler_TopologySpreadConstraints verifies an explicit
+// Spec.TopologySpreadConstraints passes through unchanged onto the server Deployment.
+func TestConnectReconciler_TopologySpreadConstraints(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "connect-topology-spread"
+
+	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
+
+	constraints := []corev1.TopologySpreadConstraint{
+		{
+			MaxSkew:           1,
+			TopologyKey:       "kubernetes.io/arch",
+			WhenUnsatisfiable: corev1.DoNotSchedule,
+		},
+	}
+
+	c := defineDefaultConnect(t, ns, name)
+	c.Spec.TopologySpreadConstraints = constraints
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	require.NoError(t, err)
+
+	c = getConnect(t, cli, ns, name)
+
+	res, err := r.ReconcileConnect(ctx, req, c)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	deployment := getDeployment(t, cli, ns, c.ComponentName())
+	assert.Equal(t, constraints, deployment.Spec.Template.Spec.TopologySpreadConstraints)
+}
+
 // TestConnectReconciler_DefaultCommand verifies that when Spec.Command/Spec.Args
 // are unset, the rendered connect container falls back to the legacy tini wrapper,
 // so upgrading the operator doesn't change the behavior of existing deployments.

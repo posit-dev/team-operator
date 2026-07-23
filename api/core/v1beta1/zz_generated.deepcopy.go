@@ -899,6 +899,13 @@ func (in *ConnectSpec) DeepCopyInto(out *ConnectSpec) {
 			(*out)[key] = val
 		}
 	}
+	if in.TopologySpreadConstraints != nil {
+		in, out := &in.TopologySpreadConstraints, &out.TopologySpreadConstraints
+		*out = make([]v1.TopologySpreadConstraint, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.AddEnv != nil {
 		in, out := &in.AddEnv, &out.AddEnv
 		*out = make(map[string]string, len(*in))
@@ -1257,6 +1264,13 @@ func (in *InternalConnectSpec) DeepCopyInto(out *InternalConnectSpec) {
 		*out = new(v1.ResourceRequirements)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.TopologySpreadConstraints != nil {
+		in, out := &in.TopologySpreadConstraints, &out.TopologySpreadConstraints
+		*out = make([]v1.TopologySpreadConstraint, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	in.Auth.DeepCopyInto(&out.Auth)
 	if in.RegisterOnFirstLogin != nil {
 		in, out := &in.RegisterOnFirstLogin, &out.RegisterOnFirstLogin
@@ -1397,6 +1411,13 @@ func (in *InternalPackageManagerSpec) DeepCopyInto(out *InternalPackageManagerSp
 		in, out := &in.Resources, &out.Resources
 		*out = new(v1.ResourceRequirements)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.TopologySpreadConstraints != nil {
+		in, out := &in.TopologySpreadConstraints, &out.TopologySpreadConstraints
+		*out = make([]v1.TopologySpreadConstraint, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.AddEnv != nil {
 		in, out := &in.AddEnv, &out.AddEnv
@@ -1556,6 +1577,13 @@ func (in *InternalWorkbenchSpec) DeepCopyInto(out *InternalWorkbenchSpec) {
 		in, out := &in.Resources, &out.Resources
 		*out = new(v1.ResourceRequirements)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.TopologySpreadConstraints != nil {
+		in, out := &in.TopologySpreadConstraints, &out.TopologySpreadConstraints
+		*out = make([]v1.TopologySpreadConstraint, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.Tolerations != nil {
 		in, out := &in.Tolerations, &out.Tolerations
@@ -2063,6 +2091,13 @@ func (in *PackageManagerSpec) DeepCopyInto(out *PackageManagerSpec) {
 		in, out := &in.Resources, &out.Resources
 		*out = new(v1.ResourceRequirements)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.TopologySpreadConstraints != nil {
+		in, out := &in.TopologySpreadConstraints, &out.TopologySpreadConstraints
+		*out = make([]v1.TopologySpreadConstraint, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.AddEnv != nil {
 		in, out := &in.AddEnv, &out.AddEnv
@@ -3521,6 +3556,13 @@ func (in *WorkbenchSpec) DeepCopyInto(out *WorkbenchSpec) {
 		in, out := &in.Resources, &out.Resources
 		*out = new(v1.ResourceRequirements)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.TopologySpreadConstraints != nil {
+		in, out := &in.TopologySpreadConstraints, &out.TopologySpreadConstraints
+		*out = make([]v1.TopologySpreadConstraint, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.Tolerations != nil {
 		in, out := &in.Tolerations, &out.Tolerations

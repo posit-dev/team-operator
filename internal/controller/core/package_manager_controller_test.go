@@ -270,6 +270,63 @@ func TestPackageManagerReconciler_ResourcesOverride(t *testing.T) {
 	assertQuantityEqual(t, "16Gi", resources.Limits[corev1.ResourceMemory])
 }
 
+// TestPackageManagerReconciler_TopologySpreadConstraints verifies an explicit
+// Spec.TopologySpreadConstraints passes through unchanged onto the server Deployment.
+func TestPackageManagerReconciler_TopologySpreadConstraints(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "pm-topology-spread"
+
+	fakeEnv := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeEnv.Start(loadSchemes)
+
+	r := &PackageManagerReconciler{
+		Client: cli,
+		Scheme: scheme,
+		Log:    log,
+	}
+
+	ctx = logr.NewContext(ctx, log)
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: ns, Name: name},
+	}
+
+	constraints := []corev1.TopologySpreadConstraint{
+		{
+			MaxSkew:           1,
+			TopologyKey:       "kubernetes.io/arch",
+			WhenUnsatisfiable: corev1.DoNotSchedule,
+		},
+	}
+
+	pm := &positcov1beta1.PackageManager{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageManager",
+			APIVersion: "core.posit.team/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name, UID: "pm-topology-spread-uid"},
+		Spec: positcov1beta1.PackageManagerSpec{
+			Image: "ghcr.io/rstudio/rstudio-pm:test",
+			Secret: positcov1beta1.SecretConfig{
+				Type: product.SiteSecretKubernetes,
+			},
+			Config:                    &positcov1beta1.PackageManagerConfig{},
+			TopologySpreadConstraints: constraints,
+		},
+	}
+
+	require.NoError(t, cli.Create(ctx, pm))
+
+	_, err := r.ensureDeployedService(ctx, req, pm)
+	require.NoError(t, err)
+
+	dep := &appsv1.Deployment{}
+	err = cli.Get(ctx, client.ObjectKey{Name: pm.ComponentName(), Namespace: ns}, dep)
+	require.NoError(t, err)
+
+	assert.Equal(t, constraints, dep.Spec.Template.Spec.TopologySpreadConstraints)
+}
+
 // TestPackageManagerReconciler_EnvVars verifies that the envVars field, including a
 // valueFrom.secretKeyRef entry, flows through to the rendered Package Manager
 // container's Env.
