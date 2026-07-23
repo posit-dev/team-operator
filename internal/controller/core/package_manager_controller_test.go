@@ -20,6 +20,7 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -271,7 +272,10 @@ func TestPackageManagerReconciler_ResourcesOverride(t *testing.T) {
 }
 
 // TestPackageManagerReconciler_TopologySpreadConstraints verifies an explicit
-// Spec.TopologySpreadConstraints passes through unchanged onto the server Deployment.
+// Spec.TopologySpreadConstraints passes through onto the server Deployment, with an
+// omitted LabelSelector auto-filled to match this component's own pods. Without this,
+// the constraint would silently match zero pods and never do anything (Kubernetes
+// semantics: a nil LabelSelector matches nothing, not everything).
 func TestPackageManagerReconciler_TopologySpreadConstraints(t *testing.T) {
 	ctx := context.Background()
 	ns := "posit-team"
@@ -291,14 +295,6 @@ func TestPackageManagerReconciler_TopologySpreadConstraints(t *testing.T) {
 		NamespacedName: types.NamespacedName{Namespace: ns, Name: name},
 	}
 
-	constraints := []corev1.TopologySpreadConstraint{
-		{
-			MaxSkew:           1,
-			TopologyKey:       "kubernetes.io/arch",
-			WhenUnsatisfiable: corev1.DoNotSchedule,
-		},
-	}
-
 	pm := &positcov1beta1.PackageManager{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageManager",
@@ -310,8 +306,14 @@ func TestPackageManagerReconciler_TopologySpreadConstraints(t *testing.T) {
 			Secret: positcov1beta1.SecretConfig{
 				Type: product.SiteSecretKubernetes,
 			},
-			Config:                    &positcov1beta1.PackageManagerConfig{},
-			TopologySpreadConstraints: constraints,
+			Config: &positcov1beta1.PackageManagerConfig{},
+			TopologySpreadConstraints: []corev1.TopologySpreadConstraint{
+				{
+					MaxSkew:           1,
+					TopologyKey:       "kubernetes.io/arch",
+					WhenUnsatisfiable: corev1.DoNotSchedule,
+				},
+			},
 		},
 	}
 
@@ -324,7 +326,78 @@ func TestPackageManagerReconciler_TopologySpreadConstraints(t *testing.T) {
 	err = cli.Get(ctx, client.ObjectKey{Name: pm.ComponentName(), Namespace: ns}, dep)
 	require.NoError(t, err)
 
-	assert.Equal(t, constraints, dep.Spec.Template.Spec.TopologySpreadConstraints)
+	got := dep.Spec.Template.Spec.TopologySpreadConstraints
+	require.Len(t, got, 1)
+	assert.Equal(t, int32(1), got[0].MaxSkew)
+	assert.Equal(t, "kubernetes.io/arch", got[0].TopologyKey)
+	assert.Equal(t, corev1.DoNotSchedule, got[0].WhenUnsatisfiable)
+
+	require.NotNil(t, got[0].LabelSelector, "an omitted LabelSelector must be auto-filled, or the constraint silently matches zero pods")
+	selector, err := metav1.LabelSelectorAsSelector(got[0].LabelSelector)
+	require.NoError(t, err)
+	assert.True(t, selector.Matches(labels.Set(pm.KubernetesLabels())),
+		"auto-filled LabelSelector must match this component's own pod labels, or the constraint counts nothing")
+}
+
+// TestPackageManagerReconciler_TopologySpreadConstraintsExplicitSelector verifies that
+// an explicit LabelSelector on a constraint is left untouched, not overridden by the
+// auto-fill default.
+func TestPackageManagerReconciler_TopologySpreadConstraintsExplicitSelector(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "pm-topology-spread-explicit"
+
+	fakeEnv := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeEnv.Start(loadSchemes)
+
+	r := &PackageManagerReconciler{
+		Client: cli,
+		Scheme: scheme,
+		Log:    log,
+	}
+
+	ctx = logr.NewContext(ctx, log)
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: ns, Name: name},
+	}
+
+	explicitSelector := &metav1.LabelSelector{MatchLabels: map[string]string{"custom": "selector"}}
+
+	pm := &positcov1beta1.PackageManager{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageManager",
+			APIVersion: "core.posit.team/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name, UID: "pm-topology-spread-explicit-uid"},
+		Spec: positcov1beta1.PackageManagerSpec{
+			Image: "ghcr.io/rstudio/rstudio-pm:test",
+			Secret: positcov1beta1.SecretConfig{
+				Type: product.SiteSecretKubernetes,
+			},
+			Config: &positcov1beta1.PackageManagerConfig{},
+			TopologySpreadConstraints: []corev1.TopologySpreadConstraint{
+				{
+					MaxSkew:           1,
+					TopologyKey:       "kubernetes.io/arch",
+					WhenUnsatisfiable: corev1.DoNotSchedule,
+					LabelSelector:     explicitSelector,
+				},
+			},
+		},
+	}
+
+	require.NoError(t, cli.Create(ctx, pm))
+
+	_, err := r.ensureDeployedService(ctx, req, pm)
+	require.NoError(t, err)
+
+	dep := &appsv1.Deployment{}
+	err = cli.Get(ctx, client.ObjectKey{Name: pm.ComponentName(), Namespace: ns}, dep)
+	require.NoError(t, err)
+
+	got := dep.Spec.Template.Spec.TopologySpreadConstraints
+	require.Len(t, got, 1)
+	assert.Equal(t, explicitSelector, got[0].LabelSelector, "an explicit LabelSelector must not be overridden by the auto-fill default")
 }
 
 // TestPackageManagerReconciler_EnvVars verifies that the envVars field, including a
