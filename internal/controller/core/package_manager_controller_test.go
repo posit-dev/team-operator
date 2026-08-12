@@ -438,3 +438,57 @@ func TestPackageManagerReconciler_CommandOverride(t *testing.T) {
 	assert.Equal(t, []string{"tini", "--"}, container.Command)
 	assert.Equal(t, []string{"/usr/local/bin/startup.sh"}, container.Args)
 }
+
+// TestPackageManagerReconciler_SleepOverridesCommand verifies that Spec.Sleep
+// takes precedence over an explicit Spec.Command/Spec.Args, putting the
+// container to sleep instead of running the user-specified command.
+func TestPackageManagerReconciler_SleepOverridesCommand(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "pm-sleep-overrides-command"
+
+	fakeEnv := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeEnv.Start(loadSchemes)
+
+	r := &PackageManagerReconciler{
+		Client: cli,
+		Scheme: scheme,
+		Log:    log,
+	}
+
+	ctx = logr.NewContext(ctx, log)
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: ns, Name: name},
+	}
+
+	pm := &positcov1beta1.PackageManager{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageManager",
+			APIVersion: "core.posit.team/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name, UID: "pm-sleep-overrides-command-uid"},
+		Spec: positcov1beta1.PackageManagerSpec{
+			Image: "ghcr.io/rstudio/rstudio-pm:test",
+			Secret: positcov1beta1.SecretConfig{
+				Type: product.SiteSecretKubernetes,
+			},
+			Config:  &positcov1beta1.PackageManagerConfig{},
+			Command: []string{"tini", "--"},
+			Args:    []string{"/usr/local/bin/startup.sh"},
+			Sleep:   true,
+		},
+	}
+
+	require.NoError(t, cli.Create(ctx, pm))
+
+	_, err := r.ensureDeployedService(ctx, req, pm)
+	require.NoError(t, err)
+
+	dep := &appsv1.Deployment{}
+	err = cli.Get(ctx, client.ObjectKey{Name: pm.ComponentName(), Namespace: ns}, dep)
+	require.NoError(t, err)
+
+	container := dep.Spec.Template.Spec.Containers[0]
+	assert.Equal(t, []string{"sleep"}, container.Command)
+	assert.Equal(t, []string{"infinity"}, container.Args)
+}

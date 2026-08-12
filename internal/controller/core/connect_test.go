@@ -719,6 +719,36 @@ func TestConnectReconciler_CommandOverride(t *testing.T) {
 	assert.Equal(t, []string{"/usr/local/bin/startup.sh"}, container.Args)
 }
 
+// TestConnectReconciler_SleepOverridesCommand verifies that Spec.Sleep takes
+// precedence over an explicit Spec.Command/Spec.Args, putting the container to
+// sleep instead of running the user-specified command.
+func TestConnectReconciler_SleepOverridesCommand(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "connect-sleep-overrides-command"
+
+	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
+
+	c := defineDefaultConnect(t, ns, name)
+	c.Spec.Command = []string{"tini", "--"}
+	c.Spec.Args = []string{"/usr/local/bin/startup.sh"}
+	c.Spec.Sleep = true
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	require.NoError(t, err)
+
+	c = getConnect(t, cli, ns, name)
+
+	res, err := r.ReconcileConnect(ctx, req, c)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	deployment := getDeployment(t, cli, ns, c.ComponentName())
+	container := deployment.Spec.Template.Spec.Containers[0]
+	assert.Equal(t, []string{"sleep"}, container.Command)
+	assert.Equal(t, []string{"infinity"}, container.Args)
+}
+
 // TestConnectReconciler_Suspended verifies that when Connect has Suspended=true,
 // ReconcileConnect does not create serving resources (Deployment, Service, Ingress).
 func TestConnectReconciler_Suspended(t *testing.T) {

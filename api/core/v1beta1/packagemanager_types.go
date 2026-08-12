@@ -71,7 +71,7 @@ type PackageManagerSpec struct {
 	Args []string `json:"args,omitempty"`
 
 	// Sleep puts the service to sleep... so you can debug a crash looping container / etc. It is an ugly escape hatch,
-	// but can also be useful on occasion
+	// but can also be useful on occasion. When true, it overrides Command/Args with "sleep infinity".
 	Sleep bool `json:"sleep,omitempty"`
 
 	// AwsAccountId is the account Id for this AWS Account. It is used to create EKS-to-IAM annotations
