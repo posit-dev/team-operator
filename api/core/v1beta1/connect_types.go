@@ -104,6 +104,16 @@ type ConnectSpec struct {
 
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 
+	// Command overrides the container's entrypoint command. If unset, the container's
+	// own ENTRYPOINT is used.
+	// +optional
+	Command []string `json:"command,omitempty"`
+
+	// Args overrides the container's command arguments. If unset, the container's own
+	// CMD is used.
+	// +optional
+	Args []string `json:"args,omitempty"`
+
 	// Sleep puts the service to sleep... so you can debug a crash looping container / etc. It is an ugly escape hatch,
 	// but can also be useful on occasion
 	Sleep bool `json:"sleep,omitempty"`

@@ -664,6 +664,61 @@ func TestConnectReconciler_ResourcesOverride(t *testing.T) {
 	assertQuantityEqual(t, "8Gi", resources.Limits[corev1.ResourceMemory])
 }
 
+// TestConnectReconciler_DefaultCommand verifies that when Spec.Command/Spec.Args
+// are unset, the rendered connect container has no Command/Args override, so the
+// image's own ENTRYPOINT/CMD is used.
+func TestConnectReconciler_DefaultCommand(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "connect-default-command"
+
+	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
+
+	c := defineDefaultConnect(t, ns, name)
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	require.NoError(t, err)
+
+	c = getConnect(t, cli, ns, name)
+
+	res, err := r.ReconcileConnect(ctx, req, c)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	deployment := getDeployment(t, cli, ns, c.ComponentName())
+	container := deployment.Spec.Template.Spec.Containers[0]
+	assert.Empty(t, container.Command, "Command should not be set by default")
+	assert.Empty(t, container.Args, "Args should not be set by default")
+}
+
+// TestConnectReconciler_CommandOverride verifies that explicit Spec.Command/Spec.Args
+// flow through to the rendered connect container exactly.
+func TestConnectReconciler_CommandOverride(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "connect-command-override"
+
+	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
+
+	c := defineDefaultConnect(t, ns, name)
+	c.Spec.Command = []string{"tini", "--"}
+	c.Spec.Args = []string{"/usr/local/bin/startup.sh"}
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	require.NoError(t, err)
+
+	c = getConnect(t, cli, ns, name)
+
+	res, err := r.ReconcileConnect(ctx, req, c)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	deployment := getDeployment(t, cli, ns, c.ComponentName())
+	container := deployment.Spec.Template.Spec.Containers[0]
+	assert.Equal(t, []string{"tini", "--"}, container.Command)
+	assert.Equal(t, []string{"/usr/local/bin/startup.sh"}, container.Args)
+}
+
 // TestConnectReconciler_Suspended verifies that when Connect has Suspended=true,
 // ReconcileConnect does not create serving resources (Deployment, Service, Ingress).
 func TestConnectReconciler_Suspended(t *testing.T) {

@@ -529,8 +529,8 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 							Name:            "rspm",
 							Image:           pm.Spec.Image,
 							ImagePullPolicy: pm.Spec.ImagePullPolicy,
-							Command:         []string{"tini", "--"},
-							Args:            []string{"/usr/local/bin/startup.sh"},
+							Command:         pm.Spec.Command,
+							Args:            pm.Spec.Args,
 							Env: product.ConcatLists(
 								secretVolumeFactory.EnvVars(),
 								product.StringMapToEnvVars(pm.Spec.AddEnv),

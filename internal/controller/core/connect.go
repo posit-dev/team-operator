@@ -685,8 +685,8 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 							Name:            "connect",
 							Image:           c.Spec.Image,
 							ImagePullPolicy: c.Spec.ImagePullPolicy,
-							Command:         []string{"tini", "--"},
-							Args:            []string{"/usr/local/bin/startup.sh"},
+							Command:         c.Spec.Command,
+							Args:            c.Spec.Args,
 							Env: product.ConcatLists(
 								volumeFactory.EnvVars(),
 								secretVolumeFactory.EnvVars(),

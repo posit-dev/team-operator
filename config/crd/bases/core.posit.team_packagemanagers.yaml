@@ -62,6 +62,13 @@ spec:
                   addEnv and envVars, envVars takes precedence: it is rendered after addEnv,
                   and Kubernetes resolves a duplicate env var name to the last occurrence.
                 type: object
+              args:
+                description: |-
+                  Args overrides the container's command arguments. If unset, the container's own
+                  CMD is used.
+                items:
+                  type: string
+                type: array
               awsAccountId:
                 description: AwsAccountId is the account Id for this AWS Account.
                   It is used to create EKS-to-IAM annotations
@@ -87,6 +94,13 @@ spec:
                 description: ClusterDate is the date id (YYYYmmdd) for the cluster.
                   It is used to create EKS-to-IAM annotations
                 type: string
+              command:
+                description: |-
+                  Command overrides the container's entrypoint command. If unset, the container's
+                  own ENTRYPOINT is used.
+                items:
+                  type: string
+                type: array
               config:
                 properties:
                   Authentication:
