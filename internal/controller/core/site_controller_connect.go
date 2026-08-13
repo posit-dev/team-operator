@@ -140,6 +140,8 @@ func (r *SiteReconciler) reconcileConnect(
 			Image:                        site.Spec.Connect.Image,
 			SessionImage:                 site.Spec.Connect.SessionImage,
 			ImagePullPolicy:              site.Spec.Connect.ImagePullPolicy,
+			Command:                      site.Spec.Connect.Command,
+			Args:                         site.Spec.Connect.Args,
 			ImagePullSecrets:             site.Spec.ImagePullSecrets,
 			ChronicleAgentImage:          site.Spec.Chronicle.AgentImage,
 			AdditionalVolumes:            additionalVolumes,

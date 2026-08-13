@@ -228,6 +228,18 @@ type InternalPackageManagerSpec struct {
 
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 
+	// Command overrides the container's entrypoint command. If unset (along with Args),
+	// defaults to the historical "tini -- /usr/local/bin/startup.sh" wrapper for
+	// backwards compatibility with existing deployments.
+	// +optional
+	Command []string `json:"command,omitempty"`
+
+	// Args overrides the container's command arguments. If unset (along with Command),
+	// defaults to the historical "tini -- /usr/local/bin/startup.sh" wrapper for
+	// backwards compatibility with existing deployments.
+	// +optional
+	Args []string `json:"args,omitempty"`
+
 	S3Bucket string `json:"s3Bucket,omitempty"`
 
 	Replicas int `json:"replicas,omitempty"`
@@ -306,6 +318,18 @@ type InternalConnectSpec struct {
 	SessionImage string `json:"sessionImage,omitempty"`
 
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+
+	// Command overrides the container's entrypoint command. If unset (along with Args),
+	// defaults to the historical "tini -- /usr/local/bin/startup.sh" wrapper for
+	// backwards compatibility with existing deployments.
+	// +optional
+	Command []string `json:"command,omitempty"`
+
+	// Args overrides the container's command arguments. If unset (along with Command),
+	// defaults to the historical "tini -- /usr/local/bin/startup.sh" wrapper for
+	// backwards compatibility with existing deployments.
+	// +optional
+	Args []string `json:"args,omitempty"`
 
 	Databricks *DatabricksConfig `json:"databricks,omitempty"`
 

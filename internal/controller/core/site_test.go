@@ -1256,6 +1256,62 @@ func TestSiteReconciler_RegisterOnFirstLoginDefaultNil(t *testing.T) {
 	assert.Nil(t, testConnect.Spec.RegisterOnFirstLogin)
 }
 
+func TestSiteReconciler_ConnectCommandArgsPropagation(t *testing.T) {
+	siteName := "connect-command-args"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.Connect.Command = []string{"/usr/local/bin/startup.sh"}
+	site.Spec.Connect.Args = []string{"--foo"}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testConnect := getConnect(t, cli, siteNamespace, siteName)
+	assert.Equal(t, []string{"/usr/local/bin/startup.sh"}, testConnect.Spec.Command)
+	assert.Equal(t, []string{"--foo"}, testConnect.Spec.Args)
+}
+
+func TestSiteReconciler_ConnectCommandArgsDefaultNil(t *testing.T) {
+	siteName := "connect-command-args-default"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testConnect := getConnect(t, cli, siteNamespace, siteName)
+	assert.Nil(t, testConnect.Spec.Command)
+	assert.Nil(t, testConnect.Spec.Args)
+}
+
+func TestSiteReconciler_PackageManagerCommandArgsPropagation(t *testing.T) {
+	siteName := "packagemanager-command-args"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+	site.Spec.PackageManager.Command = []string{"/usr/local/bin/startup.sh"}
+	site.Spec.PackageManager.Args = []string{"--foo"}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testPackageManager := getPackageManager(t, cli, siteNamespace, siteName)
+	assert.Equal(t, []string{"/usr/local/bin/startup.sh"}, testPackageManager.Spec.Command)
+	assert.Equal(t, []string{"--foo"}, testPackageManager.Spec.Args)
+}
+
+func TestSiteReconciler_PackageManagerCommandArgsDefaultNil(t *testing.T) {
+	siteName := "packagemanager-command-args-default"
+	siteNamespace := "posit-team"
+	site := defaultSite(siteName)
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testPackageManager := getPackageManager(t, cli, siteNamespace, siteName)
+	assert.Nil(t, testPackageManager.Spec.Command)
+	assert.Nil(t, testPackageManager.Spec.Args)
+}
+
 func TestSiteReconciler_BaseDomainNotSet(t *testing.T) {
 	siteName := "base-domain-not-set"
 	siteNamespace := "posit-team"
