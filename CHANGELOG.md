@@ -1,3 +1,10 @@
+## [1.30.1](https://github.com/posit-dev/team-operator/compare/v1.30.0...v1.30.1) (2026-08-13)
+
+
+### Bug Fixes
+
+* make Connect/PM container command/args optional ([#156](https://github.com/posit-dev/team-operator/issues/156)) ([a045855](https://github.com/posit-dev/team-operator/commit/a0458552c29d055e66f8bd122ee6fa3e09cf4138))
+
 # [1.30.0](https://github.com/posit-dev/team-operator/compare/v1.29.1...v1.30.0) (2026-07-22)
 
 
