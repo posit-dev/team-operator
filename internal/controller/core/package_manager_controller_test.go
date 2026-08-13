@@ -337,8 +337,8 @@ func TestPackageManagerReconciler_EnvVars(t *testing.T) {
 }
 
 // TestPackageManagerReconciler_DefaultCommand verifies that when Spec.Command/Spec.Args
-// are unset, the rendered rspm container has no Command/Args override, so the
-// image's own ENTRYPOINT/CMD is used.
+// are unset, the rendered rspm container falls back to the legacy tini wrapper, so
+// upgrading the operator doesn't change the behavior of existing deployments.
 func TestPackageManagerReconciler_DefaultCommand(t *testing.T) {
 	ctx := context.Background()
 	ns := "posit-team"
@@ -383,8 +383,8 @@ func TestPackageManagerReconciler_DefaultCommand(t *testing.T) {
 	require.NoError(t, err)
 
 	container := dep.Spec.Template.Spec.Containers[0]
-	assert.Empty(t, container.Command, "Command should not be set by default")
-	assert.Empty(t, container.Args, "Args should not be set by default")
+	assert.Equal(t, []string{"tini", "--"}, container.Command, "Command should default to the legacy tini wrapper")
+	assert.Equal(t, []string{"/usr/local/bin/startup.sh"}, container.Args, "Args should default to the legacy tini wrapper")
 }
 
 // TestPackageManagerReconciler_CommandOverride verifies that explicit
@@ -420,8 +420,8 @@ func TestPackageManagerReconciler_CommandOverride(t *testing.T) {
 				Type: product.SiteSecretKubernetes,
 			},
 			Config:  &positcov1beta1.PackageManagerConfig{},
-			Command: []string{"tini", "--"},
-			Args:    []string{"/usr/local/bin/startup.sh"},
+			Command: []string{"/custom-entrypoint"},
+			Args:    []string{"--flag"},
 		},
 	}
 
@@ -435,8 +435,8 @@ func TestPackageManagerReconciler_CommandOverride(t *testing.T) {
 	require.NoError(t, err)
 
 	container := dep.Spec.Template.Spec.Containers[0]
-	assert.Equal(t, []string{"tini", "--"}, container.Command)
-	assert.Equal(t, []string{"/usr/local/bin/startup.sh"}, container.Args)
+	assert.Equal(t, []string{"/custom-entrypoint"}, container.Command)
+	assert.Equal(t, []string{"--flag"}, container.Args)
 }
 
 // TestPackageManagerReconciler_SleepOverridesCommand verifies that Spec.Sleep
@@ -473,8 +473,8 @@ func TestPackageManagerReconciler_SleepOverridesCommand(t *testing.T) {
 				Type: product.SiteSecretKubernetes,
 			},
 			Config:  &positcov1beta1.PackageManagerConfig{},
-			Command: []string{"tini", "--"},
-			Args:    []string{"/usr/local/bin/startup.sh"},
+			Command: []string{"/custom-entrypoint"},
+			Args:    []string{"--flag"},
 			Sleep:   true,
 		},
 	}

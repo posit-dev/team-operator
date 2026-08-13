@@ -665,8 +665,8 @@ func TestConnectReconciler_ResourcesOverride(t *testing.T) {
 }
 
 // TestConnectReconciler_DefaultCommand verifies that when Spec.Command/Spec.Args
-// are unset, the rendered connect container has no Command/Args override, so the
-// image's own ENTRYPOINT/CMD is used.
+// are unset, the rendered connect container falls back to the legacy tini wrapper,
+// so upgrading the operator doesn't change the behavior of existing deployments.
 func TestConnectReconciler_DefaultCommand(t *testing.T) {
 	ctx := context.Background()
 	ns := "posit-team"
@@ -687,8 +687,8 @@ func TestConnectReconciler_DefaultCommand(t *testing.T) {
 
 	deployment := getDeployment(t, cli, ns, c.ComponentName())
 	container := deployment.Spec.Template.Spec.Containers[0]
-	assert.Empty(t, container.Command, "Command should not be set by default")
-	assert.Empty(t, container.Args, "Args should not be set by default")
+	assert.Equal(t, []string{"tini", "--"}, container.Command, "Command should default to the legacy tini wrapper")
+	assert.Equal(t, []string{"/usr/local/bin/startup.sh"}, container.Args, "Args should default to the legacy tini wrapper")
 }
 
 // TestConnectReconciler_CommandOverride verifies that explicit Spec.Command/Spec.Args
@@ -701,8 +701,8 @@ func TestConnectReconciler_CommandOverride(t *testing.T) {
 	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
 
 	c := defineDefaultConnect(t, ns, name)
-	c.Spec.Command = []string{"tini", "--"}
-	c.Spec.Args = []string{"/usr/local/bin/startup.sh"}
+	c.Spec.Command = []string{"/custom-entrypoint"}
+	c.Spec.Args = []string{"--flag"}
 
 	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
 	require.NoError(t, err)
@@ -715,8 +715,8 @@ func TestConnectReconciler_CommandOverride(t *testing.T) {
 
 	deployment := getDeployment(t, cli, ns, c.ComponentName())
 	container := deployment.Spec.Template.Spec.Containers[0]
-	assert.Equal(t, []string{"tini", "--"}, container.Command)
-	assert.Equal(t, []string{"/usr/local/bin/startup.sh"}, container.Args)
+	assert.Equal(t, []string{"/custom-entrypoint"}, container.Command)
+	assert.Equal(t, []string{"--flag"}, container.Args)
 }
 
 // TestConnectReconciler_SleepOverridesCommand verifies that Spec.Sleep takes
@@ -730,8 +730,8 @@ func TestConnectReconciler_SleepOverridesCommand(t *testing.T) {
 	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
 
 	c := defineDefaultConnect(t, ns, name)
-	c.Spec.Command = []string{"tini", "--"}
-	c.Spec.Args = []string{"/usr/local/bin/startup.sh"}
+	c.Spec.Command = []string{"/custom-entrypoint"}
+	c.Spec.Args = []string{"--flag"}
 	c.Spec.Sleep = true
 
 	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)

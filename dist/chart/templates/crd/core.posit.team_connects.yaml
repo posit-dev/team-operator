@@ -164,8 +164,9 @@ spec:
                 type: array
               args:
                 description: |-
-                  Args overrides the container's command arguments. If unset, the container's own
-                  CMD is used.
+                  Args overrides the container's command arguments. If unset (along with Command),
+                  defaults to the historical "tini -- /usr/local/bin/startup.sh" wrapper for
+                  backwards compatibility with existing deployments.
                 items:
                   type: string
                 type: array
@@ -239,8 +240,9 @@ spec:
                 type: string
               command:
                 description: |-
-                  Command overrides the container's entrypoint command. If unset, the container's
-                  own ENTRYPOINT is used.
+                  Command overrides the container's entrypoint command. If unset (along with Args),
+                  defaults to the historical "tini -- /usr/local/bin/startup.sh" wrapper for
+                  backwards compatibility with existing deployments.
                 items:
                   type: string
                 type: array

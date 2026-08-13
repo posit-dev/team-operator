@@ -60,13 +60,15 @@ type PackageManagerSpec struct {
 
 	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy,omitempty"`
 
-	// Command overrides the container's entrypoint command. If unset, the container's
-	// own ENTRYPOINT is used.
+	// Command overrides the container's entrypoint command. If unset (along with Args),
+	// defaults to the historical "tini -- /usr/local/bin/startup.sh" wrapper for
+	// backwards compatibility with existing deployments.
 	// +optional
 	Command []string `json:"command,omitempty"`
 
-	// Args overrides the container's command arguments. If unset, the container's own
-	// CMD is used.
+	// Args overrides the container's command arguments. If unset (along with Command),
+	// defaults to the historical "tini -- /usr/local/bin/startup.sh" wrapper for
+	// backwards compatibility with existing deployments.
 	// +optional
 	Args []string `json:"args,omitempty"`
 

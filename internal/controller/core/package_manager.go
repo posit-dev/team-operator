@@ -503,6 +503,7 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 	// TODO: deployment will _definitely_ need custom CreateOrUpdate work at some point
 	//   i.e. to handle version upgrades, etc. We could add an Updater() callback, or a
 	//   CustomComparator... or just decide to inline the logic
+	entrypointCommand, entrypointArgs := resolveEntrypoint(pm.Spec.Command, pm.Spec.Args)
 	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, deployment, pm, func() error {
 		deployment.Labels = pm.KubernetesLabels()
 		deployment.Spec = v1.DeploymentSpec{
@@ -529,8 +530,8 @@ func (r *PackageManagerReconciler) ensureDeployedService(ctx context.Context, re
 							Name:            "rspm",
 							Image:           pm.Spec.Image,
 							ImagePullPolicy: pm.Spec.ImagePullPolicy,
-							Command:         pm.Spec.Command,
-							Args:            pm.Spec.Args,
+							Command:         entrypointCommand,
+							Args:            entrypointArgs,
 							Env: product.ConcatLists(
 								secretVolumeFactory.EnvVars(),
 								product.StringMapToEnvVars(pm.Spec.AddEnv),
