@@ -656,6 +656,7 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 	// TODO: deployment will _definitely_ need custom CreateOrUpdate work at some point
 	//   i.e. to handle version upgrades, etc. We could add an Updater() callback, or a
 	//   CustomComparator... or just decide to inline the logic
+	entrypointCommand, entrypointArgs := resolveEntrypoint(c.Spec.Command, c.Spec.Args)
 	if _, err := internal.CreateOrUpdateResource(ctx, r.Client, r.Scheme, l, deployment, c, func() error {
 		deployment.Labels = c.KubernetesLabels()
 		deployment.Spec = v1.DeploymentSpec{
@@ -685,8 +686,8 @@ func (r *ConnectReconciler) ensureDeployedService(ctx context.Context, req ctrl.
 							Name:            "connect",
 							Image:           c.Spec.Image,
 							ImagePullPolicy: c.Spec.ImagePullPolicy,
-							Command:         []string{"tini", "--"},
-							Args:            []string{"/usr/local/bin/startup.sh"},
+							Command:         entrypointCommand,
+							Args:            entrypointArgs,
 							Env: product.ConcatLists(
 								volumeFactory.EnvVars(),
 								secretVolumeFactory.EnvVars(),

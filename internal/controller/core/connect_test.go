@@ -664,6 +664,91 @@ func TestConnectReconciler_ResourcesOverride(t *testing.T) {
 	assertQuantityEqual(t, "8Gi", resources.Limits[corev1.ResourceMemory])
 }
 
+// TestConnectReconciler_DefaultCommand verifies that when Spec.Command/Spec.Args
+// are unset, the rendered connect container falls back to the legacy tini wrapper,
+// so upgrading the operator doesn't change the behavior of existing deployments.
+func TestConnectReconciler_DefaultCommand(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "connect-default-command"
+
+	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
+
+	c := defineDefaultConnect(t, ns, name)
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	require.NoError(t, err)
+
+	c = getConnect(t, cli, ns, name)
+
+	res, err := r.ReconcileConnect(ctx, req, c)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	deployment := getDeployment(t, cli, ns, c.ComponentName())
+	container := deployment.Spec.Template.Spec.Containers[0]
+	assert.Equal(t, []string{"tini", "--"}, container.Command, "Command should default to the legacy tini wrapper")
+	assert.Equal(t, []string{"/usr/local/bin/startup.sh"}, container.Args, "Args should default to the legacy tini wrapper")
+}
+
+// TestConnectReconciler_CommandOverride verifies that explicit Spec.Command/Spec.Args
+// flow through to the rendered connect container exactly.
+func TestConnectReconciler_CommandOverride(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "connect-command-override"
+
+	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
+
+	c := defineDefaultConnect(t, ns, name)
+	c.Spec.Command = []string{"/custom-entrypoint"}
+	c.Spec.Args = []string{"--flag"}
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	require.NoError(t, err)
+
+	c = getConnect(t, cli, ns, name)
+
+	res, err := r.ReconcileConnect(ctx, req, c)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	deployment := getDeployment(t, cli, ns, c.ComponentName())
+	container := deployment.Spec.Template.Spec.Containers[0]
+	assert.Equal(t, []string{"/custom-entrypoint"}, container.Command)
+	assert.Equal(t, []string{"--flag"}, container.Args)
+}
+
+// TestConnectReconciler_SleepOverridesCommand verifies that Spec.Sleep takes
+// precedence over an explicit Spec.Command/Spec.Args, putting the container to
+// sleep instead of running the user-specified command.
+func TestConnectReconciler_SleepOverridesCommand(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "connect-sleep-overrides-command"
+
+	ctx, r, req, cli := initConnectReconciler(t, ctx, ns, name)
+
+	c := defineDefaultConnect(t, ns, name)
+	c.Spec.Command = []string{"/custom-entrypoint"}
+	c.Spec.Args = []string{"--flag"}
+	c.Spec.Sleep = true
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Connect{}, c)
+	require.NoError(t, err)
+
+	c = getConnect(t, cli, ns, name)
+
+	res, err := r.ReconcileConnect(ctx, req, c)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	deployment := getDeployment(t, cli, ns, c.ComponentName())
+	container := deployment.Spec.Template.Spec.Containers[0]
+	assert.Equal(t, []string{"sleep"}, container.Command)
+	assert.Equal(t, []string{"infinity"}, container.Args)
+}
+
 // TestConnectReconciler_Suspended verifies that when Connect has Suspended=true,
 // ReconcileConnect does not create serving resources (Deployment, Service, Ingress).
 func TestConnectReconciler_Suspended(t *testing.T) {

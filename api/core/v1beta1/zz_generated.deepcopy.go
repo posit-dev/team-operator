@@ -913,6 +913,16 @@ func (in *ConnectSpec) DeepCopyInto(out *ConnectSpec) {
 		*out = make([]ConnectRuntimeImageSpec, len(*in))
 		copy(*out, *in)
 	}
+	if in.Command != nil {
+		in, out := &in.Command, &out.Command
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.Args != nil {
+		in, out := &in.Args, &out.Args
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.Suspended != nil {
 		in, out := &in.Suspended, &out.Suspended
 		*out = new(bool)
@@ -2035,6 +2045,16 @@ func (in *PackageManagerSpec) DeepCopyInto(out *PackageManagerSpec) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.Command != nil {
+		in, out := &in.Command, &out.Command
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.Args != nil {
+		in, out := &in.Args, &out.Args
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 	out.Secret = in.Secret
 	out.WorkloadSecret = in.WorkloadSecret

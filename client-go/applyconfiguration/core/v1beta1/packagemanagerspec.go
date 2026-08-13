@@ -29,6 +29,8 @@ type PackageManagerSpecApplyConfiguration struct {
 	EnvVars                      []v1.EnvVar                               `json:"envVars,omitempty"`
 	Image                        *string                                   `json:"image,omitempty"`
 	ImagePullPolicy              *v1.PullPolicy                            `json:"imagePullPolicy,omitempty"`
+	Command                      []string                                  `json:"command,omitempty"`
+	Args                         []string                                  `json:"args,omitempty"`
 	Sleep                        *bool                                     `json:"sleep,omitempty"`
 	AwsAccountId                 *string                                   `json:"awsAccountId,omitempty"`
 	WorkloadCompoundName         *string                                   `json:"workloadCompoundName,omitempty"`
@@ -196,6 +198,26 @@ func (b *PackageManagerSpecApplyConfiguration) WithImage(value string) *PackageM
 // If called multiple times, the ImagePullPolicy field is set to the value of the last call.
 func (b *PackageManagerSpecApplyConfiguration) WithImagePullPolicy(value v1.PullPolicy) *PackageManagerSpecApplyConfiguration {
 	b.ImagePullPolicy = &value
+	return b
+}
+
+// WithCommand adds the given value to the Command field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Command field.
+func (b *PackageManagerSpecApplyConfiguration) WithCommand(values ...string) *PackageManagerSpecApplyConfiguration {
+	for i := range values {
+		b.Command = append(b.Command, values[i])
+	}
+	return b
+}
+
+// WithArgs adds the given value to the Args field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Args field.
+func (b *PackageManagerSpecApplyConfiguration) WithArgs(values ...string) *PackageManagerSpecApplyConfiguration {
+	for i := range values {
+		b.Args = append(b.Args, values[i])
+	}
 	return b
 }
 

@@ -141,6 +141,14 @@ spec:
                       type: string
                   type: object
                 type: array
+              args:
+                description: |-
+                  Args overrides the container's command arguments. If unset (along with Command),
+                  defaults to the historical "tini -- /usr/local/bin/startup.sh" wrapper for
+                  backwards compatibility with existing deployments.
+                items:
+                  type: string
+                type: array
               auth:
                 properties:
                   administratorRoleMapping:
@@ -209,6 +217,14 @@ spec:
                 description: ClusterDate is the date id (YYYYmmdd) for the cluster.
                   It is used to create EKS-to-IAM annotations
                 type: string
+              command:
+                description: |-
+                  Command overrides the container's entrypoint command. If unset (along with Args),
+                  defaults to the historical "tini -- /usr/local/bin/startup.sh" wrapper for
+                  backwards compatibility with existing deployments.
+                items:
+                  type: string
+                type: array
               config:
                 properties:
                   Applications:
@@ -7569,7 +7585,7 @@ spec:
               sleep:
                 description: |-
                   Sleep puts the service to sleep... so you can debug a crash looping container / etc. It is an ugly escape hatch,
-                  but can also be useful on occasion
+                  but can also be useful on occasion. When true, it overrides Command/Args with "sleep infinity".
                 type: boolean
               suspended:
                 description: |-

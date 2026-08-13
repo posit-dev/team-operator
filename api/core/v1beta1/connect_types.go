@@ -104,8 +104,20 @@ type ConnectSpec struct {
 
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 
+	// Command overrides the container's entrypoint command. If unset (along with Args),
+	// defaults to the historical "tini -- /usr/local/bin/startup.sh" wrapper for
+	// backwards compatibility with existing deployments.
+	// +optional
+	Command []string `json:"command,omitempty"`
+
+	// Args overrides the container's command arguments. If unset (along with Command),
+	// defaults to the historical "tini -- /usr/local/bin/startup.sh" wrapper for
+	// backwards compatibility with existing deployments.
+	// +optional
+	Args []string `json:"args,omitempty"`
+
 	// Sleep puts the service to sleep... so you can debug a crash looping container / etc. It is an ugly escape hatch,
-	// but can also be useful on occasion
+	// but can also be useful on occasion. When true, it overrides Command/Args with "sleep infinity".
 	Sleep bool `json:"sleep,omitempty"`
 
 	// Suspended indicates Connect should not run serving resources (Deployment, Service, Ingress)

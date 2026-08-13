@@ -335,3 +335,160 @@ func TestPackageManagerReconciler_EnvVars(t *testing.T) {
 	assert.Contains(t, container.Env, plainEnv, "plain envVar should be rendered into the container Env")
 	assert.Contains(t, container.Env, secretEnv, "secretKeyRef envVar should be rendered into the container Env")
 }
+
+// TestPackageManagerReconciler_DefaultCommand verifies that when Spec.Command/Spec.Args
+// are unset, the rendered rspm container falls back to the legacy tini wrapper, so
+// upgrading the operator doesn't change the behavior of existing deployments.
+func TestPackageManagerReconciler_DefaultCommand(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "pm-default-command"
+
+	fakeEnv := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeEnv.Start(loadSchemes)
+
+	r := &PackageManagerReconciler{
+		Client: cli,
+		Scheme: scheme,
+		Log:    log,
+	}
+
+	ctx = logr.NewContext(ctx, log)
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: ns, Name: name},
+	}
+
+	pm := &positcov1beta1.PackageManager{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageManager",
+			APIVersion: "core.posit.team/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name, UID: "pm-default-command-uid"},
+		Spec: positcov1beta1.PackageManagerSpec{
+			Image: "ghcr.io/rstudio/rstudio-pm:test",
+			Secret: positcov1beta1.SecretConfig{
+				Type: product.SiteSecretKubernetes,
+			},
+			Config: &positcov1beta1.PackageManagerConfig{},
+		},
+	}
+
+	require.NoError(t, cli.Create(ctx, pm))
+
+	_, err := r.ensureDeployedService(ctx, req, pm)
+	require.NoError(t, err)
+
+	dep := &appsv1.Deployment{}
+	err = cli.Get(ctx, client.ObjectKey{Name: pm.ComponentName(), Namespace: ns}, dep)
+	require.NoError(t, err)
+
+	container := dep.Spec.Template.Spec.Containers[0]
+	assert.Equal(t, []string{"tini", "--"}, container.Command, "Command should default to the legacy tini wrapper")
+	assert.Equal(t, []string{"/usr/local/bin/startup.sh"}, container.Args, "Args should default to the legacy tini wrapper")
+}
+
+// TestPackageManagerReconciler_CommandOverride verifies that explicit
+// Spec.Command/Spec.Args flow through to the rendered rspm container exactly.
+func TestPackageManagerReconciler_CommandOverride(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "pm-command-override"
+
+	fakeEnv := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeEnv.Start(loadSchemes)
+
+	r := &PackageManagerReconciler{
+		Client: cli,
+		Scheme: scheme,
+		Log:    log,
+	}
+
+	ctx = logr.NewContext(ctx, log)
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: ns, Name: name},
+	}
+
+	pm := &positcov1beta1.PackageManager{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageManager",
+			APIVersion: "core.posit.team/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name, UID: "pm-command-override-uid"},
+		Spec: positcov1beta1.PackageManagerSpec{
+			Image: "ghcr.io/rstudio/rstudio-pm:test",
+			Secret: positcov1beta1.SecretConfig{
+				Type: product.SiteSecretKubernetes,
+			},
+			Config:  &positcov1beta1.PackageManagerConfig{},
+			Command: []string{"/custom-entrypoint"},
+			Args:    []string{"--flag"},
+		},
+	}
+
+	require.NoError(t, cli.Create(ctx, pm))
+
+	_, err := r.ensureDeployedService(ctx, req, pm)
+	require.NoError(t, err)
+
+	dep := &appsv1.Deployment{}
+	err = cli.Get(ctx, client.ObjectKey{Name: pm.ComponentName(), Namespace: ns}, dep)
+	require.NoError(t, err)
+
+	container := dep.Spec.Template.Spec.Containers[0]
+	assert.Equal(t, []string{"/custom-entrypoint"}, container.Command)
+	assert.Equal(t, []string{"--flag"}, container.Args)
+}
+
+// TestPackageManagerReconciler_SleepOverridesCommand verifies that Spec.Sleep
+// takes precedence over an explicit Spec.Command/Spec.Args, putting the
+// container to sleep instead of running the user-specified command.
+func TestPackageManagerReconciler_SleepOverridesCommand(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "pm-sleep-overrides-command"
+
+	fakeEnv := localtest.FakeTestEnv{}
+	cli, scheme, log := fakeEnv.Start(loadSchemes)
+
+	r := &PackageManagerReconciler{
+		Client: cli,
+		Scheme: scheme,
+		Log:    log,
+	}
+
+	ctx = logr.NewContext(ctx, log)
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: ns, Name: name},
+	}
+
+	pm := &positcov1beta1.PackageManager{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageManager",
+			APIVersion: "core.posit.team/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name, UID: "pm-sleep-overrides-command-uid"},
+		Spec: positcov1beta1.PackageManagerSpec{
+			Image: "ghcr.io/rstudio/rstudio-pm:test",
+			Secret: positcov1beta1.SecretConfig{
+				Type: product.SiteSecretKubernetes,
+			},
+			Config:  &positcov1beta1.PackageManagerConfig{},
+			Command: []string{"/custom-entrypoint"},
+			Args:    []string{"--flag"},
+			Sleep:   true,
+		},
+	}
+
+	require.NoError(t, cli.Create(ctx, pm))
+
+	_, err := r.ensureDeployedService(ctx, req, pm)
+	require.NoError(t, err)
+
+	dep := &appsv1.Deployment{}
+	err = cli.Get(ctx, client.ObjectKey{Name: pm.ComponentName(), Namespace: ns}, dep)
+	require.NoError(t, err)
+
+	container := dep.Spec.Template.Spec.Containers[0]
+	assert.Equal(t, []string{"sleep"}, container.Command)
+	assert.Equal(t, []string{"infinity"}, container.Args)
+}
