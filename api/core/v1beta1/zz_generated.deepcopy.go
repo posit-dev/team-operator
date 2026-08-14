@@ -1272,6 +1272,16 @@ func (in *InternalConnectSpec) DeepCopyInto(out *InternalConnectSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.Command != nil {
+		in, out := &in.Command, &out.Command
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.Args != nil {
+		in, out := &in.Args, &out.Args
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.Databricks != nil {
 		in, out := &in.Databricks, &out.Databricks
 		*out = new(DatabricksConfig)
@@ -1396,6 +1406,16 @@ func (in *InternalPackageManagerSpec) DeepCopyInto(out *InternalPackageManagerSp
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.Command != nil {
+		in, out := &in.Command, &out.Command
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.Args != nil {
+		in, out := &in.Args, &out.Args
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 	if in.GitSSHKeys != nil {
 		in, out := &in.GitSSHKeys, &out.GitSSHKeys

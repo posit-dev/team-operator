@@ -26,6 +26,8 @@ type InternalConnectSpecApplyConfiguration struct {
 	Image                   *string                                                `json:"image,omitempty"`
 	SessionImage            *string                                                `json:"sessionImage,omitempty"`
 	ImagePullPolicy         *v1.PullPolicy                                         `json:"imagePullPolicy,omitempty"`
+	Command                 []string                                               `json:"command,omitempty"`
+	Args                    []string                                               `json:"args,omitempty"`
 	Databricks              *DatabricksConfigApplyConfiguration                    `json:"databricks,omitempty"`
 	LoggedInWarning         *string                                                `json:"loggedInWarning,omitempty"`
 	PublicWarning           *string                                                `json:"publicWarning,omitempty"`
@@ -161,6 +163,26 @@ func (b *InternalConnectSpecApplyConfiguration) WithSessionImage(value string) *
 // If called multiple times, the ImagePullPolicy field is set to the value of the last call.
 func (b *InternalConnectSpecApplyConfiguration) WithImagePullPolicy(value v1.PullPolicy) *InternalConnectSpecApplyConfiguration {
 	b.ImagePullPolicy = &value
+	return b
+}
+
+// WithCommand adds the given value to the Command field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Command field.
+func (b *InternalConnectSpecApplyConfiguration) WithCommand(values ...string) *InternalConnectSpecApplyConfiguration {
+	for i := range values {
+		b.Command = append(b.Command, values[i])
+	}
+	return b
+}
+
+// WithArgs adds the given value to the Args field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Args field.
+func (b *InternalConnectSpecApplyConfiguration) WithArgs(values ...string) *InternalConnectSpecApplyConfiguration {
+	for i := range values {
+		b.Args = append(b.Args, values[i])
+	}
 	return b
 }
 

@@ -224,6 +224,14 @@ spec:
                       - rVersion
                       type: object
                     type: array
+                  args:
+                    description: |-
+                      Args overrides the container's command arguments. If unset (along with Command),
+                      defaults to the historical "tini -- /usr/local/bin/startup.sh" wrapper for
+                      backwards compatibility with existing deployments.
+                    items:
+                      type: string
+                    type: array
                   auth:
                     properties:
                       administratorRoleMapping:
@@ -280,6 +288,14 @@ spec:
                       BaseDomain overrides site.Spec.Domain for this product's URL construction.
                       When set, the product URL will be: domainPrefix.baseDomain
                     type: string
+                  command:
+                    description: |-
+                      Command overrides the container's entrypoint command. If unset (along with Args),
+                      defaults to the historical "tini -- /usr/local/bin/startup.sh" wrapper for
+                      backwards compatibility with existing deployments.
+                    items:
+                      type: string
+                    type: array
                   databaseSettings:
                     properties:
                       instrumentationSchema:
@@ -962,6 +978,14 @@ spec:
                     description: AdditionalConfig allows appending arbitrary gcfg
                       config content to the generated config.
                     type: string
+                  args:
+                    description: |-
+                      Args overrides the container's command arguments. If unset (along with Command),
+                      defaults to the historical "tini -- /usr/local/bin/startup.sh" wrapper for
+                      backwards compatibility with existing deployments.
+                    items:
+                      type: string
+                    type: array
                   auth:
                     description: Auth configures OIDC authentication for Package Manager's
                       web UI
@@ -1033,6 +1057,14 @@ spec:
                       BaseDomain overrides site.Spec.Domain for this product's URL construction.
                       When set, the product URL will be: domainPrefix.baseDomain
                     type: string
+                  command:
+                    description: |-
+                      Command overrides the container's entrypoint command. If unset (along with Args),
+                      defaults to the historical "tini -- /usr/local/bin/startup.sh" wrapper for
+                      backwards compatibility with existing deployments.
+                    items:
+                      type: string
+                    type: array
                   domainPrefix:
                     default: packagemanager
                     type: string

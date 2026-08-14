@@ -23,6 +23,8 @@ type InternalPackageManagerSpecApplyConfiguration struct {
 	EnvVars             []v1.EnvVar                         `json:"envVars,omitempty"`
 	Image               *string                             `json:"image,omitempty"`
 	ImagePullPolicy     *v1.PullPolicy                      `json:"imagePullPolicy,omitempty"`
+	Command             []string                            `json:"command,omitempty"`
+	Args                []string                            `json:"args,omitempty"`
 	S3Bucket            *string                             `json:"s3Bucket,omitempty"`
 	Replicas            *int                                `json:"replicas,omitempty"`
 	DomainPrefix        *string                             `json:"domainPrefix,omitempty"`
@@ -131,6 +133,26 @@ func (b *InternalPackageManagerSpecApplyConfiguration) WithImage(value string) *
 // If called multiple times, the ImagePullPolicy field is set to the value of the last call.
 func (b *InternalPackageManagerSpecApplyConfiguration) WithImagePullPolicy(value v1.PullPolicy) *InternalPackageManagerSpecApplyConfiguration {
 	b.ImagePullPolicy = &value
+	return b
+}
+
+// WithCommand adds the given value to the Command field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Command field.
+func (b *InternalPackageManagerSpecApplyConfiguration) WithCommand(values ...string) *InternalPackageManagerSpecApplyConfiguration {
+	for i := range values {
+		b.Command = append(b.Command, values[i])
+	}
+	return b
+}
+
+// WithArgs adds the given value to the Args field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Args field.
+func (b *InternalPackageManagerSpecApplyConfiguration) WithArgs(values ...string) *InternalPackageManagerSpecApplyConfiguration {
+	for i := range values {
+		b.Args = append(b.Args, values[i])
+	}
 	return b
 }
 
