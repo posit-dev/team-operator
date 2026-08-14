@@ -1,3 +1,10 @@
+## [1.30.2](https://github.com/posit-dev/team-operator/compare/v1.30.1...v1.30.2) (2026-08-14)
+
+
+### Bug Fixes
+
+* propagate Connect/PM command/args overrides through Site CR ([#157](https://github.com/posit-dev/team-operator/issues/157)) ([b92abfd](https://github.com/posit-dev/team-operator/commit/b92abfd0db5cc95ff4c9d5d31bfd14cedfe20507))
+
 ## [1.30.1](https://github.com/posit-dev/team-operator/compare/v1.30.0...v1.30.1) (2026-08-13)
 
 
