@@ -201,6 +201,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &corev1beta1.VSCodeConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("Workbench"):
 		return &corev1beta1.WorkbenchApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("WorkbenchAuditDatabaseConfig"):
+		return &corev1beta1.WorkbenchAuditDatabaseConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("WorkbenchConfig"):
 		return &corev1beta1.WorkbenchConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("WorkbenchDatabaseConfig"):

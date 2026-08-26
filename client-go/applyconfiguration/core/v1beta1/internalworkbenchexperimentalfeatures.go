@@ -34,6 +34,7 @@ type InternalWorkbenchExperimentalFeaturesApplyConfiguration struct {
 	LauncherEnvPath                      *string                                                                   `json:"launcherEnvPath,omitempty"`
 	ChronicleSidecarProductApiKeyEnabled *bool                                                                     `json:"chronicleSidecarProductApiKeyEnabled,omitempty"`
 	ForceAdminUiEnabled                  *bool                                                                     `json:"forceAdminUiEnabled,omitempty"`
+	AuditDatabaseEnabled                 *bool                                                                     `json:"auditDatabaseEnabled,omitempty"`
 }
 
 // InternalWorkbenchExperimentalFeaturesApplyConfiguration constructs a declarative configuration of the InternalWorkbenchExperimentalFeatures type for use with
@@ -215,5 +216,13 @@ func (b *InternalWorkbenchExperimentalFeaturesApplyConfiguration) WithChronicleS
 // If called multiple times, the ForceAdminUiEnabled field is set to the value of the last call.
 func (b *InternalWorkbenchExperimentalFeaturesApplyConfiguration) WithForceAdminUiEnabled(value bool) *InternalWorkbenchExperimentalFeaturesApplyConfiguration {
 	b.ForceAdminUiEnabled = &value
+	return b
+}
+
+// WithAuditDatabaseEnabled sets the AuditDatabaseEnabled field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the AuditDatabaseEnabled field is set to the value of the last call.
+func (b *InternalWorkbenchExperimentalFeaturesApplyConfiguration) WithAuditDatabaseEnabled(value bool) *InternalWorkbenchExperimentalFeaturesApplyConfiguration {
+	b.AuditDatabaseEnabled = &value
 	return b
 }

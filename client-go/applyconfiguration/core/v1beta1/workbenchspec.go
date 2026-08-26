@@ -46,6 +46,7 @@ type WorkbenchSpecApplyConfiguration struct {
 	Secret                               *SecretConfigApplyConfiguration           `json:"secret,omitempty"`
 	WorkloadSecret                       *SecretConfigApplyConfiguration           `json:"workloadSecret,omitempty"`
 	MainDatabaseCredentialSecret         *SecretConfigApplyConfiguration           `json:"mainDatabaseCredentialSecret,omitempty"`
+	AuditDatabaseEnabled                 *bool                                     `json:"auditDatabaseEnabled,omitempty"`
 	Replicas                             *int                                      `json:"replicas,omitempty"`
 	DsnSecret                            *string                                   `json:"dsnSecret,omitempty"`
 	ChronicleSidecarProductApiKeyEnabled *bool                                     `json:"chronicleSidecarProductApiKeyEnabled,omitempty"`
@@ -348,6 +349,14 @@ func (b *WorkbenchSpecApplyConfiguration) WithWorkloadSecret(value *SecretConfig
 // If called multiple times, the MainDatabaseCredentialSecret field is set to the value of the last call.
 func (b *WorkbenchSpecApplyConfiguration) WithMainDatabaseCredentialSecret(value *SecretConfigApplyConfiguration) *WorkbenchSpecApplyConfiguration {
 	b.MainDatabaseCredentialSecret = value
+	return b
+}
+
+// WithAuditDatabaseEnabled sets the AuditDatabaseEnabled field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the AuditDatabaseEnabled field is set to the value of the last call.
+func (b *WorkbenchSpecApplyConfiguration) WithAuditDatabaseEnabled(value bool) *WorkbenchSpecApplyConfiguration {
+	b.AuditDatabaseEnabled = &value
 	return b
 }
 

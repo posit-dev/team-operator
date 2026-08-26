@@ -13,6 +13,7 @@ import (
 // with apply.
 type WorkbenchSecretIniConfigApplyConfiguration struct {
 	Database           *WorkbenchDatabaseConfigApplyConfiguration        `json:"database.conf,omitempty"`
+	AuditDatabase      *WorkbenchAuditDatabaseConfigApplyConfiguration   `json:"audit-database.conf,omitempty"`
 	OpenidClientSecret *WorkbenchOpenidClientSecretApplyConfiguration    `json:"openid-client-secret,omitempty"`
 	Databricks         map[string]*corev1beta1.WorkbenchDatabricksConfig `json:"databricks.conf,omitempty"`
 }
@@ -28,6 +29,14 @@ func WorkbenchSecretIniConfig() *WorkbenchSecretIniConfigApplyConfiguration {
 // If called multiple times, the Database field is set to the value of the last call.
 func (b *WorkbenchSecretIniConfigApplyConfiguration) WithDatabase(value *WorkbenchDatabaseConfigApplyConfiguration) *WorkbenchSecretIniConfigApplyConfiguration {
 	b.Database = value
+	return b
+}
+
+// WithAuditDatabase sets the AuditDatabase field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the AuditDatabase field is set to the value of the last call.
+func (b *WorkbenchSecretIniConfigApplyConfiguration) WithAuditDatabase(value *WorkbenchAuditDatabaseConfigApplyConfiguration) *WorkbenchSecretIniConfigApplyConfiguration {
+	b.AuditDatabase = value
 	return b
 }
 
