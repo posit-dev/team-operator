@@ -179,6 +179,43 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 		// FYI: Password is set via env var in the CreateSecretVolumeFactory
 	}
 
+	// Audit Database: a second, distinct database + role from the internal database above.
+	// Its own role (rather than reusing dbName) is required because WORKBENCH_POSTGRES_PASSWORD
+	// is shared by database.conf and audit-database.conf, so the two cannot carry different
+	// passwords for two different roles — the audit role's password is instead resolved here and
+	// written directly into audit-database.conf's Password field, which is safe because this file
+	// is rendered into a Kubernetes Secret, not a ConfigMap.
+	if w.Spec.AuditDatabaseEnabled {
+		auditComponentName := fmt.Sprintf("%s-audit", w.ComponentName())
+		auditSecretKey := "dev-audit-db-password"
+		if err := db.EnsureDatabaseExists(ctx, r, req, w, w.Spec.DatabaseConfig, auditComponentName, "", []string{}, w.Spec.Secret, w.Spec.WorkloadSecret, w.Spec.MainDatabaseCredentialSecret, auditSecretKey); err != nil {
+			l.Error(err, "error creating database", "database", auditComponentName)
+			if patchErr := status.PatchErrorStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, err); patchErr != nil {
+				l.Error(patchErr, "Error patching error status")
+			}
+			return ctrl.Result{}, err
+		}
+
+		auditDbName := invalidCharacters.ReplaceAllString(auditComponentName, "_")
+		auditPassword, err := product.FetchSecret(ctx, r, req, w.Spec.Secret.Type, w.Spec.Secret.VaultName, auditSecretKey)
+		if err != nil {
+			l.Error(err, "error fetching audit database password")
+			if patchErr := status.PatchErrorStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, err); patchErr != nil {
+				l.Error(patchErr, "Error patching error status")
+			}
+			return ctrl.Result{}, err
+		}
+
+		w.Spec.SecretConfig.AuditDatabase = &positcov1beta1.WorkbenchAuditDatabaseConfig{
+			Provider: positcov1beta1.WorkbenchDatabaseProviderPostgres,
+			Database: auditDbName,
+			Port:     justPort,
+			Host:     justHost,
+			Username: auditDbName,
+			Password: auditPassword,
+		}
+	}
+
 	// fetch azure secret, if databricks is involved
 	if err := r.FetchAndSetClientSecretForAzureDatabricks(ctx, req, w); err != nil {
 		l.Error(err, "error fetching client secret for databricks azure. Not fatal")

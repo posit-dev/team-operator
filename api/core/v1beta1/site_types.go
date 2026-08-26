@@ -632,6 +632,14 @@ type InternalWorkbenchExperimentalFeatures struct {
 	// ForceAdminUiEnabled forces the configuration manager UI to be enabled even when Workbench has it disabled
 	// by default when running on Kubernetes
 	ForceAdminUiEnabled bool `json:"forceAdminUiEnabled,omitempty"`
+
+	// AuditDatabaseEnabled provisions Workbench's Audit Database: a second Postgres database,
+	// distinct from the internal database, that stores historical session and package usage
+	// data. Sets package-audit=1 in rserver.conf and renders audit-database.conf. Also requires
+	// the Advanced license tier and workbench-api-admin-enabled/-super-admin-enabled (already set
+	// whenever ApiSettings.Enabled is true) for the Package Audit Read API to be usable.
+	// See: https://docs.posit.co/ide/server-pro/admin/database/audit/database.html
+	AuditDatabaseEnabled bool `json:"auditDatabaseEnabled,omitempty"`
 }
 
 type InternalChronicleSpec struct {

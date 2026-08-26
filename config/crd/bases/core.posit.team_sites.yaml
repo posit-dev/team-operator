@@ -1884,6 +1884,20 @@ spec:
                     description: ExperimentalFeatures allows enabling miscellaneous
                       experimental features for workbench
                     properties:
+                      auditDatabaseEnabled:
+                        description: |-
+                          AuditDatabaseEnabled provisions Workbench's Audit Database: a second Postgres database,
+                          distinct from the internal database, that stores historical session and package usage
+                          data. Sets package-audit=1 in rserver.conf and renders audit-database.conf. Also requires
+                          the Advanced license tier and workbench-api-admin-enabled/-super-admin-enabled (already set
+                          whenever ApiSettings.Enabled is true) for the Package Audit Read API to be usable.
+                          See: https://docs.posit.co/ide/server-pro/admin/database/audit/database.html
+                        type: boolean
+                      chronicleBuiltinEnabled:
+                        description: |-
+                          ChronicleBuiltinEnabled enables Workbench's embedded Chronicle observability service.
+                          Sets chronicle-enabled=1 in rserver.conf. Requires metrics-enabled=1, which is always set by the operator.
+                        type: boolean
                       chronicleSidecarProductApiKeyEnabled:
                         description: |-
                           ChronicleSidecarProductApiKeyEnabled assumes the api key for this product has been added to a secret and

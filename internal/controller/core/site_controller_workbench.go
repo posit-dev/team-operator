@@ -388,6 +388,11 @@ func (r *SiteReconciler) reconcileWorkbench(
 			targetWorkbench.Spec.Config.RServer.ForceAdminUiEnabled = 1
 		}
 
+		if site.Spec.Workbench.ExperimentalFeatures.AuditDatabaseEnabled {
+			targetWorkbench.Spec.AuditDatabaseEnabled = true
+			targetWorkbench.Spec.Config.RServer.PackageAudit = 1
+		}
+
 		if site.Spec.Workbench.ExperimentalFeatures.ReadinessProbePath != nil {
 			targetWorkbench.Spec.ReadinessProbePath = site.Spec.Workbench.ExperimentalFeatures.ReadinessProbePath
 		}

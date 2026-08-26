@@ -30,6 +30,7 @@ type WorkbenchSecretConfig struct {
 
 type WorkbenchSecretIniConfig struct {
 	Database           *WorkbenchDatabaseConfig              `json:"database.conf,omitempty"`
+	AuditDatabase      *WorkbenchAuditDatabaseConfig         `json:"audit-database.conf,omitempty"`
 	OpenidClientSecret *WorkbenchOpenidClientSecret          `json:"openid-client-secret,omitempty"`
 	Databricks         map[string]*WorkbenchDatabricksConfig `json:"databricks.conf,omitempty"`
 }
@@ -909,6 +910,22 @@ type WorkbenchDatabaseConfig struct {
 	Password string                    `json:"password,omitempty"`
 }
 
+// WorkbenchAuditDatabaseConfig renders /etc/rstudio/audit-database.conf. Unlike
+// WorkbenchDatabaseConfig (the internal database), Password is populated directly
+// here rather than via the shared WORKBENCH_POSTGRES_PASSWORD env var: that env var
+// applies to both database.conf and audit-database.conf identically, so it cannot
+// carry two different passwords for two distinct database roles.
+// See: https://docs.posit.co/ide/server-pro/admin/database/audit/configuration.html
+type WorkbenchAuditDatabaseConfig struct {
+	Provider   WorkbenchDatabaseProvider `json:"provider,omitempty"`
+	Database   string                    `json:"database,omitempty"`
+	Port       string                    `json:"port,omitempty"`
+	Host       string                    `json:"host,omitempty"`
+	Username   string                    `json:"username,omitempty"`
+	Password   string                    `json:"password,omitempty"`
+	AutoCreate string                    `json:"auto-create,omitempty"`
+}
+
 type WorkbenchVsCodeConfig struct {
 	Enabled                 int    `json:"enabled,omitempty"`
 	Exe                     string `json:"exe,omitempty"`
@@ -1091,6 +1108,11 @@ type WorkbenchRServerConfig struct {
 	WorkbenchApiAdminEnabled               int      `json:"workbench-api-admin-enabled,omitempty"`
 	WorkbenchApiSuperAdminEnabled          int      `json:"workbench-api-super-admin-enabled,omitempty"`
 	ForceAdminUiEnabled                    int      `json:"force-admin-ui-enabled,omitempty"`
+	// PackageAudit enables the Package Audit Read API (POST /api/packages). Hidden option,
+	// defaults to 0. Also requires the Advanced license tier, audit-database.conf to be
+	// configured, and workbench-api-admin-enabled/workbench-api-super-admin-enabled for the
+	// calling token's scope.
+	PackageAudit int `json:"package-audit,omitempty"`
 	// Audited Jobs Configuration
 	// See: https://docs.posit.co/ide/server-pro/admin/auditing_and_monitoring/audited_workbench_jobs.html
 	AuditedJobs                   *int   `json:"audited-jobs,omitempty"`
