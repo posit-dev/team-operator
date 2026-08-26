@@ -1213,4 +1213,3 @@ func TestWorkbenchConfig_ForceAdminUiEnabled(t *testing.T) {
 	require.Nil(t, err)
 	require.Contains(t, res["rserver.conf"], "force-admin-ui-enabled=0\n")
 }
-
