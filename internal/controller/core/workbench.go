@@ -51,15 +51,11 @@ var invalidCharacters = regexp.MustCompile("[^a-z0-9]") // do not glob, lest we 
 
 var azureDatabricksRegexp = regexp.MustCompile("azuredatabricks\\.net")
 
-// postgresMaxIdentifierLength is Postgres's NAMEDATALEN-1 limit for unquoted identifiers
-// (database and role names). Names longer than this are silently truncated by Postgres
-// itself, which could collide with the primary database's own (already-shorter) name.
+// postgresMaxIdentifierLength is Postgres's NAMEDATALEN-1 limit for database/role names.
 const postgresMaxIdentifierLength = 63
 
 // truncateForPostgresIdentifier bounds name to postgresMaxIdentifierLength, trimming any
-// trailing separator left dangling by the cut so it also remains a valid Kubernetes object
-// name (name is reused as both a PostgresDatabase CR name and, after sanitization, the
-// Postgres database/role name derived from it).
+// trailing separator left dangling by the cut.
 func truncateForPostgresIdentifier(name string) string {
 	if len(name) <= postgresMaxIdentifierLength {
 		return name
@@ -196,12 +192,8 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 		// FYI: Password is set via env var in the CreateSecretVolumeFactory
 	}
 
-	// Audit Database: a second, distinct database + role from the internal database above.
-	// Its own role (rather than reusing dbName) is required because WORKBENCH_POSTGRES_PASSWORD
-	// is shared by database.conf and audit-database.conf, so the two cannot carry different
-	// passwords for two different roles — the audit role's password is instead resolved here and
-	// written directly into audit-database.conf's Password field, which is safe because this file
-	// is rendered into a Kubernetes Secret, not a ConfigMap.
+	// A separate role from dbName, since WORKBENCH_POSTGRES_PASSWORD is shared by
+	// database.conf and audit-database.conf and can't carry two different passwords.
 	if w.Spec.AuditDatabaseEnabled {
 		auditComponentName := truncateForPostgresIdentifier(fmt.Sprintf("%s-audit", w.ComponentName()))
 		auditSecretKey := "dev-audit-db-password"

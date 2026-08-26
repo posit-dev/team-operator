@@ -113,7 +113,6 @@ type WorkbenchSpec struct {
 	// AuditDatabaseEnabled provisions a second Postgres database (distinct from the internal
 	// database) and role, then renders audit-database.conf pointing Workbench at it. Requires
 	// the Secret referenced by Secret.VaultName to already contain a "dev-audit-db-password" key.
-	// See: https://docs.posit.co/ide/server-pro/admin/database/audit/database.html
 	AuditDatabaseEnabled bool `json:"auditDatabaseEnabled,omitempty"`
 
 	Replicas int `json:"replicas,omitempty"`

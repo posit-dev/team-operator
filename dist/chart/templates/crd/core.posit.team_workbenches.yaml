@@ -132,7 +132,6 @@ spec:
                   AuditDatabaseEnabled provisions a second Postgres database (distinct from the internal
                   database) and role, then renders audit-database.conf pointing Workbench at it. Requires
                   the Secret referenced by Secret.VaultName to already contain a "dev-audit-db-password" key.
-                  See: https://docs.posit.co/ide/server-pro/admin/database/audit/database.html
                 type: boolean
               auth:
                 properties:
@@ -1005,12 +1004,9 @@ spec:
                     properties:
                       audit-database.conf:
                         description: |-
-                          WorkbenchAuditDatabaseConfig renders /etc/rstudio/audit-database.conf. Unlike
-                          WorkbenchDatabaseConfig (the internal database), Password is populated directly
-                          here rather than via the shared WORKBENCH_POSTGRES_PASSWORD env var: that env var
-                          applies to both database.conf and audit-database.conf identically, so it cannot
-                          carry two different passwords for two distinct database roles.
-                          See: https://docs.posit.co/ide/server-pro/admin/database/audit/configuration.html
+                          WorkbenchAuditDatabaseConfig renders /etc/rstudio/audit-database.conf. Password is
+                          populated directly here rather than via WORKBENCH_POSTGRES_PASSWORD, since that env
+                          var is shared with database.conf and can't carry two different roles' passwords.
                         properties:
                           database:
                             type: string

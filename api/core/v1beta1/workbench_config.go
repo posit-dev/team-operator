@@ -910,12 +910,9 @@ type WorkbenchDatabaseConfig struct {
 	Password string                    `json:"password,omitempty"`
 }
 
-// WorkbenchAuditDatabaseConfig renders /etc/rstudio/audit-database.conf. Unlike
-// WorkbenchDatabaseConfig (the internal database), Password is populated directly
-// here rather than via the shared WORKBENCH_POSTGRES_PASSWORD env var: that env var
-// applies to both database.conf and audit-database.conf identically, so it cannot
-// carry two different passwords for two distinct database roles.
-// See: https://docs.posit.co/ide/server-pro/admin/database/audit/configuration.html
+// WorkbenchAuditDatabaseConfig renders /etc/rstudio/audit-database.conf. Password is
+// populated directly here rather than via WORKBENCH_POSTGRES_PASSWORD, since that env
+// var is shared with database.conf and can't carry two different roles' passwords.
 type WorkbenchAuditDatabaseConfig struct {
 	Provider WorkbenchDatabaseProvider `json:"provider,omitempty"`
 	Database string                    `json:"database,omitempty"`

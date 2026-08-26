@@ -635,11 +635,6 @@ type InternalWorkbenchExperimentalFeatures struct {
 
 	// AuditDatabaseEnabled provisions Workbench's Audit Database: a second Postgres database,
 	// distinct from the internal database, that stores historical session and usage data.
-	// Renders audit-database.conf. This is one of several independent prerequisites for the
-	// Package Audit Read API (which additionally needs package-audit=1 in rserver.conf, the
-	// Advanced license tier, and workbench-api-admin-enabled/-super-admin-enabled) but is not
-	// specific to it -- other consumers of the audit database do not need those.
-	// See: https://docs.posit.co/ide/server-pro/admin/database/audit/database.html
 	AuditDatabaseEnabled bool `json:"auditDatabaseEnabled,omitempty"`
 }
 
