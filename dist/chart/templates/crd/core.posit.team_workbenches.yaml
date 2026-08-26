@@ -489,13 +489,6 @@ spec:
                             type: integer
                           metrics-port:
                             type: integer
-                          package-audit:
-                            description: |-
-                              PackageAudit enables the Package Audit Read API (POST /api/packages). Hidden option,
-                              defaults to 0. Also requires the Advanced license tier, audit-database.conf to be
-                              configured, and workbench-api-admin-enabled/workbench-api-super-admin-enabled for the
-                              calling token's scope.
-                            type: integer
                           secure-cookie-key-file:
                             type: string
                           server-health-check-enabled:

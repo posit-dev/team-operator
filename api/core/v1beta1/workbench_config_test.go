@@ -1214,27 +1214,3 @@ func TestWorkbenchConfig_ForceAdminUiEnabled(t *testing.T) {
 	require.Contains(t, res["rserver.conf"], "force-admin-ui-enabled=0\n")
 }
 
-// TestWorkbenchConfig_PackageAudit tests package-audit behavior
-func TestWorkbenchConfig_PackageAudit(t *testing.T) {
-	wbEnabled := WorkbenchConfig{
-		WorkbenchIniConfig: WorkbenchIniConfig{
-			RServer: &WorkbenchRServerConfig{
-				PackageAudit: 1,
-			},
-		},
-	}
-
-	res, err := wbEnabled.GenerateConfigmap()
-	require.Nil(t, err)
-	require.Contains(t, res["rserver.conf"], "package-audit=1\n")
-
-	wbDisabled := WorkbenchConfig{
-		WorkbenchIniConfig: WorkbenchIniConfig{
-			RServer: &WorkbenchRServerConfig{},
-		},
-	}
-
-	res, err = wbDisabled.GenerateConfigmap()
-	require.Nil(t, err)
-	require.Contains(t, res["rserver.conf"], "package-audit=0\n")
-}

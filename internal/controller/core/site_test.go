@@ -577,8 +577,6 @@ func TestSiteAuditDatabaseEnabled(t *testing.T) {
 	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
 
 	assert.True(t, testWorkbench.Spec.AuditDatabaseEnabled)
-	require.NotNil(t, testWorkbench.Spec.Config.RServer)
-	assert.Equal(t, 1, testWorkbench.Spec.Config.RServer.PackageAudit)
 }
 
 func TestSiteAuditDatabaseDisabledByDefault(t *testing.T) {
@@ -593,8 +591,6 @@ func TestSiteAuditDatabaseDisabledByDefault(t *testing.T) {
 	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
 
 	assert.False(t, testWorkbench.Spec.AuditDatabaseEnabled)
-	require.NotNil(t, testWorkbench.Spec.Config.RServer)
-	assert.Equal(t, 0, testWorkbench.Spec.Config.RServer.PackageAudit)
 }
 
 func TestSiteAuditedJobsPartialConfiguration(t *testing.T) {

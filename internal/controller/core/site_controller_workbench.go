@@ -390,7 +390,6 @@ func (r *SiteReconciler) reconcileWorkbench(
 
 		if site.Spec.Workbench.ExperimentalFeatures.AuditDatabaseEnabled {
 			targetWorkbench.Spec.AuditDatabaseEnabled = true
-			targetWorkbench.Spec.Config.RServer.PackageAudit = 1
 		}
 
 		if site.Spec.Workbench.ExperimentalFeatures.ReadinessProbePath != nil {

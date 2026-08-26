@@ -1107,11 +1107,6 @@ type WorkbenchRServerConfig struct {
 	WorkbenchApiAdminEnabled               int      `json:"workbench-api-admin-enabled,omitempty"`
 	WorkbenchApiSuperAdminEnabled          int      `json:"workbench-api-super-admin-enabled,omitempty"`
 	ForceAdminUiEnabled                    int      `json:"force-admin-ui-enabled,omitempty"`
-	// PackageAudit enables the Package Audit Read API (POST /api/packages). Hidden option,
-	// defaults to 0. Also requires the Advanced license tier, audit-database.conf to be
-	// configured, and workbench-api-admin-enabled/workbench-api-super-admin-enabled for the
-	// calling token's scope.
-	PackageAudit int `json:"package-audit,omitempty"`
 	// Audited Jobs Configuration
 	// See: https://docs.posit.co/ide/server-pro/admin/auditing_and_monitoring/audited_workbench_jobs.html
 	AuditedJobs                   *int   `json:"audited-jobs,omitempty"`

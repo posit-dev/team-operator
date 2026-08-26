@@ -48,7 +48,6 @@ type WorkbenchRServerConfigApplyConfiguration struct {
 	WorkbenchApiAdminEnabled               *int     `json:"workbench-api-admin-enabled,omitempty"`
 	WorkbenchApiSuperAdminEnabled          *int     `json:"workbench-api-super-admin-enabled,omitempty"`
 	ForceAdminUiEnabled                    *int     `json:"force-admin-ui-enabled,omitempty"`
-	PackageAudit                           *int     `json:"package-audit,omitempty"`
 	AuditedJobs                            *int     `json:"audited-jobs,omitempty"`
 	AuditedJobsStoragePath                 *string  `json:"audited-jobs-storage-path,omitempty"`
 	AuditedJobsPrivateKeyPath              *string  `json:"audited-jobs-private-key-path,omitempty"`
@@ -385,14 +384,6 @@ func (b *WorkbenchRServerConfigApplyConfiguration) WithWorkbenchApiSuperAdminEna
 // If called multiple times, the ForceAdminUiEnabled field is set to the value of the last call.
 func (b *WorkbenchRServerConfigApplyConfiguration) WithForceAdminUiEnabled(value int) *WorkbenchRServerConfigApplyConfiguration {
 	b.ForceAdminUiEnabled = &value
-	return b
-}
-
-// WithPackageAudit sets the PackageAudit field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the PackageAudit field is set to the value of the last call.
-func (b *WorkbenchRServerConfigApplyConfiguration) WithPackageAudit(value int) *WorkbenchRServerConfigApplyConfiguration {
-	b.PackageAudit = &value
 	return b
 }
 
