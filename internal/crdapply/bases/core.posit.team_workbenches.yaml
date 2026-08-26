@@ -998,8 +998,6 @@ spec:
                           carry two different passwords for two distinct database roles.
                           See: https://docs.posit.co/ide/server-pro/admin/database/audit/configuration.html
                         properties:
-                          auto-create:
-                            type: string
                           database:
                             type: string
                           host:

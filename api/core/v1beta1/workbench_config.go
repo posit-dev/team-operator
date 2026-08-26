@@ -917,13 +917,12 @@ type WorkbenchDatabaseConfig struct {
 // carry two different passwords for two distinct database roles.
 // See: https://docs.posit.co/ide/server-pro/admin/database/audit/configuration.html
 type WorkbenchAuditDatabaseConfig struct {
-	Provider   WorkbenchDatabaseProvider `json:"provider,omitempty"`
-	Database   string                    `json:"database,omitempty"`
-	Port       string                    `json:"port,omitempty"`
-	Host       string                    `json:"host,omitempty"`
-	Username   string                    `json:"username,omitempty"`
-	Password   string                    `json:"password,omitempty"`
-	AutoCreate string                    `json:"auto-create,omitempty"`
+	Provider WorkbenchDatabaseProvider `json:"provider,omitempty"`
+	Database string                    `json:"database,omitempty"`
+	Port     string                    `json:"port,omitempty"`
+	Host     string                    `json:"host,omitempty"`
+	Username string                    `json:"username,omitempty"`
+	Password string                    `json:"password,omitempty"`
 }
 
 type WorkbenchVsCodeConfig struct {

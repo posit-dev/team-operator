@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -49,6 +50,22 @@ var portRegexp = regexp.MustCompile(`[0-9]+`)
 var invalidCharacters = regexp.MustCompile("[^a-z0-9]") // do not glob, lest we lose uniqueness
 
 var azureDatabricksRegexp = regexp.MustCompile("azuredatabricks\\.net")
+
+// postgresMaxIdentifierLength is Postgres's NAMEDATALEN-1 limit for unquoted identifiers
+// (database and role names). Names longer than this are silently truncated by Postgres
+// itself, which could collide with the primary database's own (already-shorter) name.
+const postgresMaxIdentifierLength = 63
+
+// truncateForPostgresIdentifier bounds name to postgresMaxIdentifierLength, trimming any
+// trailing separator left dangling by the cut so it also remains a valid Kubernetes object
+// name (name is reused as both a PostgresDatabase CR name and, after sanitization, the
+// Postgres database/role name derived from it).
+func truncateForPostgresIdentifier(name string) string {
+	if len(name) <= postgresMaxIdentifierLength {
+		return name
+	}
+	return strings.TrimRight(name[:postgresMaxIdentifierLength], "-_")
+}
 
 const defaultWorkbenchReadinessProbePath = "/health-check"
 
@@ -186,7 +203,7 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 	// written directly into audit-database.conf's Password field, which is safe because this file
 	// is rendered into a Kubernetes Secret, not a ConfigMap.
 	if w.Spec.AuditDatabaseEnabled {
-		auditComponentName := fmt.Sprintf("%s-audit", w.ComponentName())
+		auditComponentName := truncateForPostgresIdentifier(fmt.Sprintf("%s-audit", w.ComponentName()))
 		auditSecretKey := "dev-audit-db-password"
 		if err := db.EnsureDatabaseExists(ctx, r, req, w, w.Spec.DatabaseConfig, auditComponentName, "", []string{}, w.Spec.Secret, w.Spec.WorkloadSecret, w.Spec.MainDatabaseCredentialSecret, auditSecretKey); err != nil {
 			l.Error(err, "error creating database", "database", auditComponentName)
