@@ -1,3 +1,10 @@
+# [1.31.0](https://github.com/posit-dev/team-operator/compare/v1.30.2...v1.31.0) (2026-08-27)
+
+
+### Features
+
+* **workbench:** add Audit Database support ([#158](https://github.com/posit-dev/team-operator/issues/158)) ([c325a72](https://github.com/posit-dev/team-operator/commit/c325a7224a6670acf79a9a3dfe6b46b5eeb1b995))
+
 ## [1.30.2](https://github.com/posit-dev/team-operator/compare/v1.30.1...v1.30.2) (2026-08-14)
 
 
