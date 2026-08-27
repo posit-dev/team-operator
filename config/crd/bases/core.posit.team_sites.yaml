@@ -1884,6 +1884,11 @@ spec:
                     description: ExperimentalFeatures allows enabling miscellaneous
                       experimental features for workbench
                     properties:
+                      auditDatabaseEnabled:
+                        description: |-
+                          AuditDatabaseEnabled provisions Workbench's Audit Database: a second Postgres database,
+                          distinct from the internal database, that stores historical session and usage data.
+                        type: boolean
                       chronicleSidecarProductApiKeyEnabled:
                         description: |-
                           ChronicleSidecarProductApiKeyEnabled assumes the api key for this product has been added to a secret and

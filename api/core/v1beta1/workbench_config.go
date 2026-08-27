@@ -30,6 +30,7 @@ type WorkbenchSecretConfig struct {
 
 type WorkbenchSecretIniConfig struct {
 	Database           *WorkbenchDatabaseConfig              `json:"database.conf,omitempty"`
+	AuditDatabase      *WorkbenchAuditDatabaseConfig         `json:"audit-database.conf,omitempty"`
 	OpenidClientSecret *WorkbenchOpenidClientSecret          `json:"openid-client-secret,omitempty"`
 	Databricks         map[string]*WorkbenchDatabricksConfig `json:"databricks.conf,omitempty"`
 }
@@ -901,6 +902,18 @@ type WorkbenchOpenidClientSecret struct {
 }
 
 type WorkbenchDatabaseConfig struct {
+	Provider WorkbenchDatabaseProvider `json:"provider,omitempty"`
+	Database string                    `json:"database,omitempty"`
+	Port     string                    `json:"port,omitempty"`
+	Host     string                    `json:"host,omitempty"`
+	Username string                    `json:"username,omitempty"`
+	Password string                    `json:"password,omitempty"`
+}
+
+// WorkbenchAuditDatabaseConfig renders /etc/rstudio/audit-database.conf. Password is
+// populated directly here rather than via WORKBENCH_POSTGRES_PASSWORD, since that env
+// var is shared with database.conf and can't carry two different roles' passwords.
+type WorkbenchAuditDatabaseConfig struct {
 	Provider WorkbenchDatabaseProvider `json:"provider,omitempty"`
 	Database string                    `json:"database,omitempty"`
 	Port     string                    `json:"port,omitempty"`

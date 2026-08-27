@@ -110,6 +110,11 @@ type WorkbenchSpec struct {
 	// MainDatabaseCredentialSecret configures the secret used for storing the main database credentials
 	MainDatabaseCredentialSecret SecretConfig `json:"mainDatabaseCredentialSecret,omitempty"`
 
+	// AuditDatabaseEnabled provisions a second Postgres database (distinct from the internal
+	// database) and role, then renders audit-database.conf pointing Workbench at it. Requires
+	// the Secret referenced by Secret.VaultName to already contain a "dev-audit-db-password" key.
+	AuditDatabaseEnabled bool `json:"auditDatabaseEnabled,omitempty"`
+
 	Replicas int `json:"replicas,omitempty"`
 
 	// DsnSecret is the name of the secret that contains the DSN to include with all Workbench sessions

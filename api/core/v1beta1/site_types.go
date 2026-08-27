@@ -632,6 +632,10 @@ type InternalWorkbenchExperimentalFeatures struct {
 	// ForceAdminUiEnabled forces the configuration manager UI to be enabled even when Workbench has it disabled
 	// by default when running on Kubernetes
 	ForceAdminUiEnabled bool `json:"forceAdminUiEnabled,omitempty"`
+
+	// AuditDatabaseEnabled provisions Workbench's Audit Database: a second Postgres database,
+	// distinct from the internal database, that stores historical session and usage data.
+	AuditDatabaseEnabled bool `json:"auditDatabaseEnabled,omitempty"`
 }
 
 type InternalChronicleSpec struct {

@@ -30,6 +30,15 @@ func (b *WorkbenchSecretConfigApplyConfiguration) WithDatabase(value *WorkbenchD
 	return b
 }
 
+// WithAuditDatabase sets the AuditDatabase field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the AuditDatabase field is set to the value of the last call.
+func (b *WorkbenchSecretConfigApplyConfiguration) WithAuditDatabase(value *WorkbenchAuditDatabaseConfigApplyConfiguration) *WorkbenchSecretConfigApplyConfiguration {
+	b.ensureWorkbenchSecretIniConfigApplyConfigurationExists()
+	b.WorkbenchSecretIniConfigApplyConfiguration.AuditDatabase = value
+	return b
+}
+
 // WithOpenidClientSecret sets the OpenidClientSecret field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the OpenidClientSecret field is set to the value of the last call.

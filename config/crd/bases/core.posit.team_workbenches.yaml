@@ -106,6 +106,12 @@ spec:
                       type: string
                   type: object
                 type: array
+              auditDatabaseEnabled:
+                description: |-
+                  AuditDatabaseEnabled provisions a second Postgres database (distinct from the internal
+                  database) and role, then renders audit-database.conf pointing Workbench at it. Requires
+                  the Secret referenced by Secret.VaultName to already contain a "dev-audit-db-password" key.
+                type: boolean
               auth:
                 properties:
                   administratorRoleMapping:
@@ -975,6 +981,25 @@ spec:
                 properties:
                   workbench-secret-ini-config:
                     properties:
+                      audit-database.conf:
+                        description: |-
+                          WorkbenchAuditDatabaseConfig renders /etc/rstudio/audit-database.conf. Password is
+                          populated directly here rather than via WORKBENCH_POSTGRES_PASSWORD, since that env
+                          var is shared with database.conf and can't carry two different roles' passwords.
+                        properties:
+                          database:
+                            type: string
+                          host:
+                            type: string
+                          password:
+                            type: string
+                          port:
+                            type: string
+                          provider:
+                            type: string
+                          username:
+                            type: string
+                        type: object
                       database.conf:
                         properties:
                           database:

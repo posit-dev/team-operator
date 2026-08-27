@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -49,6 +50,18 @@ var portRegexp = regexp.MustCompile(`[0-9]+`)
 var invalidCharacters = regexp.MustCompile("[^a-z0-9]") // do not glob, lest we lose uniqueness
 
 var azureDatabricksRegexp = regexp.MustCompile("azuredatabricks\\.net")
+
+// postgresMaxIdentifierLength is Postgres's NAMEDATALEN-1 limit for database/role names.
+const postgresMaxIdentifierLength = 63
+
+// truncateForPostgresIdentifier bounds name to postgresMaxIdentifierLength, trimming any
+// trailing separator left dangling by the cut.
+func truncateForPostgresIdentifier(name string) string {
+	if len(name) <= postgresMaxIdentifierLength {
+		return name
+	}
+	return strings.TrimRight(name[:postgresMaxIdentifierLength], "-_")
+}
 
 const defaultWorkbenchReadinessProbePath = "/health-check"
 
@@ -177,6 +190,39 @@ func (r *WorkbenchReconciler) ReconcileWorkbench(ctx context.Context, req ctrl.R
 		Host:     justHost,
 		Username: dbName,
 		// FYI: Password is set via env var in the CreateSecretVolumeFactory
+	}
+
+	// A separate role from dbName, since WORKBENCH_POSTGRES_PASSWORD is shared by
+	// database.conf and audit-database.conf and can't carry two different passwords.
+	if w.Spec.AuditDatabaseEnabled {
+		auditComponentName := truncateForPostgresIdentifier(fmt.Sprintf("%s-audit", w.ComponentName()))
+		auditSecretKey := "dev-audit-db-password"
+		if err := db.EnsureDatabaseExists(ctx, r, req, w, w.Spec.DatabaseConfig, auditComponentName, "", []string{}, w.Spec.Secret, w.Spec.WorkloadSecret, w.Spec.MainDatabaseCredentialSecret, auditSecretKey); err != nil {
+			l.Error(err, "error creating database", "database", auditComponentName)
+			if patchErr := status.PatchErrorStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, err); patchErr != nil {
+				l.Error(patchErr, "Error patching error status")
+			}
+			return ctrl.Result{}, err
+		}
+
+		auditDbName := invalidCharacters.ReplaceAllString(auditComponentName, "_")
+		auditPassword, err := product.FetchSecret(ctx, r, req, w.Spec.Secret.Type, w.Spec.Secret.VaultName, auditSecretKey)
+		if err != nil {
+			l.Error(err, "error fetching audit database password")
+			if patchErr := status.PatchErrorStatus(ctx, r.Status(), w, patchBase, &w.Status.Conditions, w.Generation, err); patchErr != nil {
+				l.Error(patchErr, "Error patching error status")
+			}
+			return ctrl.Result{}, err
+		}
+
+		w.Spec.SecretConfig.AuditDatabase = &positcov1beta1.WorkbenchAuditDatabaseConfig{
+			Provider: positcov1beta1.WorkbenchDatabaseProviderPostgres,
+			Database: auditDbName,
+			Port:     justPort,
+			Host:     justHost,
+			Username: auditDbName,
+			Password: auditPassword,
+		}
 	}
 
 	// fetch azure secret, if databricks is involved

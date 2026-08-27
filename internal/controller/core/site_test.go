@@ -562,6 +562,37 @@ func TestSiteAuditedJobsConfiguration(t *testing.T) {
 	assert.Equal(t, intPtr(0), testWorkbench.Spec.Config.RServer.AuditedJobsDetailsUserDefined)
 }
 
+func TestSiteAuditDatabaseEnabled(t *testing.T) {
+	siteName := "audit-database-site"
+	siteNamespace := "posit-team"
+
+	site := defaultSite(siteName)
+	site.Spec.Workbench.ExperimentalFeatures = &v1beta1.InternalWorkbenchExperimentalFeatures{
+		AuditDatabaseEnabled: true,
+	}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+
+	assert.True(t, testWorkbench.Spec.AuditDatabaseEnabled)
+}
+
+func TestSiteAuditDatabaseDisabledByDefault(t *testing.T) {
+	siteName := "audit-database-default-site"
+	siteNamespace := "posit-team"
+
+	site := defaultSite(siteName)
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	assert.Nil(t, err)
+
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+
+	assert.False(t, testWorkbench.Spec.AuditDatabaseEnabled)
+}
+
 func TestSiteAuditedJobsPartialConfiguration(t *testing.T) {
 	siteName := "audited-jobs-partial-site"
 	siteNamespace := "posit-team"

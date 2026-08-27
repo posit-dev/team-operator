@@ -22,6 +22,14 @@ func TestWorkbenchSecretConfig_GenerateSecretData(t *testing.T) {
 				Host:     "myhost.com",
 				Username: "user",
 			},
+			AuditDatabase: &WorkbenchAuditDatabaseConfig{
+				Provider: WorkbenchDatabaseProviderPostgres,
+				Database: "chicken_audit",
+				Port:     "5432",
+				Host:     "myhost.com",
+				Username: "chicken_audit",
+				Password: "audit-secret",
+			},
 			OpenidClientSecret: &WorkbenchOpenidClientSecret{
 				ClientId: "your-client-id-test",
 			},
@@ -40,9 +48,15 @@ func TestWorkbenchSecretConfig_GenerateSecretData(t *testing.T) {
 	require.Contains(t, res["database.conf"], "port=5432")
 	require.Contains(t, res["database.conf"], "host=myhost.com")
 	require.Contains(t, res["database.conf"], "username=user")
+	require.Contains(t, res["audit-database.conf"], "provider=postgresql")
+	require.Contains(t, res["audit-database.conf"], "database=chicken_audit")
+	require.Contains(t, res["audit-database.conf"], "port=5432")
+	require.Contains(t, res["audit-database.conf"], "host=myhost.com")
+	require.Contains(t, res["audit-database.conf"], "username=chicken_audit")
+	require.Contains(t, res["audit-database.conf"], "password=audit-secret")
 	require.Contains(t, res["openid-client-secret"], "client-id=your-client-id-test")
 	require.Contains(t, res["databricks.conf"], "name=posit-test")
-	require.Len(t, res, 3)
+	require.Len(t, res, 4)
 }
 
 func TestWorkbenchConfig_GenerateConfigmap(t *testing.T) {
