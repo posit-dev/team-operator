@@ -1,3 +1,10 @@
+## [1.31.1](https://github.com/posit-dev/team-operator/compare/v1.31.0...v1.31.1) (2026-09-02)
+
+
+### Bug Fixes
+
+* **deps:** clear Snyk criticals and highs ([#161](https://github.com/posit-dev/team-operator/issues/161)) ([1abe6a6](https://github.com/posit-dev/team-operator/commit/1abe6a65ad01689964ed0073e883b8f17ccf2164))
+
 # [1.31.0](https://github.com/posit-dev/team-operator/compare/v1.30.2...v1.31.0) (2026-08-27)
 
 
