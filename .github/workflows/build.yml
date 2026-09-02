@@ -100,6 +100,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # The container scans below pass --exclude-app-vulns, so they never
+      # cover go.mod. Without this step the module's Go dependencies are
+      # not scanned at all. Monitor only, matching ptd: `snyk monitor`
+      # uploads a snapshot and exits 0, so it never blocks the build.
+      # Restricted to main so the dashboard always reflects what ships
+      # rather than whichever branch was pushed most recently.
+      - name: Snyk monitor Go dependencies
+        if: github.ref == 'refs/heads/main'
+        run: snyk monitor --file=go.mod
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
       - name: Test kustomization
         run: make test-kustomize
         env:
