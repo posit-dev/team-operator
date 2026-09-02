@@ -53,6 +53,10 @@ endif
 
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
+# Go version for the builder image, read from the go directive in go.mod so
+# the image toolchain cannot drift from what the module requires. The
+# Dockerfile ARG default is only a fallback for a bare `docker build`.
+GO_VERSION ?= $(shell go list -m -f '{{.GoVersion}}')
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.29.x
 
@@ -194,7 +198,7 @@ build: copy-crds generate-all fmt vet ## Build manager binary.
 
 .PHONY: docker-build
 docker-build: build ## Build the operator Docker image.
-	docker build -t $(IMG) .
+	docker build --build-arg GO_VERSION=$(GO_VERSION) -t $(IMG) .
 
 .PHONY: distclean
 distclean:
