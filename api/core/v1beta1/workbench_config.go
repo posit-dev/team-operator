@@ -1204,8 +1204,17 @@ func insertAfter(input, target, insert string) string {
 		return input
 	}
 
+	endPos := pos + len(target)
+
+	// Don't insert a trailing separator if the target is at the end of the
+	// string (e.g. "StdOutLogFile" should become "stdout_logfile", not
+	// "stdout_logfile_"). Only insert when there's more of the string after it.
+	if endPos == len(input) {
+		return input
+	}
+
 	// Construct the new string
-	return input[:pos+len(target)] + insert + input[pos+len(target):]
+	return input[:endPos] + insert + input[endPos:]
 }
 
 // parseResourceQuantity parses a resource value string and returns a Quantity.
