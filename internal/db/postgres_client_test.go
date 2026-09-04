@@ -3,6 +3,7 @@ package db
 import (
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -25,4 +26,13 @@ func TestValidatePostgresLabel(t *testing.T) {
 			assert.NotNilf(t, ValidatePostgresLabel(label), "label %q is valid", label)
 		}
 	}
+}
+
+func TestErrRowScanReturnsTheStoredError(t *testing.T) {
+	boom := errors.New("could not connect")
+	row := &errRow{Error: boom}
+
+	var dest string
+	assert.Equal(t, boom, row.Scan(&dest), "errRow should surface the connection error on Scan")
+	assert.Equal(t, "", dest, "errRow should not write to the scan destination")
 }
