@@ -6,7 +6,8 @@ import (
 	"regexp"
 
 	"github.com/go-logr/logr"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/pkg/errors"
 	postgresqlreservedwords "github.com/rstudio/postgresql-reserved-words"
 )
@@ -58,7 +59,7 @@ func (dpc *defaultPostgresClient) Exec(ctx context.Context, sql string, argument
 
 	defer conn.Close(ctx)
 
-	arguments = append([]interface{}{pgx.QuerySimpleProtocol(true)}, arguments...)
+	arguments = append([]interface{}{pgx.QueryExecModeSimpleProtocol}, arguments...)
 	_, err = conn.Exec(ctx, sql, arguments...)
 
 	return err
@@ -81,8 +82,10 @@ func (dpc *defaultPostgresClient) getConn(ctx context.Context) (*pgx.Conn, error
 		return nil, err
 	}
 
-	pgCfg.Logger = newPgxLogr(dpc.log)
-	pgCfg.LogLevel = pgx.LogLevelDebug
+	pgCfg.Tracer = &tracelog.TraceLog{
+		Logger:   newPgxLogr(dpc.log),
+		LogLevel: tracelog.LogLevelDebug,
+	}
 
 	return pgx.ConnectConfig(ctx, pgCfg)
 }
