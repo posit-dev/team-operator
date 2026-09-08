@@ -302,8 +302,13 @@ func TestWorkbenchConfig_GenerateSupervisorConfigmap(t *testing.T) {
 	require.Nil(t, err)
 	require.Contains(t, cm["launcher.conf"], "[program:rstudio-launcher")
 	require.Contains(t, cm["launcher.conf"], "numprocs=1")
+	require.Contains(t, cm["launcher.conf"], "stdout_logfile=/dev/stdout\n")
 	require.Contains(t, cm["launcher.conf"], "stdout_logfile_maxbytes=0")
+	require.Contains(t, cm["launcher.conf"], "stderr_logfile=/dev/stderr\n")
+	require.Contains(t, cm["launcher.conf"], "stderr_logfile_maxbytes=0")
 	require.Contains(t, cm["launcher.conf"], "user=rserver")
+	require.NotContains(t, cm["launcher.conf"], "stdout_logfile_=")
+	require.NotContains(t, cm["launcher.conf"], "stderr_logfile_=")
 }
 
 func TestWorkbenchConfig_GenerateSessionConfigmap(t *testing.T) {

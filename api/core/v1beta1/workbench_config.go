@@ -814,15 +814,13 @@ func (w *WorkbenchConfig) GenerateSupervisorConfigmap(ctx context.Context) (map[
 				builder.WriteString("[program:" + fmt.Sprintf("%v", programName) + "]\n")
 
 				for j := 0; j < programValues.NumField(); j++ {
-					programConfigName := programValues.Type().Field(j).Name
 					programConfigValue := programValues.Field(j)
 
-					programConfigName = insertAfter(programConfigName, "StdOut", "_")
-					programConfigName = insertAfter(programConfigName, "StdErr", "_")
-					programConfigName = insertAfter(programConfigName, "LogFile", "_")
+					jsonTag := programValues.Type().Field(j).Tag.Get("json")
+					programConfigName := strings.Split(jsonTag, ",")[0]
 
 					if programConfigValue.String() != "" {
-						builder.WriteString(strings.ToLower(programConfigName) + "=" + fmt.Sprintf("%v", programConfigValue) + "\n")
+						builder.WriteString(programConfigName + "=" + fmt.Sprintf("%v", programConfigValue) + "\n")
 					}
 				}
 			}
@@ -1194,18 +1192,6 @@ func countInitializedFields(s any) int {
 	}
 
 	return initializedCount
-}
-
-func insertAfter(input, target, insert string) string {
-	// Find the index of the target substring
-	pos := strings.Index(input, target)
-	if pos == -1 {
-		// Return the original string if the target is not found
-		return input
-	}
-
-	// Construct the new string
-	return input[:pos+len(target)] + insert + input[pos+len(target):]
 }
 
 // parseResourceQuantity parses a resource value string and returns a Quantity.
