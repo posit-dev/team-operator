@@ -374,6 +374,83 @@ func TestWorkbenchIniConfig_AdditionalConfigs(t *testing.T) {
 		require.Less(t, idx1, idx2, "Additional configs should be appended after generated configs")
 	})
 
+	t.Run("overrides a key in a section present in both", func(t *testing.T) {
+		wb := WorkbenchIniConfig{
+			Logging: &WorkbenchLoggingConfig{
+				All: &WorkbenchLoggingSection{
+					LogLevel:         WorkbenchLogLevelDebug,
+					LoggerType:       WorkbenchLoggerTypeStdErr,
+					LogMessageFormat: WorkbenchLogFormatPretty,
+				},
+			},
+			AdditionalConfigs: map[string]string{
+				"logging.conf": "[*]\nlog-message-format=json\n",
+			},
+		}
+
+		cm := wb.GenerateConfigMap()
+		require.Equal(t, "\n[*]\nlog-level=debug\nlogger-type=stderr\nlog-message-format=json\n", cm["logging.conf"])
+		require.Equal(t, 1, strings.Count(cm["logging.conf"], "[*]"), "a section in both sources must render one header")
+	})
+
+	t.Run("adds keys to a section present in both", func(t *testing.T) {
+		wb := WorkbenchIniConfig{
+			Launcher: &WorkbenchLauncherConfig{
+				Server: &WorkbenchLauncherServerConfig{Address: "0.0.0.0"},
+			},
+			AdditionalConfigs: map[string]string{
+				"launcher.conf": "[server]\nenable-debug-logging=1\n",
+			},
+		}
+
+		cm := wb.GenerateConfigMap()
+		require.Equal(t, 1, strings.Count(cm["launcher.conf"], "[server]"))
+		require.Contains(t, cm["launcher.conf"], "address=0.0.0.0")
+		require.Contains(t, cm["launcher.conf"], "enable-debug-logging=1")
+	})
+
+	t.Run("appends a section absent from the generated config", func(t *testing.T) {
+		wb := WorkbenchIniConfig{
+			Logging: &WorkbenchLoggingConfig{
+				All: &WorkbenchLoggingSection{LogLevel: WorkbenchLogLevelWarn},
+			},
+			AdditionalConfigs: map[string]string{
+				"logging.conf": "[rserver]\nlog-level=debug\n",
+			},
+		}
+
+		cm := wb.GenerateConfigMap()
+		require.Equal(t, "\n[*]\nlog-level=warn\n\n[rserver]\nlog-level=debug\n", cm["logging.conf"])
+	})
+
+	t.Run("collapses duplicate sections within the additional content", func(t *testing.T) {
+		wb := WorkbenchIniConfig{
+			Logging: &WorkbenchLoggingConfig{
+				All: &WorkbenchLoggingSection{LogLevel: WorkbenchLogLevelWarn},
+			},
+			AdditionalConfigs: map[string]string{
+				"logging.conf": "[*]\nlogger-type=stderr\n[*]\nlog-message-format=json\n",
+			},
+		}
+
+		cm := wb.GenerateConfigMap()
+		require.Equal(t, "\n[*]\nlog-level=warn\nlogger-type=stderr\nlog-message-format=json\n", cm["logging.conf"])
+	})
+
+	t.Run("overrides a key in a flat config file and keeps comments", func(t *testing.T) {
+		wb := WorkbenchIniConfig{
+			RServer: &WorkbenchRServerConfig{AdminEnabled: 1},
+			AdditionalConfigs: map[string]string{
+				"rserver.conf": "# tuned by hand\nwww-thread-pool-size=8\n",
+			},
+		}
+
+		cm := wb.GenerateConfigMap()
+		require.Equal(t, 1, strings.Count(cm["rserver.conf"], "www-thread-pool-size="))
+		require.Contains(t, cm["rserver.conf"], "www-thread-pool-size=8")
+		require.Contains(t, cm["rserver.conf"], "# tuned by hand")
+	})
+
 	t.Run("adds new config file", func(t *testing.T) {
 		wb := WorkbenchIniConfig{
 			AdditionalConfigs: map[string]string{
@@ -431,6 +508,19 @@ func TestWorkbenchSessionIniConfig_AdditionalConfigs(t *testing.T) {
 		idx1 := strings.Index(cm["rsession.conf"], "session-save-action-default=ask")
 		idx2 := strings.Index(cm["rsession.conf"], "custom-session-option=value")
 		require.Less(t, idx1, idx2, "Additional configs should be appended after generated configs")
+	})
+
+	t.Run("overrides a generated session key", func(t *testing.T) {
+		wb := WorkbenchSessionIniConfig{
+			RSession: &WorkbenchRSessionConfig{SessionSaveActionDefault: "ask"},
+			AdditionalConfigs: map[string]string{
+				"rsession.conf": "session-save-action-default=no\n",
+			},
+		}
+
+		cm := wb.GenerateConfigMap()
+		require.Equal(t, 1, strings.Count(cm["rsession.conf"], "session-save-action-default="))
+		require.Contains(t, cm["rsession.conf"], "session-save-action-default=no")
 	})
 
 	t.Run("adds new session config file", func(t *testing.T) {
