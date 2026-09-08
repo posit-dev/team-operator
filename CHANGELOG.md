@@ -1,3 +1,10 @@
+## [1.31.2](https://github.com/posit-dev/team-operator/compare/v1.31.1...v1.31.2) (2026-09-08)
+
+
+### Bug Fixes
+
+* **workbench:** derive supervisord config keys from json tags ([#164](https://github.com/posit-dev/team-operator/issues/164)) ([0a07356](https://github.com/posit-dev/team-operator/commit/0a0735689b5dc83f9b31b973fa62d4d7c2925821))
+
 ## [1.31.1](https://github.com/posit-dev/team-operator/compare/v1.31.0...v1.31.1) (2026-09-02)
 
 
