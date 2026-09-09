@@ -423,6 +423,9 @@ func TestWorkbenchIniConfig_AdditionalConfigs(t *testing.T) {
 		require.Equal(t, "\n[*]\nlog-level=warn\n\n[rserver]\nlog-level=debug\n", cm["logging.conf"])
 	})
 
+	// Every section of a file the structured config generates is reconciled, so
+	// repeats within the additional content collapse too. A file that exists
+	// only in additionalConfigs is stored unparsed and is not checked.
 	t.Run("collapses duplicate sections within the additional content", func(t *testing.T) {
 		wb := WorkbenchIniConfig{
 			Logging: &WorkbenchLoggingConfig{

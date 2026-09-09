@@ -41,6 +41,9 @@ func mergeIniContent(generated, additional string) string {
 	return renderIniBlocks(blocks)
 }
 
+// parseIniBlocks drops only the final newline, so the blank line the structured
+// render puts before each header survives as a body entry and an untouched file
+// renders back byte-identical.
 func parseIniBlocks(content string) []iniBlock {
 	if content == "" {
 		return nil
@@ -88,14 +91,11 @@ func appendIniBodyLine(body []string, line string) []string {
 	for at > 0 && strings.TrimSpace(body[at-1]) == "" {
 		at--
 	}
-	if at == len(body) {
-		return append(body, line)
-	}
 
-	body = append(body, "")
-	copy(body[at+1:], body[at:])
-	body[at] = line
-	return body
+	merged := make([]string, 0, len(body)+1)
+	merged = append(merged, body[:at]...)
+	merged = append(merged, line)
+	return append(merged, body[at:]...)
 }
 
 // appendIniBlock adds a new section, separating it with a blank line to match
@@ -124,12 +124,28 @@ func renderIniBlocks(blocks []iniBlock) string {
 	return strings.Join(lines, "\n") + "\n"
 }
 
+// iniSectionName reports the section a header line names. A trailing comment is
+// accepted so "[*] ; note" still matches the section the structured render
+// emits rather than slipping through as content and repeating the header. "[]"
+// names nothing and is treated as content, since an empty name would otherwise
+// match the lines that precede the first header.
 func iniSectionName(line string) (string, bool) {
 	trimmed := strings.TrimSpace(line)
-	if len(trimmed) < 2 || !strings.HasPrefix(trimmed, "[") || !strings.HasSuffix(trimmed, "]") {
+	if !strings.HasPrefix(trimmed, "[") {
 		return "", false
 	}
-	return strings.TrimSpace(trimmed[1 : len(trimmed)-1]), true
+
+	end := strings.Index(trimmed, "]")
+	if end < 0 {
+		return "", false
+	}
+
+	if rest := strings.TrimSpace(trimmed[end+1:]); rest != "" && !strings.HasPrefix(rest, "#") && !strings.HasPrefix(rest, ";") {
+		return "", false
+	}
+
+	name := strings.TrimSpace(trimmed[1:end])
+	return name, name != ""
 }
 
 func iniKey(line string) (string, bool) {
