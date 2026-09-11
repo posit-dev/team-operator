@@ -1,3 +1,10 @@
+## [1.31.3](https://github.com/posit-dev/team-operator/compare/v1.31.2...v1.31.3) (2026-09-11)
+
+
+### Bug Fixes
+
+* omit deprecated Connect vanities auth key by default ([#167](https://github.com/posit-dev/team-operator/issues/167)) ([6bc9b22](https://github.com/posit-dev/team-operator/commit/6bc9b2229c1f247f171e6c92595c02ecc5a345f7))
+
 ## [1.31.2](https://github.com/posit-dev/team-operator/compare/v1.31.1...v1.31.2) (2026-09-08)
 
 
