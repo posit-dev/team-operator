@@ -698,7 +698,6 @@ Applications:
 # Internal authorization defaults
 Authorization:
   DefaultUserRole: publisher           # New users get publisher role
-  PublishersCanManageVanities: true   # Publishers can set custom URLs
   ViewersCanOnlySeeThemselves: false  # Viewers can see other users
 ```
 

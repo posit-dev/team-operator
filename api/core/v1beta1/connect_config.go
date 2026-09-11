@@ -68,7 +68,7 @@ type ConnectRConfig struct {
 }
 type ConnectAuthorizationConfig struct {
 	DefaultUserRole             ConnectUserRole `json:"DefaultUserRole,omitempty"`
-	PublishersCanManageVanities bool            `json:"PublishersCanManageVanities,omitempty"`
+	PublishersCanManageVanities *bool           `json:"PublishersCanManageVanities,omitempty"`
 	ViewersCanOnlySeeThemselves bool            `json:"ViewersCanOnlySeeThemselves,omitempty"`
 	UserRoleGroupMapping        bool            `json:"UserRoleGroupMapping,omitempty"`
 	ViewerRoleMapping           []string        `json:"ViewerRoleMapping,omitempty"`
