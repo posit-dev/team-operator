@@ -100,7 +100,6 @@ func (r *SiteReconciler) reconcileConnect(
 				Authorization: &v1beta1.ConnectAuthorizationConfig{
 					ViewersCanOnlySeeThemselves: false,
 					DefaultUserRole:             v1beta1.ConnectPublisherRole,
-					PublishersCanManageVanities: true,
 				},
 				R: &v1beta1.ConnectRConfig{
 					Enabled:                         true,

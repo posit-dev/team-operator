@@ -121,6 +121,29 @@ func TestConnectConfig_RoleMappings(t *testing.T) {
 	require.NotContains(t, str, "AdministratorRoleMapping")
 }
 
+func TestConnectConfig_PublishersCanManageVanities(t *testing.T) {
+	// Deprecated in Connect as of 2026.09: when nil the key must be omitted so
+	// consumers do not see the deprecation warning.
+	cfgNil := ConnectConfig{
+		Authorization: &ConnectAuthorizationConfig{
+			DefaultUserRole: ConnectPublisherRole,
+		},
+	}
+	str, err := cfgNil.GenerateGcfg()
+	require.Nil(t, err)
+	require.NotContains(t, str, "PublishersCanManageVanities")
+
+	// When set explicitly the key is emitted with the given value.
+	cfgSet := ConnectConfig{
+		Authorization: &ConnectAuthorizationConfig{
+			PublishersCanManageVanities: ptr.To(false),
+		},
+	}
+	str, err = cfgSet.GenerateGcfg()
+	require.Nil(t, err)
+	require.Contains(t, str, "PublishersCanManageVanities = false")
+}
+
 func TestConnectConfig_GroupsClaim(t *testing.T) {
 	// Test with GroupsClaim set
 	cfg := ConnectConfig{
