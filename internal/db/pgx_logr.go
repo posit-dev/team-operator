@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5/tracelog"
 )
 
 func newPgxLogr(l logr.Logger) *pgxLogr {
@@ -15,7 +15,7 @@ type pgxLogr struct {
 	l logr.Logger
 }
 
-func (pl *pgxLogr) Log(ctx context.Context, level pgx.LogLevel, msg string, data map[string]interface{}) {
+func (pl *pgxLogr) Log(ctx context.Context, level tracelog.LogLevel, msg string, data map[string]interface{}) {
 	log := pl.l
 	values := []interface{}{}
 
@@ -26,7 +26,7 @@ func (pl *pgxLogr) Log(ctx context.Context, level pgx.LogLevel, msg string, data
 	log = log.WithValues(values...)
 
 	switch level {
-	case pgx.LogLevelError:
+	case tracelog.LogLevelError:
 		var err error
 		if dataErr, ok := data["err"]; ok {
 			err = dataErr.(error)
