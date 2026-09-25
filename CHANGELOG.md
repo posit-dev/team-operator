@@ -1,3 +1,10 @@
+# [1.32.0](https://github.com/posit-dev/team-operator/compare/v1.31.3...v1.32.0) (2026-09-25)
+
+
+### Features
+
+* **workbench:** support display labels on session images ([#169](https://github.com/posit-dev/team-operator/issues/169)) ([ca5b7c2](https://github.com/posit-dev/team-operator/commit/ca5b7c261373588f500d6a97f9e6ba8eb2d99694))
+
 ## [1.31.3](https://github.com/posit-dev/team-operator/compare/v1.31.2...v1.31.3) (2026-09-11)
 
 
