@@ -2216,3 +2216,47 @@ func TestSiteFlightdeckDisableReenableCycle(t *testing.T) {
 	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, fd)
 	assert.NoError(t, err, "Flightdeck CR should be recreated after re-enabling")
 }
+
+func TestSiteWorkbenchSessionImageLabels(t *testing.T) {
+	siteName := "session-image-labels"
+	siteNamespace := "posit-team"
+
+	site := defaultSite(siteName)
+	site.Spec.Workbench.DefaultSessionImage = "registry.io/session:default::Default Session"
+	site.Spec.Workbench.ExtraSessionImages = []string{
+		"registry.io/session:gpu::GPU Session",
+		"registry.io/session:plain",
+	}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	require.Nil(t, err)
+
+	// container-images keeps the labels so the picker shows friendly names; default-container-image is bare
+	testWorkbench := getWorkbench(t, cli, siteNamespace, siteName)
+	profile := testWorkbench.Spec.Config.WorkbenchProfilesConfig.LauncherKubernetesProfiles["*"]
+	assert.Equal(t, []string{
+		"registry.io/session:default::Default Session",
+		"registry.io/session:gpu::GPU Session",
+		"registry.io/session:plain",
+	}, profile.ContainerImages)
+	assert.Equal(t, "registry.io/session:default", profile.DefaultContainerImage)
+
+	cm, err := testWorkbench.Spec.Config.GenerateConfigmap()
+	require.Nil(t, err)
+	profilesConf := cm["launcher.kubernetes.profiles.conf"]
+	assert.Contains(t, profilesConf, "container-images=registry.io/session:default::Default Session,registry.io/session:gpu::GPU Session,registry.io/session:plain")
+	assert.Contains(t, profilesConf, "default-container-image=registry.io/session:default\n")
+
+	// the prepull daemonset must only reference bare image refs
+	ds := &appsv1.DaemonSet{}
+	err = cli.Get(context.TODO(), client.ObjectKey{Name: siteName + "-prepull", Namespace: siteNamespace}, ds)
+	require.Nil(t, err)
+	images := []string{}
+	for _, c := range ds.Spec.Template.Spec.InitContainers {
+		assert.NotContains(t, c.Image, "::")
+		images = append(images, c.Image)
+	}
+	assert.Contains(t, images, "registry.io/session:default")
+	assert.Contains(t, images, "registry.io/session:gpu")
+	assert.Contains(t, images, "registry.io/session:plain")
+}

@@ -301,6 +301,21 @@ spec:
       - "custom-registry.io/custom-session:latest"
 ```
 
+#### Image Display Labels
+
+By default, the New Session image picker shows the image URL. To show a friendly name instead, add a `::Label` suffix to the entry. Labeled and unlabeled entries can be mixed:
+
+```yaml
+spec:
+  workbench:
+    defaultSessionImage: "ghcr.io/posit-dev/workbench-session:jammy-2024.12.0::Ubuntu Jammy (default)"
+    extraSessionImages:
+      - "ghcr.io/posit-dev/workbench-session:gpu-2024.12.0::GPU Session"
+      - "custom-registry.io/custom-session:latest"
+```
+
+The full `image::Label` string is passed to `container-images` in `launcher.kubernetes.profiles.conf`. The operator strips the label wherever it needs a bare image reference: `default-container-image` and the image pre-pull DaemonSet. See the [Kubernetes plugin documentation](https://docs.posit.co/ide/server-pro/admin/job_launcher/kubernetes_plugin.html) for details.
+
 ### Session Init Containers
 
 Configure init containers that run before session containers:

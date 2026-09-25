@@ -792,8 +792,8 @@ These types are used within the Site CRD for product configuration.
 | `.auth` | `AuthSpec` | Authentication configuration |
 | `.image` | `string` | Container image |
 | `.imagePullPolicy` | `PullPolicy` | Image pull policy |
-| `.defaultSessionImage` | `string` | Default session image |
-| `.extraSessionImages` | `[]string` | Additional session images |
+| `.defaultSessionImage` | `string` | Default session image. Optional `::Label` suffix sets its display name in the image picker |
+| `.extraSessionImages` | `[]string` | Additional session images. Each entry takes an optional `::Label` suffix for its display name |
 | `.sessionInitContainerImageName` | `string` | Init container image name |
 | `.sessionInitContainerImageTag` | `string` | Init container image tag |
 | `.replicas` | `int` | Number of replicas |

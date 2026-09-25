@@ -16,6 +16,15 @@ import (
 	"sigs.k8s.io/controller-runtime"
 )
 
+// stripImageLabels drops any Workbench "::Label" display suffix so the entries are valid image references.
+func stripImageLabels(images []string) []string {
+	out := make([]string, 0, len(images))
+	for _, img := range images {
+		out = append(out, product.StripImageLabel(img))
+	}
+	return out
+}
+
 // deployPrePullDaemonset is a very simple prepull tool... it aims to pre-pull all images necessary for a site. It can
 // easily be re-triggered by rolling the daemonset. We hope to improve this or use SOCCI at some point!
 func deployPrePullDaemonset(ctx context.Context, r *SiteReconciler, req controllerruntime.Request, site *v1beta1.Site) error {
@@ -29,14 +38,14 @@ func deployPrePullDaemonset(ctx context.Context, r *SiteReconciler, req controll
 			//   (i.e. it makes a bad init container...)
 			//site.Spec.SiteHome.Image,
 			site.Spec.Workbench.Image,
-			site.Spec.Workbench.DefaultSessionImage,
+			product.StripImageLabel(site.Spec.Workbench.DefaultSessionImage),
 			site.Spec.Connect.Image,
 			site.Spec.Connect.SessionImage,
 			site.Spec.Chronicle.Image,
 			site.Spec.Chronicle.AgentImage,
 			site.Spec.PackageManager.Image,
 		},
-		site.Spec.Workbench.ExtraSessionImages,
+		stripImageLabels(site.Spec.Workbench.ExtraSessionImages),
 	)
 
 	initContainerList := []v1.Container{}
