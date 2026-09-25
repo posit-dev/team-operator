@@ -169,21 +169,7 @@ func (w *WorkbenchSessionIniConfig) GenerateConfigMap() map[string]string {
 		configMap[fieldTag] = finalString
 	}
 
-	// Append additional configs
-	if w.AdditionalConfigs != nil {
-		for filename, content := range w.AdditionalConfigs {
-			if existing, ok := configMap[filename]; ok {
-				// Append to existing config file, ensure newline separation
-				if !strings.HasSuffix(existing, "\n") {
-					existing += "\n"
-				}
-				configMap[filename] = existing + content
-			} else {
-				// New config file
-				configMap[filename] = content
-			}
-		}
-	}
+	mergeAdditionalConfigs(configMap, w.AdditionalConfigs)
 
 	return configMap
 }
@@ -691,21 +677,7 @@ func (w *WorkbenchIniConfig) GenerateConfigMap() map[string]string {
 		configMap[fieldTag] = finalString
 	}
 
-	// Append additional configs
-	if w.AdditionalConfigs != nil {
-		for filename, content := range w.AdditionalConfigs {
-			if existing, ok := configMap[filename]; ok {
-				// Append to existing config file, ensure newline separation
-				if !strings.HasSuffix(existing, "\n") {
-					existing += "\n"
-				}
-				configMap[filename] = existing + content
-			} else {
-				// New config file
-				configMap[filename] = content
-			}
-		}
-	}
+	mergeAdditionalConfigs(configMap, w.AdditionalConfigs)
 
 	return configMap
 }
