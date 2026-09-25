@@ -220,8 +220,10 @@ func (r *SiteReconciler) reconcileWorkbench(
 					LauncherKubernetesProfiles: map[string]v1beta1.WorkbenchLauncherKubernetesProfilesConfigSection{
 						"*": {
 							// TODO: allow configuring...
+							// container-images entries may carry a "::Label" display suffix, but
+							// default-container-image must be the bare image reference.
 							ContainerImages:       product.ConcatLists([]string{defaultSessionImage}, site.Spec.Workbench.ExtraSessionImages),
-							DefaultContainerImage: defaultSessionImage,
+							DefaultContainerImage: product.StripImageLabel(defaultSessionImage),
 							AllowUnknownImages:    1,
 							MemoryRequestRatio:    getMemoryRequestRatio(site.Spec.Workbench.ExperimentalFeatures),
 							CpuRequestRatio:       getCpuRequestRatio(site.Spec.Workbench.ExperimentalFeatures),

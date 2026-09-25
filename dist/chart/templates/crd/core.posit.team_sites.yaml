@@ -1732,6 +1732,10 @@ spec:
                       type: object
                     type: object
                   defaultSessionImage:
+                    description: |-
+                      DefaultSessionImage is the default Workbench session image. It may carry an optional "::Label" suffix
+                      (e.g. "registry.io/image:tag::Friendly Name") that Workbench shows in the New Session image picker.
+                      The label is stripped wherever a bare image reference is needed (e.g. default-container-image, image prepull).
                     type: string
                   domainPrefix:
                     default: workbench
@@ -2180,6 +2184,10 @@ spec:
                         type: integer
                     type: object
                   extraSessionImages:
+                    description: |-
+                      ExtraSessionImages are additional Workbench session images users can select. Each entry may carry an
+                      optional "::Label" suffix (e.g. "registry.io/image:tag::Friendly Name") that Workbench shows in the
+                      New Session image picker instead of the image URL. Labeled and unlabeled entries can be mixed.
                     items:
                       type: string
                     type: array
