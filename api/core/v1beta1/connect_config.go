@@ -203,7 +203,9 @@ func (configStruct *ConnectConfig) GenerateGcfg() (string, error) {
 	var builder strings.Builder
 
 	// Build an intermediate representation: ordered sections with key-value pairs.
-	// We use ordered slices to preserve the deterministic output order from reflection.
+	// Ordered slices preserve the struct field order from reflection. Map-valued
+	// fields (named sections) are not ordered by reflection, so their keys are
+	// sorted explicitly below.
 	type sectionEntry struct {
 		name   string
 		keys   []string            // ordered key names (for non-slice values)
@@ -233,10 +235,10 @@ func (configStruct *ConnectConfig) GenerateGcfg() (string, error) {
 
 		// Handle the RPackageRepositories map (named sections)
 		if fieldValue.Kind() == reflect.Map {
-			iter := sectionStructVals.MapRange()
-			for iter.Next() {
-				repoName := iter.Key()
-				repoValue := iter.Value()
+			// Iterate in sorted key order: Go randomizes map iteration, and an
+			// unstable section order would change the configmap hash on every reconcile
+			for _, repoName := range sortedMapKeys(sectionStructVals) {
+				repoValue := sectionStructVals.MapIndex(repoName)
 				qualifiedName := fieldName + " \"" + fmt.Sprintf("%v", repoName) + "\""
 				entry := sectionEntry{
 					name:   qualifiedName,

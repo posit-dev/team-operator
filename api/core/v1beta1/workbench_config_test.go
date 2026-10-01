@@ -1218,3 +1218,111 @@ func TestWorkbenchConfig_ForceAdminUiEnabled(t *testing.T) {
 	require.Nil(t, err)
 	require.Contains(t, res["rserver.conf"], "force-admin-ui-enabled=0\n")
 }
+
+// requireStableRender renders a config many times and asserts the output never
+// changes. Go randomizes map iteration order, so any renderer that walks a map
+// without sorting would eventually produce a different result here.
+func requireStableRender(t *testing.T, render func() map[string]string) map[string]string {
+	t.Helper()
+	first := render()
+	for i := 0; i < 50; i++ {
+		require.Equal(t, first, render(), "rendered output changed on iteration %d", i)
+	}
+	return first
+}
+
+// requireInOrder asserts that each needle appears in s, in the given order.
+func requireInOrder(t *testing.T, s string, needles ...string) {
+	t.Helper()
+	prev := -1
+	for _, n := range needles {
+		idx := strings.Index(s, n)
+		require.NotEqual(t, -1, idx, "expected %q in output", n)
+		require.Greater(t, idx, prev, "expected %q to appear after the previous entry", n)
+		prev = idx
+	}
+}
+
+func TestWorkbenchSecretConfig_DatabricksDeterministic(t *testing.T) {
+	w := WorkbenchSecretConfig{
+		WorkbenchSecretIniConfig: WorkbenchSecretIniConfig{
+			Databricks: map[string]*WorkbenchDatabricksConfig{
+				"workspace-c": {Name: "Workspace C", Url: "https://c.example.com", ClientId: "client-c"},
+				"workspace-a": {Name: "Workspace A", Url: "https://a.example.com", ClientId: "client-a"},
+				"workspace-b": {Name: "Workspace B", Url: "https://b.example.com", ClientId: "client-b"},
+			},
+		},
+	}
+
+	out := requireStableRender(t, func() map[string]string {
+		data, err := w.GenerateSecretData()
+		require.Nil(t, err)
+		return data
+	})
+
+	conf := out["databricks.conf"]
+	requireInOrder(t, conf, "[workspace-a]", "[workspace-b]", "[workspace-c]")
+	require.Contains(t, conf, "\n[workspace-a]\nname=Workspace A\nurl=https://a.example.com\nclient-id=client-a\n")
+}
+
+func TestWorkbenchIniConfig_DatabricksDeterministic(t *testing.T) {
+	w := WorkbenchConfig{
+		WorkbenchIniConfig: WorkbenchIniConfig{
+			Databricks: map[string]*WorkbenchDatabricksConfig{
+				"workspace-b": {Name: "Workspace B", Url: "https://b.example.com"},
+				"workspace-a": {Name: "Workspace A", Url: "https://a.example.com"},
+				"workspace-c": {Name: "Workspace C", Url: "https://c.example.com"},
+			},
+		},
+	}
+
+	out := requireStableRender(t, func() map[string]string {
+		data, err := w.GenerateConfigmap()
+		require.Nil(t, err)
+		return data
+	})
+
+	requireInOrder(t, out["databricks.conf"], "[workspace-a]", "[workspace-b]", "[workspace-c]")
+}
+
+func TestWorkbenchProfilesConfig_Deterministic(t *testing.T) {
+	w := WorkbenchConfig{
+		WorkbenchProfilesConfig: WorkbenchProfilesConfig{
+			LauncherKubernetesProfiles: map[string]WorkbenchLauncherKubernetesProfilesConfigSection{
+				"user-a":   {DefaultCpus: "2"},
+				"*":        {DefaultCpus: "1"},
+				"@group-b": {DefaultCpus: "4"},
+			},
+		},
+	}
+
+	out := requireStableRender(t, func() map[string]string {
+		data, err := w.GenerateConfigmap()
+		require.Nil(t, err)
+		return data
+	})
+
+	requireInOrder(t, out["launcher.kubernetes.profiles.conf"], "[*]", "[@group-b]", "[user-a]")
+}
+
+func TestWorkbenchConfig_GenerateSupervisorConfigmap_Deterministic(t *testing.T) {
+	wbc := WorkbenchConfig{
+		SupervisordIniConfig: SupervisordIniConfig{
+			Programs: map[string]map[string]*SupervisordProgramConfig{
+				"programs.conf": {
+					"program-c": {Command: "/bin/c", User: "rserver"},
+					"program-a": {Command: "/bin/a", User: "rserver"},
+					"program-b": {Command: "/bin/b", User: "rserver"},
+				},
+			},
+		},
+	}
+
+	out := requireStableRender(t, func() map[string]string {
+		cm, err := wbc.GenerateSupervisorConfigmap(context.TODO())
+		require.Nil(t, err)
+		return cm
+	})
+
+	requireInOrder(t, out["programs.conf"], "[program:program-a]", "[program:program-b]", "[program:program-c]")
+}

@@ -1,6 +1,7 @@
 package v1beta1
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -315,4 +316,42 @@ func TestConnectConfig_AdditionalConfigEmpty(t *testing.T) {
 	str, err := cfg.GenerateGcfg()
 	require.Nil(t, err)
 	require.Contains(t, str, "Address = some-address.com")
+}
+
+// Go randomizes map iteration order, so named sections rendered from a map must
+// be sorted. Otherwise the configmap content (and its hash annotation) changes
+// between reconciles and the Deployment rolls repeatedly.
+func TestConnectConfig_GenerateGcfgRepositoriesDeterministic(t *testing.T) {
+	c := ConnectConfig{
+		Server: &ConnectServerConfig{
+			Address: "some-address.com",
+		},
+		RPackageRepository: map[string]RPackageRepositoryConfig{
+			"RSPM":     {Url: "https://packages.example.com/cran/latest"},
+			"CRAN":     {Url: "https://cran.example.com/latest"},
+			"Internal": {Url: "https://internal.example.com/cran/latest"},
+		},
+	}
+
+	first, err := c.GenerateGcfg()
+	require.Nil(t, err)
+
+	for i := 0; i < 50; i++ {
+		str, err := c.GenerateGcfg()
+		require.Nil(t, err)
+		require.Equal(t, first, str, "rendered gcfg changed on iteration %d", i)
+	}
+
+	cranIdx := strings.Index(first, "[RPackageRepository \"CRAN\"]")
+	internalIdx := strings.Index(first, "[RPackageRepository \"Internal\"]")
+	rspmIdx := strings.Index(first, "[RPackageRepository \"RSPM\"]")
+	require.NotEqual(t, -1, cranIdx)
+	require.NotEqual(t, -1, internalIdx)
+	require.NotEqual(t, -1, rspmIdx)
+	require.Less(t, cranIdx, internalIdx)
+	require.Less(t, internalIdx, rspmIdx)
+
+	// Each section keeps its own Url directly beneath its header
+	require.Contains(t, first, "[RPackageRepository \"CRAN\"]\nUrl = https://cran.example.com/latest\n")
+	require.Contains(t, first, "[RPackageRepository \"RSPM\"]\nUrl = https://packages.example.com/cran/latest\n")
 }
