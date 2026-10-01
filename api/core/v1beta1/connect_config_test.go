@@ -1,7 +1,6 @@
 package v1beta1
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -333,23 +332,16 @@ func TestConnectConfig_GenerateGcfgRepositoriesDeterministic(t *testing.T) {
 		},
 	}
 
-	first, err := c.GenerateGcfg()
-	require.Nil(t, err)
-
-	for i := 0; i < 50; i++ {
+	first := requireStableRender(t, func() map[string]string {
 		str, err := c.GenerateGcfg()
 		require.Nil(t, err)
-		require.Equal(t, first, str, "rendered gcfg changed on iteration %d", i)
-	}
+		return map[string]string{"gcfg": str}
+	})["gcfg"]
 
-	cranIdx := strings.Index(first, "[RPackageRepository \"CRAN\"]")
-	internalIdx := strings.Index(first, "[RPackageRepository \"Internal\"]")
-	rspmIdx := strings.Index(first, "[RPackageRepository \"RSPM\"]")
-	require.NotEqual(t, -1, cranIdx)
-	require.NotEqual(t, -1, internalIdx)
-	require.NotEqual(t, -1, rspmIdx)
-	require.Less(t, cranIdx, internalIdx)
-	require.Less(t, internalIdx, rspmIdx)
+	requireInOrder(t, first,
+		`[RPackageRepository "CRAN"]`,
+		`[RPackageRepository "Internal"]`,
+		`[RPackageRepository "RSPM"]`)
 
 	// Each section keeps its own Url directly beneath its header
 	require.Contains(t, first, "[RPackageRepository \"CRAN\"]\nUrl = https://cran.example.com/latest\n")
