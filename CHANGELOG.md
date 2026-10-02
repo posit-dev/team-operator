@@ -1,3 +1,10 @@
+## [1.32.1](https://github.com/posit-dev/team-operator/compare/v1.32.0...v1.32.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* sort map keys when rendering Workbench and Connect config ([#172](https://github.com/posit-dev/team-operator/issues/172)) ([8e4317f](https://github.com/posit-dev/team-operator/commit/8e4317f8e1e4fa1ae5bc026309fd38bfa65b457a))
+
 # [1.32.0](https://github.com/posit-dev/team-operator/compare/v1.31.3...v1.32.0) (2026-09-25)
 
 
