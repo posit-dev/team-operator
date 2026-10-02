@@ -58,11 +58,9 @@ func (w *WorkbenchSecretIniConfig) GenerateConfigMap() map[string]string {
 		sessionValues := reflect.Indirect(fieldValue)
 
 		if fieldValue.Kind() == reflect.Map {
-			iter := sessionValues.MapRange()
-
-			for iter.Next() {
-				key := iter.Key()
-				value := reflect.Indirect(iter.Value())
+			// Iterate in sorted key order so the rendered output (and its hash) is stable
+			for _, key := range sortedMapKeys(sessionValues) {
+				value := reflect.Indirect(sessionValues.MapIndex(key))
 
 				builder.WriteString("\n[" + fmt.Sprintf("%v", key) + "]\n")
 
@@ -469,11 +467,9 @@ func (w *WorkbenchProfilesConfig) GenerateConfigMap() map[string]string {
 
 		profiles := reflect.Indirect(fieldValue)
 
-		iter := profiles.MapRange()
-
-		for iter.Next() {
-			profileName := iter.Key()
-			profileValues := iter.Value()
+		// Iterate in sorted key order so the rendered output (and its hash) is stable
+		for _, profileName := range sortedMapKeys(profiles) {
+			profileValues := profiles.MapIndex(profileName)
 
 			builder.WriteString("\n[" + fmt.Sprintf("%v", profileName) + "]\n")
 
@@ -622,12 +618,10 @@ func (w *WorkbenchIniConfig) GenerateConfigMap() map[string]string {
 					}
 				}
 			} else {
-				// Default handling for other map fields
-				iter := sectionStructVals.MapRange()
-
-				for iter.Next() {
-					key := iter.Key()
-					value := reflect.Indirect(iter.Value())
+				// Default handling for other map fields, in sorted key order so the
+				// rendered output (and its hash) is stable
+				for _, key := range sortedMapKeys(sectionStructVals) {
+					value := reflect.Indirect(sectionStructVals.MapIndex(key))
 
 					builder.WriteString("\n[" + fmt.Sprintf("%v", key) + "]\n")
 
@@ -799,17 +793,13 @@ func (w *WorkbenchConfig) GenerateSupervisorConfigmap(ctx context.Context) (map[
 
 		programs := reflect.Indirect(fieldValue)
 
-		iter := programs.MapRange()
+		// Iterate in sorted key order so the rendered output is stable
+		for _, fileKey := range sortedMapKeys(programs) {
+			fileName := fmt.Sprintf("%v", fileKey)
+			programMap := programs.MapIndex(fileKey)
 
-		for iter.Next() {
-			fileName := fmt.Sprintf("%v", iter.Key())
-			programMap := iter.Value()
-
-			programIter := programMap.MapRange()
-
-			for programIter.Next() {
-				programName := programIter.Key()
-				programValues := reflect.Indirect(programIter.Value())
+			for _, programName := range sortedMapKeys(programMap) {
+				programValues := reflect.Indirect(programMap.MapIndex(programName))
 
 				builder.WriteString("[program:" + fmt.Sprintf("%v", programName) + "]\n")
 
