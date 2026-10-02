@@ -69,6 +69,22 @@ jobs:
   envtest:
     name: Envtest (API-level tests)
     runs-on: ubuntu-latest
+    # Postgres backs the internal/db regression tests. They cover a class of bug
+    # (a closed connection surfacing only at Scan time) that cannot be caught
+    # without driving a real pgx connection, so they skip unless TEST_POSTGRES_URL
+    # is set.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: testpw
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -95,6 +111,7 @@ jobs:
         run: make go-test
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TEST_POSTGRES_URL: postgres://postgres:testpw@127.0.0.1:5432/postgres?sslmode=disable
 
       - name: Upload coverage
         uses: codecov/codecov-action@v5
