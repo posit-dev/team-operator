@@ -1977,6 +1977,51 @@ spec:
                           will never become ready. Must start with "/".
                         pattern: ^/
                         type: string
+                      resourceProfileAccess:
+                        description: |-
+                          ResourceProfileAccess restricts which ResourceProfiles are offered to which users and groups. Each entry
+                          renders a section of launcher.kubernetes.profiles.conf keyed by Match. A "*" entry replaces the resource
+                          profiles offered to everyone; without one, everyone gets every profile. Workbench resolves each key
+                          per user with [user] > [@group] > [*] precedence; among sections of the same kind, the later one wins (per the
+                          Workbench docs; being verified empirically).
+                          Every referenced profile must be a key of ResourceProfiles (or of the default profiles when unset).
+                        items:
+                          description: WorkbenchResourceProfileAccess grants a user,
+                            a group, or everyone access to a set of Workbench resource
+                            profiles.
+                          properties:
+                            match:
+                              description: |-
+                                Match selects who the entry applies to: "*" for everyone, "@group" for members of a (NSS/POSIX) group,
+                                or a bare username.
+                                A leading "*" is only valid as exactly "*". Whitespace is rejected conservatively, pending an empirical
+                                Workbench test; the rule may be relaxed. Keep in sync with validateResourceProfileAccessMatch in the Site
+                                controller.
+                              maxLength: 256
+                              minLength: 1
+                              pattern: ^(\*|@?[^\s\[\]@*][^\s\[\]]*)$
+                              type: string
+                            resourceProfiles:
+                              description: |-
+                                ResourceProfiles lists the resource profile keys offered to the match. They are written to resource-profiles
+                                in this order.
+                              items:
+                                minLength: 1
+                                type: string
+                              maxItems: 64
+                              minItems: 1
+                              type: array
+                              x-kubernetes-list-type: set
+                          required:
+                          - match
+                          - resourceProfiles
+                          type: object
+                        maxItems: 64
+                        type: array
+                        x-kubernetes-list-type: atomic
+                        x-kubernetes-validations:
+                        - message: match values must be unique
+                          rule: self.all(x, self.exists_one(y, y.match == x.match))
                       resourceProfiles:
                         additionalProperties:
                           properties:
@@ -2183,6 +2228,13 @@ spec:
                           to 16
                         type: integer
                     type: object
+                    x-kubernetes-validations:
+                    - message: resourceProfileAccess references a profile not defined
+                        in resourceProfiles (or the defaults when unset)
+                      rule: '!has(self.resourceProfileAccess) || self.resourceProfileAccess.all(a,
+                        a.resourceProfiles.all(p, has(self.resourceProfiles) && size(self.resourceProfiles)
+                        > 0 ? p in self.resourceProfiles : p in [''default'', ''medium'',
+                        ''zz-large'']))'
                   extraSessionImages:
                     description: |-
                       ExtraSessionImages are additional Workbench session images users can select. Each entry may carry an

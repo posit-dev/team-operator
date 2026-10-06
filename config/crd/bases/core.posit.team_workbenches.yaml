@@ -555,6 +555,18 @@ spec:
                               type: array
                           type: object
                         type: object
+                      launcherKubernetesProfilesOrder:
+                        description: |-
+                          LauncherKubernetesProfilesOrder controls the order of sections in launcher.kubernetes.profiles.conf. Workbench
+                          resolves sections of the same specificity (two groups a user belongs to, for example) by letting the later one
+                          win, so the order is significant. The Site controller normally sets this field from resourceProfileAccess.
+                          When set: the "*" section is always rendered first (even if listed elsewhere), then the sections listed here,
+                          then any remaining sections in sorted order. Keys with no matching section, and repeated keys, are ignored.
+                          When unset, all sections are rendered in sorted order. This is not a config file and is not rendered itself.
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: atomic
                     type: object
                   workbench-session-ini-config:
                     properties:

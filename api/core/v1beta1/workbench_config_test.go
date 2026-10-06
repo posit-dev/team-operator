@@ -146,7 +146,7 @@ func TestWorkbenchConfig_GenerateConfigmap(t *testing.T) {
 			},
 		},
 		WorkbenchProfilesConfig: WorkbenchProfilesConfig{
-			map[string]WorkbenchLauncherKubernetesProfilesConfigSection{
+			LauncherKubernetesProfiles: map[string]WorkbenchLauncherKubernetesProfilesConfigSection{
 				"*": WorkbenchLauncherKubernetesProfilesConfigSection{
 					ContainerImages:      []string{"one", "two"},
 					AllowCustomResources: 1,
@@ -1325,4 +1325,100 @@ func TestWorkbenchConfig_GenerateSupervisorConfigmap_Deterministic(t *testing.T)
 	})
 
 	requireInOrder(t, out["programs.conf"], "[program:program-a]", "[program:program-b]", "[program:program-c]")
+}
+
+func TestWorkbenchProfilesConfig_Order(t *testing.T) {
+	profiles := func() map[string]WorkbenchLauncherKubernetesProfilesConfigSection {
+		return map[string]WorkbenchLauncherKubernetesProfilesConfigSection{
+			"zed":      {DefaultCpus: "5"},
+			"alice":    {DefaultCpus: "6"},
+			"@group-b": {DefaultCpus: "2"},
+			"*":        {DefaultCpus: "1"},
+			"@group-a": {DefaultCpus: "3"},
+			"bob":      {DefaultCpus: "4"},
+		}
+	}
+
+	t.Run("order list", func(t *testing.T) {
+		w := WorkbenchConfig{
+			WorkbenchProfilesConfig: WorkbenchProfilesConfig{
+				LauncherKubernetesProfiles: profiles(),
+				// "*" is always first, unknown and repeated keys are ignored, unlisted keys follow sorted
+				LauncherKubernetesProfilesOrder: []string{"@group-b", "missing", "*", "@group-a", "zed", "@group-b"},
+			},
+		}
+
+		out := requireStableRender(t, func() map[string]string {
+			data, err := w.GenerateConfigmap()
+			require.Nil(t, err)
+			return data
+		})
+
+		require.Len(t, out, 1, "the order list must not be rendered as a config file")
+		conf := out["launcher.kubernetes.profiles.conf"]
+		requireInOrder(t, conf, "[*]", "[@group-b]", "[@group-a]", "[zed]", "[alice]", "[bob]")
+		require.Equal(t, 6, strings.Count(conf, "["), "each section must be rendered exactly once")
+	})
+
+	t.Run("unset order is sorted", func(t *testing.T) {
+		withOrder := WorkbenchProfilesConfig{LauncherKubernetesProfiles: profiles(), LauncherKubernetesProfilesOrder: []string{}}
+		withoutOrder := WorkbenchProfilesConfig{LauncherKubernetesProfiles: profiles()}
+
+		conf := withoutOrder.GenerateConfigMap()["launcher.kubernetes.profiles.conf"]
+		requireInOrder(t, conf, "[*]", "[@group-a]", "[@group-b]", "[alice]", "[bob]", "[zed]")
+		require.Equal(t, withoutOrder.GenerateConfigMap(), withOrder.GenerateConfigMap())
+	})
+}
+
+func TestWorkbenchConfig_GenerateConfigmap_SyncsPlacementConstraintsIntoAccessSections(t *testing.T) {
+	wb := WorkbenchConfig{
+		WorkbenchIniConfig: WorkbenchIniConfig{
+			Resources: map[string]*WorkbenchLauncherKubernetesResourcesConfigSection{
+				"default": {Name: "Small", Cpus: "1", MemMb: "2048", PlacementConstraints: "pool=default"},
+				"large":   {Name: "Large", Cpus: "4", MemMb: "16384", PlacementConstraints: "pool=large"},
+				"xl":      {Name: "XL", Cpus: "16", MemMb: "65536", PlacementConstraints: "pool=xl"},
+			},
+		},
+		WorkbenchProfilesConfig: WorkbenchProfilesConfig{
+			LauncherKubernetesProfiles: map[string]WorkbenchLauncherKubernetesProfilesConfigSection{
+				"*":            {AllowUnknownImages: 1, ResourceProfiles: []string{"default"}},
+				"@power-users": {AllowUnknownImages: 1, ResourceProfiles: []string{"default", "large", "xl"}},
+				"alice":        {AllowUnknownImages: 1, ResourceProfiles: []string{"large"}},
+			},
+			LauncherKubernetesProfilesOrder: []string{"@power-users", "alice"},
+		},
+	}
+
+	res, err := wb.GenerateConfigmap()
+	require.Nil(t, err)
+
+	require.Equal(t, `
+[*]
+allow-unknown-images=1
+placement-constraints=pool=default
+resource-profiles=default
+allow-custom-resources=0
+
+[@power-users]
+allow-unknown-images=1
+placement-constraints=pool=default,pool=large,pool=xl
+resource-profiles=default,large,xl
+allow-custom-resources=0
+
+[alice]
+allow-unknown-images=1
+placement-constraints=pool=large
+resource-profiles=large
+allow-custom-resources=0
+`, res["launcher.kubernetes.profiles.conf"])
+}
+
+func TestWorkbenchProfilesConfig_OrderOnlyRendersNothing(t *testing.T) {
+	w := WorkbenchConfig{
+		WorkbenchProfilesConfig: WorkbenchProfilesConfig{LauncherKubernetesProfilesOrder: []string{"@group-a"}},
+	}
+
+	out, err := w.GenerateConfigmap()
+	require.Nil(t, err)
+	require.Empty(t, out, "an order list without profiles must not produce a config file")
 }

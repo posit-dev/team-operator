@@ -442,6 +442,48 @@ type WorkbenchLauncherKubernetesProfilesConfigSection struct {
 
 type WorkbenchProfilesConfig struct {
 	LauncherKubernetesProfiles map[string]WorkbenchLauncherKubernetesProfilesConfigSection `json:"launcher.kubernetes.profiles.conf,omitempty"`
+
+	// LauncherKubernetesProfilesOrder controls the order of sections in launcher.kubernetes.profiles.conf. Workbench
+	// resolves sections of the same specificity (two groups a user belongs to, for example) by letting the later one
+	// win, so the order is significant. The Site controller normally sets this field from resourceProfileAccess.
+	// When set: the "*" section is always rendered first (even if listed elsewhere), then the sections listed here,
+	// then any remaining sections in sorted order. Keys with no matching section, and repeated keys, are ignored.
+	// When unset, all sections are rendered in sorted order. This is not a config file and is not rendered itself.
+	// +optional
+	// +listType=atomic
+	LauncherKubernetesProfilesOrder []string `json:"launcherKubernetesProfilesOrder,omitempty"`
+}
+
+// orderedProfileKeys returns the keys of the LauncherKubernetesProfiles map in render order. See
+// LauncherKubernetesProfilesOrder.
+func (w *WorkbenchProfilesConfig) orderedProfileKeys(profiles reflect.Value) []reflect.Value {
+	sorted := sortedMapKeys(profiles)
+	if len(w.LauncherKubernetesProfilesOrder) == 0 {
+		return sorted
+	}
+
+	keys := make([]reflect.Value, 0, len(sorted))
+	seen := make(map[string]bool, len(sorted))
+	add := func(k string) {
+		if seen[k] {
+			return
+		}
+		key := reflect.ValueOf(k)
+		if !profiles.MapIndex(key).IsValid() {
+			return
+		}
+		seen[k] = true
+		keys = append(keys, key)
+	}
+
+	add("*")
+	for _, k := range w.LauncherKubernetesProfilesOrder {
+		add(k)
+	}
+	for _, k := range sorted {
+		add(k.String())
+	}
+	return keys
 }
 
 func (w *WorkbenchProfilesConfig) GenerateConfigMap() map[string]string {
@@ -461,14 +503,16 @@ func (w *WorkbenchProfilesConfig) GenerateConfigMap() map[string]string {
 		fieldTag = strings.ReplaceAll(fieldTag, ",omitempty\"", "")
 		fieldValue := configStructVals.Field(i)
 
-		if fieldValue.IsNil() {
+		// Only map fields are config files (sections keyed by name); anything else, such as
+		// LauncherKubernetesProfilesOrder, just controls rendering
+		if fieldValue.Kind() != reflect.Map || fieldValue.IsNil() {
 			continue
 		}
 
 		profiles := reflect.Indirect(fieldValue)
 
-		// Iterate in sorted key order so the rendered output (and its hash) is stable
-		for _, profileName := range sortedMapKeys(profiles) {
+		// Iterate in a deterministic key order so the rendered output (and its hash) is stable
+		for _, profileName := range w.orderedProfileKeys(profiles) {
 			profileValues := profiles.MapIndex(profileName)
 
 			builder.WriteString("\n[" + fmt.Sprintf("%v", profileName) + "]\n")

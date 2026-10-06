@@ -448,11 +448,11 @@ spec:
         small:
           name: "Small"
           cpus: "1"
-          memMb: "2000"
+          mem-mb: "2000"
         large:
           name: "Large"
           cpus: "4"
-          memMb: "8000"
+          mem-mb: "8000"
 ```
 
 #### Package Manager

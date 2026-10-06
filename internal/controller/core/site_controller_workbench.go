@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -86,6 +87,33 @@ func (r *SiteReconciler) reconcileWorkbench(
 			resourceProfiles = site.Spec.Workbench.ExperimentalFeatures.ResourceProfiles
 		}
 	}
+
+	var resourceProfileAccess []v1beta1.WorkbenchResourceProfileAccess
+	if site.Spec.Workbench.ExperimentalFeatures != nil {
+		resourceProfileAccess = site.Spec.Workbench.ExperimentalFeatures.ResourceProfileAccess
+	}
+	// The Site CRD rejects invalid lists at apply time; this is defense in depth for objects that bypassed it (older
+	// CRDs, the fake client). An invalid list must not reach the Workbench CR, so the last applied Workbench
+	// configuration is kept.
+	if err := validateResourceProfileAccess(resourceProfileAccess, resourceProfiles); err != nil {
+		return fmt.Errorf("%w: %w", errInvalidWorkbenchConfig, err)
+	}
+
+	launcherProfiles, launcherProfilesOrder := buildLauncherKubernetesProfiles(
+		l,
+		v1beta1.WorkbenchLauncherKubernetesProfilesConfigSection{
+			// TODO: allow configuring...
+			// container-images entries may carry a "::Label" display suffix, but
+			// default-container-image must be the bare image reference.
+			ContainerImages:       product.ConcatLists([]string{defaultSessionImage}, site.Spec.Workbench.ExtraSessionImages),
+			DefaultContainerImage: product.StripImageLabel(defaultSessionImage),
+			AllowUnknownImages:    1,
+			MemoryRequestRatio:    getMemoryRequestRatio(site.Spec.Workbench.ExperimentalFeatures),
+			CpuRequestRatio:       getCpuRequestRatio(site.Spec.Workbench.ExperimentalFeatures),
+			ResourceProfiles:      getResourceProfileKeys(resourceProfiles),
+		},
+		resourceProfileAccess,
+	)
 
 	targetWorkbench := &v1beta1.Workbench{
 		ObjectMeta: v1.ObjectMeta{
@@ -217,19 +245,8 @@ func (r *SiteReconciler) reconcileWorkbench(
 					PositronUserSettingsJson: site.Spec.Workbench.PositronSettings.UserSettings,
 				},
 				WorkbenchProfilesConfig: v1beta1.WorkbenchProfilesConfig{
-					LauncherKubernetesProfiles: map[string]v1beta1.WorkbenchLauncherKubernetesProfilesConfigSection{
-						"*": {
-							// TODO: allow configuring...
-							// container-images entries may carry a "::Label" display suffix, but
-							// default-container-image must be the bare image reference.
-							ContainerImages:       product.ConcatLists([]string{defaultSessionImage}, site.Spec.Workbench.ExtraSessionImages),
-							DefaultContainerImage: product.StripImageLabel(defaultSessionImage),
-							AllowUnknownImages:    1,
-							MemoryRequestRatio:    getMemoryRequestRatio(site.Spec.Workbench.ExperimentalFeatures),
-							CpuRequestRatio:       getCpuRequestRatio(site.Spec.Workbench.ExperimentalFeatures),
-							ResourceProfiles:      getResourceProfileKeys(resourceProfiles),
-						},
-					},
+					LauncherKubernetesProfiles:      launcherProfiles,
+					LauncherKubernetesProfilesOrder: launcherProfilesOrder,
 				},
 			},
 			SecretConfig: v1beta1.WorkbenchSecretConfig{
@@ -518,6 +535,9 @@ func (r *SiteReconciler) reconcileWorkbench(
 	return nil
 }
 
+// defaultWorkbenchResourceProfiles are used when the Site sets no resourceProfiles. The CEL rule on
+// InternalWorkbenchExperimentalFeatures hard-codes these keys; TestDefaultWorkbenchResourceProfilesMatchCEL keeps
+// them in sync.
 func defaultWorkbenchResourceProfiles() map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection {
 	return map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection{
 		"default": {
@@ -546,6 +566,123 @@ func getResourceProfileKeys(resourceProfiles map[string]*v1beta1.WorkbenchLaunch
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// errInvalidWorkbenchConfig wraps Site configuration errors that only block updating the Workbench CR. The Site
+// reconcile carries on with the other components and returns the error at the end.
+var errInvalidWorkbenchConfig = errors.New("invalid workbench configuration")
+
+// resourceProfileAccessMatchAll is the launcher.kubernetes.profiles.conf section that applies to every user
+const resourceProfileAccessMatchAll = "*"
+
+// validateResourceProfileAccessMatch mirrors the Pattern marker on WorkbenchResourceProfileAccess.Match,
+// ^(\*|@?[^\s\[\]@*][^\s\[\]]*)$, which the API server enforces at admission. Keep the two in sync; a parity test
+// runs the same inputs through both. Brackets would break the INI section header. Rejecting whitespace is a
+// conservative choice pending an empirical Workbench test and may be relaxed. Whitespace means RE2's ASCII \s
+// ([\t\n\f\r ]), not unicode.IsSpace, so this check agrees with the Pattern.
+func validateResourceProfileAccessMatch(match string) error {
+	if match == resourceProfileAccessMatchAll {
+		return nil
+	}
+	if match == "" {
+		return fmt.Errorf("match must not be empty")
+	}
+	name := strings.TrimPrefix(match, "@")
+	switch {
+	case name == "" || name[0] == '@':
+		return fmt.Errorf("match %q is not a valid group name", match)
+	case name[0] == '*':
+		return fmt.Errorf("match %q must be exactly \"*\" to match everyone", match)
+	case strings.ContainsAny(match, " \t\n\f\r[]"):
+		return fmt.Errorf("match %q must not contain whitespace or brackets", match)
+	}
+	return nil
+}
+
+// validateResourceProfileAccess checks that every access entry has a usable, unique match and only references
+// keys of resourceProfiles (the Site's resource profiles, or the defaults when the Site sets none).
+func validateResourceProfileAccess(
+	access []v1beta1.WorkbenchResourceProfileAccess,
+	resourceProfiles map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection,
+) error {
+	seen := make(map[string]bool, len(access))
+	for i, entry := range access {
+		if err := validateResourceProfileAccessMatch(entry.Match); err != nil {
+			return fmt.Errorf("workbench resourceProfileAccess[%d]: %w", i, err)
+		}
+		switch {
+		case seen[entry.Match]:
+			return fmt.Errorf("workbench resourceProfileAccess[%d]: duplicate match %q", i, entry.Match)
+		case len(entry.ResourceProfiles) == 0:
+			return fmt.Errorf("workbench resourceProfileAccess[%d] (match %q): resourceProfiles must not be empty", i, entry.Match)
+		}
+		seen[entry.Match] = true
+
+		seenProfiles := make(map[string]bool, len(entry.ResourceProfiles))
+		for _, name := range entry.ResourceProfiles {
+			if seenProfiles[name] {
+				return fmt.Errorf("workbench resourceProfileAccess[%d] (match %q): duplicate resource profile %q", i, entry.Match, name)
+			}
+			seenProfiles[name] = true
+			if _, ok := resourceProfiles[name]; !ok {
+				return fmt.Errorf(
+					"workbench resourceProfileAccess[%d] (match %q): unknown resource profile %q; available profiles: %s",
+					i, entry.Match, name, strings.Join(getResourceProfileKeys(resourceProfiles), ", "),
+				)
+			}
+		}
+	}
+	return nil
+}
+
+// buildLauncherKubernetesProfiles returns the launcher.kubernetes.profiles.conf sections and their render order.
+// allUsers is the "[*]" section. With no access entries, it is the only section and the order is nil, which renders
+// exactly as before resourceProfileAccess existed. Access must already be validated.
+func buildLauncherKubernetesProfiles(
+	l logr.Logger,
+	allUsers v1beta1.WorkbenchLauncherKubernetesProfilesConfigSection,
+	access []v1beta1.WorkbenchResourceProfileAccess,
+) (map[string]v1beta1.WorkbenchLauncherKubernetesProfilesConfigSection, []string) {
+	profiles := map[string]v1beta1.WorkbenchLauncherKubernetesProfilesConfigSection{}
+	if len(access) == 0 {
+		profiles[resourceProfileAccessMatchAll] = allUsers
+		return profiles, nil
+	}
+
+	var groups, users []string
+	hasMatchAll := false
+	for _, entry := range access {
+		resourceProfiles := append([]string(nil), entry.ResourceProfiles...)
+		if entry.Match == resourceProfileAccessMatchAll {
+			hasMatchAll = true
+			allUsers.ResourceProfiles = resourceProfiles
+			continue
+		}
+
+		// The profiles renderer writes int fields even when they are zero, so a section that only set
+		// resource-profiles would also write allow-unknown-images=0 and allow-custom-resources=0, overriding
+		// the "[*]" values for these users. Copy them so the effective values are unchanged. Everything else
+		// (images, request ratios, ...) is left unset and inherited from "[*]" by Workbench's per-key merge.
+		profiles[entry.Match] = v1beta1.WorkbenchLauncherKubernetesProfilesConfigSection{
+			AllowUnknownImages:   allUsers.AllowUnknownImages,
+			AllowCustomResources: allUsers.AllowCustomResources,
+			ResourceProfiles:     resourceProfiles,
+		}
+		if strings.HasPrefix(entry.Match, "@") {
+			groups = append(groups, entry.Match)
+		} else {
+			users = append(users, entry.Match)
+		}
+	}
+	profiles[resourceProfileAccessMatchAll] = allUsers
+
+	if !hasMatchAll {
+		l.V(1).Info("workbench resourceProfileAccess has no \"*\" entry; all users keep access to every resource profile unless a more specific entry matches")
+	}
+
+	// Write "[*]", then groups, then users, each in list order, so the file reads the way the launcher
+	// evaluates it ([user] > [@group] > [*]; later sections win at the same level).
+	return profiles, append(groups, users...)
 }
 
 // getCpuRequestRatio returns the configured CPU request ratio, with kubebuilder default fallback

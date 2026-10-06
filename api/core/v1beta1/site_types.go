@@ -562,6 +562,9 @@ type WorkbenchSCIMConfig struct {
 	TokenSecretName string `json:"tokenSecretName,omitempty"`
 }
 
+// The default profile keys in this rule must match defaultWorkbenchResourceProfiles() in
+// internal/controller/core/site_controller_workbench.go (TestDefaultWorkbenchResourceProfilesMatchCEL checks this).
+// +kubebuilder:validation:XValidation:rule="!has(self.resourceProfileAccess) || self.resourceProfileAccess.all(a, a.resourceProfiles.all(p, has(self.resourceProfiles) && size(self.resourceProfiles) > 0 ? p in self.resourceProfiles : p in ['default', 'medium', 'zz-large']))",message="resourceProfileAccess references a profile not defined in resourceProfiles (or the defaults when unset)"
 type InternalWorkbenchExperimentalFeatures struct {
 	EnableManagedCredentialJobs bool `json:"enableManagedCredentialJobs,omitempty"`
 
@@ -610,6 +613,18 @@ type InternalWorkbenchExperimentalFeatures struct {
 	// ResourceProfiles for use by Workbench. If not provided, a default will be used
 	ResourceProfiles map[string]*WorkbenchLauncherKubernetesResourcesConfigSection `json:"resourceProfiles,omitempty"`
 
+	// ResourceProfileAccess restricts which ResourceProfiles are offered to which users and groups. Each entry
+	// renders a section of launcher.kubernetes.profiles.conf keyed by Match. A "*" entry replaces the resource
+	// profiles offered to everyone; without one, everyone gets every profile. Workbench resolves each key
+	// per user with [user] > [@group] > [*] precedence; among sections of the same kind, the later one wins (per the
+	// Workbench docs; being verified empirically).
+	// Every referenced profile must be a key of ResourceProfiles (or of the default profiles when unset).
+	// +optional
+	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=64
+	// +kubebuilder:validation:XValidation:rule="self.all(x, self.exists_one(y, y.match == x.match))",message="match values must be unique"
+	ResourceProfileAccess []WorkbenchResourceProfileAccess `json:"resourceProfileAccess,omitempty"`
+
 	// CpuRequestRatio defines the ratio of CPU requests to limits for session pods
 	// Value must be a decimal number between 0 and 1 (e.g., "0.6" means requests are 60% of limits)
 	// Defaults to "0.6" if not specified
@@ -643,6 +658,27 @@ type InternalWorkbenchExperimentalFeatures struct {
 	// AuditDatabaseEnabled provisions Workbench's Audit Database: a second Postgres database,
 	// distinct from the internal database, that stores historical session and usage data.
 	AuditDatabaseEnabled bool `json:"auditDatabaseEnabled,omitempty"`
+}
+
+// WorkbenchResourceProfileAccess grants a user, a group, or everyone access to a set of Workbench resource profiles.
+type WorkbenchResourceProfileAccess struct {
+	// Match selects who the entry applies to: "*" for everyone, "@group" for members of a (NSS/POSIX) group,
+	// or a bare username.
+	// A leading "*" is only valid as exactly "*". Whitespace is rejected conservatively, pending an empirical
+	// Workbench test; the rule may be relaxed. Keep in sync with validateResourceProfileAccessMatch in the Site
+	// controller.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=256
+	// +kubebuilder:validation:Pattern=`^(\*|@?[^\s\[\]@*][^\s\[\]]*)$`
+	Match string `json:"match"`
+
+	// ResourceProfiles lists the resource profile keys offered to the match. They are written to resource-profiles
+	// in this order.
+	// +listType=set
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=64
+	// +kubebuilder:validation:items:MinLength=1
+	ResourceProfiles []string `json:"resourceProfiles"`
 }
 
 type InternalChronicleSpec struct {

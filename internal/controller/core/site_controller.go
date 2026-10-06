@@ -5,6 +5,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	url "net/url"
 	"strings"
@@ -25,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // checkBool dereferences a bool pointer, returning defaultVal if nil.
@@ -451,6 +453,10 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 		}
 	}
 
+	// deferredErr holds an error that blocks one component but not the rest of the Site. It is returned after
+	// everything else has been reconciled, so the Site still reports Ready/Progressing=False with its message.
+	var deferredErr error
+
 	// WORKBENCH
 	if workbenchEnabled {
 		if err := r.reconcileWorkbench(
@@ -464,7 +470,12 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 			workbenchAdditionalVolumes,
 			packageManagerRepoUrl,
 			workbenchUrl,
-		); err != nil {
+		); errors.Is(err, errInvalidWorkbenchConfig) {
+			// The last applied Workbench configuration is kept; keep reconciling the rest of the Site. The error is
+			// terminal: retrying can't fix the spec, and a spec change triggers a new reconcile anyway.
+			l.Error(err, "invalid workbench configuration; keeping the last applied Workbench configuration")
+			deferredErr = reconcile.TerminalError(err)
+		} else if err != nil {
 			l.Error(err, "error reconciling workbench")
 			return ctrl.Result{}, err
 		}
@@ -537,7 +548,7 @@ func (r *SiteReconciler) reconcileResources(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, deferredErr
 }
 
 // aggregateChildStatus fetches each child CR and populates per-component readiness bools on the Site status.

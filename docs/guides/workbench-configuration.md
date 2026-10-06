@@ -340,21 +340,21 @@ spec:
         default:
           name: "Small"
           cpus: "1"
-          memMb: "2000"
+          mem-mb: "2000"
         medium:
           name: "Medium"
           cpus: "2"
-          memMb: "4000"
+          mem-mb: "4000"
         large:
           name: "Large"
           cpus: "4"
-          memMb: "8000"
+          mem-mb: "8000"
         gpu:
           name: "GPU Enabled"
           cpus: "4"
-          memMb: "16000"
-          nvidiaGpus: "1"
-          placementConstraints: "node-type:gpu"
+          mem-mb: "16000"
+          nvidia-gpus: "1"
+          placement-constraints: "node-type:gpu"
 ```
 
 **Resource Profile Fields:**
@@ -363,12 +363,130 @@ spec:
 |-------|-------------|
 | `name` | Display name in UI |
 | `cpus` | CPU limit |
-| `cpusRequest` | CPU request (defaults to ratio of limit) |
-| `memMb` | Memory limit in MB |
-| `memMbRequest` | Memory request (defaults to ratio of limit) |
-| `nvidiaGpus` | NVIDIA GPU count |
-| `amdGpus` | AMD GPU count |
-| `placementConstraints` | Node selector as `key:value` pairs |
+| `cpus-request` | CPU request (defaults to ratio of limit) |
+| `mem-mb` | Memory limit in MB |
+| `mem-mb-request` | Memory request (defaults to ratio of limit) |
+| `nvidia-gpus` | NVIDIA GPU count |
+| `amd-gpus` | AMD GPU count |
+| `placement-constraints` | Node selector as `key:value` pairs |
+
+### Restricting resource profiles by group or user
+
+By default every user can pick every resource profile. `resourceProfileAccess` restricts which profiles are offered
+to which users and groups. Each entry becomes a section of the launcher's `launcher.kubernetes.profiles.conf`:
+
+```yaml
+spec:
+  workbench:
+    experimentalFeatures:
+      resourceProfiles:
+        default:
+          name: "Small"
+          cpus: "1"
+          mem-mb: "2000"
+          placement-constraints: "node-type:default"
+        large:
+          name: "Large"
+          cpus: "4"
+          mem-mb: "16000"
+          placement-constraints: "node-type:large"
+        xl:
+          name: "Extra Large"
+          cpus: "16"
+          mem-mb: "64000"
+          placement-constraints: "node-type:highmem"
+      resourceProfileAccess:
+        - match: "*"            # everyone
+          resourceProfiles: [default]
+        - match: "@power-users" # members of the power-users group
+          resourceProfiles: [default, large, xl]
+        - match: "@it-admins"
+          resourceProfiles: [default, large, xl]
+        - match: "jdoe"         # a single user
+          resourceProfiles: [default, large]
+```
+
+This renders:
+
+```ini
+[*]
+container-images=...
+default-container-image=...
+allow-unknown-images=1
+placement-constraints=node-type:default
+cpu-request-ratio=0.6
+memory-request-ratio=0.8
+resource-profiles=default
+allow-custom-resources=0
+
+[@power-users]
+allow-unknown-images=1
+placement-constraints=node-type:default,node-type:large,node-type:highmem
+resource-profiles=default,large,xl
+allow-custom-resources=0
+
+[@it-admins]
+...
+
+[jdoe]
+...
+```
+
+**How `match` works:**
+
+| `match` | Applies to |
+|---------|------------|
+| `"*"` | Every user |
+| `"@<group>"` | Members of the group |
+| `"<username>"` | That user |
+
+**Precedence.** The launcher resolves `launcher.kubernetes.profiles.conf` one key at a time. A user section beats a
+group section, and a group section beats `[*]`. When a user is in several listed groups, the section written **later**
+in the file wins. This comes from the Workbench documentation and is being verified empirically. The operator writes
+`[*]` first, then group entries in list order, then user entries in list order, so put the most permissive group last.
+A key that a section doesn't set falls back to the less specific section. For example, container images and request
+ratios are only set in `[*]` and apply to everyone.
+
+> **Warning: overlapping groups don't combine.** Sections replace each other's `resource-profiles`; they never merge
+> them. With this list, a user in both `power-users` and `gpu` gets **only** `gpu`, because `[@gpu]` is written later:
+>
+> ```yaml
+> resourceProfileAccess:
+>   - match: "@power-users"
+>     resourceProfiles: [default, large, xl]
+>   - match: "@gpu"
+>     resourceProfiles: [gpu]
+> ```
+>
+> To give those users both sets, list the full set on the later group (`resourceProfiles: [default, large, xl, gpu]`)
+> or create a combined group (for example `@power-gpu-users`) and list it last.
+
+**The `"*"` entry.** If the list has a `"*"` entry, its `resourceProfiles` (in the order given) replace the profiles
+offered to everyone. Without a `"*"` entry, everyone keeps every profile, as before. That's still useful for
+restricting a single group or user to fewer profiles. Listing a group without a `"*"` entry does not take profiles away
+from anyone else.
+
+**Generated sections.** Each non-`"*"` section only sets `resource-profiles`, the placement constraints of its own
+profiles, and copies `allow-unknown-images` and `allow-custom-resources` from `[*]`. The operator always writes both
+of those keys, so leaving them out would override `[*]` with `0` for those users.
+
+**Validation.** Every entry in `resourceProfiles` must be a key of `resourceProfiles`, or of the default profiles
+(`default`, `medium`, `zz-large`) if you haven't defined any, and may appear only once per entry. `match` values must
+be unique, and must be `*`, `@<group>` or `<username>`. A username or group name can't start with `*`, and `match`
+can't contain whitespace or square brackets. Whitespace is rejected conservatively until it has been tested against
+Workbench, so this rule may be relaxed later. The Site's schema enforces all of this, so `kubectl apply` rejects an
+invalid list. If an invalid list still reaches the operator, for example on a Site created before the CRD was
+upgraded, the Site's `Ready` and `Progressing` conditions show the error. The last applied Workbench configuration is
+kept, and the Site's other components are still reconciled. The operator doesn't retry until the Site changes.
+
+**Notes:**
+
+- Group sections match the user's NSS/POSIX groups as seen inside the Workbench pod, for example groups provisioned
+  through SCIM. A group name that doesn't resolve there never matches.
+- The launcher has no setting for a default resource profile, so `resourceProfileAccess` doesn't offer one either.
+  Profiles are written to `resource-profiles` in the order you list them.
+- Upgrade the operator before applying a Site that uses `resourceProfileAccess`. An older operator's CRD doesn't know
+  the field and the API server silently drops it, so no restriction is applied.
 
 ### Request Ratios
 
@@ -925,20 +1043,20 @@ spec:
         default:
           name: "Small (1 CPU, 2GB)"
           cpus: "1"
-          memMb: "2000"
+          mem-mb: "2000"
         medium:
           name: "Medium (2 CPU, 4GB)"
           cpus: "2"
-          memMb: "4000"
+          mem-mb: "4000"
         large:
           name: "Large (4 CPU, 8GB)"
           cpus: "4"
-          memMb: "8000"
+          mem-mb: "8000"
         gpu:
           name: "GPU (4 CPU, 16GB, 1 GPU)"
           cpus: "4"
-          memMb: "16000"
-          nvidiaGpus: "1"
+          mem-mb: "16000"
+          nvidia-gpus: "1"
 ```
 
 ### GPU-Enabled Data Science Platform
@@ -971,23 +1089,23 @@ spec:
         cpu-small:
           name: "CPU Small"
           cpus: "2"
-          memMb: "4000"
+          mem-mb: "4000"
         cpu-large:
           name: "CPU Large"
           cpus: "8"
-          memMb: "32000"
+          mem-mb: "32000"
         gpu-single:
           name: "Single GPU"
           cpus: "4"
-          memMb: "32000"
-          nvidiaGpus: "1"
-          placementConstraints: "node-type:gpu"
+          mem-mb: "32000"
+          nvidia-gpus: "1"
+          placement-constraints: "node-type:gpu"
         gpu-multi:
           name: "Multi GPU"
           cpus: "8"
-          memMb: "64000"
-          nvidiaGpus: "4"
-          placementConstraints: "node-type:gpu-multi"
+          mem-mb: "64000"
+          nvidia-gpus: "4"
+          placement-constraints: "node-type:gpu-multi"
 ```
 
 ---
