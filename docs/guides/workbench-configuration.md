@@ -475,10 +475,9 @@ of those keys, so leaving them out would override `[*]` with `0` for those users
 unique, and must be `*`, `@<group>` or `<username>`. A username or group name can't start with `*`, and `match` can't
 contain whitespace or square brackets. Whitespace is rejected conservatively, because Workbench user provisioning
 normalizes group names (see the notes below), so provisioned group names never contain it. The Site's schema enforces
-all of this, so `kubectl apply` rejects an invalid list. If an invalid list still reaches the operator, for example on a
-Site created before the CRD was upgraded, the Site's `Ready` and `Progressing` conditions show the error. The last
-applied Workbench configuration is kept, and the Site's other components are still reconciled. The operator doesn't
-retry until the Site changes.
+all of this, so `kubectl apply` rejects an invalid list. The operator checks the list again as defense in depth. If
+that check ever fails, the Site's `Ready` and `Progressing` conditions show the error, and the last applied Workbench
+configuration is kept.
 
 **Notes:**
 

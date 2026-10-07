@@ -662,11 +662,13 @@ type InternalWorkbenchExperimentalFeatures struct {
 
 // WorkbenchResourceProfileAccess grants a user, a group, or everyone access to a set of Workbench resource profiles.
 type WorkbenchResourceProfileAccess struct {
+	// Keep the validation markers on Match in sync with validateResourceProfileAccessMatch in the Site controller.
+	// This note is a separate comment so it stays out of the CRD description.
+
 	// Match selects who the entry applies to: "*" for everyone, "@group" for members of a (NSS/POSIX) group,
 	// or a bare username.
 	// A leading "*" is only valid as exactly "*". Whitespace is rejected conservatively: Workbench user provisioning
 	// normalizes group names (lowercase, spaces to "_"), so provisioned group names never contain whitespace.
-	// Keep in sync with validateResourceProfileAccessMatch in the Site controller.
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=256
 	// +kubebuilder:validation:Pattern=`^(\*|@?[^\s\[\]@*][^\s\[\]]*)$`

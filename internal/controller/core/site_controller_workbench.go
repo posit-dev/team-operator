@@ -2,10 +2,10 @@ package core
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/go-logr/logr"
 	"github.com/posit-dev/team-operator/api/core/v1beta1"
@@ -70,6 +70,7 @@ func (r *SiteReconciler) reconcileWorkbench(
 	proxyMaxWaitSecs := 2
 	vsCodeArgs := "--host=0.0.0.0"
 	resourceProfiles := defaultWorkbenchResourceProfiles()
+	var resourceProfileAccess []v1beta1.WorkbenchResourceProfileAccess
 	if site.Spec.Workbench.ExperimentalFeatures != nil {
 		if site.Spec.Workbench.ExperimentalFeatures.WwwThreadPoolSize != nil {
 			threadPoolSize = *site.Spec.Workbench.ExperimentalFeatures.WwwThreadPoolSize
@@ -86,17 +87,14 @@ func (r *SiteReconciler) reconcileWorkbench(
 		if len(site.Spec.Workbench.ExperimentalFeatures.ResourceProfiles) > 0 {
 			resourceProfiles = site.Spec.Workbench.ExperimentalFeatures.ResourceProfiles
 		}
-	}
 
-	var resourceProfileAccess []v1beta1.WorkbenchResourceProfileAccess
-	if site.Spec.Workbench.ExperimentalFeatures != nil {
 		resourceProfileAccess = site.Spec.Workbench.ExperimentalFeatures.ResourceProfileAccess
 	}
-	// The Site CRD rejects invalid lists at apply time; this is defense in depth for objects that bypassed it (older
-	// CRDs, the fake client). An invalid list must not reach the Workbench CR, so the last applied Workbench
-	// configuration is kept.
+
+	// The Site CRD rejects invalid lists at apply time, so this is defense in depth. An invalid list must not reach
+	// the Workbench CR, so the last applied Workbench configuration is kept.
 	if err := validateResourceProfileAccess(resourceProfileAccess, resourceProfiles); err != nil {
-		return fmt.Errorf("%w: %w", errInvalidWorkbenchConfig, err)
+		return err
 	}
 
 	launcherProfiles, launcherProfilesOrder := buildLauncherKubernetesProfiles(
@@ -568,12 +566,16 @@ func getResourceProfileKeys(resourceProfiles map[string]*v1beta1.WorkbenchLaunch
 	return keys
 }
 
-// errInvalidWorkbenchConfig wraps Site configuration errors that only block updating the Workbench CR. The Site
-// reconcile carries on with the other components and returns the error at the end.
-var errInvalidWorkbenchConfig = errors.New("invalid workbench configuration")
-
 // resourceProfileAccessMatchAll is the launcher.kubernetes.profiles.conf section that applies to every user
 const resourceProfileAccessMatchAll = "*"
+
+// Size limits on resourceProfileAccess. These mirror the MaxLength and MaxItems markers on
+// WorkbenchResourceProfileAccess and InternalWorkbenchExperimentalFeatures.ResourceProfileAccess.
+const (
+	resourceProfileAccessMaxEntries  = 64
+	resourceProfileAccessMaxMatchLen = 256
+	resourceProfileAccessMaxProfiles = 64
+)
 
 // validateResourceProfileAccessMatch mirrors the Pattern marker on WorkbenchResourceProfileAccess.Match,
 // ^(\*|@?[^\s\[\]@*][^\s\[\]]*)$, which the API server enforces at admission. Keep the two in sync; a parity test
@@ -587,6 +589,9 @@ func validateResourceProfileAccessMatch(match string) error {
 	}
 	if match == "" {
 		return fmt.Errorf("match must not be empty")
+	}
+	if utf8.RuneCountInString(match) > resourceProfileAccessMaxMatchLen { // MaxLength counts characters, not bytes
+		return fmt.Errorf("match must be at most %d characters", resourceProfileAccessMaxMatchLen)
 	}
 	name := strings.TrimPrefix(match, "@")
 	switch {
@@ -606,6 +611,9 @@ func validateResourceProfileAccess(
 	access []v1beta1.WorkbenchResourceProfileAccess,
 	resourceProfiles map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection,
 ) error {
+	if len(access) > resourceProfileAccessMaxEntries {
+		return fmt.Errorf("workbench resourceProfileAccess must have at most %d entries", resourceProfileAccessMaxEntries)
+	}
 	seen := make(map[string]bool, len(access))
 	for i, entry := range access {
 		if err := validateResourceProfileAccessMatch(entry.Match); err != nil {
@@ -616,6 +624,9 @@ func validateResourceProfileAccess(
 			return fmt.Errorf("workbench resourceProfileAccess[%d]: duplicate match %q", i, entry.Match)
 		case len(entry.ResourceProfiles) == 0:
 			return fmt.Errorf("workbench resourceProfileAccess[%d] (match %q): resourceProfiles must not be empty", i, entry.Match)
+		case len(entry.ResourceProfiles) > resourceProfileAccessMaxProfiles:
+			return fmt.Errorf("workbench resourceProfileAccess[%d] (match %q): resourceProfiles must have at most %d entries",
+				i, entry.Match, resourceProfileAccessMaxProfiles)
 		}
 		seen[entry.Match] = true
 
@@ -653,7 +664,7 @@ func buildLauncherKubernetesProfiles(
 	var groups, users []string
 	hasMatchAll := false
 	for _, entry := range access {
-		resourceProfiles := append([]string(nil), entry.ResourceProfiles...)
+		resourceProfiles := entry.ResourceProfiles
 		if entry.Match == resourceProfileAccessMatchAll {
 			hasMatchAll = true
 			allUsers.ResourceProfiles = resourceProfiles

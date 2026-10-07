@@ -1975,7 +1975,6 @@ spec:
                                 or a bare username.
                                 A leading "*" is only valid as exactly "*". Whitespace is rejected conservatively: Workbench user provisioning
                                 normalizes group names (lowercase, spaces to "_"), so provisioned group names never contain whitespace.
-                                Keep in sync with validateResourceProfileAccessMatch in the Site controller.
                               maxLength: 256
                               minLength: 1
                               pattern: ^(\*|@?[^\s\[\]@*][^\s\[\]]*)$

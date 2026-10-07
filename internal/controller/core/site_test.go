@@ -16,7 +16,6 @@ import (
 	"github.com/traefik/traefik/v3/pkg/provider/kubernetes/crd/traefikio/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -27,7 +26,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	secretsstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 )
 
@@ -2617,8 +2615,7 @@ func TestSiteWorkbenchResourceProfileAccessValidation(t *testing.T) {
 }
 
 // TestSiteWorkbenchResourceProfileAccessInvalidKeepsPreviousWorkbench checks that an invalid access list leaves the
-// previously reconciled Workbench CR untouched, still reconciles the rest of the Site, and surfaces the error on the
-// Site's conditions.
+// previously reconciled Workbench CR untouched and surfaces the error on the Site's conditions.
 func TestSiteWorkbenchResourceProfileAccessInvalidKeepsPreviousWorkbench(t *testing.T) {
 	siteName := "rpa-keep-previous"
 	siteNamespace := "posit-team"
@@ -2639,35 +2636,20 @@ func TestSiteWorkbenchResourceProfileAccessInvalidKeepsPreviousWorkbench(t *test
 	require.NoError(t, err)
 	before := getWorkbench(t, cli, siteNamespace, siteName)
 
-	// remove resources owned by components reconciled after Workbench, so we can see them come back
-	require.NoError(t, cli.Delete(context.TODO(), &v1beta1.Chronicle{ObjectMeta: metav1.ObjectMeta{Name: siteName, Namespace: siteNamespace}}))
-	require.NoError(t, cli.DeleteAllOf(context.TODO(), &networkingv1.NetworkPolicy{}, client.InNamespace(siteNamespace)))
-
 	fetched := &v1beta1.Site{}
 	require.NoError(t, cli.Get(context.TODO(), key, fetched))
 	fetched.Spec.Workbench.ExperimentalFeatures.ResourceProfileAccess = []v1beta1.WorkbenchResourceProfileAccess{
 		{Match: "*", ResourceProfiles: []string{"does-not-exist"}},
 	}
-	fetched.Spec.ExtraSiteServiceAccounts = []v1beta1.ServiceAccountConfig{{NameSuffix: "extra"}}
 	require.NoError(t, cli.Update(context.TODO(), fetched))
 
 	_, err = rec.Reconcile(context.TODO(), req)
 	require.ErrorContains(t, err, `unknown resource profile "does-not-exist"`)
-	// a spec error can't be fixed by retrying, so it must not be requeued with backoff
-	assert.ErrorIs(t, err, reconcile.TerminalError(nil))
 
 	// the last applied Workbench configuration is kept
 	after := getWorkbench(t, cli, siteNamespace, siteName)
 	assert.Equal(t, before.ResourceVersion, after.ResourceVersion)
 	assert.Equal(t, []string{"default"}, after.Spec.Config.LauncherKubernetesProfiles["*"].ResourceProfiles)
-
-	// later components were still reconciled
-	assert.NoError(t, cli.Get(context.TODO(), key, &v1beta1.Chronicle{}), "Chronicle should be reconciled")
-	assert.NoError(t, cli.Get(context.TODO(), client.ObjectKey{Name: siteName + "-extra", Namespace: siteNamespace}, &corev1.ServiceAccount{}),
-		"extra service accounts should be reconciled")
-	policies := &networkingv1.NetworkPolicyList{}
-	require.NoError(t, cli.List(context.TODO(), policies, client.InNamespace(siteNamespace)))
-	assert.NotEmpty(t, policies.Items, "network policies should be reconciled")
 
 	// the error is surfaced on the Site
 	require.NoError(t, cli.Get(context.TODO(), key, fetched))
