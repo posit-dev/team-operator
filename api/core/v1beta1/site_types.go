@@ -616,8 +616,8 @@ type InternalWorkbenchExperimentalFeatures struct {
 	// ResourceProfileAccess restricts which ResourceProfiles are offered to which users and groups. Each entry
 	// renders a section of launcher.kubernetes.profiles.conf keyed by Match. A "*" entry replaces the resource
 	// profiles offered to everyone; without one, everyone gets every profile. Workbench resolves each key
-	// per user with [user] > [@group] > [*] precedence; among sections of the same kind, the later one wins (per the
-	// Workbench docs; being verified empirically).
+	// per user with [user] > [@group] > [*] precedence; among sections of the same kind, the later one in the file
+	// wins.
 	// Every referenced profile must be a key of ResourceProfiles (or of the default profiles when unset).
 	// +optional
 	// +listType=atomic
@@ -664,9 +664,9 @@ type InternalWorkbenchExperimentalFeatures struct {
 type WorkbenchResourceProfileAccess struct {
 	// Match selects who the entry applies to: "*" for everyone, "@group" for members of a (NSS/POSIX) group,
 	// or a bare username.
-	// A leading "*" is only valid as exactly "*". Whitespace is rejected conservatively, pending an empirical
-	// Workbench test; the rule may be relaxed. Keep in sync with validateResourceProfileAccessMatch in the Site
-	// controller.
+	// A leading "*" is only valid as exactly "*". Whitespace is rejected conservatively: Workbench user provisioning
+	// normalizes group names (lowercase, spaces to "_"), so provisioned group names never contain whitespace.
+	// Keep in sync with validateResourceProfileAccessMatch in the Site controller.
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=256
 	// +kubebuilder:validation:Pattern=`^(\*|@?[^\s\[\]@*][^\s\[\]]*)$`

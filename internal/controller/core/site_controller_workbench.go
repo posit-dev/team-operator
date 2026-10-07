@@ -578,8 +578,9 @@ const resourceProfileAccessMatchAll = "*"
 // validateResourceProfileAccessMatch mirrors the Pattern marker on WorkbenchResourceProfileAccess.Match,
 // ^(\*|@?[^\s\[\]@*][^\s\[\]]*)$, which the API server enforces at admission. Keep the two in sync; a parity test
 // runs the same inputs through both. Brackets would break the INI section header. Rejecting whitespace is a
-// conservative choice pending an empirical Workbench test and may be relaxed. Whitespace means RE2's ASCII \s
-// ([\t\n\f\r ]), not unicode.IsSpace, so this check agrees with the Pattern.
+// conservative choice: Workbench user provisioning normalizes group names (lowercase, spaces to "_"), so provisioned
+// group names never contain whitespace. Whitespace means RE2's ASCII \s ([\t\n\f\r ]), not unicode.IsSpace, so
+// this check agrees with the Pattern.
 func validateResourceProfileAccessMatch(match string) error {
 	if match == resourceProfileAccessMatchAll {
 		return nil

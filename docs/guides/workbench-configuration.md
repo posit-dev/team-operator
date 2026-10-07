@@ -442,8 +442,8 @@ allow-custom-resources=0
 
 **Precedence.** The launcher resolves `launcher.kubernetes.profiles.conf` one key at a time. A user section beats a
 group section, and a group section beats `[*]`. When a user is in several listed groups, the section written **later**
-in the file wins. This comes from the Workbench documentation and is being verified empirically. The operator writes
-`[*]` first, then group entries in list order, then user entries in list order, so put the most permissive group last.
+in the file wins: file order decides, not the group name or GID. The operator writes `[*]` first, then group entries
+in list order, then user entries in list order, so put the most permissive group last.
 A key that a section doesn't set falls back to the less specific section. For example, container images and request
 ratios are only set in `[*]` and apply to everyone.
 
@@ -471,18 +471,32 @@ profiles, and copies `allow-unknown-images` and `allow-custom-resources` from `[
 of those keys, so leaving them out would override `[*]` with `0` for those users.
 
 **Validation.** Every entry in `resourceProfiles` must be a key of `resourceProfiles`, or of the default profiles
-(`default`, `medium`, `zz-large`) if you haven't defined any, and may appear only once per entry. `match` values must
-be unique, and must be `*`, `@<group>` or `<username>`. A username or group name can't start with `*`, and `match`
-can't contain whitespace or square brackets. Whitespace is rejected conservatively until it has been tested against
-Workbench, so this rule may be relaxed later. The Site's schema enforces all of this, so `kubectl apply` rejects an
-invalid list. If an invalid list still reaches the operator, for example on a Site created before the CRD was
-upgraded, the Site's `Ready` and `Progressing` conditions show the error. The last applied Workbench configuration is
-kept, and the Site's other components are still reconciled. The operator doesn't retry until the Site changes.
+(`default`, `medium`, `zz-large`) if you haven't defined any, and may appear only once per entry. `match` values must be
+unique, and must be `*`, `@<group>` or `<username>`. A username or group name can't start with `*`, and `match` can't
+contain whitespace or square brackets. Whitespace is rejected conservatively, because Workbench user provisioning
+normalizes group names (see the notes below), so provisioned group names never contain it. The Site's schema enforces
+all of this, so `kubectl apply` rejects an invalid list. If an invalid list still reaches the operator, for example on a
+Site created before the CRD was upgraded, the Site's `Ready` and `Progressing` conditions show the error. The last
+applied Workbench configuration is kept, and the Site's other components are still reconciled. The operator doesn't
+retry until the Site changes.
 
 **Notes:**
 
 - Group sections match the user's NSS/POSIX groups as seen inside the Workbench pod, for example groups provisioned
   through SCIM. A group name that doesn't resolve there never matches.
+- With Workbench [user provisioning](https://docs.posit.co/ide/server-pro/admin/user_provisioning/user_provisioning.html)
+  (SCIM or just-in-time), group names are normalized for Linux: lowercased, spaces replaced with underscores, invalid
+  characters removed, and truncated to 32 characters. `match` must use the normalized name. For example, an identity
+  provider group "Data Science" is matched with `@data_science`. This fits with `match` rejecting whitespace.
+- A group section can reference a group that doesn't exist yet. The launcher logs
+  `Cannot query group information for group <name>` at startup, and the section takes effect once the group exists,
+  without a restart.
+- Group membership changes are picked up without a restart, but can take several minutes to show in the New Session
+  dialog. Signing out and back in doesn't speed this up.
+- When a user is allowed only one profile, Workbench has been observed to hide the resource profile selector and use
+  that profile.
+- Two behaviors documented by Posit haven't been exercised in our testing: a username entry overriding group entries,
+  and the launcher rejecting a request for a disallowed profile (rather than only hiding it in the dialog).
 - The launcher has no setting for a default resource profile, so `resourceProfileAccess` doesn't offer one either.
   Profiles are written to `resource-profiles` in the order you list them.
 - Upgrade the operator before applying a Site that uses `resourceProfileAccess`. An older operator's CRD doesn't know
