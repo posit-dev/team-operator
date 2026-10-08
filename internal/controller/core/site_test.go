@@ -2500,6 +2500,122 @@ allow-custom-resources=0
 `, profilesConf)
 }
 
+// TestSiteWorkbenchResourceProfileAccessClearsInheritedPlacementConstraints checks that a generated section whose
+// profiles have no placement constraints clears the "[*]" constraints instead of inheriting them, and only then.
+func TestSiteWorkbenchResourceProfileAccessClearsInheritedPlacementConstraints(t *testing.T) {
+	siteNamespace := "posit-team"
+	constrained := map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection{
+		"default":       {Name: "Small", Cpus: "1", MemMb: "2048", PlacementConstraints: "pool:default"},
+		"gpu":           {Name: "GPU", Cpus: "2", MemMb: "4096", PlacementConstraints: "pool:gpu"},
+		"unconstrained": {Name: "Unconstrained", Cpus: "1", MemMb: "2048"},
+	}
+	unconstrained := map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection{
+		"default": {Name: "Small", Cpus: "1", MemMb: "2048"},
+		"large":   {Name: "Large", Cpus: "4", MemMb: "8192"},
+	}
+
+	tests := []struct {
+		name     string
+		profiles map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection
+		access   []v1beta1.WorkbenchResourceProfileAccess
+		want     string
+	}{
+		{
+			// no "*" entry, so "[*]" offers every profile and its constraints
+			name:     "inherited constraints are cleared",
+			profiles: constrained,
+			access: []v1beta1.WorkbenchResourceProfileAccess{
+				{Match: "@interns", ResourceProfiles: []string{"unconstrained"}},
+				{Match: "@staff", ResourceProfiles: []string{"default", "unconstrained"}},
+			},
+			want: `
+[*]
+container-images=registry.io/session:1
+default-container-image=registry.io/session:1
+allow-unknown-images=1
+placement-constraints=pool:default,pool:gpu
+cpu-request-ratio=0.6
+memory-request-ratio=0.8
+resource-profiles=default,gpu,unconstrained
+allow-custom-resources=0
+
+[@interns]
+allow-unknown-images=1
+placement-constraints=
+resource-profiles=unconstrained
+allow-custom-resources=0
+
+[@staff]
+allow-unknown-images=1
+placement-constraints=pool:default
+resource-profiles=default,unconstrained
+allow-custom-resources=0
+`,
+		},
+		{
+			// the "*" entry decides what "[*]" offers, wherever it is in the list
+			name:     "nothing to clear when the * entry is unconstrained",
+			profiles: constrained,
+			access: []v1beta1.WorkbenchResourceProfileAccess{
+				{Match: "@interns", ResourceProfiles: []string{"unconstrained"}},
+				{Match: "*", ResourceProfiles: []string{"unconstrained"}},
+			},
+			want: `
+[*]
+container-images=registry.io/session:1
+default-container-image=registry.io/session:1
+allow-unknown-images=1
+cpu-request-ratio=0.6
+memory-request-ratio=0.8
+resource-profiles=unconstrained
+allow-custom-resources=0
+
+[@interns]
+allow-unknown-images=1
+resource-profiles=unconstrained
+allow-custom-resources=0
+`,
+		},
+		{
+			name:     "nothing to clear without constraints",
+			profiles: unconstrained,
+			access: []v1beta1.WorkbenchResourceProfileAccess{
+				{Match: "@interns", ResourceProfiles: []string{"default"}},
+			},
+			want: `
+[*]
+container-images=registry.io/session:1
+default-container-image=registry.io/session:1
+allow-unknown-images=1
+cpu-request-ratio=0.6
+memory-request-ratio=0.8
+resource-profiles=default,large
+allow-custom-resources=0
+
+[@interns]
+allow-unknown-images=1
+resource-profiles=default
+allow-custom-resources=0
+`,
+		},
+	}
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			siteName := fmt.Sprintf("rpa-placement-%d", i)
+			site := resourceProfileAccessSite(siteName)
+			site.Spec.Workbench.ExperimentalFeatures = &v1beta1.InternalWorkbenchExperimentalFeatures{
+				ResourceProfiles:      tt.profiles,
+				ResourceProfileAccess: tt.access,
+			}
+
+			cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+			require.NoError(t, err)
+			cm := renderWorkbenchConfig(t, cli, siteNamespace, siteName)
+			assert.Equal(t, tt.want, cm["launcher.kubernetes.profiles.conf"])
+		})
+	}
+}
+
 func TestSiteWorkbenchResourceProfileAccessValidation(t *testing.T) {
 	siteNamespace := "posit-team"
 	customProfiles := map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection{

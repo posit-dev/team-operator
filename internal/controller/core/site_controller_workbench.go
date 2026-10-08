@@ -111,6 +111,7 @@ func (r *SiteReconciler) reconcileWorkbench(
 			ResourceProfiles:      getResourceProfileKeys(resourceProfiles),
 		},
 		resourceProfileAccess,
+		resourceProfiles,
 	)
 
 	targetWorkbench := &v1beta1.Workbench{
@@ -654,12 +655,22 @@ func buildLauncherKubernetesProfiles(
 	l logr.Logger,
 	allUsers v1beta1.WorkbenchLauncherKubernetesProfilesConfigSection,
 	access []v1beta1.WorkbenchResourceProfileAccess,
+	resourceProfileConfigs map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection,
 ) (map[string]v1beta1.WorkbenchLauncherKubernetesProfilesConfigSection, []string) {
 	profiles := map[string]v1beta1.WorkbenchLauncherKubernetesProfilesConfigSection{}
 	if len(access) == 0 {
 		profiles[resourceProfileAccessMatchAll] = allUsers
 		return profiles, nil
 	}
+
+	// "[*]" offers the "*" entry's profiles when there is one
+	allUsersProfiles := allUsers.ResourceProfiles
+	for _, entry := range access {
+		if entry.Match == resourceProfileAccessMatchAll {
+			allUsersProfiles = entry.ResourceProfiles
+		}
+	}
+	allUsersConstrained := anyPlacementConstraints(allUsersProfiles, resourceProfileConfigs)
 
 	var groups, users []string
 	hasMatchAll := false
@@ -675,11 +686,18 @@ func buildLauncherKubernetesProfiles(
 		// resource-profiles would also write allow-unknown-images=0 and allow-custom-resources=0, overriding
 		// the "[*]" values for these users. Copy them so the effective values are unchanged. Everything else
 		// (images, request ratios, ...) is left unset and inherited from "[*]" by Workbench's per-key merge.
-		profiles[entry.Match] = v1beta1.WorkbenchLauncherKubernetesProfilesConfigSection{
+		section := v1beta1.WorkbenchLauncherKubernetesProfilesConfigSection{
 			AllowUnknownImages:   allUsers.AllowUnknownImages,
 			AllowCustomResources: allUsers.AllowCustomResources,
 			ResourceProfiles:     resourceProfiles,
 		}
+		// The Workbench controller fills in placement-constraints from the section's own profiles. If they have none,
+		// the section would inherit the "[*]" constraints, which Workbench offers as a node selector in the New
+		// Session dialog, so clear them.
+		if allUsersConstrained && !anyPlacementConstraints(resourceProfiles, resourceProfileConfigs) {
+			section.PlacementConstraints = v1beta1.ExplicitlyEmptyList()
+		}
+		profiles[entry.Match] = section
 		if strings.HasPrefix(entry.Match, "@") {
 			groups = append(groups, entry.Match)
 		} else {
@@ -695,6 +713,19 @@ func buildLauncherKubernetesProfiles(
 	// Write "[*]", then groups, then users, each in list order, so the file reads the way the launcher
 	// evaluates it ([user] > [@group] > [*]; later sections win at the same level).
 	return profiles, append(groups, users...)
+}
+
+// anyPlacementConstraints reports whether any of the named resource profiles sets placement constraints
+func anyPlacementConstraints(
+	names []string,
+	resourceProfileConfigs map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection,
+) bool {
+	for _, name := range names {
+		if p := resourceProfileConfigs[name]; p != nil && p.PlacementConstraints != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // getCpuRequestRatio returns the configured CPU request ratio, with kubebuilder default fallback

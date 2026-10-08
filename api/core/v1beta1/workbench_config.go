@@ -524,7 +524,9 @@ func (w *WorkbenchProfilesConfig) GenerateConfigMap() map[string]string {
 				if profileConfigValue.String() != "" {
 					if profileConfigValue.Kind() == reflect.Slice {
 						arrayString := sliceToString(profileConfigValue, ",")
-						if fmt.Sprintf("%v", arrayString) != "" {
+						// A slice with only empty entries (see ExplicitlyEmptyList) is written as "key=", so the section
+						// clears the value instead of inheriting it from "[*]"
+						if fmt.Sprintf("%v", arrayString) != "" || profileConfigValue.Len() > 0 {
 							builder.WriteString(toKebabCase(profileConfigName) + "=" + fmt.Sprintf("%v", arrayString) + "\n")
 						}
 					} else if fmt.Sprintf("%v", profileConfigValue) != "" {
@@ -1185,7 +1187,7 @@ func sliceToString(sliceValue reflect.Value, separator string) string {
 	for k := 0; k < sliceValue.Len(); k++ {
 		arrayValue := sliceValue.Index(k).String()
 		if arrayValue != "" {
-			if k == 0 {
+			if arrayString == "" {
 				arrayString += arrayValue
 			} else {
 				arrayString += separator + arrayValue
@@ -1410,4 +1412,11 @@ func (w *WorkbenchConfig) syncPlacementConstraints() {
 		profile.PlacementConstraints = mergeConstraints(profile.PlacementConstraints, newConstraints)
 		w.LauncherKubernetesProfiles[profileName] = profile
 	}
+}
+
+// ExplicitlyEmptyList returns a list value that the launcher.kubernetes.profiles.conf renderer writes as "key=",
+// rather than leaving the key out. A user or group section uses it to clear a value it would otherwise inherit from
+// "[*]".
+func ExplicitlyEmptyList() []string {
+	return []string{""}
 }

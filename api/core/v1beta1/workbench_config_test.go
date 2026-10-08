@@ -1422,3 +1422,51 @@ func TestWorkbenchProfilesConfig_OrderOnlyRendersNothing(t *testing.T) {
 	require.Nil(t, err)
 	require.Empty(t, out, "an order list without profiles must not produce a config file")
 }
+
+// TestWorkbenchConfig_GenerateConfigmap_ExplicitlyEmptyList checks that ExplicitlyEmptyList renders as "key=", that
+// syncing placement constraints keeps it, and that an empty first entry doesn't produce a leading separator.
+func TestWorkbenchConfig_GenerateConfigmap_ExplicitlyEmptyList(t *testing.T) {
+	wb := WorkbenchConfig{
+		WorkbenchIniConfig: WorkbenchIniConfig{
+			Resources: map[string]*WorkbenchLauncherKubernetesResourcesConfigSection{
+				"default":       {Name: "Default", Cpus: "1", MemMb: "2048", PlacementConstraints: "pool:default"},
+				"unconstrained": {Name: "Unconstrained", Cpus: "1", MemMb: "2048"},
+			},
+		},
+		WorkbenchProfilesConfig: WorkbenchProfilesConfig{
+			LauncherKubernetesProfiles: map[string]WorkbenchLauncherKubernetesProfilesConfigSection{
+				"*":         {ResourceProfiles: []string{"default", "unconstrained"}},
+				"@cleared":  {ResourceProfiles: []string{"unconstrained"}, PlacementConstraints: ExplicitlyEmptyList()},
+				"@inherits": {ResourceProfiles: []string{"unconstrained"}},
+				"@leading":  {PlacementConstraints: []string{"", "pool:a", "pool:b"}},
+			},
+			LauncherKubernetesProfilesOrder: []string{"@cleared", "@inherits", "@leading"},
+		},
+	}
+
+	res, err := wb.GenerateConfigmap()
+	require.NoError(t, err)
+	require.Equal(t, `
+[*]
+allow-unknown-images=0
+placement-constraints=pool:default
+resource-profiles=default,unconstrained
+allow-custom-resources=0
+
+[@cleared]
+allow-unknown-images=0
+placement-constraints=
+resource-profiles=unconstrained
+allow-custom-resources=0
+
+[@inherits]
+allow-unknown-images=0
+resource-profiles=unconstrained
+allow-custom-resources=0
+
+[@leading]
+allow-unknown-images=0
+placement-constraints=pool:a,pool:b
+allow-custom-resources=0
+`, res["launcher.kubernetes.profiles.conf"])
+}

@@ -468,7 +468,9 @@ from anyone else.
 
 **Generated sections.** Each non-`"*"` section only sets `resource-profiles`, the placement constraints of its own
 profiles, and copies `allow-unknown-images` and `allow-custom-resources` from `[*]`. The operator always writes both
-of those keys, so leaving them out would override `[*]` with `0` for those users.
+of those keys, so leaving them out would override `[*]` with `0` for those users. If none of a section's profiles has
+placement constraints but `[*]` has some, the section writes an empty `placement-constraints=`. Otherwise it would
+inherit the `[*]` constraints, which Workbench offers as a node selector in the New Session dialog.
 
 **Validation.** Every entry in `resourceProfiles` must be a key of `resourceProfiles`, or of the default profiles
 (`default`, `medium`, `zz-large`) if you haven't defined any, and may appear only once per entry. `match` values must be
