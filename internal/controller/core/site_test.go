@@ -17,6 +17,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -2259,4 +2260,611 @@ func TestSiteWorkbenchSessionImageLabels(t *testing.T) {
 	assert.Contains(t, images, "registry.io/session:default")
 	assert.Contains(t, images, "registry.io/session:gpu")
 	assert.Contains(t, images, "registry.io/session:plain")
+}
+
+// resourceProfileAccessSite returns a Site with fixed images so the rendered profiles.conf is fully predictable
+func resourceProfileAccessSite(name string) *v1beta1.Site {
+	site := defaultSite(name)
+	site.Spec.Workbench.Image = "registry.io/workbench:1"
+	site.Spec.Workbench.DefaultSessionImage = "registry.io/session:1"
+	return site
+}
+
+func renderWorkbenchConfig(t *testing.T, cli client.Client, siteNamespace, siteName string) map[string]string {
+	t.Helper()
+	wb := getWorkbench(t, cli, siteNamespace, siteName)
+	cm, err := wb.Spec.Config.GenerateConfigmap()
+	require.NoError(t, err)
+	return cm
+}
+
+// TestSiteWorkbenchResourceProfileAccessUnsetIsUnchanged pins the profiles.conf and resources.conf rendered for a
+// Site that does not set resourceProfileAccess, so the feature cannot change existing Sites.
+func TestSiteWorkbenchResourceProfileAccessUnsetIsUnchanged(t *testing.T) {
+	siteNamespace := "posit-team"
+
+	t.Run("default profiles", func(t *testing.T) {
+		siteName := "rpa-unset-default"
+		cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, resourceProfileAccessSite(siteName))
+		require.NoError(t, err)
+
+		wb := getWorkbench(t, cli, siteNamespace, siteName)
+		assert.Nil(t, wb.Spec.Config.LauncherKubernetesProfilesOrder)
+		assert.Len(t, wb.Spec.Config.LauncherKubernetesProfiles, 1)
+
+		cm := renderWorkbenchConfig(t, cli, siteNamespace, siteName)
+		assert.Equal(t, `
+[*]
+container-images=registry.io/session:1
+default-container-image=registry.io/session:1
+allow-unknown-images=1
+cpu-request-ratio=0.6
+memory-request-ratio=0.8
+resource-profiles=default,medium,zz-large
+allow-custom-resources=0
+`, cm["launcher.kubernetes.profiles.conf"])
+		assert.Equal(t, `
+[default]
+name=Small
+cpus=1
+mem-mb=2000
+
+[medium]
+name=Medium
+cpus=2
+mem-mb=4000
+
+[zz-large]
+name=Large
+cpus=4
+mem-mb=8000
+`, cm["launcher.kubernetes.resources.conf"])
+	})
+
+	t.Run("custom profiles and ratios", func(t *testing.T) {
+		siteName := "rpa-unset-custom"
+		site := resourceProfileAccessSite(siteName)
+		site.Spec.Workbench.ExtraSessionImages = []string{"registry.io/session:gpu::GPU"}
+		site.Spec.Workbench.ExperimentalFeatures = &v1beta1.InternalWorkbenchExperimentalFeatures{
+			CpuRequestRatio:    "0.5",
+			MemoryRequestRatio: "0.75",
+			ResourceProfiles: map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection{
+				"default": {Name: "Small", Cpus: "1", MemMb: "2048"},
+				"large":   {Name: "Large", Cpus: "4", MemMb: "16384", PlacementConstraints: "node-type=large"},
+				"gpu":     {Name: "GPU", Cpus: "8", MemMb: "32768", NvidiaGpus: "1", PlacementConstraints: "node-type=gpu"},
+			},
+		}
+		cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+		require.NoError(t, err)
+
+		wb := getWorkbench(t, cli, siteNamespace, siteName)
+		assert.Nil(t, wb.Spec.Config.LauncherKubernetesProfilesOrder)
+		assert.Len(t, wb.Spec.Config.LauncherKubernetesProfiles, 1)
+
+		cm := renderWorkbenchConfig(t, cli, siteNamespace, siteName)
+		assert.Equal(t, `
+[*]
+container-images=registry.io/session:1,registry.io/session:gpu::GPU
+default-container-image=registry.io/session:1
+allow-unknown-images=1
+placement-constraints=node-type=gpu,node-type=large
+cpu-request-ratio=0.5
+memory-request-ratio=0.75
+resource-profiles=default,gpu,large
+allow-custom-resources=0
+`, cm["launcher.kubernetes.profiles.conf"])
+		assert.Equal(t, `
+[default]
+name=Small
+cpus=1
+mem-mb=2048
+
+[large]
+name=Large
+cpus=4
+mem-mb=16384
+placement-constraints=node-type=large
+
+[gpu]
+name=GPU
+cpus=8
+mem-mb=32768
+nvidia-gpus=1
+placement-constraints=node-type=gpu
+`, cm["launcher.kubernetes.resources.conf"])
+	})
+
+	t.Run("empty list", func(t *testing.T) {
+		siteName := "rpa-empty"
+		site := resourceProfileAccessSite(siteName)
+		site.Spec.Workbench.ExperimentalFeatures = &v1beta1.InternalWorkbenchExperimentalFeatures{
+			ResourceProfileAccess: []v1beta1.WorkbenchResourceProfileAccess{},
+		}
+		cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+		require.NoError(t, err)
+
+		wb := getWorkbench(t, cli, siteNamespace, siteName)
+		assert.Nil(t, wb.Spec.Config.LauncherKubernetesProfilesOrder)
+		assert.Len(t, wb.Spec.Config.LauncherKubernetesProfiles, 1)
+		cm := renderWorkbenchConfig(t, cli, siteNamespace, siteName)
+		assert.Contains(t, cm["launcher.kubernetes.profiles.conf"], "resource-profiles=default,medium,zz-large\n")
+	})
+}
+
+func TestSiteWorkbenchResourceProfileAccess(t *testing.T) {
+	siteName := "rpa-example"
+	siteNamespace := "posit-team"
+
+	site := resourceProfileAccessSite(siteName)
+	site.Spec.Workbench.ExperimentalFeatures = &v1beta1.InternalWorkbenchExperimentalFeatures{
+		CpuRequestRatio:    "0.5",
+		MemoryRequestRatio: "0.75",
+		ResourceProfiles: map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection{
+			"default": {Name: "Small", Cpus: "1", MemMb: "2048", PlacementConstraints: "pool=default"},
+			"large":   {Name: "Large", Cpus: "4", MemMb: "16384", PlacementConstraints: "pool=large"},
+			"xl":      {Name: "XL", Cpus: "16", MemMb: "65536", PlacementConstraints: "pool=xl"},
+		},
+		ResourceProfileAccess: []v1beta1.WorkbenchResourceProfileAccess{
+			// users and groups are deliberately interleaved and out of alphabetical order
+			{Match: "zed", ResourceProfiles: []string{"xl", "default"}},
+			{Match: "*", ResourceProfiles: []string{"default"}},
+			{Match: "@power-users", ResourceProfiles: []string{"default", "large", "xl"}},
+			{Match: "alice", ResourceProfiles: []string{"large"}},
+			{Match: "@it-admins", ResourceProfiles: []string{"xl", "large", "default"}},
+		},
+	}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	require.NoError(t, err)
+
+	// the order must live in the Workbench CR spec so it survives the hop to the Workbench controller
+	wb := getWorkbench(t, cli, siteNamespace, siteName)
+	assert.Equal(t, []string{"@power-users", "@it-admins", "zed", "alice"}, wb.Spec.Config.LauncherKubernetesProfilesOrder)
+
+	cm := renderWorkbenchConfig(t, cli, siteNamespace, siteName)
+	profilesConf := cm["launcher.kubernetes.profiles.conf"]
+
+	// "[*]" uses the "*" entry in user order; groups (list order) come before users (list order).
+	// Generated sections copy allow-unknown-images and allow-custom-resources from "[*]" and carry the placement
+	// constraints of their own profiles; images and ratios are only in "[*]".
+	assert.Equal(t, `
+[*]
+container-images=registry.io/session:1
+default-container-image=registry.io/session:1
+allow-unknown-images=1
+placement-constraints=pool=default
+cpu-request-ratio=0.5
+memory-request-ratio=0.75
+resource-profiles=default
+allow-custom-resources=0
+
+[@power-users]
+allow-unknown-images=1
+placement-constraints=pool=default,pool=large,pool=xl
+resource-profiles=default,large,xl
+allow-custom-resources=0
+
+[@it-admins]
+allow-unknown-images=1
+placement-constraints=pool=xl,pool=large,pool=default
+resource-profiles=xl,large,default
+allow-custom-resources=0
+
+[zed]
+allow-unknown-images=1
+placement-constraints=pool=xl,pool=default
+resource-profiles=xl,default
+allow-custom-resources=0
+
+[alice]
+allow-unknown-images=1
+placement-constraints=pool=large
+resource-profiles=large
+allow-custom-resources=0
+`, profilesConf)
+
+	// resources.conf is unaffected by the access list
+	assert.NotContains(t, cm["launcher.kubernetes.resources.conf"], "power-users")
+}
+
+func TestSiteWorkbenchResourceProfileAccessWithoutMatchAll(t *testing.T) {
+	siteName := "rpa-no-match-all"
+	siteNamespace := "posit-team"
+
+	site := resourceProfileAccessSite(siteName)
+	site.Spec.Workbench.ExperimentalFeatures = &v1beta1.InternalWorkbenchExperimentalFeatures{
+		ResourceProfileAccess: []v1beta1.WorkbenchResourceProfileAccess{
+			{Match: "@students", ResourceProfiles: []string{"default"}},
+		},
+	}
+
+	cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+	require.NoError(t, err)
+
+	profilesConf := renderWorkbenchConfig(t, cli, siteNamespace, siteName)["launcher.kubernetes.profiles.conf"]
+	// without a "*" entry, "[*]" keeps every profile in alphabetical order
+	assert.Equal(t, `
+[*]
+container-images=registry.io/session:1
+default-container-image=registry.io/session:1
+allow-unknown-images=1
+cpu-request-ratio=0.6
+memory-request-ratio=0.8
+resource-profiles=default,medium,zz-large
+allow-custom-resources=0
+
+[@students]
+allow-unknown-images=1
+resource-profiles=default
+allow-custom-resources=0
+`, profilesConf)
+}
+
+// TestSiteWorkbenchResourceProfileAccessClearsInheritedPlacementConstraints checks that a generated section whose
+// profiles have no placement constraints clears the "[*]" constraints instead of inheriting them, and only then.
+func TestSiteWorkbenchResourceProfileAccessClearsInheritedPlacementConstraints(t *testing.T) {
+	siteNamespace := "posit-team"
+	constrained := map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection{
+		"default":       {Name: "Small", Cpus: "1", MemMb: "2048", PlacementConstraints: "pool:default"},
+		"gpu":           {Name: "GPU", Cpus: "2", MemMb: "4096", PlacementConstraints: "pool:gpu"},
+		"unconstrained": {Name: "Unconstrained", Cpus: "1", MemMb: "2048"},
+	}
+	unconstrained := map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection{
+		"default": {Name: "Small", Cpus: "1", MemMb: "2048"},
+		"large":   {Name: "Large", Cpus: "4", MemMb: "8192"},
+	}
+
+	tests := []struct {
+		name     string
+		profiles map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection
+		access   []v1beta1.WorkbenchResourceProfileAccess
+		want     string
+	}{
+		{
+			// no "*" entry, so "[*]" offers every profile and its constraints
+			name:     "inherited constraints are cleared",
+			profiles: constrained,
+			access: []v1beta1.WorkbenchResourceProfileAccess{
+				{Match: "@interns", ResourceProfiles: []string{"unconstrained"}},
+				{Match: "@staff", ResourceProfiles: []string{"default", "unconstrained"}},
+			},
+			want: `
+[*]
+container-images=registry.io/session:1
+default-container-image=registry.io/session:1
+allow-unknown-images=1
+placement-constraints=pool:default,pool:gpu
+cpu-request-ratio=0.6
+memory-request-ratio=0.8
+resource-profiles=default,gpu,unconstrained
+allow-custom-resources=0
+
+[@interns]
+allow-unknown-images=1
+placement-constraints=
+resource-profiles=unconstrained
+allow-custom-resources=0
+
+[@staff]
+allow-unknown-images=1
+placement-constraints=pool:default
+resource-profiles=default,unconstrained
+allow-custom-resources=0
+`,
+		},
+		{
+			// the "*" entry decides what "[*]" offers, wherever it is in the list
+			name:     "nothing to clear when the * entry is unconstrained",
+			profiles: constrained,
+			access: []v1beta1.WorkbenchResourceProfileAccess{
+				{Match: "@interns", ResourceProfiles: []string{"unconstrained"}},
+				{Match: "*", ResourceProfiles: []string{"unconstrained"}},
+			},
+			want: `
+[*]
+container-images=registry.io/session:1
+default-container-image=registry.io/session:1
+allow-unknown-images=1
+cpu-request-ratio=0.6
+memory-request-ratio=0.8
+resource-profiles=unconstrained
+allow-custom-resources=0
+
+[@interns]
+allow-unknown-images=1
+resource-profiles=unconstrained
+allow-custom-resources=0
+`,
+		},
+		{
+			name:     "nothing to clear without constraints",
+			profiles: unconstrained,
+			access: []v1beta1.WorkbenchResourceProfileAccess{
+				{Match: "@interns", ResourceProfiles: []string{"default"}},
+			},
+			want: `
+[*]
+container-images=registry.io/session:1
+default-container-image=registry.io/session:1
+allow-unknown-images=1
+cpu-request-ratio=0.6
+memory-request-ratio=0.8
+resource-profiles=default,large
+allow-custom-resources=0
+
+[@interns]
+allow-unknown-images=1
+resource-profiles=default
+allow-custom-resources=0
+`,
+		},
+	}
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			siteName := fmt.Sprintf("rpa-placement-%d", i)
+			site := resourceProfileAccessSite(siteName)
+			site.Spec.Workbench.ExperimentalFeatures = &v1beta1.InternalWorkbenchExperimentalFeatures{
+				ResourceProfiles:      tt.profiles,
+				ResourceProfileAccess: tt.access,
+			}
+
+			cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+			require.NoError(t, err)
+			cm := renderWorkbenchConfig(t, cli, siteNamespace, siteName)
+			assert.Equal(t, tt.want, cm["launcher.kubernetes.profiles.conf"])
+		})
+	}
+}
+
+func TestSiteWorkbenchResourceProfileAccessValidation(t *testing.T) {
+	siteNamespace := "posit-team"
+	customProfiles := map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection{
+		"default": {Name: "Small", Cpus: "1", MemMb: "2048"},
+		"large":   {Name: "Large", Cpus: "4", MemMb: "16384"},
+	}
+
+	tests := []struct {
+		name     string
+		profiles map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection
+		access   []v1beta1.WorkbenchResourceProfileAccess
+		errParts []string
+	}{
+		{
+			name:     "unknown profile",
+			profiles: customProfiles,
+			access: []v1beta1.WorkbenchResourceProfileAccess{
+				{Match: "*", ResourceProfiles: []string{"default"}},
+				{Match: "@power-users", ResourceProfiles: []string{"default", "xl"}},
+			},
+			errParts: []string{"resourceProfileAccess[1]", `"@power-users"`, `unknown resource profile "xl"`, "default, large"},
+		},
+		{
+			// "large" is a Site profile name, but the Site uses the defaults here
+			name: "unknown profile against defaults",
+			access: []v1beta1.WorkbenchResourceProfileAccess{
+				{Match: "*", ResourceProfiles: []string{"large"}},
+			},
+			errParts: []string{`unknown resource profile "large"`, "default, medium, zz-large"},
+		},
+		{
+			name:     "duplicate match",
+			profiles: customProfiles,
+			access: []v1beta1.WorkbenchResourceProfileAccess{
+				{Match: "@power-users", ResourceProfiles: []string{"default"}},
+				{Match: "@power-users", ResourceProfiles: []string{"large"}},
+			},
+			errParts: []string{"resourceProfileAccess[1]", `duplicate match "@power-users"`},
+		},
+		{
+			name:     "empty match",
+			profiles: customProfiles,
+			access:   []v1beta1.WorkbenchResourceProfileAccess{{Match: "", ResourceProfiles: []string{"default"}}},
+			errParts: []string{"match must not be empty"},
+		},
+		{
+			name:     "bare group marker",
+			profiles: customProfiles,
+			access:   []v1beta1.WorkbenchResourceProfileAccess{{Match: "@", ResourceProfiles: []string{"default"}}},
+			errParts: []string{"not a valid group name"},
+		},
+		{
+			name:     "double group marker",
+			profiles: customProfiles,
+			access:   []v1beta1.WorkbenchResourceProfileAccess{{Match: "@@admins", ResourceProfiles: []string{"default"}}},
+			errParts: []string{"not a valid group name"},
+		},
+		{
+			name:     "wildcard prefix",
+			profiles: customProfiles,
+			access:   []v1beta1.WorkbenchResourceProfileAccess{{Match: "*admins", ResourceProfiles: []string{"default"}}},
+			errParts: []string{`match "*admins" must be exactly "*"`},
+		},
+		{
+			name:     "double wildcard",
+			profiles: customProfiles,
+			access:   []v1beta1.WorkbenchResourceProfileAccess{{Match: "**", ResourceProfiles: []string{"default"}}},
+			errParts: []string{`match "**" must be exactly "*"`},
+		},
+		{
+			name:     "duplicate profile in entry",
+			profiles: customProfiles,
+			access: []v1beta1.WorkbenchResourceProfileAccess{
+				{Match: "@power-users", ResourceProfiles: []string{"default", "large", "default"}},
+			},
+			errParts: []string{"resourceProfileAccess[0]", `duplicate resource profile "default"`},
+		},
+		{
+			name:     "section-breaking match",
+			profiles: customProfiles,
+			access:   []v1beta1.WorkbenchResourceProfileAccess{{Match: "a]\n[b", ResourceProfiles: []string{"default"}}},
+			errParts: []string{"must not contain whitespace or brackets"},
+		},
+		{
+			name:     "empty profile list",
+			profiles: customProfiles,
+			access:   []v1beta1.WorkbenchResourceProfileAccess{{Match: "@power-users"}},
+			errParts: []string{"resourceProfiles must not be empty"},
+		},
+	}
+
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			siteName := fmt.Sprintf("rpa-invalid-%d", i)
+			site := resourceProfileAccessSite(siteName)
+			site.Spec.Workbench.ExperimentalFeatures = &v1beta1.InternalWorkbenchExperimentalFeatures{
+				ResourceProfiles:      tt.profiles,
+				ResourceProfileAccess: tt.access,
+			}
+
+			cli, _, err := runFakeSiteReconciler(t, siteNamespace, siteName, site)
+			require.Error(t, err)
+			for _, part := range tt.errParts {
+				assert.ErrorContains(t, err, part)
+			}
+
+			// an invalid list never reaches a Workbench CR
+			wb := &v1beta1.Workbench{}
+			getErr := cli.Get(context.TODO(), client.ObjectKey{Name: siteName, Namespace: siteNamespace}, wb)
+			assert.Error(t, getErr)
+		})
+	}
+}
+
+// TestSiteWorkbenchResourceProfileAccessInvalidKeepsPreviousWorkbench checks that an invalid access list leaves the
+// previously reconciled Workbench CR untouched and surfaces the error on the Site's conditions.
+func TestSiteWorkbenchResourceProfileAccessInvalidKeepsPreviousWorkbench(t *testing.T) {
+	siteName := "rpa-keep-previous"
+	siteNamespace := "posit-team"
+	key := client.ObjectKey{Name: siteName, Namespace: siteNamespace}
+
+	cli, scheme, log := (&localtest.FakeTestEnv{}).Start(loadSchemes)
+	rec := SiteReconciler{Client: cli, Scheme: scheme, Log: log}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: siteNamespace, Name: siteName}}
+
+	site := resourceProfileAccessSite(siteName)
+	site.Spec.Workbench.ExperimentalFeatures = &v1beta1.InternalWorkbenchExperimentalFeatures{
+		ResourceProfileAccess: []v1beta1.WorkbenchResourceProfileAccess{
+			{Match: "*", ResourceProfiles: []string{"default"}},
+		},
+	}
+	require.NoError(t, cli.Create(context.TODO(), site))
+	_, err := rec.Reconcile(context.TODO(), req)
+	require.NoError(t, err)
+	before := getWorkbench(t, cli, siteNamespace, siteName)
+
+	fetched := &v1beta1.Site{}
+	require.NoError(t, cli.Get(context.TODO(), key, fetched))
+	fetched.Spec.Workbench.ExperimentalFeatures.ResourceProfileAccess = []v1beta1.WorkbenchResourceProfileAccess{
+		{Match: "*", ResourceProfiles: []string{"does-not-exist"}},
+	}
+	require.NoError(t, cli.Update(context.TODO(), fetched))
+
+	_, err = rec.Reconcile(context.TODO(), req)
+	require.ErrorContains(t, err, `unknown resource profile "does-not-exist"`)
+
+	// the last applied Workbench configuration is kept
+	after := getWorkbench(t, cli, siteNamespace, siteName)
+	assert.Equal(t, before.ResourceVersion, after.ResourceVersion)
+	assert.Equal(t, []string{"default"}, after.Spec.Config.LauncherKubernetesProfiles["*"].ResourceProfiles)
+
+	// the error is surfaced on the Site
+	require.NoError(t, cli.Get(context.TODO(), key, fetched))
+	for _, condType := range []string{"Ready", "Progressing"} {
+		cond := meta.FindStatusCondition(fetched.Status.Conditions, condType)
+		require.NotNil(t, cond, condType)
+		assert.Equal(t, metav1.ConditionFalse, cond.Status, condType)
+		assert.Equal(t, status.ReasonReconcileError, cond.Reason, condType)
+		assert.Contains(t, cond.Message, `unknown resource profile "does-not-exist"`, condType)
+	}
+}
+
+// TestSiteResourceProfileAccessCRDValidation checks the CRD schema (including the CEL uniqueness rule) against a
+// real API server.
+func TestSiteResourceProfileAccessCRDValidation(t *testing.T) {
+	r := require.New(t)
+	localTestEnv := localtest.LocalTestEnv{}
+	cli, _, _, err := localTestEnv.Start(loadSchemes)
+	t.Cleanup(func() {
+		r.NoError(localTestEnv.Stop())
+	})
+	r.NoError(err)
+
+	newSite := func(name string, access []v1beta1.WorkbenchResourceProfileAccess) *v1beta1.Site {
+		site := defaultSite(name)
+		site.UID = ""
+		site.Spec.Workbench.ExperimentalFeatures = &v1beta1.InternalWorkbenchExperimentalFeatures{
+			ResourceProfileAccess: access,
+		}
+		return site
+	}
+
+	valid := newSite("rpa-crd-valid", []v1beta1.WorkbenchResourceProfileAccess{
+		{Match: "*", ResourceProfiles: []string{"default"}},
+		{Match: "@power-users", ResourceProfiles: []string{"default", "medium", "zz-large"}},
+		{Match: "@domain-users@example.com", ResourceProfiles: []string{"medium"}},
+		{Match: "jdoe", ResourceProfiles: []string{"zz-large", "default"}},
+	})
+	r.NoError(cli.Create(context.TODO(), valid))
+
+	fetched := &v1beta1.Site{}
+	r.NoError(cli.Get(context.TODO(), client.ObjectKeyFromObject(valid), fetched))
+	r.Equal(valid.Spec.Workbench.ExperimentalFeatures.ResourceProfileAccess, fetched.Spec.Workbench.ExperimentalFeatures.ResourceProfileAccess)
+
+	err = cli.Create(context.TODO(), newSite("rpa-crd-duplicate", []v1beta1.WorkbenchResourceProfileAccess{
+		{Match: "@power-users", ResourceProfiles: []string{"default"}},
+		{Match: "@power-users", ResourceProfiles: []string{"medium"}},
+	}))
+	r.ErrorContains(err, "match values must be unique")
+
+	for i, match := range []string{"@my group", "@", "@@admins", "a]b", "*admins", "**"} {
+		err = cli.Create(context.TODO(), newSite(fmt.Sprintf("rpa-crd-bad-match-%d", i), []v1beta1.WorkbenchResourceProfileAccess{
+			{Match: match, ResourceProfiles: []string{"default"}},
+		}))
+		r.ErrorContains(err, "should match", "match %q should be rejected", match)
+	}
+
+	err = cli.Create(context.TODO(), newSite("rpa-crd-duplicate-profile", []v1beta1.WorkbenchResourceProfileAccess{
+		{Match: "@power-users", ResourceProfiles: []string{"default", "default"}},
+	}))
+	r.ErrorContains(err, "Duplicate value")
+
+	// every referenced profile must exist: in the Site's resourceProfiles, or in the defaults when those are unset
+	const unknownProfileMsg = "resourceProfileAccess references a profile not defined in resourceProfiles (or the defaults when unset)"
+	customProfiles := map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection{
+		"default": {Name: "Small", Cpus: "1", MemMb: "2048"},
+		"large":   {Name: "Large", Cpus: "4", MemMb: "16384"},
+	}
+
+	custom := newSite("rpa-crd-custom-valid", []v1beta1.WorkbenchResourceProfileAccess{
+		{Match: "*", ResourceProfiles: []string{"default"}},
+		{Match: "@power-users", ResourceProfiles: []string{"default", "large"}},
+	})
+	custom.Spec.Workbench.ExperimentalFeatures.ResourceProfiles = customProfiles
+	r.NoError(cli.Create(context.TODO(), custom))
+
+	unknownCustom := newSite("rpa-crd-custom-unknown", []v1beta1.WorkbenchResourceProfileAccess{
+		{Match: "*", ResourceProfiles: []string{"default"}},
+		{Match: "@power-users", ResourceProfiles: []string{"default", "xl"}},
+	})
+	unknownCustom.Spec.Workbench.ExperimentalFeatures.ResourceProfiles = customProfiles
+	r.ErrorContains(cli.Create(context.TODO(), unknownCustom), unknownProfileMsg)
+
+	// "medium" is a default profile, but not one of the Site's own profiles
+	notInCustom := newSite("rpa-crd-custom-default-name", []v1beta1.WorkbenchResourceProfileAccess{
+		{Match: "*", ResourceProfiles: []string{"medium"}},
+	})
+	notInCustom.Spec.Workbench.ExperimentalFeatures.ResourceProfiles = customProfiles
+	r.ErrorContains(cli.Create(context.TODO(), notInCustom), unknownProfileMsg)
+
+	// "large" is not a default profile
+	r.ErrorContains(cli.Create(context.TODO(), newSite("rpa-crd-default-unknown", []v1beta1.WorkbenchResourceProfileAccess{
+		{Match: "*", ResourceProfiles: []string{"large"}},
+	})), unknownProfileMsg)
+
+	err = cli.Create(context.TODO(), newSite("rpa-crd-empty", []v1beta1.WorkbenchResourceProfileAccess{
+		{Match: "", ResourceProfiles: []string{}},
+	}))
+	r.Error(err)
+	r.ErrorContains(err, "match")
+	r.ErrorContains(err, "resourceProfiles")
 }

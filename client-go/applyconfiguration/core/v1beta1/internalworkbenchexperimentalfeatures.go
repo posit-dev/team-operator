@@ -27,6 +27,7 @@ type InternalWorkbenchExperimentalFeaturesApplyConfiguration struct {
 	LauncherSessionsProxyTimeoutSeconds  *int                                                                      `json:"launcherSessionsProxyTimeoutSecs,omitempty"`
 	VsCodeExtensionsDir                  *string                                                                   `json:"vsCodeExtensionsDir,omitempty"`
 	ResourceProfiles                     map[string]*corev1beta1.WorkbenchLauncherKubernetesResourcesConfigSection `json:"resourceProfiles,omitempty"`
+	ResourceProfileAccess                []WorkbenchResourceProfileAccessApplyConfiguration                        `json:"resourceProfileAccess,omitempty"`
 	CpuRequestRatio                      *string                                                                   `json:"cpuRequestRatio,omitempty"`
 	MemoryRequestRatio                   *string                                                                   `json:"memoryRequestRatio,omitempty"`
 	SessionSaveActionDefault             *corev1beta1.SessionSaveAction                                            `json:"sessionSaveActionDefault,omitempty"`
@@ -159,6 +160,19 @@ func (b *InternalWorkbenchExperimentalFeaturesApplyConfiguration) WithResourcePr
 	}
 	for k, v := range entries {
 		b.ResourceProfiles[k] = v
+	}
+	return b
+}
+
+// WithResourceProfileAccess adds the given value to the ResourceProfileAccess field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the ResourceProfileAccess field.
+func (b *InternalWorkbenchExperimentalFeaturesApplyConfiguration) WithResourceProfileAccess(values ...*WorkbenchResourceProfileAccessApplyConfiguration) *InternalWorkbenchExperimentalFeaturesApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithResourceProfileAccess")
+		}
+		b.ResourceProfileAccess = append(b.ResourceProfileAccess, *values[i])
 	}
 	return b
 }

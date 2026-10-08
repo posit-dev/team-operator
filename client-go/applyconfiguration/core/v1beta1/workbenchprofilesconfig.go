@@ -8,7 +8,8 @@ package v1beta1
 // WorkbenchProfilesConfigApplyConfiguration represents a declarative configuration of the WorkbenchProfilesConfig type for use
 // with apply.
 type WorkbenchProfilesConfigApplyConfiguration struct {
-	LauncherKubernetesProfiles map[string]WorkbenchLauncherKubernetesProfilesConfigSectionApplyConfiguration `json:"launcher.kubernetes.profiles.conf,omitempty"`
+	LauncherKubernetesProfiles      map[string]WorkbenchLauncherKubernetesProfilesConfigSectionApplyConfiguration `json:"launcher.kubernetes.profiles.conf,omitempty"`
+	LauncherKubernetesProfilesOrder []string                                                                      `json:"launcherKubernetesProfilesOrder,omitempty"`
 }
 
 // WorkbenchProfilesConfigApplyConfiguration constructs a declarative configuration of the WorkbenchProfilesConfig type for use with
@@ -27,6 +28,16 @@ func (b *WorkbenchProfilesConfigApplyConfiguration) WithLauncherKubernetesProfil
 	}
 	for k, v := range entries {
 		b.LauncherKubernetesProfiles[k] = v
+	}
+	return b
+}
+
+// WithLauncherKubernetesProfilesOrder adds the given value to the LauncherKubernetesProfilesOrder field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the LauncherKubernetesProfilesOrder field.
+func (b *WorkbenchProfilesConfigApplyConfiguration) WithLauncherKubernetesProfilesOrder(values ...string) *WorkbenchProfilesConfigApplyConfiguration {
+	for i := range values {
+		b.LauncherKubernetesProfilesOrder = append(b.LauncherKubernetesProfilesOrder, values[i])
 	}
 	return b
 }
