@@ -524,9 +524,11 @@ func (w *WorkbenchProfilesConfig) GenerateConfigMap() map[string]string {
 				if profileConfigValue.String() != "" {
 					if profileConfigValue.Kind() == reflect.Slice {
 						arrayString := sliceToString(profileConfigValue, ",")
-						// A slice with only empty entries (see ExplicitlyEmptyList) is written as "key=", so the section
-						// clears the value instead of inheriting it from "[*]"
-						if fmt.Sprintf("%v", arrayString) != "" || profileConfigValue.Len() > 0 {
+						// A placement-constraints list with only empty entries (see ExplicitlyEmptyList) is written as
+						// "key=", so the section clears the constraints instead of inheriting them from another
+						// section. Other lists with only empty entries are left out, as before.
+						if fmt.Sprintf("%v", arrayString) != "" ||
+							(profileConfigName == "PlacementConstraints" && profileConfigValue.Len() > 0) {
 							builder.WriteString(toKebabCase(profileConfigName) + "=" + fmt.Sprintf("%v", arrayString) + "\n")
 						}
 					} else if fmt.Sprintf("%v", profileConfigValue) != "" {
@@ -1372,6 +1374,26 @@ func validateConstraintFormat(constraint string) bool {
 	return true
 }
 
+// validPlacementConstraints splits a resource profile's placement-constraints value into the entries
+// syncPlacementConstraints keeps and the ones it drops for a bad format
+func validPlacementConstraints(constraints string) (valid, invalid []string) {
+	for _, c := range parseConstraintsString(constraints) {
+		if validateConstraintFormat(c) {
+			valid = append(valid, c)
+		} else {
+			invalid = append(invalid, c)
+		}
+	}
+	return valid, invalid
+}
+
+// HasValidPlacementConstraint reports whether a resource profile's placement-constraints value has at least one
+// entry that syncPlacementConstraints keeps
+func HasValidPlacementConstraint(constraints string) bool {
+	valid, _ := validPlacementConstraints(constraints)
+	return len(valid) > 0
+}
+
 // syncPlacementConstraints synchronizes placement constraints from resource profiles
 // to the launcher profiles that reference them
 func (w *WorkbenchConfig) syncPlacementConstraints() {
@@ -1396,15 +1418,10 @@ func (w *WorkbenchConfig) syncPlacementConstraints() {
 				continue
 			}
 
-			if resource.PlacementConstraints != "" {
-				constraints := parseConstraintsString(resource.PlacementConstraints)
-				for _, c := range constraints {
-					if validateConstraintFormat(c) {
-						newConstraints = append(newConstraints, c)
-					} else {
-						logger.Info("Invalid constraint format", "constraint", c, "resource", resourceName)
-					}
-				}
+			valid, invalid := validPlacementConstraints(resource.PlacementConstraints)
+			newConstraints = append(newConstraints, valid...)
+			for _, c := range invalid {
+				logger.Info("Invalid constraint format", "constraint", c, "resource", resourceName)
 			}
 		}
 
@@ -1414,9 +1431,10 @@ func (w *WorkbenchConfig) syncPlacementConstraints() {
 	}
 }
 
-// ExplicitlyEmptyList returns a list value that the launcher.kubernetes.profiles.conf renderer writes as "key=",
-// rather than leaving the key out. A user or group section uses it to clear a value it would otherwise inherit from
-// "[*]".
+// ExplicitlyEmptyList returns a placement-constraints value that the launcher.kubernetes.profiles.conf renderer
+// writes as "placement-constraints=", rather than leaving the key out. A user or group section uses it to clear the
+// constraints it would otherwise inherit from another section. Other list fields leave out a list with only empty
+// entries.
 func ExplicitlyEmptyList() []string {
 	return []string{""}
 }

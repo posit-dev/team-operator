@@ -663,22 +663,24 @@ func buildLauncherKubernetesProfiles(
 		return profiles, nil
 	}
 
-	// "[*]" offers the "*" entry's profiles when there is one
-	allUsersProfiles := allUsers.ResourceProfiles
+	// "[*]" offers the "*" entry's profiles when there is one. A section that doesn't set placement-constraints falls
+	// back to the next matching section that does: a group section, an earlier section at the same level, or "[*]".
+	// So when any section has constraints, every generated section without its own must clear them.
+	hasMatchAll := false
+	anyConstrained := false
 	for _, entry := range access {
 		if entry.Match == resourceProfileAccessMatchAll {
-			allUsersProfiles = entry.ResourceProfiles
+			hasMatchAll = true
+			allUsers.ResourceProfiles = entry.ResourceProfiles
 		}
+		anyConstrained = anyConstrained || anyPlacementConstraints(entry.ResourceProfiles, resourceProfileConfigs)
 	}
-	allUsersConstrained := anyPlacementConstraints(allUsersProfiles, resourceProfileConfigs)
+	anyConstrained = anyConstrained || anyPlacementConstraints(allUsers.ResourceProfiles, resourceProfileConfigs)
 
 	var groups, users []string
-	hasMatchAll := false
 	for _, entry := range access {
 		resourceProfiles := entry.ResourceProfiles
 		if entry.Match == resourceProfileAccessMatchAll {
-			hasMatchAll = true
-			allUsers.ResourceProfiles = resourceProfiles
 			continue
 		}
 
@@ -692,9 +694,9 @@ func buildLauncherKubernetesProfiles(
 			ResourceProfiles:     resourceProfiles,
 		}
 		// The Workbench controller fills in placement-constraints from the section's own profiles. If they have none,
-		// the section would inherit the "[*]" constraints, which Workbench offers as a node selector in the New
-		// Session dialog, so clear them.
-		if allUsersConstrained && !anyPlacementConstraints(resourceProfiles, resourceProfileConfigs) {
+		// the section would inherit another section's constraints, which Workbench offers as a node selector in the
+		// New Session dialog, so clear them.
+		if anyConstrained && !anyPlacementConstraints(resourceProfiles, resourceProfileConfigs) {
 			section.PlacementConstraints = v1beta1.ExplicitlyEmptyList()
 		}
 		profiles[entry.Match] = section
@@ -715,13 +717,14 @@ func buildLauncherKubernetesProfiles(
 	return profiles, append(groups, users...)
 }
 
-// anyPlacementConstraints reports whether any of the named resource profiles sets placement constraints
+// anyPlacementConstraints reports whether any of the named resource profiles sets placement constraints. It counts
+// only the entries the Workbench controller writes, so blank or malformed values don't stop a section being cleared.
 func anyPlacementConstraints(
 	names []string,
 	resourceProfileConfigs map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection,
 ) bool {
 	for _, name := range names {
-		if p := resourceProfileConfigs[name]; p != nil && p.PlacementConstraints != "" {
+		if p := resourceProfileConfigs[name]; p != nil && v1beta1.HasValidPlacementConstraint(p.PlacementConstraints) {
 			return true
 		}
 	}

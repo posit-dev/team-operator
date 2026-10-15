@@ -1424,7 +1424,8 @@ func TestWorkbenchProfilesConfig_OrderOnlyRendersNothing(t *testing.T) {
 }
 
 // TestWorkbenchConfig_GenerateConfigmap_ExplicitlyEmptyList checks that ExplicitlyEmptyList renders as "key=", that
-// syncing placement constraints keeps it, and that an empty first entry doesn't produce a leading separator.
+// syncing placement constraints keeps it, that an empty first entry doesn't produce a leading separator, and that other
+// lists with only empty entries are still left out.
 func TestWorkbenchConfig_GenerateConfigmap_ExplicitlyEmptyList(t *testing.T) {
 	wb := WorkbenchConfig{
 		WorkbenchIniConfig: WorkbenchIniConfig{
@@ -1439,8 +1440,9 @@ func TestWorkbenchConfig_GenerateConfigmap_ExplicitlyEmptyList(t *testing.T) {
 				"@cleared":  {ResourceProfiles: []string{"unconstrained"}, PlacementConstraints: ExplicitlyEmptyList()},
 				"@inherits": {ResourceProfiles: []string{"unconstrained"}},
 				"@leading":  {PlacementConstraints: []string{"", "pool:a", "pool:b"}},
+				"@empty":    {ContainerImages: []string{""}, ResourceProfiles: []string{""}},
 			},
-			LauncherKubernetesProfilesOrder: []string{"@cleared", "@inherits", "@leading"},
+			LauncherKubernetesProfilesOrder: []string{"@cleared", "@inherits", "@leading", "@empty"},
 		},
 	}
 
@@ -1467,6 +1469,10 @@ allow-custom-resources=0
 [@leading]
 allow-unknown-images=0
 placement-constraints=pool:a,pool:b
+allow-custom-resources=0
+
+[@empty]
+allow-unknown-images=0
 allow-custom-resources=0
 `, res["launcher.kubernetes.profiles.conf"])
 }

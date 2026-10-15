@@ -2501,13 +2501,16 @@ allow-custom-resources=0
 }
 
 // TestSiteWorkbenchResourceProfileAccessClearsInheritedPlacementConstraints checks that a generated section whose
-// profiles have no placement constraints clears the "[*]" constraints instead of inheriting them, and only then.
+// profiles have no usable placement constraints clears the "[*]" constraints instead of inheriting them, and only then.
 func TestSiteWorkbenchResourceProfileAccessClearsInheritedPlacementConstraints(t *testing.T) {
 	siteNamespace := "posit-team"
 	constrained := map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection{
 		"default":       {Name: "Small", Cpus: "1", MemMb: "2048", PlacementConstraints: "pool:default"},
 		"gpu":           {Name: "GPU", Cpus: "2", MemMb: "4096", PlacementConstraints: "pool:gpu"},
 		"unconstrained": {Name: "Unconstrained", Cpus: "1", MemMb: "2048"},
+		// The Workbench controller drops blank and malformed constraints, so these count as unconstrained
+		"malformed": {Name: "Malformed", Cpus: "1", MemMb: "2048", PlacementConstraints: "pool gpu"},
+		"blank":     {Name: "Blank", Cpus: "1", MemMb: "2048", PlacementConstraints: "  "},
 	}
 	unconstrained := map[string]*v1beta1.WorkbenchLauncherKubernetesResourcesConfigSection{
 		"default": {Name: "Small", Cpus: "1", MemMb: "2048"},
@@ -2536,7 +2539,7 @@ allow-unknown-images=1
 placement-constraints=pool:default,pool:gpu
 cpu-request-ratio=0.6
 memory-request-ratio=0.8
-resource-profiles=default,gpu,unconstrained
+resource-profiles=blank,default,gpu,malformed,unconstrained
 allow-custom-resources=0
 
 [@interns]
@@ -2549,6 +2552,101 @@ allow-custom-resources=0
 allow-unknown-images=1
 placement-constraints=pool:default
 resource-profiles=default,unconstrained
+allow-custom-resources=0
+`,
+		},
+		{
+			name:     "blank or malformed constraints don't count",
+			profiles: constrained,
+			access: []v1beta1.WorkbenchResourceProfileAccess{
+				{Match: "@typo", ResourceProfiles: []string{"malformed"}},
+				{Match: "@blank", ResourceProfiles: []string{"blank"}},
+			},
+			want: `
+[*]
+container-images=registry.io/session:1
+default-container-image=registry.io/session:1
+allow-unknown-images=1
+placement-constraints=pool:default,pool:gpu
+cpu-request-ratio=0.6
+memory-request-ratio=0.8
+resource-profiles=blank,default,gpu,malformed,unconstrained
+allow-custom-resources=0
+
+[@typo]
+allow-unknown-images=1
+placement-constraints=
+resource-profiles=malformed
+allow-custom-resources=0
+
+[@blank]
+allow-unknown-images=1
+placement-constraints=
+resource-profiles=blank
+allow-custom-resources=0
+`,
+		},
+		{
+			// "[*]" is unconstrained, but jdoe would inherit placement-constraints from "[@gpu]" if jdoe is in @gpu
+			name:     "user section clears constraints it could inherit from a group",
+			profiles: constrained,
+			access: []v1beta1.WorkbenchResourceProfileAccess{
+				{Match: "*", ResourceProfiles: []string{"unconstrained"}},
+				{Match: "@gpu", ResourceProfiles: []string{"gpu"}},
+				{Match: "jdoe", ResourceProfiles: []string{"unconstrained"}},
+			},
+			want: `
+[*]
+container-images=registry.io/session:1
+default-container-image=registry.io/session:1
+allow-unknown-images=1
+cpu-request-ratio=0.6
+memory-request-ratio=0.8
+resource-profiles=unconstrained
+allow-custom-resources=0
+
+[@gpu]
+allow-unknown-images=1
+placement-constraints=pool:gpu
+resource-profiles=gpu
+allow-custom-resources=0
+
+[jdoe]
+allow-unknown-images=1
+placement-constraints=
+resource-profiles=unconstrained
+allow-custom-resources=0
+`,
+		},
+		{
+			// for a user in both groups, "[@analysts]" wins resource-profiles but would inherit "[@gpu]"'s constraints
+			name:     "later group section clears constraints it could inherit from an earlier one",
+			profiles: constrained,
+			access: []v1beta1.WorkbenchResourceProfileAccess{
+				{Match: "*", ResourceProfiles: []string{"unconstrained"}},
+				{Match: "@gpu", ResourceProfiles: []string{"gpu"}},
+				{Match: "@analysts", ResourceProfiles: []string{"unconstrained"}},
+			},
+			want: `
+[*]
+container-images=registry.io/session:1
+default-container-image=registry.io/session:1
+allow-unknown-images=1
+cpu-request-ratio=0.6
+memory-request-ratio=0.8
+resource-profiles=unconstrained
+allow-custom-resources=0
+
+[@gpu]
+allow-unknown-images=1
+placement-constraints=pool:gpu
+resource-profiles=gpu
+allow-custom-resources=0
+
+[@analysts]
+allow-unknown-images=1
+placement-constraints=
+resource-profiles=unconstrained
 allow-custom-resources=0
 `,
 		},
