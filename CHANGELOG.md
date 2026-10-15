@@ -1,3 +1,24 @@
+## [1.32.1](https://github.com/posit-dev/team-operator/compare/v1.32.0...v1.32.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* sort map keys when rendering Workbench and Connect config ([#172](https://github.com/posit-dev/team-operator/issues/172)) ([8e4317f](https://github.com/posit-dev/team-operator/commit/8e4317f8e1e4fa1ae5bc026309fd38bfa65b457a))
+
+# [1.32.0](https://github.com/posit-dev/team-operator/compare/v1.31.3...v1.32.0) (2026-09-25)
+
+
+### Features
+
+* **workbench:** support display labels on session images ([#169](https://github.com/posit-dev/team-operator/issues/169)) ([ca5b7c2](https://github.com/posit-dev/team-operator/commit/ca5b7c261373588f500d6a97f9e6ba8eb2d99694))
+
+## [1.31.3](https://github.com/posit-dev/team-operator/compare/v1.31.2...v1.31.3) (2026-09-11)
+
+
+### Bug Fixes
+
+* omit deprecated Connect vanities auth key by default ([#167](https://github.com/posit-dev/team-operator/issues/167)) ([6bc9b22](https://github.com/posit-dev/team-operator/commit/6bc9b2229c1f247f171e6c92595c02ecc5a345f7))
+
 ## [1.31.2](https://github.com/posit-dev/team-operator/compare/v1.31.1...v1.31.2) (2026-09-08)
 
 

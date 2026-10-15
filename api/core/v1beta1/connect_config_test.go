@@ -121,6 +121,29 @@ func TestConnectConfig_RoleMappings(t *testing.T) {
 	require.NotContains(t, str, "AdministratorRoleMapping")
 }
 
+func TestConnectConfig_PublishersCanManageVanities(t *testing.T) {
+	// Deprecated in Connect as of 2026.09: when nil the key must be omitted so
+	// consumers do not see the deprecation warning.
+	cfgNil := ConnectConfig{
+		Authorization: &ConnectAuthorizationConfig{
+			DefaultUserRole: ConnectPublisherRole,
+		},
+	}
+	str, err := cfgNil.GenerateGcfg()
+	require.Nil(t, err)
+	require.NotContains(t, str, "PublishersCanManageVanities")
+
+	// When set explicitly the key is emitted with the given value.
+	cfgSet := ConnectConfig{
+		Authorization: &ConnectAuthorizationConfig{
+			PublishersCanManageVanities: ptr.To(false),
+		},
+	}
+	str, err = cfgSet.GenerateGcfg()
+	require.Nil(t, err)
+	require.Contains(t, str, "PublishersCanManageVanities = false")
+}
+
 func TestConnectConfig_GroupsClaim(t *testing.T) {
 	// Test with GroupsClaim set
 	cfg := ConnectConfig{
@@ -292,4 +315,35 @@ func TestConnectConfig_AdditionalConfigEmpty(t *testing.T) {
 	str, err := cfg.GenerateGcfg()
 	require.Nil(t, err)
 	require.Contains(t, str, "Address = some-address.com")
+}
+
+// Go randomizes map iteration order, so named sections rendered from a map must
+// be sorted. Otherwise the configmap content (and its hash annotation) changes
+// between reconciles and the Deployment rolls repeatedly.
+func TestConnectConfig_GenerateGcfgRepositoriesDeterministic(t *testing.T) {
+	c := ConnectConfig{
+		Server: &ConnectServerConfig{
+			Address: "some-address.com",
+		},
+		RPackageRepository: map[string]RPackageRepositoryConfig{
+			"RSPM":     {Url: "https://packages.example.com/cran/latest"},
+			"CRAN":     {Url: "https://cran.example.com/latest"},
+			"Internal": {Url: "https://internal.example.com/cran/latest"},
+		},
+	}
+
+	first := requireStableRender(t, func() map[string]string {
+		str, err := c.GenerateGcfg()
+		require.Nil(t, err)
+		return map[string]string{"gcfg": str}
+	})["gcfg"]
+
+	requireInOrder(t, first,
+		`[RPackageRepository "CRAN"]`,
+		`[RPackageRepository "Internal"]`,
+		`[RPackageRepository "RSPM"]`)
+
+	// Each section keeps its own Url directly beneath its header
+	require.Contains(t, first, "[RPackageRepository \"CRAN\"]\nUrl = https://cran.example.com/latest\n")
+	require.Contains(t, first, "[RPackageRepository \"RSPM\"]\nUrl = https://packages.example.com/cran/latest\n")
 }

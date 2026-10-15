@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
@@ -19,6 +20,19 @@ func ConcatLists[T any](slices ...[]T) []T {
 		out = append(out, s...)
 	}
 	return out
+}
+
+// SplitImageLabel splits a Workbench session image entry of the form "image::Label" on the first "::" and returns
+// the bare image reference and the (possibly empty) display label. Entries without a label are returned unchanged.
+func SplitImageLabel(entry string) (image string, label string) {
+	image, label, _ = strings.Cut(entry, "::")
+	return image, label
+}
+
+// StripImageLabel returns the bare image reference from a Workbench session image entry, dropping any "::Label" suffix.
+func StripImageLabel(entry string) string {
+	image, _ := SplitImageLabel(entry)
+	return image
 }
 
 func MakePullSecrets(secrets []string) []corev1.LocalObjectReference {

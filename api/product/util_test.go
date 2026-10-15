@@ -18,6 +18,30 @@ func TestConcatLists(t *testing.T) {
 	require.Equal(t, []int{1, 2, 3, 4, 5, 6}, resInt)
 }
 
+func TestSplitImageLabel(t *testing.T) {
+	tests := []struct {
+		name  string
+		entry string
+		image string
+		label string
+	}{
+		{"no label", "ghcr.io/posit-dev/workbench-session:jammy", "ghcr.io/posit-dev/workbench-session:jammy", ""},
+		{"label", "ghcr.io/posit-dev/workbench-session:jammy::Jammy", "ghcr.io/posit-dev/workbench-session:jammy", "Jammy"},
+		{"label with spaces", "registry.io/image:tag::R 4.4 with GPU", "registry.io/image:tag", "R 4.4 with GPU"},
+		{"label containing delimiter", "registry.io/image:tag::A::B", "registry.io/image:tag", "A::B"},
+		{"registry with port", "registry.io:5000/image:tag::Custom", "registry.io:5000/image:tag", "Custom"},
+		{"empty string", "", "", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			image, label := product.SplitImageLabel(tt.entry)
+			assert.Equal(t, tt.image, image)
+			assert.Equal(t, tt.label, label)
+			assert.Equal(t, tt.image, product.StripImageLabel(tt.entry))
+		})
+	}
+}
+
 func TestStringMapToEnvVars(t *testing.T) {
 	r := require.New(t)
 

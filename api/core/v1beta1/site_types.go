@@ -473,8 +473,15 @@ type InternalWorkbenchSpec struct {
 
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 
-	DefaultSessionImage string   `json:"defaultSessionImage,omitempty"`
-	ExtraSessionImages  []string `json:"extraSessionImages,omitempty"`
+	// DefaultSessionImage is the default Workbench session image. It may carry an optional "::Label" suffix
+	// (e.g. "registry.io/image:tag::Friendly Name") that Workbench shows in the New Session image picker.
+	// The label is stripped wherever a bare image reference is needed (e.g. default-container-image, image prepull).
+	DefaultSessionImage string `json:"defaultSessionImage,omitempty"`
+
+	// ExtraSessionImages are additional Workbench session images users can select. Each entry may carry an
+	// optional "::Label" suffix (e.g. "registry.io/image:tag::Friendly Name") that Workbench shows in the
+	// New Session image picker instead of the image URL. Labeled and unlabeled entries can be mixed.
+	ExtraSessionImages []string `json:"extraSessionImages,omitempty"`
 
 	// SessionInitContainerImageName specifies the init container image name for Workbench sessions
 	SessionInitContainerImageName string `json:"sessionInitContainerImageName,omitempty"`
