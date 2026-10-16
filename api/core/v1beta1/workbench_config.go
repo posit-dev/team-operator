@@ -442,6 +442,48 @@ type WorkbenchLauncherKubernetesProfilesConfigSection struct {
 
 type WorkbenchProfilesConfig struct {
 	LauncherKubernetesProfiles map[string]WorkbenchLauncherKubernetesProfilesConfigSection `json:"launcher.kubernetes.profiles.conf,omitempty"`
+
+	// LauncherKubernetesProfilesOrder controls the order of sections in launcher.kubernetes.profiles.conf. Workbench
+	// resolves sections of the same specificity (two groups a user belongs to, for example) by letting the later one
+	// win, so the order is significant. The Site controller normally sets this field from resourceProfileAccess.
+	// When set: the "*" section is always rendered first (even if listed elsewhere), then the sections listed here,
+	// then any remaining sections in sorted order. Keys with no matching section, and repeated keys, are ignored.
+	// When unset, all sections are rendered in sorted order. This is not a config file and is not rendered itself.
+	// +optional
+	// +listType=atomic
+	LauncherKubernetesProfilesOrder []string `json:"launcherKubernetesProfilesOrder,omitempty"`
+}
+
+// orderedProfileKeys returns the keys of the LauncherKubernetesProfiles map in render order. See
+// LauncherKubernetesProfilesOrder.
+func (w *WorkbenchProfilesConfig) orderedProfileKeys(profiles reflect.Value) []reflect.Value {
+	sorted := sortedMapKeys(profiles)
+	if len(w.LauncherKubernetesProfilesOrder) == 0 {
+		return sorted
+	}
+
+	keys := make([]reflect.Value, 0, len(sorted))
+	seen := make(map[string]bool, len(sorted))
+	add := func(k string) {
+		if seen[k] {
+			return
+		}
+		key := reflect.ValueOf(k)
+		if !profiles.MapIndex(key).IsValid() {
+			return
+		}
+		seen[k] = true
+		keys = append(keys, key)
+	}
+
+	add("*")
+	for _, k := range w.LauncherKubernetesProfilesOrder {
+		add(k)
+	}
+	for _, k := range sorted {
+		add(k.String())
+	}
+	return keys
 }
 
 func (w *WorkbenchProfilesConfig) GenerateConfigMap() map[string]string {
@@ -461,14 +503,16 @@ func (w *WorkbenchProfilesConfig) GenerateConfigMap() map[string]string {
 		fieldTag = strings.ReplaceAll(fieldTag, ",omitempty\"", "")
 		fieldValue := configStructVals.Field(i)
 
-		if fieldValue.IsNil() {
+		// Only map fields are config files (sections keyed by name); anything else, such as
+		// LauncherKubernetesProfilesOrder, just controls rendering
+		if fieldValue.Kind() != reflect.Map || fieldValue.IsNil() {
 			continue
 		}
 
 		profiles := reflect.Indirect(fieldValue)
 
-		// Iterate in sorted key order so the rendered output (and its hash) is stable
-		for _, profileName := range sortedMapKeys(profiles) {
+		// Iterate in a deterministic key order so the rendered output (and its hash) is stable
+		for _, profileName := range w.orderedProfileKeys(profiles) {
 			profileValues := profiles.MapIndex(profileName)
 
 			builder.WriteString("\n[" + fmt.Sprintf("%v", profileName) + "]\n")
@@ -480,7 +524,11 @@ func (w *WorkbenchProfilesConfig) GenerateConfigMap() map[string]string {
 				if profileConfigValue.String() != "" {
 					if profileConfigValue.Kind() == reflect.Slice {
 						arrayString := sliceToString(profileConfigValue, ",")
-						if fmt.Sprintf("%v", arrayString) != "" {
+						// A placement-constraints list with only empty entries (see ExplicitlyEmptyList) is written as
+						// "key=", so the section clears the constraints instead of inheriting them from another
+						// section. Other lists with only empty entries are left out, as before.
+						if fmt.Sprintf("%v", arrayString) != "" ||
+							(profileConfigName == "PlacementConstraints" && profileConfigValue.Len() > 0) {
 							builder.WriteString(toKebabCase(profileConfigName) + "=" + fmt.Sprintf("%v", arrayString) + "\n")
 						}
 					} else if fmt.Sprintf("%v", profileConfigValue) != "" {
@@ -1141,7 +1189,7 @@ func sliceToString(sliceValue reflect.Value, separator string) string {
 	for k := 0; k < sliceValue.Len(); k++ {
 		arrayValue := sliceValue.Index(k).String()
 		if arrayValue != "" {
-			if k == 0 {
+			if arrayString == "" {
 				arrayString += arrayValue
 			} else {
 				arrayString += separator + arrayValue
@@ -1326,6 +1374,26 @@ func validateConstraintFormat(constraint string) bool {
 	return true
 }
 
+// validPlacementConstraints splits a resource profile's placement-constraints value into the entries
+// syncPlacementConstraints keeps and the ones it drops for a bad format
+func validPlacementConstraints(constraints string) (valid, invalid []string) {
+	for _, c := range parseConstraintsString(constraints) {
+		if validateConstraintFormat(c) {
+			valid = append(valid, c)
+		} else {
+			invalid = append(invalid, c)
+		}
+	}
+	return valid, invalid
+}
+
+// HasValidPlacementConstraint reports whether a resource profile's placement-constraints value has at least one
+// entry that syncPlacementConstraints keeps
+func HasValidPlacementConstraint(constraints string) bool {
+	valid, _ := validPlacementConstraints(constraints)
+	return len(valid) > 0
+}
+
 // syncPlacementConstraints synchronizes placement constraints from resource profiles
 // to the launcher profiles that reference them
 func (w *WorkbenchConfig) syncPlacementConstraints() {
@@ -1350,15 +1418,10 @@ func (w *WorkbenchConfig) syncPlacementConstraints() {
 				continue
 			}
 
-			if resource.PlacementConstraints != "" {
-				constraints := parseConstraintsString(resource.PlacementConstraints)
-				for _, c := range constraints {
-					if validateConstraintFormat(c) {
-						newConstraints = append(newConstraints, c)
-					} else {
-						logger.Info("Invalid constraint format", "constraint", c, "resource", resourceName)
-					}
-				}
+			valid, invalid := validPlacementConstraints(resource.PlacementConstraints)
+			newConstraints = append(newConstraints, valid...)
+			for _, c := range invalid {
+				logger.Info("Invalid constraint format", "constraint", c, "resource", resourceName)
 			}
 		}
 
@@ -1366,4 +1429,12 @@ func (w *WorkbenchConfig) syncPlacementConstraints() {
 		profile.PlacementConstraints = mergeConstraints(profile.PlacementConstraints, newConstraints)
 		w.LauncherKubernetesProfiles[profileName] = profile
 	}
+}
+
+// ExplicitlyEmptyList returns a placement-constraints value that the launcher.kubernetes.profiles.conf renderer
+// writes as "placement-constraints=", rather than leaving the key out. A user or group section uses it to clear the
+// constraints it would otherwise inherit from another section. Other list fields leave out a list with only empty
+// entries.
+func ExplicitlyEmptyList() []string {
+	return []string{""}
 }

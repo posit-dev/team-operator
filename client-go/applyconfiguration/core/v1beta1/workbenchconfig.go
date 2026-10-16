@@ -263,6 +263,17 @@ func (b *WorkbenchConfigApplyConfiguration) WithLauncherKubernetesProfiles(entri
 	return b
 }
 
+// WithLauncherKubernetesProfilesOrder adds the given value to the LauncherKubernetesProfilesOrder field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the LauncherKubernetesProfilesOrder field.
+func (b *WorkbenchConfigApplyConfiguration) WithLauncherKubernetesProfilesOrder(values ...string) *WorkbenchConfigApplyConfiguration {
+	b.ensureWorkbenchProfilesConfigApplyConfigurationExists()
+	for i := range values {
+		b.WorkbenchProfilesConfigApplyConfiguration.LauncherKubernetesProfilesOrder = append(b.WorkbenchProfilesConfigApplyConfiguration.LauncherKubernetesProfilesOrder, values[i])
+	}
+	return b
+}
+
 func (b *WorkbenchConfigApplyConfiguration) ensureWorkbenchProfilesConfigApplyConfigurationExists() {
 	if b.WorkbenchProfilesConfigApplyConfiguration == nil {
 		b.WorkbenchProfilesConfigApplyConfiguration = &WorkbenchProfilesConfigApplyConfiguration{}

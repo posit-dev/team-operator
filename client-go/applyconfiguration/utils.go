@@ -245,6 +245,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &corev1beta1.WorkbenchProfilesConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("WorkbenchRepoConfig"):
 		return &corev1beta1.WorkbenchRepoConfigApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("WorkbenchResourceProfileAccess"):
+		return &corev1beta1.WorkbenchResourceProfileAccessApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("WorkbenchRServerConfig"):
 		return &corev1beta1.WorkbenchRServerConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("WorkbenchRSessionConfig"):

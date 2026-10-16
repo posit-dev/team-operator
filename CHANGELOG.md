@@ -1,3 +1,10 @@
+# [1.33.0](https://github.com/posit-dev/team-operator/compare/v1.32.1...v1.33.0) (2026-10-16)
+
+
+### Features
+
+* **workbench:** restrict launcher resource profiles per group or user ([#174](https://github.com/posit-dev/team-operator/issues/174)) ([c07d54e](https://github.com/posit-dev/team-operator/commit/c07d54e1c08baa685ef7c5b3f4128212cf695b9c))
+
 ## [1.32.1](https://github.com/posit-dev/team-operator/compare/v1.32.0...v1.32.1) (2026-10-02)
 
 
