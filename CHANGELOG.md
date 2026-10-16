@@ -1,3 +1,10 @@
+## [1.33.1](https://github.com/posit-dev/team-operator/compare/v1.33.0...v1.33.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **deps:** bump x/crypto and migrate pgx v4 to v5 ([#162](https://github.com/posit-dev/team-operator/issues/162)) ([30c316a](https://github.com/posit-dev/team-operator/commit/30c316aa503f515b4710193153d92c92988f7254))
+
 # [1.33.0](https://github.com/posit-dev/team-operator/compare/v1.32.1...v1.33.0) (2026-10-16)
 
 
