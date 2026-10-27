@@ -6,11 +6,11 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/posit-dev/team-operator/api/product"
-	"github.com/rstudio/goex/ptr"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

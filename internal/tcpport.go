@@ -1,10 +1,10 @@
 package internal
 
 import (
-	"github.com/rstudio/goex/ptr"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 )
 
 const (

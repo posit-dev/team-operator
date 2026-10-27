@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -10,7 +11,6 @@ import (
 	"github.com/posit-dev/team-operator/api/core/v1beta1"
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
-	"github.com/rstudio/goex/crypto/randex"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -221,7 +221,7 @@ func CleanupDatabasePasswordSecret(ctx context.Context, r product.SomeReconciler
 
 func generatePasswordSecretData() map[string]string {
 	return map[string]string{
-		"password": randex.String(25),
+		"password": rand.Text(),
 	}
 }
 

@@ -17,7 +17,6 @@ import (
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/posit-dev/team-operator/internal/db"
 	"github.com/posit-dev/team-operator/internal/status"
-	"github.com/rstudio/goex/ptr"
 	"github.com/traefik/traefik/v3/pkg/config/dynamic"
 	"github.com/traefik/traefik/v3/pkg/provider/kubernetes/crd/traefikio/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -28,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	utilptr "k8s.io/utils/ptr"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	secretstorev1 "sigs.k8s.io/secrets-store-csi-driver/apis/v1"
@@ -975,7 +974,7 @@ func (r *WorkbenchReconciler) ensureDeployedService(ctx context.Context, req ctr
 									r.buildLoadBalancerVolumeMounts(w),
 									r.buildSCIMTokenVolumeMounts(w, scimTokenSecretName),
 								),
-								Resources: utilptr.Deref(w.Spec.Resources, workbenchDefaultResources),
+								Resources: ptr.Deref(w.Spec.Resources, workbenchDefaultResources),
 								ReadinessProbe: &corev1.Probe{
 									ProbeHandler: corev1.ProbeHandler{
 										HTTPGet: &corev1.HTTPGetAction{

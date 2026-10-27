@@ -3,9 +3,9 @@ package product
 import (
 	"testing"
 
-	"github.com/rstudio/goex/ptr"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 )
 
 func TestVolumeMountHash(t *testing.T) {
