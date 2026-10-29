@@ -232,8 +232,6 @@ github.com/rogpeppe/go-internal v1.14.1/go.mod h1:MaRKkUm5W0goXpeCfT7UZI6fk/L7L7
 github.com/rs/xid v1.6.0/go.mod h1:7XoLgs4eV+QndskICGsho+ADou8ySMSjJKDIan90Nz0=
 github.com/rs/zerolog v1.34.0 h1:k43nTLIwcTVQAncfCw4KZ2VY6ukYoZaBPNOE8txlOeY=
 github.com/rs/zerolog v1.34.0/go.mod h1:bJsvje4Z08ROH4Nhs5iH600c3IkWhwp44iRc54W6wYQ=
-github.com/rstudio/goex v0.0.0-20240820164006-07310add44be h1:iCJnIZMOO+nPAJC1oe5lvqm4ZxNE0cqD+ftakVomtvw=
-github.com/rstudio/goex v0.0.0-20240820164006-07310add44be/go.mod h1:+S7Zry7m2P6MRzB19vl9M8Of2mkqo8927DA6EekqAcw=
 github.com/rstudio/postgresql-reserved-words v1.0.0 h1:uMW6A5qcSFAVXHQJutS1cHi+mSsLvznzHTt57SwTe/w=
 github.com/rstudio/postgresql-reserved-words v1.0.0/go.mod h1:gRnpikbU4LCego4w7qPCa8ks5WlChy93L9vQC1836VA=
 github.com/rstudio/rskey v0.6.1 h1:VS00jD2nJl0ZACQQAoI67haQ9slNSdEVhoJ0bXH4eDw=

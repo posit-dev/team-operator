@@ -3,8 +3,8 @@ package product
 import (
 	"fmt"
 
-	"github.com/rstudio/goex/ptr"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 )
 
 type LicenseConstants struct {

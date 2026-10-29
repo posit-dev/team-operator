@@ -5,10 +5,10 @@ import (
 	"strings"
 
 	"github.com/posit-dev/team-operator/api/product"
-	"github.com/rstudio/goex/ptr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/secrets-store-csi-driver/apis/v1"
 )

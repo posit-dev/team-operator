@@ -11,7 +11,6 @@ import (
 	"github.com/posit-dev/team-operator/api/product"
 	"github.com/posit-dev/team-operator/internal"
 	"github.com/posit-dev/team-operator/internal/status"
-	"github.com/rstudio/goex/ptr"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -19,7 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	utilptr "k8s.io/utils/ptr"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -304,7 +303,7 @@ func (r *ChronicleReconciler) ensureDeployedService(ctx context.Context, req ctr
 								internal.DefaultPortChronicleHTTP.ContainerPort("http"),
 								internal.DefaultPortChronicleMetrics.ContainerPort("profile"),
 							},
-							Resources: utilptr.Deref(c.Spec.Resources, chronicleDefaultResources),
+							Resources: ptr.Deref(c.Spec.Resources, chronicleDefaultResources),
 							VolumeMounts: product.ConcatLists(
 								[]corev1.VolumeMount{{
 									Name:      "config",
