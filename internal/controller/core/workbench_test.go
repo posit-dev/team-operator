@@ -20,6 +20,7 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -552,6 +553,87 @@ func TestWorkbenchReconciler_ResourcesOverride(t *testing.T) {
 	assert.ElementsMatch(t, []corev1.ResourceName{corev1.ResourceCPU, corev1.ResourceMemory}, resourceNames(resources.Limits))
 	assertQuantityEqual(t, "2", resources.Limits[corev1.ResourceCPU])
 	assertQuantityEqual(t, "8Gi", resources.Limits[corev1.ResourceMemory])
+}
+
+// TestWorkbenchReconciler_TopologySpreadConstraints verifies an explicit
+// Spec.TopologySpreadConstraints passes through onto the server Deployment, with an
+// omitted LabelSelector auto-filled to match this component's own pods. Without this,
+// the constraint would silently match zero pods and never do anything (Kubernetes
+// semantics: a nil LabelSelector matches nothing, not everything).
+func TestWorkbenchReconciler_TopologySpreadConstraints(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-topology-spread"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	wb := defineDefaultWorkbench(t, ns, name)
+	wb.Spec.TopologySpreadConstraints = []corev1.TopologySpreadConstraint{
+		{
+			MaxSkew:           1,
+			TopologyKey:       "kubernetes.io/arch",
+			WhenUnsatisfiable: corev1.DoNotSchedule,
+		},
+	}
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	deployment := getDeployment(t, cli, ns, wb.ComponentName())
+	got := deployment.Spec.Template.Spec.TopologySpreadConstraints
+	require.Len(t, got, 1)
+	assert.Equal(t, int32(1), got[0].MaxSkew)
+	assert.Equal(t, "kubernetes.io/arch", got[0].TopologyKey)
+	assert.Equal(t, corev1.DoNotSchedule, got[0].WhenUnsatisfiable)
+
+	require.NotNil(t, got[0].LabelSelector, "an omitted LabelSelector must be auto-filled, or the constraint silently matches zero pods")
+	selector, err := metav1.LabelSelectorAsSelector(got[0].LabelSelector)
+	require.NoError(t, err)
+	assert.True(t, selector.Matches(labels.Set(wb.KubernetesLabels())),
+		"auto-filled LabelSelector must match this component's own pod labels, or the constraint counts nothing")
+}
+
+// TestWorkbenchReconciler_TopologySpreadConstraintsExplicitSelector verifies that an
+// explicit LabelSelector on a constraint is left untouched, not overridden by the
+// auto-fill default.
+func TestWorkbenchReconciler_TopologySpreadConstraintsExplicitSelector(t *testing.T) {
+	ctx := context.Background()
+	ns := "posit-team"
+	name := "workbench-topology-spread-explicit"
+
+	ctx, r, req, cli := initWorkbenchReconciler(t, ctx, ns, name)
+
+	explicitSelector := &metav1.LabelSelector{MatchLabels: map[string]string{"custom": "selector"}}
+
+	wb := defineDefaultWorkbench(t, ns, name)
+	wb.Spec.TopologySpreadConstraints = []corev1.TopologySpreadConstraint{
+		{
+			MaxSkew:           1,
+			TopologyKey:       "kubernetes.io/arch",
+			WhenUnsatisfiable: corev1.DoNotSchedule,
+			LabelSelector:     explicitSelector,
+		},
+	}
+
+	err := internal.BasicCreateOrUpdate(ctx, r, r.GetLogger(ctx), req.NamespacedName, &positcov1beta1.Workbench{}, wb)
+	require.NoError(t, err)
+
+	wb = getWorkbench(t, cli, ns, name)
+
+	res, err := r.ReconcileWorkbench(ctx, req, wb)
+	require.NoError(t, err)
+	require.True(t, res.IsZero())
+
+	deployment := getDeployment(t, cli, ns, wb.ComponentName())
+	got := deployment.Spec.Template.Spec.TopologySpreadConstraints
+	require.Len(t, got, 1)
+	assert.Equal(t, explicitSelector, got[0].LabelSelector, "an explicit LabelSelector must not be overridden by the auto-fill default")
 }
 
 // TestWorkbenchReconciler_Suspended verifies that when Workbench has Suspended=true,

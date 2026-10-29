@@ -46,6 +46,11 @@ type PackageManagerSpec struct {
 	// If unset, product defaults are applied. Setting this replaces the defaults entirely.
 	Resources *v1.ResourceRequirements `json:"resources,omitempty"`
 
+	// TopologySpreadConstraints controls how server pod replicas are spread across topology
+	// domains (e.g. node architecture, zone, hostname). Composes with the operator's built-in
+	// hostname-keyed soft anti-affinity.
+	TopologySpreadConstraints []v1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
+
 	// AddEnv adds arbitrary environment variables to the container env
 	//
 	// Deprecated: use envVars instead. If the same variable name is set in both
