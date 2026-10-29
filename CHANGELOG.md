@@ -1,3 +1,10 @@
+## [1.33.2](https://github.com/posit-dev/team-operator/compare/v1.33.1...v1.33.2) (2026-10-29)
+
+
+### Bug Fixes
+
+* **deps:** remove rstudio/goex dependency ([#176](https://github.com/posit-dev/team-operator/issues/176)) ([b040e31](https://github.com/posit-dev/team-operator/commit/b040e3107047f7a4cda3e32ed8b5b2b69a991b26))
+
 ## [1.33.1](https://github.com/posit-dev/team-operator/compare/v1.33.0...v1.33.1) (2026-10-16)
 
 
