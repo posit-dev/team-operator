@@ -928,8 +928,9 @@ func (c *Connect) CreateSessionVolumeFactory(ctx context.Context) *product.Multi
 		},
 		InitContainerDefs: map[string]*product.ContainerDef{
 			"init-runtime": {
-				Image:           img,
-				ImagePullPolicy: corev1.PullAlways,
+				Image: img,
+				// PullIfNotPresent: tag is pinned to Connect version, so a cached copy is always correct.
+				ImagePullPolicy: corev1.PullIfNotPresent,
 				Mounts: map[string]*product.VolumeMountDef{
 					"init-volume": {
 						MountPath: "/mnt/rstudio-connect-runtime",
