@@ -435,6 +435,12 @@ func TestConnect_CreateSessionVolumeFactory(t *testing.T) {
 	env := v.EnvVars()
 	assert.Len(t, env, 0)
 
+	// the init-runtime container should not force a registry pull on every start
+	initContainers := v.InitContainers()
+	assert.Len(t, initContainers, 1)
+	assert.Equal(t, "init-runtime", initContainers[0].Name)
+	assert.Equal(t, corev1.PullIfNotPresent, initContainers[0].ImagePullPolicy)
+
 	// and if you don't have a special secret env var
 	con.Spec.SessionConfig = &product.SessionConfig{
 		Pod: &product.PodConfig{
